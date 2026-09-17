@@ -111,8 +111,16 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // Проверяем схему БД до логина в Discord — если PostgreSQL недоступен
 // (не задан/неверен DATABASE_URL), лучше явно упасть при старте, чем
 // молча ловить ошибки внутри случайного обработчика взаимодействия.
+// Ошибку логина в Discord (например, неверный DISCORD_TOKEN) ловим
+// отдельным catch — иначе она ошибочно подписывалась бы как ошибка
+// PostgreSQL, хотя БД в этом случае доступна и ни при чём.
 ensureSchema()
-    .then(() => client.login(process.env.DISCORD_TOKEN))
+    .then(() => {
+        client.login(process.env.DISCORD_TOKEN).catch(err => {
+            console.error('Не удалось войти в Discord (проверь DISCORD_TOKEN в .env):', err.message);
+            process.exit(1);
+        });
+    })
     .catch(err => {
         console.error('Не удалось подключиться к PostgreSQL (проверь DATABASE_URL в .env):', err.message);
         process.exit(1);
