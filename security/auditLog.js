@@ -2,10 +2,10 @@ const { EmbedBuilder, AuditLogEvent } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
 
-function safeLog(guild, embed) {
-    const config = load();
+async function safeLog(guild, embed) {
+    const config = await load();
     if (!config.auditLog.enabled) return;
-    log(guild, embed).catch(() => {});
+    await log(guild, embed).catch(() => {});
 }
 
 async function wasDoneByBot(guild, type, targetId) {
@@ -32,7 +32,7 @@ function register(client) {
                     { name: 'Содержимое', value: msg.content?.slice(0, 1000) || '*(нет текста / не в кэше)*' }
                 )
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('messageUpdate', (oldMsg, newMsg) => {
@@ -50,7 +50,7 @@ function register(client) {
                     { name: 'Стало', value: (newMsg.content || '*(пусто)*').slice(0, 500) }
                 )
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildBanAdd', ban => {
@@ -61,7 +61,7 @@ function register(client) {
                 .setTitle('🔨 Бан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildBanRemove', ban => {
@@ -72,7 +72,7 @@ function register(client) {
                 .setTitle('🔓 Разбан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildMemberRemove', member => {
@@ -83,7 +83,7 @@ function register(client) {
                 .setTitle('👋 Участник вышел или был кикнут')
                 .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('channelCreate', async ch => {
@@ -96,7 +96,7 @@ function register(client) {
                 .setTitle('📁 Канал создан')
                 .addFields({ name: 'Канал', value: `${ch.name}` })
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('roleCreate', async role => {
@@ -108,7 +108,7 @@ function register(client) {
                 .setTitle('🏷️ Роль создана')
                 .addFields({ name: 'Роль', value: role.name })
                 .setTimestamp()
-        );
+        ).catch(err => console.error('auditLog:', err));
     });
 }
 

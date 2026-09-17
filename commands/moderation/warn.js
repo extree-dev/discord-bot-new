@@ -13,7 +13,7 @@ module.exports = {
         const target = interaction.options.getUser('user');
         const reason = interaction.options.getString('reason');
 
-        const warnings = addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
+        const warnings = await addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
 
         const embed = new EmbedBuilder()
             .setColor(0xfee75c)

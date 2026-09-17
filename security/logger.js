@@ -1,5 +1,5 @@
 const { ChannelType, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { load, save } = require('./config');
+const { load, update } = require('./config');
 
 const pendingCreation = new Map();
 
@@ -23,15 +23,15 @@ async function createLogChannel(guild) {
         });
     }
 
-    const config = load();
-    config.logChannelId = channel.id;
-    save(config);
+    await update(config => {
+        config.logChannelId = channel.id;
+    });
 
     return channel;
 }
 
 async function getLogChannel(guild) {
-    const config = load();
+    const config = await load();
     if (config.logChannelId) {
         const cached = guild.channels.cache.get(config.logChannelId);
         if (cached) return cached;

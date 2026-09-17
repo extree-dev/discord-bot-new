@@ -11,7 +11,7 @@ const {
     UserSelectMenuBuilder,
     StringSelectMenuBuilder,
 } = require('discord.js');
-const { load, save } = require('./config');
+const { load, update } = require('./config');
 const { errorEmbed } = require('../utils/embeds');
 
 const DIRECT_BUTTON_IDS = ['tempvoice_lock', 'tempvoice_hide', 'tempvoice_rename', 'tempvoice_limit'];
@@ -162,8 +162,12 @@ async function createRoom(state, config) {
         console.error('tempVoice: не удалось переместить участника в новую комнату:', err.message);
     });
 
-    config.channels[channel.id] = { ownerId: member.id, createdAt: Date.now() };
-    save(config);
+    // Не пишем через переданный `config` — он был загружен до await'ов
+    // выше (создание канала, перемещение участника) и может быть уже
+    // устаревшим. update() перечитывает файл заново перед записью.
+    await update(cfg => {
+        cfg.channels[channel.id] = { ownerId: member.id, createdAt: Date.now() };
+    });
 }
 
 async function transferOwnership(channel, entry, newOwnerId) {
@@ -171,29 +175,29 @@ async function transferOwnership(channel, entry, newOwnerId) {
     await channel.permissionOverwrites.edit(newOwnerId, ownerPermissions()).catch(() => {});
     entry.ownerId = newOwnerId;
 
-    const config = load();
-    if (config.channels[channel.id]) {
-        config.channels[channel.id].ownerId = newOwnerId;
-        save(config);
-    }
+    await update(cfg => {
+        if (cfg.channels[channel.id]) cfg.channels[channel.id].ownerId = newOwnerId;
+    });
 }
 
 async function handleLeave(oldState) {
-    const config = load();
+    const config = await load();
     const channelId = oldState.channelId;
     const entry = config.channels[channelId];
     if (!entry) return;
 
     const channel = oldState.guild.channels.cache.get(channelId);
     if (!channel) {
-        delete config.channels[channelId];
-        save(config);
+        await update(cfg => {
+            delete cfg.channels[channelId];
+        });
         return;
     }
 
     if (channel.members.size === 0) {
-        delete config.channels[channelId];
-        save(config);
+        await update(cfg => {
+            delete cfg.channels[channelId];
+        });
         await channel.delete('Временная комната пуста').catch(() => {});
         return;
     }
@@ -208,7 +212,7 @@ async function handleLeave(oldState) {
 
 async function handleVoiceStateUpdate(oldState, newState) {
     if (newState.member?.user.bot) return;
-    const config = load();
+    const config = await load();
     if (!config.triggerChannelId) return;
 
     if (newState.channelId === config.triggerChannelId && oldState.channelId !== config.triggerChannelId) {
@@ -223,7 +227,7 @@ async function handleVoiceStateUpdate(oldState, newState) {
 async function handleButton(interaction) {
     if (!ALL_BUTTON_IDS.includes(interaction.customId)) return false;
 
-    const config = load();
+    const config = await load();
     const target = resolveTarget(interaction, config);
     if (target.error) {
         await interaction.reply({ embeds: [errorEmbed(target.error)], ephemeral: true });
@@ -372,7 +376,7 @@ async function handleModalSubmit(interaction) {
     const modalIds = ['tempvoice_modal_rename', 'tempvoice_modal_limit'];
     if (!modalIds.includes(interaction.customId)) return false;
 
-    const config = load();
+    const config = await load();
     const target = resolveTarget(interaction, config);
     if (target.error) {
         await interaction.reply({ embeds: [errorEmbed(target.error)], ephemeral: true });
@@ -423,7 +427,7 @@ async function handleSelectMenu(interaction) {
     ];
     if (!selectIds.includes(interaction.customId)) return false;
 
-    const config = load();
+    const config = await load();
     const target = resolveTarget(interaction, config);
     if (target.error) {
         await interaction.reply({ embeds: [errorEmbed(target.error)], ephemeral: true });

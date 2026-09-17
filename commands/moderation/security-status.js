@@ -8,7 +8,7 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        const config = load();
+        const config = await load();
         const logChannel = config.logChannelId ? `<#${config.logChannelId}>` : 'ещё не создан';
 
         const status = enabled => (enabled ? 'Включено' : 'Выключено');

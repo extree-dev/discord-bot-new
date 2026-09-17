@@ -12,7 +12,7 @@ client.once('clientReady', async () => {
         await guild.roles.fetch();
         await guild.channels.fetch();
 
-        const config = load();
+        const config = await load();
 
         // роль поддержки
         let supportRole = config.supportRoleId ? guild.roles.cache.get(config.supportRoleId) : null;
@@ -48,7 +48,7 @@ client.once('clientReady', async () => {
             console.log('Категория Поддержка уже существует');
         }
 
-        const security = loadSecurity();
+        const security = await loadSecurity();
         if (security.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(security.verification.unverifiedRoleId);
             if (unverifiedRole) {
@@ -113,7 +113,7 @@ client.once('clientReady', async () => {
         config.panelChannelId = panelChannel.id;
         config.logChannelId = logChannel.id;
         config.supportRoleId = supportRole.id;
-        save(config);
+        await save(config);
 
         console.log('Готово. Система тикетов настроена.');
         process.exit(0);

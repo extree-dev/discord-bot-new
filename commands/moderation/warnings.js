@@ -16,7 +16,7 @@ module.exports = {
         const shouldClear = interaction.options.getBoolean('clear') ?? false;
 
         if (shouldClear) {
-            clearWarnings(interaction.guild.id, target.id);
+            await clearWarnings(interaction.guild.id, target.id);
             const clearedEmbed = new EmbedBuilder()
                 .setColor(0x57f287)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
@@ -26,7 +26,7 @@ module.exports = {
             return interaction.reply({ embeds: [clearedEmbed], ephemeral: true });
         }
 
-        const warnings = getWarnings(interaction.guild.id, target.id);
+        const warnings = await getWarnings(interaction.guild.id, target.id);
 
         if (warnings.length === 0) {
             const emptyEmbed = new EmbedBuilder()
