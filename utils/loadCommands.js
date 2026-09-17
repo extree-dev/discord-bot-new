@@ -15,7 +15,11 @@ function loadCommands() {
         const categoryPath = path.join(commandsRoot, category.name);
         const files = fs.readdirSync(categoryPath).filter(file => file.endsWith('.js'));
         for (const file of files) {
-            commands.push(require(path.join(categoryPath, file)));
+            // category — не часть контракта команды (deploy-commands.js и
+            // index.js читают только .data/.execute), а вспомогательное
+            // поле для /help, чтобы группировать команды без второго
+            // прохода по файловой системе.
+            commands.push({ ...require(path.join(categoryPath, file)), category: category.name });
         }
     }
     return commands;
