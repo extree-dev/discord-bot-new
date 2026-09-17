@@ -11,7 +11,9 @@ module.exports = {
             sub
                 .setName('restore')
                 .setDescription('Восстановить недостающие каналы/роли из бэкапа (ничего не удаляет)')
-                .addStringOption(opt => opt.setName('file').setDescription('Имя файла бэкапа (см. /backup list)').setRequired(true))
+                .addStringOption(opt =>
+                    opt.setName('file').setDescription('Имя файла бэкапа (см. /backup list)').setRequired(true)
+                )
         )
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
@@ -38,7 +40,12 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(0x5865f2)
                 .setTitle('Список бэкапов')
-                .setDescription(files.slice(0, 15).map(f => `\`${f}\``).join('\n'))
+                .setDescription(
+                    files
+                        .slice(0, 15)
+                        .map(f => `\`${f}\``)
+                        .join('\n')
+                )
                 .setFooter({ text: `Всего: ${files.length}` });
             return interaction.reply({ embeds: [embed], ephemeral: true });
         }
@@ -51,16 +58,30 @@ module.exports = {
                 const embed = new EmbedBuilder()
                     .setColor(0x57f287)
                     .setTitle('Восстановление завершено')
-                    .setDescription('Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.')
+                    .setDescription(
+                        'Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.'
+                    )
                     .addFields(
-                        { name: 'Роли добавлены', value: result.createdRoles.length ? result.createdRoles.join(', ') : 'нет' },
-                        { name: 'Категории добавлены', value: result.createdCategories.length ? result.createdCategories.join(', ') : 'нет' },
-                        { name: 'Каналы добавлены', value: result.createdChannels.length ? result.createdChannels.join(', ') : 'нет' }
+                        {
+                            name: 'Роли добавлены',
+                            value: result.createdRoles.length ? result.createdRoles.join(', ') : 'нет',
+                        },
+                        {
+                            name: 'Категории добавлены',
+                            value: result.createdCategories.length ? result.createdCategories.join(', ') : 'нет',
+                        },
+                        {
+                            name: 'Каналы добавлены',
+                            value: result.createdChannels.length ? result.createdChannels.join(', ') : 'нет',
+                        }
                     )
                     .setTimestamp();
                 return interaction.editReply({ embeds: [embed] });
             } catch (err) {
-                const errorEmbed = new EmbedBuilder().setColor(0xed4245).setTitle('Ошибка восстановления').setDescription(err.message);
+                const errorEmbed = new EmbedBuilder()
+                    .setColor(0xed4245)
+                    .setTitle('Ошибка восстановления')
+                    .setDescription(err.message);
                 return interaction.editReply({ embeds: [errorEmbed] });
             }
         }

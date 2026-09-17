@@ -8,7 +8,7 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        const config = load();
+        const config = await load();
         const logChannel = config.logChannelId ? `<#${config.logChannelId}>` : 'ещё не создан';
 
         const status = enabled => (enabled ? 'Включено' : 'Выключено');
@@ -19,7 +19,11 @@ module.exports = {
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },
-                { name: 'Роль Trusted', value: config.trustedRoleId ? `<@&${config.trustedRoleId}>` : 'не задана', inline: true },
+                {
+                    name: 'Роль Trusted',
+                    value: config.trustedRoleId ? `<@&${config.trustedRoleId}>` : 'не задана',
+                    inline: true,
+                },
                 {
                     name: 'Anti-nuke',
                     value: `${status(config.antiNuke.enabled)} — макс. ${config.antiNuke.maxActions} действий / ${config.antiNuke.windowMs / 1000} сек.`,

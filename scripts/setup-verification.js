@@ -40,7 +40,9 @@ client.once('clientReady', async () => {
             process.exit(1);
         }
 
-        let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === '🚪 Верификация');
+        let category = guild.channels.cache.find(
+            c => c.type === ChannelType.GuildCategory && c.name === '🚪 Верификация'
+        );
         if (!category) {
             category = await guild.channels.create({
                 name: '🚪 Верификация',
@@ -64,7 +66,11 @@ client.once('clientReady', async () => {
                 parent: category.id,
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: unverifiedRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
+                    {
+                        id: unverifiedRole.id,
+                        allow: [PermissionFlagsBits.ViewChannel],
+                        deny: [PermissionFlagsBits.SendMessages],
+                    },
                 ],
             });
             console.log('Создан канал: verification');
@@ -94,20 +100,23 @@ client.once('clientReady', async () => {
             .setFooter({ text: guild.name });
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(VERIFY_BUTTON_ID).setLabel('Пройти верификацию').setStyle(ButtonStyle.Success)
+            new ButtonBuilder()
+                .setCustomId(VERIFY_BUTTON_ID)
+                .setLabel('Пройти верификацию')
+                .setStyle(ButtonStyle.Success)
         );
 
         await channel.send({ embeds: [embed], components: [row] });
         console.log('Сообщение с кнопкой верификации отправлено.');
 
-        const config = load();
+        const config = await load();
         config.verification = {
             enabled: true,
             unverifiedRoleId: unverifiedRole.id,
             verifiedRoleId: participantRole.id,
             channelId: channel.id,
         };
-        save(config);
+        await save(config);
 
         console.log('Готово. Верификация настроена и включена.');
         process.exit(0);

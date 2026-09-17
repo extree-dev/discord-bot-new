@@ -12,7 +12,7 @@ client.once('clientReady', async () => {
         await guild.roles.fetch();
         await guild.channels.fetch();
 
-        const config = load();
+        const config = await load();
 
         // роль поддержки
         let supportRole = config.supportRoleId ? guild.roles.cache.get(config.supportRoleId) : null;
@@ -39,7 +39,8 @@ client.once('clientReady', async () => {
 
         // категория тикетов
         let category = config.categoryId ? guild.channels.cache.get(config.categoryId) : null;
-        if (!category) category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'Поддержка');
+        if (!category)
+            category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'Поддержка');
         if (!category) {
             category = await guild.channels.create({ name: 'Поддержка', type: ChannelType.GuildCategory });
             console.log('Создана категория: Поддержка');
@@ -47,7 +48,7 @@ client.once('clientReady', async () => {
             console.log('Категория Поддержка уже существует');
         }
 
-        const security = loadSecurity();
+        const security = await loadSecurity();
         if (security.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(security.verification.unverifiedRoleId);
             if (unverifiedRole) {
@@ -58,7 +59,8 @@ client.once('clientReady', async () => {
 
         // панель открытия тикета
         let panelChannel = config.panelChannelId ? guild.channels.cache.get(config.panelChannelId) : null;
-        if (!panelChannel) panelChannel = guild.channels.cache.find(c => c.parentId === category.id && c.name === 'открыть-тикет');
+        if (!panelChannel)
+            panelChannel = guild.channels.cache.find(c => c.parentId === category.id && c.name === 'открыть-тикет');
         if (!panelChannel) {
             panelChannel = await guild.channels.create({
                 name: 'открыть-тикет',
@@ -84,7 +86,9 @@ client.once('clientReady', async () => {
         // лог-канал для транскриптов, в уже существующей стафф-категории 🔐 Модерация
         let logChannel = config.logChannelId ? guild.channels.cache.get(config.logChannelId) : null;
         if (!logChannel) {
-            const staffCategory = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация');
+            const staffCategory = guild.channels.cache.find(
+                c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация'
+            );
             logChannel = guild.channels.cache.find(c => c.name === 'ticket-log');
             if (!logChannel) {
                 logChannel = await guild.channels.create({
@@ -93,7 +97,10 @@ client.once('clientReady', async () => {
                     parent: staffCategory?.id ?? null,
                     permissionOverwrites: [
                         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                        { id: supportRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory] },
+                        {
+                            id: supportRole.id,
+                            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                        },
                     ],
                 });
                 console.log('Создан канал: ticket-log');
@@ -106,7 +113,7 @@ client.once('clientReady', async () => {
         config.panelChannelId = panelChannel.id;
         config.logChannelId = logChannel.id;
         config.supportRoleId = supportRole.id;
-        save(config);
+        await save(config);
 
         console.log('Готово. Система тикетов настроена.');
         process.exit(0);

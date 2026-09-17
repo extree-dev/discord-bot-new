@@ -8,7 +8,7 @@ const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]+/i;
 
 async function violate(msg, reasonText) {
     await msg.delete().catch(() => {});
-    const warnings = addWarning(msg.guild.id, msg.author.id, `[Automod] ${reasonText}`, 'Automod');
+    const warnings = await addWarning(msg.guild.id, msg.author.id, `[Automod] ${reasonText}`, 'Automod');
 
     await log(
         msg.guild,
@@ -36,7 +36,7 @@ async function violate(msg, reasonText) {
 
 async function handle(msg) {
     if (!msg.guild || msg.author.bot) return;
-    const config = load();
+    const config = await load();
     if (!config.automod.enabled) return;
     if (await isTrusted(msg.guild, msg.author.id)) return;
 
@@ -48,7 +48,9 @@ async function handle(msg) {
         return violate(msg, `Масс-упоминания (${mentionCount})`);
     }
 
-    const arr = (messageTimestamps.get(msg.author.id) ?? []).filter(ts => Date.now() - ts <= config.automod.messageWindowMs);
+    const arr = (messageTimestamps.get(msg.author.id) ?? []).filter(
+        ts => Date.now() - ts <= config.automod.messageWindowMs
+    );
     arr.push(Date.now());
     if (arr.length >= config.automod.maxMessagesPerWindow) {
         messageTimestamps.set(msg.author.id, []);

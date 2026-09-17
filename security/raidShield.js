@@ -47,7 +47,10 @@ async function triggerLockdown(guild, config, joinCount) {
             previousVerification.delete(guild.id);
             await log(
                 guild,
-                new EmbedBuilder().setColor(0x00cc66).setTitle('✅ Raid shield снят, уровень верификации восстановлен').setTimestamp()
+                new EmbedBuilder()
+                    .setColor(0x00cc66)
+                    .setTitle('✅ Raid shield снят, уровень верификации восстановлен')
+                    .setTimestamp()
             );
         } catch (err) {
             console.error('raidShield: не удалось вернуть verification level:', err.message);
@@ -56,7 +59,7 @@ async function triggerLockdown(guild, config, joinCount) {
 }
 
 async function handleJoin(member) {
-    const config = load();
+    const config = await load();
     if (!config.raidShield.enabled) return;
     const guild = member.guild;
 

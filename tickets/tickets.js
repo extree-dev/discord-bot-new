@@ -9,7 +9,7 @@ const {
     UserSelectMenuBuilder,
     AttachmentBuilder,
 } = require('discord.js');
-const { load, save } = require('./config');
+const { load, update } = require('./config');
 const { errorEmbed } = require('../utils/embeds');
 
 const REASONS = [
@@ -22,7 +22,10 @@ const REASONS = [
 
 function isStaff(config, member) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
-    return member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ModerateMembers);
+    return (
+        member.permissions.has(PermissionFlagsBits.Administrator) ||
+        member.permissions.has(PermissionFlagsBits.ModerateMembers)
+    );
 }
 
 function findTicketByOwner(config, userId) {
@@ -50,32 +53,48 @@ function buildPanelMessage(guild) {
 function buildTicketControlRow() {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_claim').setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ticket_adduser').setLabel('Добавить участника').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('ticket_adduser')
+            .setLabel('Добавить участника')
+            .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Danger)
     );
 }
 
 async function createTicket(interaction, reason) {
-    const config = load();
     const guild = interaction.guild;
     const member = interaction.member;
 
-    const existing = findTicketByOwner(config, member.id);
-    if (existing) {
-        const [channelId] = existing;
-        return { error: `У тебя уже открыт тикет: <#${channelId}>` };
-    }
+    // Проверка "тикет уже есть" и резервирование номера должны быть
+    // одной атомарной операцией — иначе два клика (или два разных
+    // пользователя, задевших getCounter почти одновременно) могут
+    // получить один и тот же номер, а поздняя save() затрёт запись
+    // о тикете, созданном первым вызовом. Лок держим только на это
+    // быстрое чтение+инкремент, не на медленный API-вызов создания канала.
+    const reservation = await update(config => {
+        const existing = findTicketByOwner(config, member.id);
+        if (existing) {
+            return { error: `У тебя уже открыт тикет: <#${existing[0]}>` };
+        }
+        config.counter += 1;
+        return { number: config.counter, categoryId: config.categoryId, supportRoleId: config.supportRoleId };
+    });
 
-    config.counter += 1;
-    const number = config.counter;
-    const category = config.categoryId ? guild.channels.cache.get(config.categoryId) : null;
-    const supportRole = config.supportRoleId ? guild.roles.cache.get(config.supportRoleId) : null;
+    if (reservation.error) return { error: reservation.error };
+
+    const { number, categoryId, supportRoleId } = reservation;
+    const category = categoryId ? guild.channels.cache.get(categoryId) : null;
+    const supportRole = supportRoleId ? guild.roles.cache.get(supportRoleId) : null;
 
     const overwrites = [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         {
             id: member.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            allow: [
+                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.ReadMessageHistory,
+            ],
         },
     ];
     if (supportRole) {
@@ -98,14 +117,15 @@ async function createTicket(interaction, reason) {
         topic: `Тикет #${number} · ${member.user.tag} · ${reason.label}`,
     });
 
-    config.tickets[channel.id] = {
-        number,
-        ownerId: member.id,
-        reason: reason.label,
-        claimedBy: null,
-        createdAt: Date.now(),
-    };
-    save(config);
+    await update(config => {
+        config.tickets[channel.id] = {
+            number,
+            ownerId: member.id,
+            reason: reason.label,
+            claimedBy: null,
+            createdAt: Date.now(),
+        };
+    });
 
     const embed = new EmbedBuilder()
         .setColor(0x5865f2)
@@ -126,13 +146,15 @@ async function createTicket(interaction, reason) {
 }
 
 async function closeTicket(interaction, channel, entry) {
-    const config = load();
+    const config = await load();
 
     const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
     const sorted = messages ? [...messages.values()].reverse() : [];
     const lines = sorted.map(m => `[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.content || '(вложение/embed)'}`);
     const transcriptText = lines.length ? lines.join('\n') : 'Сообщений нет.';
-    const transcript = new AttachmentBuilder(Buffer.from(transcriptText, 'utf8'), { name: `ticket-${entry.number}.txt` });
+    const transcript = new AttachmentBuilder(Buffer.from(transcriptText, 'utf8'), {
+        name: `ticket-${entry.number}.txt`,
+    });
 
     const logChannel = config.logChannelId ? interaction.guild.channels.cache.get(config.logChannelId) : null;
     if (logChannel) {
@@ -147,7 +169,11 @@ async function closeTicket(interaction, channel, entry) {
                             { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
                             { name: 'Тема', value: entry.reason, inline: true },
                             { name: 'Закрыл', value: `${interaction.user}`, inline: true },
-                            { name: 'Взял в работу', value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто', inline: true }
+                            {
+                                name: 'Взял в работу',
+                                value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто',
+                                inline: true,
+                            }
                         )
                         .setTimestamp(),
                 ],
@@ -156,8 +182,13 @@ async function closeTicket(interaction, channel, entry) {
             .catch(() => {});
     }
 
-    delete config.tickets[channel.id];
-    save(config);
+    // Удаление записи о тикете идёт через update(), а не через
+    // "load-в-начале-функции + save()" — между началом closeTicket и
+    // этой строкой были await'ы (fetch сообщений, отправка лога), за
+    // которые кто-то другой мог успеть изменить tickets.json.
+    await update(cfg => {
+        delete cfg.tickets[channel.id];
+    });
 
     await channel
         .send({ embeds: [new EmbedBuilder().setColor(0xed4245).setDescription('Тикет закрывается через 5 секунд...')] })
@@ -168,10 +199,13 @@ async function closeTicket(interaction, channel, entry) {
 
 async function handleButton(interaction) {
     if (interaction.customId === 'ticket_open') {
-        const config = load();
+        const config = await load();
         const existing = findTicketByOwner(config, interaction.user.id);
         if (existing) {
-            await interaction.reply({ embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)], ephemeral: true });
+            await interaction.reply({
+                embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)],
+                ephemeral: true,
+            });
             return true;
         }
 
@@ -187,8 +221,12 @@ async function handleButton(interaction) {
         return true;
     }
 
-    if (interaction.customId === 'ticket_claim' || interaction.customId === 'ticket_adduser' || interaction.customId === 'ticket_close') {
-        const config = load();
+    if (
+        interaction.customId === 'ticket_claim' ||
+        interaction.customId === 'ticket_adduser' ||
+        interaction.customId === 'ticket_close'
+    ) {
+        const config = await load();
         const entry = config.tickets[interaction.channelId];
         if (!entry) {
             await interaction.reply({ embeds: [errorEmbed('Это не канал тикета.')], ephemeral: true });
@@ -197,7 +235,10 @@ async function handleButton(interaction) {
 
         if (interaction.customId === 'ticket_claim') {
             if (!isStaff(config, interaction.member)) {
-                await interaction.reply({ embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')], ephemeral: true });
+                await interaction.reply({
+                    embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')],
+                    ephemeral: true,
+                });
                 return true;
             }
             if (entry.claimedBy && entry.claimedBy !== interaction.user.id) {
@@ -215,11 +256,38 @@ async function handleButton(interaction) {
                 return true;
             }
 
-            entry.claimedBy = interaction.user.id;
-            save(config);
+            // Захват тикета — атомарная проверка-и-запись: перечитываем
+            // свежие данные внутри лока файла и проверяем claimedBy ещё
+            // раз, на случай если кто-то другой забрал тикет за то время,
+            // пока мы читали config в начале обработчика.
+            const claim = await update(cfg => {
+                const freshEntry = cfg.tickets[interaction.channelId];
+                if (!freshEntry) return { status: 'gone' };
+                if (freshEntry.claimedBy) return { status: 'already-claimed', claimedBy: freshEntry.claimedBy };
+                freshEntry.claimedBy = interaction.user.id;
+                return { status: 'claimed', supportRoleId: cfg.supportRoleId };
+            });
 
-            if (config.supportRoleId) {
-                await interaction.channel.permissionOverwrites.delete(config.supportRoleId).catch(() => {});
+            if (claim.status === 'gone') {
+                await interaction.reply({ embeds: [errorEmbed('Это не канал тикета.')], ephemeral: true });
+                return true;
+            }
+            if (claim.status === 'already-claimed') {
+                await interaction.reply({
+                    embeds: [
+                        errorEmbed(
+                            claim.claimedBy === interaction.user.id
+                                ? 'Ты уже ведёшь этот тикет.'
+                                : `Тикет уже взят в работу <@${claim.claimedBy}>.`
+                        ),
+                    ],
+                    ephemeral: true,
+                });
+                return true;
+            }
+
+            if (claim.supportRoleId) {
+                await interaction.channel.permissionOverwrites.delete(claim.supportRoleId).catch(() => {});
             }
 
             await interaction.channel.permissionOverwrites
@@ -235,7 +303,9 @@ async function handleButton(interaction) {
                 embeds: [
                     new EmbedBuilder()
                         .setColor(0x57f287)
-                        .setDescription(`<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`),
+                        .setDescription(
+                            `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`
+                        ),
                 ],
             });
             return true;
@@ -243,7 +313,10 @@ async function handleButton(interaction) {
 
         if (interaction.customId === 'ticket_adduser') {
             if (!isStaff(config, interaction.member)) {
-                await interaction.reply({ embeds: [errorEmbed('Только поддержка или модератор может добавлять участников.')], ephemeral: true });
+                await interaction.reply({
+                    embeds: [errorEmbed('Только поддержка или модератор может добавлять участников.')],
+                    ephemeral: true,
+                });
                 return true;
             }
             const select = new UserSelectMenuBuilder()
@@ -265,7 +338,10 @@ async function handleButton(interaction) {
 
             if (!entry.claimedBy) {
                 if (!isOwner && !isStaff(config, interaction.member)) {
-                    await interaction.reply({ embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')], ephemeral: true });
+                    await interaction.reply({
+                        embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')],
+                        ephemeral: true,
+                    });
                     return true;
                 }
             } else {
@@ -273,7 +349,9 @@ async function handleButton(interaction) {
                 const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
                 if (!isOwner && !isClaimer && !isAdmin) {
                     await interaction.reply({
-                        embeds: [errorEmbed(`Тикет ведёт <@${entry.claimedBy}>. Закрыть может только он или автор тикета.`)],
+                        embeds: [
+                            errorEmbed(`Тикет ведёт <@${entry.claimedBy}>. Закрыть может только он или автор тикета.`),
+                        ],
                         ephemeral: true,
                     });
                     return true;
@@ -307,10 +385,13 @@ async function handleSelectMenu(interaction) {
     }
 
     if (interaction.customId === 'ticket_adduser_select') {
-        const config = load();
+        const config = await load();
         const entry = config.tickets[interaction.channelId];
         if (!entry || !isStaff(config, interaction.member)) {
-            await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
+            await interaction.reply({
+                embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')],
+                ephemeral: true,
+            });
             return true;
         }
         const targetId = interaction.values[0];
@@ -321,7 +402,8 @@ async function handleSelectMenu(interaction) {
                 ReadMessageHistory: true,
             })
             .catch(() => {});
-        const user = interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
+        const user =
+            interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
         await interaction.reply({
             embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${user ?? 'Участник'} добавлен в тикет.`)],
             ephemeral: true,

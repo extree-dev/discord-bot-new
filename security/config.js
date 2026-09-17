@@ -1,7 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+const { createStore } = require('../utils/pgStore');
 
-const filePath = path.join(__dirname, '..', 'data', 'security-config.json');
+const STORE_NAME = 'security-config';
 
 const DEFAULTS = {
     logChannelId: null,
@@ -22,15 +21,7 @@ const DEFAULTS = {
     verification: { enabled: false, unverifiedRoleId: null, verifiedRoleId: null, channelId: null },
 };
 
-function ensureFile() {
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, JSON.stringify(DEFAULTS, null, 2));
-}
-
-function load() {
-    ensureFile();
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+function normalize(data) {
     return {
         ...DEFAULTS,
         ...data,
@@ -42,10 +33,7 @@ function load() {
     };
 }
 
-function save(config) {
-    ensureFile();
-    fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
-}
+const store = createStore(STORE_NAME, DEFAULTS, normalize);
 
 function getEnvTrustedIds() {
     return (process.env.TRUSTED_IDS ?? '')
@@ -57,7 +45,7 @@ function getEnvTrustedIds() {
 async function isTrusted(guild, userId) {
     if (userId === guild.ownerId) return true;
     if (userId === guild.client.user.id) return true;
-    const config = load();
+    const config = await store.load();
     if (config.trustedIds.includes(userId)) return true;
     if (getEnvTrustedIds().includes(userId)) return true;
     if (config.trustedRoleId) {
@@ -67,4 +55,11 @@ async function isTrusted(guild, userId) {
     return false;
 }
 
-module.exports = { load, save, isTrusted, getEnvTrustedIds, filePath };
+module.exports = {
+    load: store.load,
+    save: store.save,
+    update: store.update,
+    isTrusted,
+    getEnvTrustedIds,
+    storeName: STORE_NAME,
+};

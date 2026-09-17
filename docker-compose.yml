@@ -1,0 +1,35 @@
+services:
+    postgres:
+        image: postgres:16-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-discordbot}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            POSTGRES_DB: ${POSTGRES_DB:-discordbot}
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-discordbot} -d ${POSTGRES_DB:-discordbot}']
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+    bot:
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            # Внутри сети docker compose сервис БД доступен по имени "postgres",
+            # а не localhost — переопределяем DATABASE_URL из .env, если он там
+            # указывает на локальный адрес.
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+        depends_on:
+            postgres:
+                condition: service_healthy
+        volumes:
+            - bot-data:/app/data
+
+volumes:
+    pgdata:
+    bot-data:

@@ -5,17 +5,15 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('warn')
         .setDescription('Выдать предупреждение участнику')
-        .addUserOption(option =>
-            option.setName('user').setDescription('Участник').setRequired(true))
-        .addStringOption(option =>
-            option.setName('reason').setDescription('Причина').setRequired(true))
+        .addUserOption(option => option.setName('user').setDescription('Участник').setRequired(true))
+        .addStringOption(option => option.setName('reason').setDescription('Причина').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
         const target = interaction.options.getUser('user');
         const reason = interaction.options.getString('reason');
 
-        const warnings = addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
+        const warnings = await addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
 
         const embed = new EmbedBuilder()
             .setColor(0xfee75c)
@@ -25,7 +23,7 @@ module.exports = {
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason },
-                { name: 'Всего предупреждений', value: `${warnings.length}`, inline: true },
+                { name: 'Всего предупреждений', value: `${warnings.length}`, inline: true }
             )
             .setFooter({ text: `ID: ${target.id}` })
             .setTimestamp();
@@ -37,7 +35,7 @@ module.exports = {
             .setTitle('Вы получили предупреждение')
             .addFields(
                 { name: 'Сервер', value: interaction.guild.name, inline: true },
-                { name: 'Причина', value: reason },
+                { name: 'Причина', value: reason }
             )
             .setTimestamp();
 
