@@ -1,12 +1,14 @@
-const tickets = require('./tickets');
+const handlers = require('./handlers');
+const model = require('./model');
 
 function register(client) {
-    tickets.register(client);
+    handlers.register(client);
     console.log('Система тикетов активирована.');
 }
 
 module.exports = {
     register,
-    handleButton: tickets.handleButton,
-    handleSelectMenu: tickets.handleSelectMenu,
+    handleButton: handlers.handleButton,
+    handleSelectMenu: handlers.handleSelectMenu,
+    buildPanelMessage: model.buildPanelMessage,
 };

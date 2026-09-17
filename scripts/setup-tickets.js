@@ -2,7 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, save } = require('../tickets/config');
 const { load: loadSecurity } = require('../security/config');
-const { buildPanelMessage } = require('../tickets/tickets');
+const { buildPanelMessage } = require('../tickets');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
