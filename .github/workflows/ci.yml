@@ -8,6 +8,25 @@ on:
 jobs:
     lint-and-test:
         runs-on: ubuntu-latest
+        # Тесты, доходящие до хранилища (security/config.js, tickets/config.js,
+        # utils/warnings.js), работают через настоящий PostgreSQL, а не мок —
+        # поднимаем его как сервис-контейнер рядом с job.
+        services:
+            postgres:
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_USER: discordbot
+                    POSTGRES_PASSWORD: discordbot
+                    POSTGRES_DB: discordbot
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U discordbot -d discordbot"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+        env:
+            DATABASE_URL: postgresql://discordbot:discordbot@localhost:5432/discordbot
         steps:
             - uses: actions/checkout@v4
 
