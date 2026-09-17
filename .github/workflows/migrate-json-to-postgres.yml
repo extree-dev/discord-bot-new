@@ -1,0 +1,20 @@
+name: Migrate data/*.json into PostgreSQL on VPS
+
+on:
+    workflow_dispatch: {}
+
+jobs:
+    run:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Run migrate-json-to-postgres.js over SSH
+              uses: appleboy/ssh-action@v1.2.0
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  port: ${{ secrets.VPS_PORT }}
+                  username: ${{ secrets.VPS_USER }}
+                  key: ${{ secrets.VPS_SSH_KEY }}
+                  script: |
+                      set -e
+                      cd /root/discord-bot-new
+                      docker compose run --rm bot node scripts/migrate-json-to-postgres.js
