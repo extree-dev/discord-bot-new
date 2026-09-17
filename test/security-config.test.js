@@ -1,7 +1,14 @@
 const test = require('node:test');
+const { after } = test;
 const assert = require('node:assert/strict');
-const { getEnvTrustedIds, isTrusted, load, save, filePath } = require('../security/config');
-const { withBackup } = require('./helpers/withBackup');
+const { getEnvTrustedIds, isTrusted, load, save, storeName } = require('../security/config');
+const { withStoreBackup } = require('./helpers/withBackup');
+const { closePool } = require('../utils/db');
+
+// node --test запускает каждый файл в отдельном процессе, но пул
+// соединений pg держит event loop живым — без явного закрытия процесс
+// будет висеть после того, как все тесты этого файла отработают.
+after(() => closePool());
 
 function makeGuild({ ownerId, clientUserId, memberRoles }) {
     const cache = new Map();
@@ -39,19 +46,19 @@ test('isTrusted: владелец сервера и сам бот доверен
 });
 
 test('isTrusted: посторонний пользователь без доверенных ролей/списков не доверен', async () => {
-    // Тут isTrusted дойдёт до load(), поэтому оборачиваем в withBackup —
-    // иначе тест молча создаст data/security-config.json на диске.
-    await withBackup(filePath, async () => {
+    // Тут isTrusted дойдёт до load(), поэтому оборачиваем в withStoreBackup —
+    // иначе тест молча тронет строку security-config в общей таблице bot_stores.
+    await withStoreBackup(storeName, async () => {
         const guild = makeGuild({ ownerId: 'owner-1', clientUserId: 'bot-1' });
         assert.equal(await isTrusted(guild, 'random-user'), false);
     });
 });
 
-test('isTrusted: учитывает trustedIds из security-config.json', async () => {
-    await withBackup(filePath, async () => {
-        const config = load();
+test('isTrusted: учитывает trustedIds из security-config', async () => {
+    await withStoreBackup(storeName, async () => {
+        const config = await load();
         config.trustedIds = ['trusted-user-1'];
-        save(config);
+        await save(config);
 
         const guild = makeGuild({ ownerId: 'owner-2', clientUserId: 'bot-2' });
         assert.equal(await isTrusted(guild, 'trusted-user-1'), true);
@@ -60,7 +67,7 @@ test('isTrusted: учитывает trustedIds из security-config.json', async
 });
 
 test('isTrusted: учитывает TRUSTED_IDS из переменной окружения', async () => {
-    await withBackup(filePath, async () => {
+    await withStoreBackup(storeName, async () => {
         const original = process.env.TRUSTED_IDS;
         process.env.TRUSTED_IDS = 'env-trusted-1';
         try {
@@ -74,10 +81,10 @@ test('isTrusted: учитывает TRUSTED_IDS из переменной окр
 });
 
 test('isTrusted: учитывает роль доверенных (trustedRoleId)', async () => {
-    await withBackup(filePath, async () => {
-        const config = load();
+    await withStoreBackup(storeName, async () => {
+        const config = await load();
         config.trustedRoleId = 'role-trusted';
-        save(config);
+        await save(config);
 
         const guild = makeGuild({
             ownerId: 'owner-4',
@@ -90,9 +97,9 @@ test('isTrusted: учитывает роль доверенных (trustedRoleId
 });
 
 test('load() подставляет значения по умолчанию для отсутствующих вложенных полей', async () => {
-    await withBackup(filePath, () => {
-        save({ trustedIds: ['x'] });
-        const config = load();
+    await withStoreBackup(storeName, async () => {
+        await save({ trustedIds: ['x'] });
+        const config = await load();
         assert.deepEqual(config.trustedIds, ['x']);
         assert.equal(config.antiNuke.enabled, true);
         assert.equal(config.antiNuke.maxActions, 3);

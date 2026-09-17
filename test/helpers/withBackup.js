@@ -1,24 +1,29 @@
-const fs = require('fs');
+const { getPool, ensureSchema } = require('../../utils/db');
 
-// Тесты для config/warnings-модулей пишут в те же data/*.json файлы,
-// которыми пользуется реальный бот (пути в этих модулях зашиты
-// относительно __dirname, подменить их без правки исходников нельзя).
-// В CI data/ создаётся заново на пустом чекауте, но на машине
-// разработчика там могут быть настоящие настройки сервера — поэтому
-// withBackup() сохраняет исходное содержимое файла перед тестом и
-// восстанавливает его после, даже если тест упал.
-async function withBackup(filePath, fn) {
-    const existed = fs.existsSync(filePath);
-    const original = existed ? fs.readFileSync(filePath, 'utf8') : null;
+// Тесты для config/warnings-модулей пишут в те же строки bot_stores,
+// которыми пользуется реальный бот (имя стора зашито в исходниках,
+// подменить его без правки модулей нельзя). withStoreBackup() сохраняет
+// текущее содержимое строки перед тестом и восстанавливает его после
+// (или удаляет строку, если её не было), даже если тест упал —
+// на CI-базе данных нет ничего, но на локальной БД разработчика могут
+// быть настоящие настройки сервера.
+async function withStoreBackup(storeName, fn) {
+    await ensureSchema();
+    const pool = getPool();
+
+    const { rows } = await pool.query('SELECT data FROM bot_stores WHERE name = $1', [storeName]);
+    const existed = rows.length > 0;
+    const original = existed ? rows[0].data : null;
+
     try {
         await fn();
     } finally {
         if (existed) {
-            fs.writeFileSync(filePath, original);
-        } else if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+            await pool.query('UPDATE bot_stores SET data = $2 WHERE name = $1', [storeName, JSON.stringify(original)]);
+        } else {
+            await pool.query('DELETE FROM bot_stores WHERE name = $1', [storeName]);
         }
     }
 }
 
-module.exports = { withBackup };
+module.exports = { withStoreBackup };
