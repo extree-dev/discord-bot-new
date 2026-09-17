@@ -18,23 +18,23 @@ function baseEmbed(color) {
     return new EmbedBuilder().setColor(color).setTimestamp();
 }
 
-function errorEmbed(description, title = '❌ Ошибка') {
+function errorEmbed(description, title = 'Ошибка') {
     return baseEmbed(COLORS.danger).setTitle(title).setDescription(description);
 }
 
-function successEmbed(description, title = '✅ Готово') {
+function successEmbed(description, title = 'Готово') {
     return baseEmbed(COLORS.success).setTitle(title).setDescription(description);
 }
 
-function infoEmbed(description, title = 'ℹ️ Информация') {
+function infoEmbed(description, title = 'Информация') {
     return baseEmbed(COLORS.primary).setTitle(title).setDescription(description);
 }
 
-function warningEmbed(description, title = '⚠️ Внимание') {
+function warningEmbed(description, title = 'Внимание') {
     return baseEmbed(COLORS.warning).setTitle(title).setDescription(description);
 }
 
-function criticalEmbed(description, title = '🚨 Критично') {
+function criticalEmbed(description, title = 'Критично') {
     return baseEmbed(COLORS.critical).setTitle(title).setDescription(description);
 }
 

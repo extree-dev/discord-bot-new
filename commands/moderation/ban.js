@@ -36,7 +36,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('🔨 Участник забанен')
+            .setTitle('Участник забанен')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },

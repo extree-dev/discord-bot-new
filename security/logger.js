@@ -61,7 +61,7 @@ async function log(guild, embed) {
 async function alertOwner(guild, title, description) {
     try {
         const owner = await guild.fetchOwner();
-        const embed = baseEmbed(COLORS.critical).setTitle(`🚨 ${title}`).setDescription(description);
+        const embed = baseEmbed(COLORS.critical).setTitle(title).setDescription(description);
         await owner.send({ embeds: [embed] }).catch(() => {});
     } catch (err) {
         console.error('Не удалось отправить DM владельцу:', err);

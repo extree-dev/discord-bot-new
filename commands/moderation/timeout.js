@@ -40,7 +40,7 @@ module.exports = {
             await member.timeout(null, reason);
             const unmuteEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setTitle('🔊 Мут снят')
+                .setTitle('Мут снят')
                 .addFields(
                     { name: 'Участник', value: `${target}`, inline: true },
                     { name: 'Модератор', value: `${interaction.user}`, inline: true }
@@ -52,7 +52,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('🔇 Участник замучен')
+            .setTitle('Участник замучен')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },

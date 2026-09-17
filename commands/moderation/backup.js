@@ -25,7 +25,7 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
             const filename = await security.createBackup(interaction.guild);
             const embed = baseEmbed(COLORS.success)
-                .setTitle('✅ Бэкап создан')
+                .setTitle('Бэкап создан')
                 .addFields({ name: 'Файл', value: `\`${filename}\`` });
             return interaction.editReply({ embeds: [embed] });
         }
@@ -34,12 +34,12 @@ module.exports = {
             const files = security.listBackups();
             if (!files.length) {
                 return interaction.reply({
-                    embeds: [infoEmbed('Бэкапов пока нет.', 'ℹ️ Бэкапы')],
+                    embeds: [infoEmbed('Бэкапов пока нет.', 'Бэкапы')],
                     ephemeral: true,
                 });
             }
             const embed = baseEmbed(COLORS.primary)
-                .setTitle('🗂️ Список бэкапов')
+                .setTitle('Список бэкапов')
                 .setDescription(
                     files
                         .slice(0, 15)
@@ -56,7 +56,7 @@ module.exports = {
             try {
                 const result = await security.restoreBackup(interaction.guild, file);
                 const embed = baseEmbed(COLORS.success)
-                    .setTitle('✅ Восстановление завершено')
+                    .setTitle('Восстановление завершено')
                     .setDescription(
                         'Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.'
                     )
@@ -76,7 +76,7 @@ module.exports = {
                     );
                 return interaction.editReply({ embeds: [embed] });
             } catch (err) {
-                return interaction.editReply({ embeds: [errorEmbed(err.message, '❌ Ошибка восстановления')] });
+                return interaction.editReply({ embeds: [errorEmbed(err.message, 'Ошибка восстановления')] });
             }
         }
     },

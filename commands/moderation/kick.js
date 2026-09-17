@@ -31,7 +31,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('🚪 Участник кикнут')
+            .setTitle('Участник кикнут')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },

@@ -18,7 +18,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('⚠️ Предупреждение выдано')
+            .setTitle('Предупреждение выдано')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
@@ -30,7 +30,7 @@ module.exports = {
         await interaction.reply({ embeds: [embed], ephemeral: true });
 
         const dmEmbed = baseEmbed(COLORS.warning)
-            .setTitle('⚠️ Вы получили предупреждение')
+            .setTitle('Вы получили предупреждение')
             .addFields(
                 { name: 'Сервер', value: interaction.guild.name, inline: true },
                 { name: 'Причина', value: reason }

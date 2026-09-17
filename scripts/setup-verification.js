@@ -90,7 +90,7 @@ client.once('clientReady', async () => {
         console.log(`Закрыто категорий от Unverified: ${otherCategories.size}`);
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('👋 Добро пожаловать на сервер')
+            .setTitle('Добро пожаловать на сервер')
             .setDescription(
                 'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже и реши простой пример — это займёт пару секунд.'
             )

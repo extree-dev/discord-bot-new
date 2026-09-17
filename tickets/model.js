@@ -48,7 +48,7 @@ function canCloseTicket(config, entry, member) {
 
 function buildPanelMessage(guild) {
     const embed = baseEmbed(COLORS.primary)
-        .setTitle('🎫 Поддержка сервера')
+        .setTitle('Поддержка сервера')
         .setDescription(
             'Нужна помощь? Нажми кнопку ниже и выбери тему — мы откроем приватный канал с командой поддержки, ' +
                 'который увидишь только ты и staff.\n\n' +
@@ -141,7 +141,7 @@ async function createTicket(interaction, reason) {
     });
 
     const embed = baseEmbed(COLORS.primary)
-        .setTitle(`🎫 Тикет #${number}`)
+        .setTitle(`Тикет #${number}`)
         .setDescription(
             `${member} открыл тикет.\nТема: **${reason.label}**\n\n` +
                 'Опиши свою проблему подробно — команда поддержки подключится в ближайшее время.\n\n' +
@@ -215,7 +215,7 @@ async function closeTicket(interaction, channel, entry) {
             .send({
                 embeds: [
                     baseEmbed(COLORS.primary)
-                        .setTitle(`🔒 Тикет #${entry.number} закрыт`)
+                        .setTitle(`Тикет #${entry.number} закрыт`)
                         .addFields(
                             { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
                             { name: 'Тема', value: entry.reason, inline: true },
@@ -243,9 +243,7 @@ async function closeTicket(interaction, channel, entry) {
     await channel
         .send({
             embeds: [
-                baseEmbed(COLORS.danger)
-                    .setTitle('🔒 Тикет закрывается')
-                    .setDescription('Закрывается через 5 секунд...'),
+                baseEmbed(COLORS.danger).setTitle('Тикет закрывается').setDescription('Закрывается через 5 секунд...'),
             ],
         })
         .catch(() => {});

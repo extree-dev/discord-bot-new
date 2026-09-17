@@ -14,7 +14,7 @@ async function violate(msg, reasonText) {
     await log(
         msg.guild,
         baseEmbed(COLORS.warning)
-            .setTitle('🤖 Automod сработал')
+            .setTitle('Automod сработал')
             .addFields(
                 { name: 'Участник', value: `${msg.author.tag} (${msg.author.id})`, inline: true },
                 { name: 'Канал', value: `${msg.channel}`, inline: true },

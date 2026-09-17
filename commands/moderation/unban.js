@@ -19,7 +19,7 @@ module.exports = {
         await interaction.guild.members.unban(userId);
 
         const embed = baseEmbed(COLORS.success)
-            .setTitle('🔓 Пользователь разбанен')
+            .setTitle('Пользователь разбанен')
             .addFields(
                 { name: 'ID пользователя', value: userId, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }

@@ -15,7 +15,7 @@ module.exports = {
         const status = enabled => (enabled ? 'Включено' : 'Выключено');
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('🛡️ Статус системы безопасности')
+            .setTitle('Статус системы безопасности')
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },
