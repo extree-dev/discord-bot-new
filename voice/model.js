@@ -40,12 +40,8 @@ const OWNER_PERMISSION_FLAGS = [
     PermissionFlagsBits.DeafenMembers,
 ];
 
-function isOwnerOrStaff(entry, member) {
-    if (entry.ownerId === member.id) return true;
-    return (
-        member.permissions.has(PermissionFlagsBits.Administrator) ||
-        member.permissions.has(PermissionFlagsBits.ModerateMembers)
-    );
+function isOwner(entry, member) {
+    return entry.ownerId === member.id;
 }
 
 function resolveTarget(interaction, config) {
@@ -57,8 +53,8 @@ function resolveTarget(interaction, config) {
     if (!entry) {
         return { error: 'Ты сейчас не в временной комнате.' };
     }
-    if (!isOwnerOrStaff(entry, interaction.member)) {
-        return { error: 'Только владелец комнаты или модератор может ей управлять.' };
+    if (!isOwner(entry, interaction.member)) {
+        return { error: 'Только владелец комнаты может ей управлять.' };
     }
     const channel = interaction.guild.channels.cache.get(voiceChannelId);
     if (!channel) {
@@ -265,7 +261,7 @@ module.exports = {
     CUSTOM_ICONS,
     ownerPermissions,
     OWNER_PERMISSION_FLAGS,
-    isOwnerOrStaff,
+    isOwner,
     resolveTarget,
     buildPanelMessage,
     createRoom,
