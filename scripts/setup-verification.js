@@ -9,7 +9,7 @@ const {
     ActionRowBuilder,
 } = require('discord.js');
 const security = require('../security');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -90,9 +90,11 @@ client.once('clientReady', async () => {
         console.log(`Закрыто категорий от Unverified: ${otherCategories.size}`);
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('Добро пожаловать на сервер')
             .setDescription(
-                'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже и реши простой пример — это займёт пару секунд.'
+                formatBody(
+                    'Добро пожаловать на сервер',
+                    'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже и реши простой пример — это займёт пару секунд.'
+                )
             )
             .setThumbnail(guild.iconURL() ?? null)
             .setFooter({ text: guild.name });

@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -28,7 +28,7 @@ module.exports = {
         const deleted = await interaction.channel.bulkDelete(filtered, true);
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('Сообщения удалены')
+            .setDescription(formatBody('Сообщения удалены'))
             .addFields(
                 { name: 'Количество', value: `${deleted.size}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }

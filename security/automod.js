@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log } = require('./logger');
 const { addWarning } = require('../utils/warnings');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const messageTimestamps = new Map();
 const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]+/i;
@@ -36,7 +36,7 @@ async function violate(msg, reasonText) {
     await log(
         msg.guild,
         baseEmbed(COLORS.warning)
-            .setTitle('Automod сработал')
+            .setDescription(formatBody('Automod сработал'))
             .addFields(
                 { name: 'Участник', value: `${msg.author.tag} (${msg.author.id})`, inline: true },
                 { name: 'Канал', value: `${msg.channel}`, inline: true },

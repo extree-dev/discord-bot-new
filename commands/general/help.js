@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { loadCommands } = require('../../utils/loadCommands');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 const CATEGORY_LABELS = {
     general: 'Общие',
@@ -30,8 +30,7 @@ module.exports = {
         }
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('Команды бота')
-            .setDescription(lines.join('\n').trim())
+            .setDescription(`${formatBody('Команды бота')}\n\n${lines.join('\n').trim()}`)
             .setFooter({ text: `Всего команд: ${commands.length}` });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });

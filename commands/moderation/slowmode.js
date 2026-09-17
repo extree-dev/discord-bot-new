@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
-const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,7 +36,7 @@ module.exports = {
         await channel.setRateLimitPerUser(seconds, `Slowmode изменён: ${interaction.user.tag}`);
 
         const embed = baseEmbed(seconds === 0 ? COLORS.success : COLORS.primary)
-            .setTitle(seconds === 0 ? 'Slowmode выключен' : 'Slowmode установлен')
+            .setDescription(formatBody(seconds === 0 ? 'Slowmode выключен' : 'Slowmode установлен'))
             .addFields(
                 { name: 'Канал', value: `${channel}`, inline: true },
                 { name: 'Задержка', value: seconds === 0 ? 'выключена' : `${seconds} сек.`, inline: true }

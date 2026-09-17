@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,7 +15,6 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.primary)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Информация об участнике')
             .setThumbnail(target.displayAvatarURL({ size: 256 }))
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
@@ -34,9 +33,13 @@ module.exports = {
                 { name: 'На сервере с', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true },
                 { name: `Роли (${roles.length})`, value: roles.length ? roles.slice(0, 20).join(' ') : 'нет' }
             );
+            embed.setDescription(formatBody('Информация об участнике'));
         } else {
             embed.setDescription(
-                'Этот пользователь не найден на сервере — показана только информация об аккаунте Discord.'
+                formatBody(
+                    'Информация об участнике',
+                    'Этот пользователь не найден на сервере — показана только информация об аккаунте Discord.'
+                )
             );
         }
 

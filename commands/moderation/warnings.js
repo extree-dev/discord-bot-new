@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getWarnings, clearWarnings } = require('../../utils/warnings');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -20,7 +20,7 @@ module.exports = {
             await clearWarnings(interaction.guild.id, target.id);
             const clearedEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setTitle('Предупреждения очищены')
+                .setDescription(formatBody('Предупреждения очищены'))
                 .addFields({ name: 'Модератор', value: `${interaction.user}`, inline: true });
             return interaction.reply({ embeds: [clearedEmbed], ephemeral: true });
         }
@@ -30,20 +30,19 @@ module.exports = {
         if (warnings.length === 0) {
             const emptyEmbed = baseEmbed(COLORS.primary)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setDescription('У этого участника нет предупреждений.');
+                .setDescription(formatBody('Предупреждения', 'У этого участника нет предупреждений.'));
             return interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
         }
 
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Предупреждения')
             .setDescription(
-                warnings
+                `${formatBody('Предупреждения')}\n\n${warnings
                     .map(
                         (w, i) =>
                             `**${i + 1}.** ${w.reason} — от ${w.moderatorTag} (${new Date(w.date).toLocaleString('ru-RU')})`
                     )
-                    .join('\n')
+                    .join('\n')}`
             )
             .setFooter({ text: `Всего: ${warnings.length} · ID: ${target.id}` });
 

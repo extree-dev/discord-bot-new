@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const security = require('../../security');
-const { COLORS, baseEmbed, infoEmbed, errorEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody, infoEmbed, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -25,7 +25,7 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
             const filename = await security.createBackup(interaction.guild);
             const embed = baseEmbed(COLORS.success)
-                .setTitle('Бэкап создан')
+                .setDescription(formatBody('Бэкап создан'))
                 .addFields({ name: 'Файл', value: `\`${filename}\`` });
             return interaction.editReply({ embeds: [embed] });
         }
@@ -39,12 +39,11 @@ module.exports = {
                 });
             }
             const embed = baseEmbed(COLORS.primary)
-                .setTitle('Список бэкапов')
                 .setDescription(
-                    files
+                    `${formatBody('Список бэкапов')}\n\n${files
                         .slice(0, 15)
                         .map(f => `\`${f}\``)
-                        .join('\n')
+                        .join('\n')}`
                 )
                 .setFooter({ text: `Всего: ${files.length}` });
             return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -56,9 +55,11 @@ module.exports = {
             try {
                 const result = await security.restoreBackup(interaction.guild, file);
                 const embed = baseEmbed(COLORS.success)
-                    .setTitle('Восстановление завершено')
                     .setDescription(
-                        'Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.'
+                        formatBody(
+                            'Восстановление завершено',
+                            'Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.'
+                        )
                     )
                     .addFields(
                         {
