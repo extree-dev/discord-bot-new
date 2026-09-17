@@ -334,4 +334,4 @@ async function handleSelectMenu(interaction) {
 
 function register() {}
 
-module.exports = { register, handleButton, handleSelectMenu, buildPanelMessage };
+module.exports = { register, handleButton, handleSelectMenu, buildPanelMessage, isStaff, findTicketByOwner };

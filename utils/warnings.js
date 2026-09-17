@@ -39,4 +39,4 @@ function clearWarnings(guildId, userId) {
     writeAll(data);
 }
 
-module.exports = { addWarning, getWarnings, clearWarnings };
+module.exports = { addWarning, getWarnings, clearWarnings, filePath };
