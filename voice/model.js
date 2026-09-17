@@ -182,15 +182,13 @@ async function handleLeave(oldState) {
             delete cfg.channels[channelId];
         });
         await channel.delete('Временная комната пуста').catch(() => {});
-        return;
     }
 
-    if (entry.ownerId === oldState.member.id) {
-        const nextMember = channel.members.first();
-        if (nextMember) {
-            await transferOwnership(channel, entry, nextMember.id);
-        }
-    }
+    // Владение НЕ передаётся автоматически, когда владелец выходит из
+    // комнаты (даже временно) — иначе любой, кто остался в канале в
+    // этот момент, получал бы полный контроль без согласия владельца.
+    // Осознанная передача прав — через кнопку "Передать права"
+    // (tempvoice_transfer), которая вызывает transferOwnership() явно.
 }
 
 async function handleVoiceStateUpdate(oldState, newState) {
