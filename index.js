@@ -1,9 +1,9 @@
 require('dotenv').config({ quiet: true });
-const fs = require('fs');
-const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { errorEmbed } = require('./utils/embeds');
 const { ensureSchema, closePool } = require('./utils/db');
+const { loadCommands } = require('./utils/loadCommands');
+const { getVersion } = require('./utils/version');
 
 const client = new Client({
     intents: [
@@ -18,11 +18,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
-const commandsPath = path.join(__dirname, 'commands', 'moderation');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const command = require(path.join(commandsPath, file));
+for (const command of loadCommands()) {
     client.commands.set(command.data.name, command);
 }
 
@@ -31,7 +27,7 @@ const voice = require('./voice');
 const tickets = require('./tickets');
 
 client.once('ready', () => {
-    console.log(`Бот запущен как ${client.user.tag}`);
+    console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
     security.register(client);
     voice.register(client);
     tickets.register(client);
