@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, save } = require('../tickets/config');
-const { load: loadSecurity } = require('../security/config');
+const security = require('../security');
 const { buildPanelMessage } = require('../tickets');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -48,9 +48,9 @@ client.once('clientReady', async () => {
             console.log('Категория Поддержка уже существует');
         }
 
-        const security = await loadSecurity();
-        if (security.verification.unverifiedRoleId) {
-            const unverifiedRole = guild.roles.cache.get(security.verification.unverifiedRoleId);
+        const securityConfig = await security.getConfig();
+        if (securityConfig.verification.unverifiedRoleId) {
+            const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
             if (unverifiedRole) {
                 await category.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
                 console.log(`Категория закрыта от роли ${unverifiedRole.name}`);

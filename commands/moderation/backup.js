@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { createBackup, listBackups, restoreBackup } = require('../../security/backup');
+const security = require('../../security');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,7 +22,7 @@ module.exports = {
 
         if (sub === 'create') {
             await interaction.deferReply({ ephemeral: true });
-            const filename = await createBackup(interaction.guild);
+            const filename = await security.createBackup(interaction.guild);
             const embed = new EmbedBuilder()
                 .setColor(0x57f287)
                 .setTitle('Бэкап создан')
@@ -32,7 +32,7 @@ module.exports = {
         }
 
         if (sub === 'list') {
-            const files = listBackups();
+            const files = security.listBackups();
             if (!files.length) {
                 const emptyEmbed = new EmbedBuilder().setColor(0x5865f2).setDescription('Бэкапов пока нет.');
                 return interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
@@ -54,7 +54,7 @@ module.exports = {
             const file = interaction.options.getString('file');
             await interaction.deferReply({ ephemeral: true });
             try {
-                const result = await restoreBackup(interaction.guild, file);
+                const result = await security.restoreBackup(interaction.guild, file);
                 const embed = new EmbedBuilder()
                     .setColor(0x57f287)
                     .setTitle('Восстановление завершено')

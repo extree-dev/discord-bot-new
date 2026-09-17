@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { load } = require('../../security/config');
+const security = require('../../security');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -8,7 +8,7 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
-        const config = await load();
+        const config = await security.getConfig();
         const logChannel = config.logChannelId ? `<#${config.logChannelId}>` : 'ещё не создан';
 
         const status = enabled => (enabled ? 'Включено' : 'Выключено');
@@ -39,7 +39,7 @@ module.exports = {
                 { name: 'Audit log', value: status(config.auditLog.enabled), inline: true },
                 { name: 'Верификация', value: status(config.verification.enabled), inline: true }
             )
-            .setFooter({ text: 'Конфиг: data/security-config.json' })
+            .setFooter({ text: 'Конфиг хранится в PostgreSQL (bot_stores.security-config)' })
             .setTimestamp();
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
