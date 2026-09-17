@@ -19,6 +19,7 @@ const DEFAULTS = {
     automod: { enabled: true, maxMentions: 5, maxMessagesPerWindow: 6, messageWindowMs: 5000 },
     auditLog: { enabled: true },
     verification: { enabled: false, unverifiedRoleId: null, verifiedRoleId: null, channelId: null },
+    manualLockdown: { active: false, channelIds: [] },
 };
 
 function normalize(data) {
@@ -30,6 +31,7 @@ function normalize(data) {
         automod: { ...DEFAULTS.automod, ...data.automod },
         auditLog: { ...DEFAULTS.auditLog, ...data.auditLog },
         verification: { ...DEFAULTS.verification, ...data.verification },
+        manualLockdown: { ...DEFAULTS.manualLockdown, ...data.manualLockdown },
     };
 }
 

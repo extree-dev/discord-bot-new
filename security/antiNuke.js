@@ -16,6 +16,12 @@ const DANGEROUS_PERMS = [
 const actionLog = new Map();
 const processedEntries = new Set();
 
+// Снимок вебхуков на канал (id → true) — нужен, чтобы отличить только
+// что созданный вебхук от уже существующих. discord.js не передаёт id
+// созданного/удалённого вебхука в событие webhookUpdate, поэтому единственный
+// надёжный способ — сравнить текущий список с предыдущим снимком.
+const knownWebhooks = new Map();
+
 function recordAction(userId) {
     const arr = actionLog.get(userId) ?? [];
     arr.push(Date.now());
@@ -167,6 +173,68 @@ async function handleDangerousRole(role, isNew, oldPermissions) {
     }
 }
 
+// Массовая рассылка через свежесозданный веб-хук — один из самых частых
+// способов "нюка" сервера (не требует прав на удаление ролей/каналов,
+// достаточно ManageWebhooks). Обнаруживаем появление нового вебхука в
+// канале, находим его создателя через audit log и, если он не доверен,
+// удаляем вебхук и считаем это разрушительным действием как остальные.
+async function handleWebhookChange(channel) {
+    const config = await load();
+    if (!config.antiNuke.enabled) return;
+
+    let webhooks;
+    try {
+        webhooks = await channel.fetchWebhooks();
+    } catch (err) {
+        console.error('antiNuke: не удалось прочитать вебхуки канала:', err.message);
+        return;
+    }
+
+    const currentIds = new Set(webhooks.map(w => w.id));
+    const known = knownWebhooks.get(channel.id);
+    knownWebhooks.set(channel.id, currentIds);
+
+    // Первое наблюдение за каналом — просто запоминаем базовый набор,
+    // не наказываем за вебхуки, созданные до включения защиты.
+    if (!known) return;
+
+    const newIds = [...currentIds].filter(id => !known.has(id));
+    if (newIds.length === 0) return;
+
+    const guild = channel.guild;
+    for (const webhookId of newIds) {
+        const executor = await getExecutor(guild, AuditLogEvent.WebhookCreate, webhookId);
+        if (!executor || executor.bot) continue;
+        if (await isTrusted(guild, executor.id)) continue;
+
+        await webhooks
+            .get(webhookId)
+            ?.delete('Anti-nuke: неизвестный вебхук создан подозрительным пользователем')
+            .catch(() => {});
+
+        await log(
+            guild,
+            baseEmbed(COLORS.warning)
+                .setTitle('Anti-nuke: подозрительный вебхук удалён')
+                .addFields(
+                    { name: 'Канал', value: `${channel}`, inline: true },
+                    { name: 'Исполнитель', value: `${executor.tag} (${executor.id})`, inline: true }
+                )
+        );
+
+        recordAction(executor.id);
+        const count = countRecent(executor.id, config.antiNuke.windowMs);
+        if (count >= config.antiNuke.maxActions) {
+            const result = await punish(guild, executor.id, 'Anti-nuke: создание подозрительных вебхуков');
+            await alertOwner(
+                guild,
+                'Anti-nuke сработал',
+                `На сервере **${guild.name}**: ${executor.tag} (${executor.id}) создавал подозрительные вебхуки и был нейтрализован (роли сняты: ${result.rolesStripped}, бан: ${result.banned}).`
+            );
+        }
+    }
+}
+
 function register(client) {
     client.on('channelDelete', ch => {
         if (!ch.guild) return;
@@ -196,6 +264,10 @@ function register(client) {
 
     client.on('roleUpdate', (oldRole, newRole) => {
         handleDangerousRole(newRole, false, oldRole.permissions).catch(err => console.error('antiNuke:', err));
+    });
+
+    client.on('webhookUpdate', channel => {
+        handleWebhookChange(channel).catch(err => console.error('antiNuke:', err));
     });
 }
 
