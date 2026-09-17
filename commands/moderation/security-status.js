@@ -19,7 +19,11 @@ module.exports = {
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },
-                { name: 'Роль Trusted', value: config.trustedRoleId ? `<@&${config.trustedRoleId}>` : 'не задана', inline: true },
+                {
+                    name: 'Роль Trusted',
+                    value: config.trustedRoleId ? `<@&${config.trustedRoleId}>` : 'не задана',
+                    inline: true,
+                },
                 {
                     name: 'Anti-nuke',
                     value: `${status(config.antiNuke.enabled)} — макс. ${config.antiNuke.maxActions} действий / ${config.antiNuke.windowMs / 1000} сек.`,

@@ -18,7 +18,9 @@ async function findOrCreate({ guild, config, idKey, name, type, parentId }) {
         return existingById;
     }
 
-    const byName = guild.channels.cache.find(c => c.type === type && c.name === name && (!parentId || c.parentId === parentId));
+    const byName = guild.channels.cache.find(
+        c => c.type === type && c.name === name && (!parentId || c.parentId === parentId)
+    );
     if (byName) {
         console.log(`Найден по имени: ${name}`);
         return byName;

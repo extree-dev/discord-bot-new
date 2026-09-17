@@ -10,7 +10,10 @@ function ensureDir() {
 
 function rotateOldBackups(keep = 10) {
     ensureDir();
-    const files = fs.readdirSync(backupDir).filter(f => f.endsWith('.json')).sort();
+    const files = fs
+        .readdirSync(backupDir)
+        .filter(f => f.endsWith('.json'))
+        .sort();
     while (files.length > keep) {
         fs.unlinkSync(path.join(backupDir, files.shift()));
     }
@@ -63,7 +66,11 @@ async function createBackup(guild) {
 
 function listBackups() {
     ensureDir();
-    return fs.readdirSync(backupDir).filter(f => f.endsWith('.json')).sort().reverse();
+    return fs
+        .readdirSync(backupDir)
+        .filter(f => f.endsWith('.json'))
+        .sort()
+        .reverse();
 }
 
 async function restoreBackup(guild, filename) {

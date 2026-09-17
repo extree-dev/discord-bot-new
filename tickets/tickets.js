@@ -22,7 +22,10 @@ const REASONS = [
 
 function isStaff(config, member) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
-    return member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ModerateMembers);
+    return (
+        member.permissions.has(PermissionFlagsBits.Administrator) ||
+        member.permissions.has(PermissionFlagsBits.ModerateMembers)
+    );
 }
 
 function findTicketByOwner(config, userId) {
@@ -50,7 +53,10 @@ function buildPanelMessage(guild) {
 function buildTicketControlRow() {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_claim').setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ticket_adduser').setLabel('Добавить участника').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('ticket_adduser')
+            .setLabel('Добавить участника')
+            .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Danger)
     );
 }
@@ -75,7 +81,11 @@ async function createTicket(interaction, reason) {
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         {
             id: member.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            allow: [
+                PermissionFlagsBits.ViewChannel,
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.ReadMessageHistory,
+            ],
         },
     ];
     if (supportRole) {
@@ -132,7 +142,9 @@ async function closeTicket(interaction, channel, entry) {
     const sorted = messages ? [...messages.values()].reverse() : [];
     const lines = sorted.map(m => `[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.content || '(вложение/embed)'}`);
     const transcriptText = lines.length ? lines.join('\n') : 'Сообщений нет.';
-    const transcript = new AttachmentBuilder(Buffer.from(transcriptText, 'utf8'), { name: `ticket-${entry.number}.txt` });
+    const transcript = new AttachmentBuilder(Buffer.from(transcriptText, 'utf8'), {
+        name: `ticket-${entry.number}.txt`,
+    });
 
     const logChannel = config.logChannelId ? interaction.guild.channels.cache.get(config.logChannelId) : null;
     if (logChannel) {
@@ -147,7 +159,11 @@ async function closeTicket(interaction, channel, entry) {
                             { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
                             { name: 'Тема', value: entry.reason, inline: true },
                             { name: 'Закрыл', value: `${interaction.user}`, inline: true },
-                            { name: 'Взял в работу', value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто', inline: true }
+                            {
+                                name: 'Взял в работу',
+                                value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто',
+                                inline: true,
+                            }
                         )
                         .setTimestamp(),
                 ],
@@ -171,7 +187,10 @@ async function handleButton(interaction) {
         const config = load();
         const existing = findTicketByOwner(config, interaction.user.id);
         if (existing) {
-            await interaction.reply({ embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)], ephemeral: true });
+            await interaction.reply({
+                embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)],
+                ephemeral: true,
+            });
             return true;
         }
 
@@ -187,7 +206,11 @@ async function handleButton(interaction) {
         return true;
     }
 
-    if (interaction.customId === 'ticket_claim' || interaction.customId === 'ticket_adduser' || interaction.customId === 'ticket_close') {
+    if (
+        interaction.customId === 'ticket_claim' ||
+        interaction.customId === 'ticket_adduser' ||
+        interaction.customId === 'ticket_close'
+    ) {
         const config = load();
         const entry = config.tickets[interaction.channelId];
         if (!entry) {
@@ -197,7 +220,10 @@ async function handleButton(interaction) {
 
         if (interaction.customId === 'ticket_claim') {
             if (!isStaff(config, interaction.member)) {
-                await interaction.reply({ embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')], ephemeral: true });
+                await interaction.reply({
+                    embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')],
+                    ephemeral: true,
+                });
                 return true;
             }
             if (entry.claimedBy && entry.claimedBy !== interaction.user.id) {
@@ -235,7 +261,9 @@ async function handleButton(interaction) {
                 embeds: [
                     new EmbedBuilder()
                         .setColor(0x57f287)
-                        .setDescription(`<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`),
+                        .setDescription(
+                            `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`
+                        ),
                 ],
             });
             return true;
@@ -243,7 +271,10 @@ async function handleButton(interaction) {
 
         if (interaction.customId === 'ticket_adduser') {
             if (!isStaff(config, interaction.member)) {
-                await interaction.reply({ embeds: [errorEmbed('Только поддержка или модератор может добавлять участников.')], ephemeral: true });
+                await interaction.reply({
+                    embeds: [errorEmbed('Только поддержка или модератор может добавлять участников.')],
+                    ephemeral: true,
+                });
                 return true;
             }
             const select = new UserSelectMenuBuilder()
@@ -265,7 +296,10 @@ async function handleButton(interaction) {
 
             if (!entry.claimedBy) {
                 if (!isOwner && !isStaff(config, interaction.member)) {
-                    await interaction.reply({ embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')], ephemeral: true });
+                    await interaction.reply({
+                        embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')],
+                        ephemeral: true,
+                    });
                     return true;
                 }
             } else {
@@ -273,7 +307,9 @@ async function handleButton(interaction) {
                 const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
                 if (!isOwner && !isClaimer && !isAdmin) {
                     await interaction.reply({
-                        embeds: [errorEmbed(`Тикет ведёт <@${entry.claimedBy}>. Закрыть может только он или автор тикета.`)],
+                        embeds: [
+                            errorEmbed(`Тикет ведёт <@${entry.claimedBy}>. Закрыть может только он или автор тикета.`),
+                        ],
                         ephemeral: true,
                     });
                     return true;
@@ -310,7 +346,10 @@ async function handleSelectMenu(interaction) {
         const config = load();
         const entry = config.tickets[interaction.channelId];
         if (!entry || !isStaff(config, interaction.member)) {
-            await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
+            await interaction.reply({
+                embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')],
+                ephemeral: true,
+            });
             return true;
         }
         const targetId = interaction.values[0];
@@ -321,7 +360,8 @@ async function handleSelectMenu(interaction) {
                 ReadMessageHistory: true,
             })
             .catch(() => {});
-        const user = interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
+        const user =
+            interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
         await interaction.reply({
             embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${user ?? 'Участник'} добавлен в тикет.`)],
             ephemeral: true,

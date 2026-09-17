@@ -5,8 +5,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('unban')
         .setDescription('Разбанить пользователя по ID')
-        .addStringOption(option =>
-            option.setName('user_id').setDescription('ID пользователя').setRequired(true))
+        .addStringOption(option => option.setName('user_id').setDescription('ID пользователя').setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
@@ -24,7 +23,7 @@ module.exports = {
             .setTitle('Пользователь разбанен')
             .addFields(
                 { name: 'ID пользователя', value: userId, inline: true },
-                { name: 'Модератор', value: `${interaction.user}`, inline: true },
+                { name: 'Модератор', value: `${interaction.user}`, inline: true }
             )
             .setTimestamp();
 

@@ -5,12 +5,16 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('timeout')
         .setDescription('Замутить участника на время (0 - снять мут)')
-        .addUserOption(option =>
-            option.setName('user').setDescription('Участник').setRequired(true))
+        .addUserOption(option => option.setName('user').setDescription('Участник').setRequired(true))
         .addIntegerOption(option =>
-            option.setName('minutes').setDescription('Длительность в минутах (0 = снять мут)').setRequired(true).setMinValue(0).setMaxValue(40320))
-        .addStringOption(option =>
-            option.setName('reason').setDescription('Причина').setRequired(false))
+            option
+                .setName('minutes')
+                .setDescription('Длительность в минутах (0 = снять мут)')
+                .setRequired(true)
+                .setMinValue(0)
+                .setMaxValue(40320)
+        )
+        .addStringOption(option => option.setName('reason').setDescription('Причина').setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
@@ -20,7 +24,10 @@ module.exports = {
         const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
         if (!member) {
-            return interaction.reply({ embeds: [errorEmbed('Не удалось найти этого участника на сервере.')], ephemeral: true });
+            return interaction.reply({
+                embeds: [errorEmbed('Не удалось найти этого участника на сервере.')],
+                ephemeral: true,
+            });
         }
         if (!member.moderatable) {
             return interaction.reply({
@@ -37,7 +44,7 @@ module.exports = {
                 .setTitle('Мут снят')
                 .addFields(
                     { name: 'Участник', value: `${target}`, inline: true },
-                    { name: 'Модератор', value: `${interaction.user}`, inline: true },
+                    { name: 'Модератор', value: `${interaction.user}`, inline: true }
                 )
                 .setTimestamp();
             return interaction.reply({ embeds: [unmuteEmbed], ephemeral: true });
@@ -53,7 +60,7 @@ module.exports = {
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Длительность', value: `${minutes} мин.`, inline: true },
-                { name: 'Причина', value: reason },
+                { name: 'Причина', value: reason }
             )
             .setFooter({ text: `ID: ${target.id}` })
             .setTimestamp();

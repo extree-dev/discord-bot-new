@@ -48,7 +48,9 @@ async function handle(msg) {
         return violate(msg, `Масс-упоминания (${mentionCount})`);
     }
 
-    const arr = (messageTimestamps.get(msg.author.id) ?? []).filter(ts => Date.now() - ts <= config.automod.messageWindowMs);
+    const arr = (messageTimestamps.get(msg.author.id) ?? []).filter(
+        ts => Date.now() - ts <= config.automod.messageWindowMs
+    );
     arr.push(Date.now());
     if (arr.length >= config.automod.maxMessagesPerWindow) {
         messageTimestamps.set(msg.author.id, []);

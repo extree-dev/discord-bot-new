@@ -38,19 +38,50 @@ client.once('ready', () => {
 
 client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
-        if (await security.handleVerifyButton(interaction).catch(err => (console.error('Ошибка кнопки верификации:', err), false))) return;
-        if (await voice.handleButton(interaction).catch(err => (console.error('Ошибка кнопки временной комнаты:', err), false))) return;
-        if (await tickets.handleButton(interaction).catch(err => (console.error('Ошибка кнопки тикета:', err), false))) return;
+        if (
+            await security
+                .handleVerifyButton(interaction)
+                .catch(err => (console.error('Ошибка кнопки верификации:', err), false))
+        )
+            return;
+        if (
+            await voice
+                .handleButton(interaction)
+                .catch(err => (console.error('Ошибка кнопки временной комнаты:', err), false))
+        )
+            return;
+        if (await tickets.handleButton(interaction).catch(err => (console.error('Ошибка кнопки тикета:', err), false)))
+            return;
     }
 
     if (interaction.isModalSubmit()) {
-        if (await security.handleVerifyModal(interaction).catch(err => (console.error('Ошибка формы верификации:', err), false))) return;
-        if (await voice.handleModalSubmit(interaction).catch(err => (console.error('Ошибка формы временной комнаты:', err), false))) return;
+        if (
+            await security
+                .handleVerifyModal(interaction)
+                .catch(err => (console.error('Ошибка формы верификации:', err), false))
+        )
+            return;
+        if (
+            await voice
+                .handleModalSubmit(interaction)
+                .catch(err => (console.error('Ошибка формы временной комнаты:', err), false))
+        )
+            return;
     }
 
     if (interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
-        if (await voice.handleSelectMenu(interaction).catch(err => (console.error('Ошибка select-меню временной комнаты:', err), false))) return;
-        if (await tickets.handleSelectMenu(interaction).catch(err => (console.error('Ошибка select-меню тикета:', err), false))) return;
+        if (
+            await voice
+                .handleSelectMenu(interaction)
+                .catch(err => (console.error('Ошибка select-меню временной комнаты:', err), false))
+        )
+            return;
+        if (
+            await tickets
+                .handleSelectMenu(interaction)
+                .catch(err => (console.error('Ошибка select-меню тикета:', err), false))
+        )
+            return;
     }
 
     if (!interaction.isChatInputCommand()) return;

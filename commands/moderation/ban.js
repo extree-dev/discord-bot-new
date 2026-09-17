@@ -5,12 +5,15 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('ban')
         .setDescription('Забанить участника на сервере')
-        .addUserOption(option =>
-            option.setName('user').setDescription('Участник').setRequired(true))
-        .addStringOption(option =>
-            option.setName('reason').setDescription('Причина').setRequired(false))
+        .addUserOption(option => option.setName('user').setDescription('Участник').setRequired(true))
+        .addStringOption(option => option.setName('reason').setDescription('Причина').setRequired(false))
         .addIntegerOption(option =>
-            option.setName('delete_days').setDescription('Удалить сообщения за N дней (0-7)').setMinValue(0).setMaxValue(7))
+            option
+                .setName('delete_days')
+                .setDescription('Удалить сообщения за N дней (0-7)')
+                .setMinValue(0)
+                .setMaxValue(7)
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
@@ -38,7 +41,7 @@ module.exports = {
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
-                { name: 'Причина', value: reason },
+                { name: 'Причина', value: reason }
             )
             .setFooter({ text: `ID: ${target.id}` })
             .setTimestamp();

@@ -31,9 +31,7 @@ function countRecent(userId, windowMs) {
 async function getExecutor(guild, type, targetId) {
     try {
         const logs = await guild.fetchAuditLogs({ type, limit: 5 });
-        const entry = logs.entries.find(
-            e => e.target?.id === targetId && Date.now() - e.createdTimestamp < 8000
-        );
+        const entry = logs.entries.find(e => e.target?.id === targetId && Date.now() - e.createdTimestamp < 8000);
         if (!entry || processedEntries.has(entry.id)) return null;
         processedEntries.add(entry.id);
         setTimeout(() => processedEntries.delete(entry.id), 30000);
@@ -190,9 +188,12 @@ function register(client) {
     });
 
     client.on('guildBanAdd', ban => {
-        handleDestructiveAction(ban.guild, AuditLogEvent.MemberBanAdd, ban.user.id, `Бан участника ${ban.user.tag}`).catch(
-            err => console.error('antiNuke:', err)
-        );
+        handleDestructiveAction(
+            ban.guild,
+            AuditLogEvent.MemberBanAdd,
+            ban.user.id,
+            `Бан участника ${ban.user.tag}`
+        ).catch(err => console.error('antiNuke:', err));
     });
 
     client.on('roleCreate', role => {
