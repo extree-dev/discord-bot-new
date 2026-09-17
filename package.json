@@ -1,7 +1,7 @@
 {
     "name": "discord-bot",
-    "version": "1.0.0",
-    "description": "",
+    "version": "2.0.0",
+    "description": "Discord-бот для модерации сервера: безопасность, тикеты, временные голосовые комнаты",
     "main": "index.js",
     "scripts": {
         "start": "node index.js",
