@@ -100,14 +100,14 @@ client.once('clientReady', async () => {
         await channel.send({ embeds: [embed], components: [row] });
         console.log('Сообщение с кнопкой верификации отправлено.');
 
-        const config = load();
+        const config = await load();
         config.verification = {
             enabled: true,
             unverifiedRoleId: unverifiedRole.id,
             verifiedRoleId: participantRole.id,
             channelId: channel.id,
         };
-        save(config);
+        await save(config);
 
         console.log('Готово. Верификация настроена и включена.');
         process.exit(0);

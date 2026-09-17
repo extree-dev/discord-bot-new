@@ -19,7 +19,7 @@ function cleanupExpired() {
 
 async function handleJoin(member) {
     if (member.user.bot) return;
-    const config = load();
+    const config = await load();
     if (!config.verification.enabled || !config.verification.unverifiedRoleId) return;
 
     const role = member.guild.roles.cache.get(config.verification.unverifiedRoleId);
@@ -33,7 +33,7 @@ async function handleJoin(member) {
 async function handleButton(interaction) {
     if (interaction.customId !== VERIFY_BUTTON_ID) return false;
 
-    const config = load();
+    const config = await load();
     const guild = interaction.guild;
     const member = interaction.member;
 
@@ -70,7 +70,7 @@ async function handleButton(interaction) {
 async function handleModalSubmit(interaction) {
     if (interaction.customId !== VERIFY_MODAL_ID) return false;
 
-    const config = load();
+    const config = await load();
     const guild = interaction.guild;
     const member = interaction.member;
 

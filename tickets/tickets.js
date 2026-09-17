@@ -136,7 +136,7 @@ async function createTicket(interaction, reason) {
 }
 
 async function closeTicket(interaction, channel, entry) {
-    const config = load();
+    const config = await load();
 
     const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
     const sorted = messages ? [...messages.values()].reverse() : [];
@@ -183,7 +183,7 @@ async function closeTicket(interaction, channel, entry) {
 
 async function handleButton(interaction) {
     if (interaction.customId === 'ticket_open') {
-        const config = load();
+        const config = await load();
         const existing = findTicketByOwner(config, interaction.user.id);
         if (existing) {
             await interaction.reply({ embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)], ephemeral: true });
@@ -203,7 +203,7 @@ async function handleButton(interaction) {
     }
 
     if (interaction.customId === 'ticket_claim' || interaction.customId === 'ticket_adduser' || interaction.customId === 'ticket_close') {
-        const config = load();
+        const config = await load();
         const entry = config.tickets[interaction.channelId];
         if (!entry) {
             await interaction.reply({ embeds: [errorEmbed('Это не канал тикета.')], ephemeral: true });
@@ -349,7 +349,7 @@ async function handleSelectMenu(interaction) {
     }
 
     if (interaction.customId === 'ticket_adduser_select') {
-        const config = load();
+        const config = await load();
         const entry = config.tickets[interaction.channelId];
         if (!entry || !isStaff(config, interaction.member)) {
             await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });

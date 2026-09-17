@@ -37,7 +37,7 @@ async function createLogChannel(guild) {
 }
 
 async function getLogChannel(guild) {
-    const config = load();
+    const config = await load();
     if (config.logChannelId) {
         const cached = guild.channels.cache.get(config.logChannelId);
         if (cached) return cached;

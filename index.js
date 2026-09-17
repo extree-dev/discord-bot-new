@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { errorEmbed } = require('./utils/embeds');
+const { ensureSchema, closePool } = require('./utils/db');
 
 const client = new Client({
     intents: [
@@ -93,6 +94,12 @@ async function shutdown(signal) {
         console.log('Соединение с Discord закрыто.');
     } catch (err) {
         console.error('Ошибка при остановке клиента:', err);
+    }
+    try {
+        await closePool();
+        console.log('Пул соединений с PostgreSQL закрыт.');
+    } catch (err) {
+        console.error('Ошибка при закрытии пула PostgreSQL:', err);
     } finally {
         process.exit(0);
     }
@@ -101,4 +108,12 @@ async function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-client.login(process.env.DISCORD_TOKEN);
+// Проверяем схему БД до логина в Discord — если PostgreSQL недоступен
+// (не задан/неверен DATABASE_URL), лучше явно упасть при старте, чем
+// молча ловить ошибки внутри случайного обработчика взаимодействия.
+ensureSchema()
+    .then(() => client.login(process.env.DISCORD_TOKEN))
+    .catch(err => {
+        console.error('Не удалось подключиться к PostgreSQL (проверь DATABASE_URL в .env):', err.message);
+        process.exit(1);
+    });

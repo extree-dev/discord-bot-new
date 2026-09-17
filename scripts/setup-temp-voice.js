@@ -34,7 +34,7 @@ client.once('clientReady', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
 
-        const config = load();
+        const config = await load();
 
         const category = await findOrCreate({
             guild,
@@ -66,7 +66,7 @@ client.once('clientReady', async () => {
         if (trigger.parentId !== category.id) await trigger.setParent(category.id).catch(() => {});
         await controlChannel.setPosition(0).catch(() => {});
 
-        const security = loadSecurity();
+        const security = await loadSecurity();
         if (security.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(security.verification.unverifiedRoleId);
             if (unverifiedRole) {
@@ -88,7 +88,7 @@ client.once('clientReady', async () => {
         config.categoryId = category.id;
         config.triggerChannelId = trigger.id;
         config.controlChannelId = controlChannel.id;
-        save(config);
+        await save(config);
 
         console.log('Готово. Временные комнаты настроены (лимит по умолчанию: 5 человек).');
         process.exit(0);

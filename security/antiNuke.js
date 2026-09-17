@@ -74,7 +74,7 @@ async function punish(guild, userId, reason) {
 }
 
 async function handleDestructiveAction(guild, auditType, targetId, description) {
-    const config = load();
+    const config = await load();
     if (!config.antiNuke.enabled) return;
 
     const executor = await getExecutor(guild, auditType, targetId);
@@ -120,7 +120,7 @@ async function handleDestructiveAction(guild, auditType, targetId, description) 
 }
 
 async function handleDangerousRole(role, isNew, oldPermissions) {
-    const config = load();
+    const config = await load();
     if (!config.antiNuke.enabled) return;
 
     const hasDangerous = DANGEROUS_PERMS.some(p => role.permissions.has(p));

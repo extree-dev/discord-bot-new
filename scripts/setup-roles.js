@@ -83,9 +83,9 @@ client.once('clientReady', async () => {
             console.log('Позиции ролей выставлены ниже роли бота.');
         }
 
-        const config = load();
+        const config = await load();
         config.trustedRoleId = created['Trusted'].id;
-        save(config);
+        await save(config);
         console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
 
         console.log('Готово.');

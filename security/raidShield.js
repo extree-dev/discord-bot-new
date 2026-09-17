@@ -56,7 +56,7 @@ async function triggerLockdown(guild, config, joinCount) {
 }
 
 async function handleJoin(member) {
-    const config = load();
+    const config = await load();
     if (!config.raidShield.enabled) return;
     const guild = member.guild;
 
