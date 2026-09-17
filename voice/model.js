@@ -2,15 +2,9 @@
 // создание/передача владения/уборка при выходе, сами действия над
 // каналом (лок, скрытие, лимит, кик, блок). Роутинг по customId — в
 // voice/handlers.js.
-const {
-    ChannelType,
-    PermissionFlagsBits,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-} = require('discord.js');
+const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
+const { COLORS, baseEmbed } = require('../utils/embeds');
 
 // Кастомные иконки (Application Emoji), загружены с icons8.com
 const CUSTOM_ICONS = {
@@ -74,9 +68,8 @@ function resolveTarget(interaction, config) {
 }
 
 function buildPanelMessage() {
-    const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
-        .setTitle('Управление временной комнатой')
+    const embed = baseEmbed(COLORS.primary)
+        .setTitle('🔊 Управление временной комнатой')
         .setDescription(
             'Зайди в свою комнату в голосовом канале и жми кнопки — действие применится к ней.\n\n' +
                 [

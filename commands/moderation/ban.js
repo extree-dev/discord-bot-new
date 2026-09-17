@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { errorEmbed } = require('../../utils/embeds');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -34,17 +34,15 @@ module.exports = {
             reason,
         });
 
-        const embed = new EmbedBuilder()
-            .setColor(0xed4245)
+        const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Участник забанен')
+            .setTitle('🔨 Участник забанен')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason }
             )
-            .setFooter({ text: `ID: ${target.id}` })
-            .setTimestamp();
+            .setFooter({ text: `ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },

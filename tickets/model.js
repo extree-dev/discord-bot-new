@@ -4,13 +4,13 @@
 const {
     ChannelType,
     PermissionFlagsBits,
-    EmbedBuilder,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
     AttachmentBuilder,
 } = require('discord.js');
 const { load, update } = require('./config');
+const { COLORS, baseEmbed } = require('../utils/embeds');
 
 const REASONS = [
     { value: 'general', label: 'Общий вопрос' },
@@ -47,9 +47,8 @@ function canCloseTicket(config, entry, member) {
 }
 
 function buildPanelMessage(guild) {
-    const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
-        .setTitle('Поддержка сервера')
+    const embed = baseEmbed(COLORS.primary)
+        .setTitle('🎫 Поддержка сервера')
         .setDescription(
             'Нужна помощь? Нажми кнопку ниже и выбери тему — мы откроем приватный канал с командой поддержки, ' +
                 'который увидишь только ты и staff.\n\n' +
@@ -141,9 +140,8 @@ async function createTicket(interaction, reason) {
         };
     });
 
-    const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
-        .setTitle(`Тикет #${number}`)
+    const embed = baseEmbed(COLORS.primary)
+        .setTitle(`🎫 Тикет #${number}`)
         .setDescription(
             `${member} открыл тикет.\nТема: **${reason.label}**\n\n` +
                 'Опиши свою проблему подробно — команда поддержки подключится в ближайшее время.\n\n' +
@@ -152,8 +150,7 @@ async function createTicket(interaction, reason) {
                     '`Добавить участника` — даёт доступ к тикету ещё одному пользователю (например, свидетелю)',
                     '`Закрыть` — завершает обращение; доступно автору тикета и поддержке. После закрытия переписка сохраняется в архив',
                 ].join('\n')
-        )
-        .setTimestamp();
+        );
 
     await channel.send({ embeds: [embed], components: [buildTicketControlRow()] });
     return { channel };
@@ -217,9 +214,8 @@ async function closeTicket(interaction, channel, entry) {
         await logChannel
             .send({
                 embeds: [
-                    new EmbedBuilder()
-                        .setColor(0x5865f2)
-                        .setTitle(`Тикет #${entry.number} закрыт`)
+                    baseEmbed(COLORS.primary)
+                        .setTitle(`🔒 Тикет #${entry.number} закрыт`)
                         .addFields(
                             { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
                             { name: 'Тема', value: entry.reason, inline: true },
@@ -229,8 +225,7 @@ async function closeTicket(interaction, channel, entry) {
                                 value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто',
                                 inline: true,
                             }
-                        )
-                        .setTimestamp(),
+                        ),
                 ],
                 files: [transcript],
             })
@@ -246,7 +241,13 @@ async function closeTicket(interaction, channel, entry) {
     });
 
     await channel
-        .send({ embeds: [new EmbedBuilder().setColor(0xed4245).setDescription('Тикет закрывается через 5 секунд...')] })
+        .send({
+            embeds: [
+                baseEmbed(COLORS.danger)
+                    .setTitle('🔒 Тикет закрывается')
+                    .setDescription('Закрывается через 5 секунд...'),
+            ],
+        })
         .catch(() => {});
 
     setTimeout(() => channel.delete('Тикет закрыт').catch(() => {}), 5000);

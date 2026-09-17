@@ -1,4 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { COLORS, baseEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -26,14 +27,12 @@ module.exports = {
 
         const deleted = await interaction.channel.bulkDelete(filtered, true);
 
-        const embed = new EmbedBuilder()
-            .setColor(0x5865f2)
-            .setTitle('Сообщения удалены')
+        const embed = baseEmbed(COLORS.primary)
+            .setTitle('🧹 Сообщения удалены')
             .addFields(
                 { name: 'Количество', value: `${deleted.size}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }
-            )
-            .setTimestamp();
+            );
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },

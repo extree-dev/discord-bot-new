@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { errorEmbed } = require('../../utils/embeds');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -38,32 +38,28 @@ module.exports = {
 
         if (minutes === 0) {
             await member.timeout(null, reason);
-            const unmuteEmbed = new EmbedBuilder()
-                .setColor(0x57f287)
+            const unmuteEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setTitle('Мут снят')
+                .setTitle('🔊 Мут снят')
                 .addFields(
                     { name: 'Участник', value: `${target}`, inline: true },
                     { name: 'Модератор', value: `${interaction.user}`, inline: true }
-                )
-                .setTimestamp();
+                );
             return interaction.reply({ embeds: [unmuteEmbed], ephemeral: true });
         }
 
         await member.timeout(minutes * 60 * 1000, reason);
 
-        const embed = new EmbedBuilder()
-            .setColor(0xfee75c)
+        const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Участник замучен')
+            .setTitle('🔇 Участник замучен')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Длительность', value: `${minutes} мин.`, inline: true },
                 { name: 'Причина', value: reason }
             )
-            .setFooter({ text: `ID: ${target.id}` })
-            .setTimestamp();
+            .setFooter({ text: `ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },

@@ -1,12 +1,12 @@
 // Доменный слой системы предложений: построение панели/embed'а
 // предложения и сама операция "предложить идею" (резервирование номера +
 // публикация в канал). Роутинг взаимодействий — в suggestions/handlers.js.
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { update } = require('./config');
+const { COLORS, baseEmbed } = require('../utils/embeds');
 
 function buildPanelMessage() {
-    const embed = new EmbedBuilder()
-        .setColor(0x5865f2)
+    const embed = baseEmbed(COLORS.primary)
         .setTitle('💡 Предложи идею')
         .setDescription(
             'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
@@ -26,8 +26,7 @@ function buildPanelMessage() {
 }
 
 function buildSuggestionEmbed({ member, title, description, number }) {
-    return new EmbedBuilder()
-        .setColor(0xfee75c)
+    return baseEmbed(COLORS.warning)
         .setAuthor({ name: member.displayName, iconURL: member.displayAvatarURL() })
         .setTitle(`💡 ${title}`)
         .setDescription(description)
@@ -35,8 +34,7 @@ function buildSuggestionEmbed({ member, title, description, number }) {
             { name: 'Автор', value: `${member}`, inline: true },
             { name: 'Статус', value: '🆕 Новое', inline: true }
         )
-        .setFooter({ text: `Предложение #${number}` })
-        .setTimestamp();
+        .setFooter({ text: `Предложение #${number}` });
 }
 
 async function createSuggestion(interaction, { title, description }) {

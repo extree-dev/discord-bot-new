@@ -1,6 +1,7 @@
-const { AuditLogEvent, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { AuditLogEvent, PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log, alertOwner } = require('./logger');
+const { COLORS, baseEmbed, criticalEmbed } = require('../utils/embeds');
 
 const DANGEROUS_PERMS = [
     PermissionFlagsBits.Administrator,
@@ -84,29 +85,24 @@ async function handleDestructiveAction(guild, auditType, targetId, description) 
 
     await log(
         guild,
-        new EmbedBuilder()
-            .setColor(0xff5500)
+        baseEmbed(COLORS.warning)
             .setTitle('⚠️ Anti-nuke: подозрительное действие')
             .addFields(
                 { name: 'Действие', value: description },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },
                 { name: 'Событий за окно', value: `${count}/${config.antiNuke.maxActions}` }
             )
-            .setTimestamp()
     );
 
     if (count >= config.antiNuke.maxActions) {
         const result = await punish(guild, executor.id, 'Anti-nuke: превышен лимит разрушительных действий');
         await log(
             guild,
-            new EmbedBuilder()
-                .setColor(0xff0000)
-                .setTitle('🚨 Anti-nuke сработал')
-                .setDescription(
-                    `Пользователь ${executor.tag} (${executor.id}) превысил лимит разрушительных действий.\n` +
-                        `Роли сняты: ${result.rolesStripped ? 'да' : 'нет'}. Забанен: ${result.banned ? 'да' : 'нет (не удалось — проверь вручную)'}.`
-                )
-                .setTimestamp()
+            criticalEmbed(
+                `Пользователь ${executor.tag} (${executor.id}) превысил лимит разрушительных действий.\n` +
+                    `Роли сняты: ${result.rolesStripped ? 'да' : 'нет'}. Забанен: ${result.banned ? 'да' : 'нет (не удалось — проверь вручную)'}.`,
+                '🚨 Anti-nuke сработал'
+            )
         );
         await alertOwner(
             guild,
@@ -144,15 +140,13 @@ async function handleDangerousRole(role, isNew, oldPermissions) {
 
     await log(
         role.guild,
-        new EmbedBuilder()
-            .setColor(0xff0000)
+        baseEmbed(COLORS.critical)
             .setTitle('🚨 Anti-nuke: попытка повышения прав')
             .addFields(
                 { name: 'Роль', value: role.name },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },
                 { name: 'Действие', value: isNew ? 'Роль удалена' : 'Права откачены' }
             )
-            .setTimestamp()
     );
 
     recordAction(executor.id);
