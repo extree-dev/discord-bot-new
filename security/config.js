@@ -1,7 +1,6 @@
-const path = require('path');
-const { createStore } = require('../utils/jsonStore');
+const { createStore } = require('../utils/pgStore');
 
-const filePath = path.join(__dirname, '..', 'data', 'security-config.json');
+const STORE_NAME = 'security-config';
 
 const DEFAULTS = {
     logChannelId: null,
@@ -34,7 +33,7 @@ function normalize(data) {
     };
 }
 
-const store = createStore(filePath, DEFAULTS, normalize);
+const store = createStore(STORE_NAME, DEFAULTS, normalize);
 
 function getEnvTrustedIds() {
     return (process.env.TRUSTED_IDS ?? '')
@@ -46,7 +45,7 @@ function getEnvTrustedIds() {
 async function isTrusted(guild, userId) {
     if (userId === guild.ownerId) return true;
     if (userId === guild.client.user.id) return true;
-    const config = store.load();
+    const config = await store.load();
     if (config.trustedIds.includes(userId)) return true;
     if (getEnvTrustedIds().includes(userId)) return true;
     if (config.trustedRoleId) {
@@ -62,5 +61,5 @@ module.exports = {
     update: store.update,
     isTrusted,
     getEnvTrustedIds,
-    filePath,
+    storeName: STORE_NAME,
 };

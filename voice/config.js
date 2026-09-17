@@ -1,7 +1,6 @@
-const path = require('path');
-const { createStore } = require('../utils/jsonStore');
+const { createStore } = require('../utils/pgStore');
 
-const filePath = path.join(__dirname, '..', 'data', 'temp-voice.json');
+const STORE_NAME = 'temp-voice';
 
 const DEFAULTS = {
     triggerChannelId: null,
@@ -15,6 +14,6 @@ function normalize(data) {
     return { ...DEFAULTS, ...data, channels: { ...data.channels } };
 }
 
-const store = createStore(filePath, DEFAULTS, normalize);
+const store = createStore(STORE_NAME, DEFAULTS, normalize);
 
-module.exports = { load: store.load, save: store.save, update: store.update, filePath };
+module.exports = { load: store.load, save: store.save, update: store.update, storeName: STORE_NAME };
