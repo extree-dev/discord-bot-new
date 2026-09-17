@@ -17,4 +17,4 @@ jobs:
                   script: |
                       set -e
                       cd /root/discord-bot-new
-                      docker compose run --rm bot node scripts/migrate-json-to-postgres.js
+                      docker compose run --rm -v "$(pwd)/data:/app/data" bot node scripts/migrate-json-to-postgres.js
