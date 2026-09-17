@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const security = require('../../security');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -39,8 +39,7 @@ module.exports = {
         );
 
         const embed = baseEmbed(config.manualLockdown.active ? COLORS.critical : COLORS.primary)
-            .setTitle('Статус системы безопасности')
-            .setDescription(lines.join('\n'))
+            .setDescription(`${formatBody('Статус системы безопасности')}\n\n${lines.join('\n')}`)
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },

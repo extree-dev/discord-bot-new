@@ -1,7 +1,7 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
-const { COLORS, baseEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed, infoEmbed } = require('../utils/embeds');
 
 const VERIFY_BUTTON_ID = 'security_verify';
 const VERIFY_MODAL_ID = 'security_verify_modal';
@@ -115,14 +115,14 @@ async function handleModalSubmit(interaction) {
         return true;
     }
 
-    const passedEmbed = baseEmbed(COLORS.success)
-        .setTitle('Верификация пройдена')
-        .setDescription('**Добро пожаловать!**');
+    const passedEmbed = baseEmbed(COLORS.success).setDescription(
+        formatBody('Верификация пройдена', 'Добро пожаловать!')
+    );
     await interaction.reply({ embeds: [passedEmbed], ephemeral: true });
     await log(
         guild,
         baseEmbed(COLORS.success)
-            .setTitle('Верификация пройдена')
+            .setDescription(formatBody('Верификация пройдена'))
             .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
     );
     return true;

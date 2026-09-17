@@ -1,7 +1,7 @@
 const { GuildVerificationLevel } = require('discord.js');
 const { load } = require('./config');
 const { log, alertOwner } = require('./logger');
-const { COLORS, baseEmbed, criticalEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody, criticalEmbed } = require('../utils/embeds');
 
 const joinTimestamps = new Map();
 const lockdownUntil = new Map();
@@ -43,7 +43,12 @@ async function triggerLockdown(guild, config, joinCount) {
             const original = previousVerification.get(guild.id) ?? GuildVerificationLevel.None;
             await guild.setVerificationLevel(original, 'Raid shield: окончание рейд-режима');
             previousVerification.delete(guild.id);
-            await log(guild, baseEmbed(COLORS.success).setTitle('Raid shield снят, уровень верификации восстановлен'));
+            await log(
+                guild,
+                baseEmbed(COLORS.success).setDescription(
+                    formatBody('Raid shield снят, уровень верификации восстановлен')
+                )
+            );
         } catch (err) {
             console.error('raidShield: не удалось вернуть verification level:', err.message);
         }
@@ -62,7 +67,7 @@ async function handleJoin(member) {
             await log(
                 guild,
                 baseEmbed(COLORS.warning)
-                    .setTitle('Raid shield: кикнут новый аккаунт')
+                    .setDescription(formatBody('Raid shield: кикнут новый аккаунт'))
                     .addFields(
                         { name: 'Участник', value: `${member.user.tag} (${member.id})` },
                         { name: 'Возраст аккаунта', value: `${Math.round(age / 3600000)} ч.` }

@@ -4,7 +4,7 @@
 // voice/handlers.js.
 const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 // Кастомные иконки (Application Emoji), загружены с icons8.com
 const CUSTOM_ICONS = {
@@ -64,21 +64,20 @@ function resolveTarget(interaction, config) {
 }
 
 function buildPanelMessage() {
-    const embed = baseEmbed(COLORS.primary)
-        .setTitle('Управление временной комнатой')
-        .setDescription(
+    const embed = baseEmbed(COLORS.primary).setDescription(
+        `${formatBody('Управление временной комнатой')}\n\n` +
             'Зайди в свою комнату в голосовом канале и жми кнопки — действие применится к ней.\n\n' +
-                [
-                    `<:icon_lock:${CUSTOM_ICONS.lock}> \`Закрыть/Открыть — запретить или разрешить вход в комнату\``,
-                    `<:icon_hide:${CUSTOM_ICONS.hide}> \`Скрыть/Показать — убрать комнату из списка каналов или вернуть обратно\``,
-                    `<:icon_edit:${CUSTOM_ICONS.edit}> \`Переименовать — задать своё название комнаты\``,
-                    `<:icon_limit:${CUSTOM_ICONS.limit}> \`Лимит — ограничить число участников в комнате\``,
-                    `<:icon_kick:${CUSTOM_ICONS.kick}> \`Кикнуть — отключить участника от комнаты\``,
-                    `<:icon_block:${CUSTOM_ICONS.block}> \`Заблокировать — запретить конкретному человеку заходить\``,
-                    `<:icon_unlock:${CUSTOM_ICONS.unlock}> \`Разблокировать — снять блокировку с человека\``,
-                    `<:icon_crown:${CUSTOM_ICONS.crown}> \`Передать права — сделать другого участника владельцем\``,
-                ].join('\n')
-        );
+            [
+                `<:icon_lock:${CUSTOM_ICONS.lock}> \`Закрыть/Открыть — запретить или разрешить вход в комнату\``,
+                `<:icon_hide:${CUSTOM_ICONS.hide}> \`Скрыть/Показать — убрать комнату из списка каналов или вернуть обратно\``,
+                `<:icon_edit:${CUSTOM_ICONS.edit}> \`Переименовать — задать своё название комнаты\``,
+                `<:icon_limit:${CUSTOM_ICONS.limit}> \`Лимит — ограничить число участников в комнате\``,
+                `<:icon_kick:${CUSTOM_ICONS.kick}> \`Кикнуть — отключить участника от комнаты\``,
+                `<:icon_block:${CUSTOM_ICONS.block}> \`Заблокировать — запретить конкретному человеку заходить\``,
+                `<:icon_unlock:${CUSTOM_ICONS.unlock}> \`Разблокировать — снять блокировку с человека\``,
+                `<:icon_crown:${CUSTOM_ICONS.crown}> \`Передать права — сделать другого участника владельцем\``,
+            ].join('\n')
+    );
 
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()

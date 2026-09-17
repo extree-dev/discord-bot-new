@@ -10,7 +10,7 @@ const {
     AttachmentBuilder,
 } = require('discord.js');
 const { load, update } = require('./config');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const REASONS = [
     { value: 'general', label: 'Общий вопрос' },
@@ -48,9 +48,9 @@ function canCloseTicket(config, entry, member) {
 
 function buildPanelMessage(guild) {
     const embed = baseEmbed(COLORS.primary)
-        .setTitle('Поддержка сервера')
         .setDescription(
-            'Нужна помощь? Нажми кнопку ниже и выбери тему — мы откроем приватный канал с командой поддержки, ' +
+            `${formatBody('Поддержка сервера')}\n\n` +
+                'Нужна помощь? Нажми кнопку ниже и выбери тему — мы откроем приватный канал с командой поддержки, ' +
                 'который увидишь только ты и staff.\n\n' +
                 '**Темы обращений:**\n' +
                 REASONS.map(r => `\`${r.label}\``).join('\n')
@@ -140,17 +140,16 @@ async function createTicket(interaction, reason) {
         };
     });
 
-    const embed = baseEmbed(COLORS.primary)
-        .setTitle(`Тикет #${number}`)
-        .setDescription(
+    const embed = baseEmbed(COLORS.primary).setDescription(
+        `${formatBody(`Тикет #${number}`)}\n\n` +
             `${member} открыл тикет.\nТема: **${reason.label}**\n\n` +
-                'Опиши свою проблему подробно — команда поддержки подключится в ближайшее время.\n\n' +
-                [
-                    '`Взять в работу` — отмечает, что этим тикетом занимается конкретный человек из поддержки',
-                    '`Добавить участника` — даёт доступ к тикету ещё одному пользователю (например, свидетелю)',
-                    '`Закрыть` — завершает обращение; доступно автору тикета и поддержке. После закрытия переписка сохраняется в архив',
-                ].join('\n')
-        );
+            'Опиши свою проблему подробно — команда поддержки подключится в ближайшее время.\n\n' +
+            [
+                '`Взять в работу` — отмечает, что этим тикетом занимается конкретный человек из поддержки',
+                '`Добавить участника` — даёт доступ к тикету ещё одному пользователю (например, свидетелю)',
+                '`Закрыть` — завершает обращение; доступно автору тикета и поддержке. После закрытия переписка сохраняется в архив',
+            ].join('\n')
+    );
 
     await channel.send({ embeds: [embed], components: [buildTicketControlRow()] });
     return { channel };
@@ -215,7 +214,7 @@ async function closeTicket(interaction, channel, entry) {
             .send({
                 embeds: [
                     baseEmbed(COLORS.primary)
-                        .setTitle(`Тикет #${entry.number} закрыт`)
+                        .setDescription(formatBody(`Тикет #${entry.number} закрыт`))
                         .addFields(
                             { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
                             { name: 'Тема', value: entry.reason, inline: true },
@@ -243,7 +242,9 @@ async function closeTicket(interaction, channel, entry) {
     await channel
         .send({
             embeds: [
-                baseEmbed(COLORS.danger).setTitle('Тикет закрывается').setDescription('Закрывается через 5 секунд...'),
+                baseEmbed(COLORS.danger).setDescription(
+                    formatBody('Тикет закрывается', 'Закрывается через 5 секунд...')
+                ),
             ],
         })
         .catch(() => {});

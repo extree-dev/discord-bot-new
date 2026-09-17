@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ChannelType } = require('discord.js');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder().setName('serverinfo').setDescription('Показать информацию о сервере'),
@@ -28,9 +28,8 @@ module.exports = {
         ];
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle(guild.name)
             .setThumbnail(guild.iconURL({ size: 256 }) ?? null)
-            .setDescription(lines.join('\n'))
+            .setDescription(`${formatBody(guild.name)}\n\n${lines.join('\n')}`)
             .setFooter({ text: `ID: ${guild.id}` });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });

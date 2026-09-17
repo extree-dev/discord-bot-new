@@ -1,12 +1,12 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { COLORS, baseEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder().setName('ping').setDescription('Проверить задержку бота'),
 
     async execute(interaction) {
         await interaction.reply({
-            embeds: [baseEmbed(COLORS.primary).setTitle('Пинг').setDescription('Измеряю задержку...')],
+            embeds: [baseEmbed(COLORS.primary).setDescription(formatBody('Пинг', 'Измеряю задержку...'))],
             ephemeral: true,
         });
 
@@ -14,7 +14,7 @@ module.exports = {
         const roundtrip = sent.createdTimestamp - interaction.createdTimestamp;
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('Пинг')
+            .setDescription(formatBody('Пинг'))
             .addFields(
                 { name: 'Round-trip', value: `${roundtrip} мс`, inline: true },
                 { name: 'WebSocket', value: `${Math.round(interaction.client.ws.ping)} мс`, inline: true }

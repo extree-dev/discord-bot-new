@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     COLORS,
+    formatBody,
     errorEmbed,
     successEmbed,
     infoEmbed,
@@ -10,10 +11,15 @@ const {
     neutralEmbed,
 } = require('../utils/embeds');
 
+test('formatBody собирает заголовок как "### " и описание как "-# "', () => {
+    assert.equal(formatBody('Заголовок', 'Текст'), '### Заголовок\n-# Текст');
+    assert.equal(formatBody('Заголовок'), '### Заголовок');
+});
+
 test('errorEmbed собирает embed цвета danger с заголовком по умолчанию и переданным текстом', () => {
     const embed = errorEmbed('Что-то пошло не так').toJSON();
-    assert.equal(embed.title, 'Ошибка');
-    assert.equal(embed.description, 'Что-то пошло не так');
+    assert.equal(embed.title, undefined);
+    assert.equal(embed.description, '### Ошибка\n-# Что-то пошло не так');
     assert.equal(embed.color, COLORS.danger);
     assert.ok(embed.timestamp);
 });
@@ -27,11 +33,11 @@ test('successEmbed/infoEmbed/warningEmbed/criticalEmbed используют ц�
 
 test('builder-функции принимают свой title вместо дефолтного', () => {
     const embed = successEmbed('Комната переименована', 'Переименовано').toJSON();
-    assert.equal(embed.title, 'Переименовано');
+    assert.equal(embed.description, '### Переименовано\n-# Комната переименована');
 });
 
-test('neutralEmbed не выставляет title, если он не передан', () => {
+test('neutralEmbed без title даёт только subtext-строку', () => {
     const embed = neutralEmbed('Сообщение удалено').toJSON();
-    assert.equal(embed.title, undefined);
+    assert.equal(embed.description, '-# Сообщение удалено');
     assert.equal(embed.color, COLORS.neutral);
 });

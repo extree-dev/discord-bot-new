@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -31,7 +31,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Участник кикнут')
+            .setDescription(formatBody('Участник кикнут'))
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },

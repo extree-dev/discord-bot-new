@@ -1,7 +1,7 @@
 const { AuditLogEvent, PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log, alertOwner } = require('./logger');
-const { COLORS, baseEmbed, criticalEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody, criticalEmbed } = require('../utils/embeds');
 
 const DANGEROUS_PERMS = [
     PermissionFlagsBits.Administrator,
@@ -92,7 +92,7 @@ async function handleDestructiveAction(guild, auditType, targetId, description) 
     await log(
         guild,
         baseEmbed(COLORS.warning)
-            .setTitle('Anti-nuke: подозрительное действие')
+            .setDescription(formatBody('Anti-nuke: подозрительное действие'))
             .addFields(
                 { name: 'Действие', value: description },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },
@@ -147,7 +147,7 @@ async function handleDangerousRole(role, isNew, oldPermissions) {
     await log(
         role.guild,
         baseEmbed(COLORS.critical)
-            .setTitle('Anti-nuke: попытка повышения прав')
+            .setDescription(formatBody('Anti-nuke: попытка повышения прав'))
             .addFields(
                 { name: 'Роль', value: role.name },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },
@@ -215,7 +215,7 @@ async function handleWebhookChange(channel) {
         await log(
             guild,
             baseEmbed(COLORS.warning)
-                .setTitle('Anti-nuke: подозрительный вебхук удалён')
+                .setDescription(formatBody('Anti-nuke: подозрительный вебхук удалён'))
                 .addFields(
                     { name: 'Канал', value: `${channel}`, inline: true },
                     { name: 'Исполнитель', value: `${executor.tag} (${executor.id})`, inline: true }

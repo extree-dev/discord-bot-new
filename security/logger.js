@@ -1,6 +1,6 @@
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, update } = require('./config');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const pendingCreation = new Map();
 
@@ -61,7 +61,7 @@ async function log(guild, embed) {
 async function alertOwner(guild, title, description) {
     try {
         const owner = await guild.fetchOwner();
-        const embed = baseEmbed(COLORS.critical).setTitle(title).setDescription(description);
+        const embed = baseEmbed(COLORS.critical).setDescription(formatBody(title, description));
         await owner.send({ embeds: [embed] }).catch(() => {});
     } catch (err) {
         console.error('Не удалось отправить DM владельцу:', err);

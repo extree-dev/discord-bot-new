@@ -3,14 +3,16 @@
 // публикация в канал). Роутинг взаимодействий — в suggestions/handlers.js.
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { update } = require('./config');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 function buildPanelMessage() {
     const embed = baseEmbed(COLORS.primary)
-        .setTitle('Предложи идею')
         .setDescription(
-            'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
-                'она будет опубликована в канале предложений для обсуждения командой и другими участниками.'
+            formatBody(
+                'Предложи идею',
+                'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
+                    'она будет опубликована в канале предложений для обсуждения командой и другими участниками.'
+            )
         )
         .setFooter({ text: 'Заголовок и описание — в модальном окне, это займёт меньше минуты' });
 
@@ -28,8 +30,7 @@ function buildPanelMessage() {
 function buildSuggestionEmbed({ member, title, description, number }) {
     return baseEmbed(COLORS.warning)
         .setAuthor({ name: member.displayName, iconURL: member.displayAvatarURL() })
-        .setTitle(title)
-        .setDescription(description)
+        .setDescription(formatBody(title, description))
         .addFields(
             { name: 'Автор', value: `${member}`, inline: true },
             { name: 'Статус', value: 'Новое', inline: true }

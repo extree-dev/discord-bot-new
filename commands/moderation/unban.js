@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -19,7 +19,7 @@ module.exports = {
         await interaction.guild.members.unban(userId);
 
         const embed = baseEmbed(COLORS.success)
-            .setTitle('Пользователь разбанен')
+            .setDescription(formatBody('Пользователь разбанен'))
             .addFields(
                 { name: 'ID пользователя', value: userId, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }

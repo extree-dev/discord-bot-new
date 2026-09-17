@@ -10,7 +10,7 @@ const {
     StringSelectMenuBuilder,
 } = require('discord.js');
 const { load } = require('./config');
-const { COLORS, baseEmbed, errorEmbed, successEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../utils/embeds');
 const model = require('./model');
 
 function resolveUser(interaction, targetId) {
@@ -40,11 +40,12 @@ const handleLockButton = withTarget(async (interaction, channel) => {
     const { wasLocked } = await model.toggleLock(channel, everyone);
     await interaction.reply({
         embeds: [
-            baseEmbed(COLORS.primary)
-                .setTitle(wasLocked ? 'Комната открыта' : 'Комната закрыта')
-                .setDescription(
+            baseEmbed(COLORS.primary).setDescription(
+                formatBody(
+                    wasLocked ? 'Комната открыта' : 'Комната закрыта',
                     wasLocked ? `Комната **${channel.name}** открыта для всех.` : `Комната **${channel.name}** закрыта.`
-                ),
+                )
+            ),
         ],
         ephemeral: true,
     });
@@ -55,13 +56,14 @@ const handleHideButton = withTarget(async (interaction, channel) => {
     const { wasHidden } = await model.toggleHide(channel, everyone);
     await interaction.reply({
         embeds: [
-            baseEmbed(COLORS.primary)
-                .setTitle(wasHidden ? 'Комната видна' : 'Комната скрыта')
-                .setDescription(
+            baseEmbed(COLORS.primary).setDescription(
+                formatBody(
+                    wasHidden ? 'Комната видна' : 'Комната скрыта',
                     wasHidden
                         ? `Комната **${channel.name}** снова видна всем.`
                         : `Комната **${channel.name}** скрыта из списка каналов.`
-                ),
+                )
+            ),
         ],
         ephemeral: true,
     });

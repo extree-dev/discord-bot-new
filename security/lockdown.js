@@ -6,7 +6,7 @@
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, update } = require('./config');
 const { log } = require('./logger');
-const { COLORS, baseEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const LOCKABLE_TYPES = new Set([ChannelType.GuildText, ChannelType.GuildVoice, ChannelType.GuildAnnouncement]);
 
@@ -46,8 +46,12 @@ async function activate(guild, moderator) {
     await log(
         guild,
         baseEmbed(COLORS.critical)
-            .setTitle('Lockdown включён')
-            .setDescription('Всем участникам запрещено писать в текстовых каналах и заходить в голосовые.')
+            .setDescription(
+                formatBody(
+                    'Lockdown включён',
+                    'Всем участникам запрещено писать в текстовых каналах и заходить в голосовые.'
+                )
+            )
             .addFields(
                 { name: 'Каналов закрыто', value: `${lockedChannelIds.length}`, inline: true },
                 { name: 'Включил', value: `${moderator}`, inline: true }
@@ -78,7 +82,7 @@ async function deactivate(guild, moderator) {
     await log(
         guild,
         baseEmbed(COLORS.success)
-            .setTitle('Lockdown снят')
+            .setDescription(formatBody('Lockdown снят'))
             .addFields(
                 { name: 'Каналов открыто заново', value: `${count}`, inline: true },
                 { name: 'Снял', value: `${moderator}`, inline: true }
