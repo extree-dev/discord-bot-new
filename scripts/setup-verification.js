@@ -9,8 +9,7 @@ const {
     ButtonStyle,
     ActionRowBuilder,
 } = require('discord.js');
-const { load, save } = require('../security/config');
-const { VERIFY_BUTTON_ID } = require('../security/verification');
+const security = require('../security');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -101,7 +100,7 @@ client.once('clientReady', async () => {
 
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(VERIFY_BUTTON_ID)
+                .setCustomId(security.VERIFY_BUTTON_ID)
                 .setLabel('Пройти верификацию')
                 .setStyle(ButtonStyle.Success)
         );
@@ -109,14 +108,14 @@ client.once('clientReady', async () => {
         await channel.send({ embeds: [embed], components: [row] });
         console.log('Сообщение с кнопкой верификации отправлено.');
 
-        const config = await load();
-        config.verification = {
-            enabled: true,
-            unverifiedRoleId: unverifiedRole.id,
-            verifiedRoleId: participantRole.id,
-            channelId: channel.id,
-        };
-        await save(config);
+        await security.updateConfig(config => {
+            config.verification = {
+                enabled: true,
+                unverifiedRoleId: unverifiedRole.id,
+                verifiedRoleId: participantRole.id,
+                channelId: channel.id,
+            };
+        });
 
         console.log('Готово. Верификация настроена и включена.');
         process.exit(0);

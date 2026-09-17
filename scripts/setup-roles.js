@@ -1,6 +1,6 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
-const { load, save } = require('../security/config');
+const security = require('../security');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -83,9 +83,9 @@ client.once('clientReady', async () => {
             console.log('Позиции ролей выставлены ниже роли бота.');
         }
 
-        const config = await load();
-        config.trustedRoleId = created['Trusted'].id;
-        await save(config);
+        await security.updateConfig(config => {
+            config.trustedRoleId = created['Trusted'].id;
+        });
         console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
 
         console.log('Готово.');
