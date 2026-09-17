@@ -25,12 +25,14 @@ for (const command of loadCommands()) {
 const security = require('./security');
 const voice = require('./voice');
 const tickets = require('./tickets');
+const suggestions = require('./suggestions');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
     security.register(client);
     voice.register(client);
     tickets.register(client);
+    suggestions.register(client);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -49,6 +51,12 @@ client.on('interactionCreate', async interaction => {
             return;
         if (await tickets.handleButton(interaction).catch(err => (console.error('Ошибка кнопки тикета:', err), false)))
             return;
+        if (
+            await suggestions
+                .handleButton(interaction)
+                .catch(err => (console.error('Ошибка кнопки предложения:', err), false))
+        )
+            return;
     }
 
     if (interaction.isModalSubmit()) {
@@ -62,6 +70,12 @@ client.on('interactionCreate', async interaction => {
             await voice
                 .handleModalSubmit(interaction)
                 .catch(err => (console.error('Ошибка формы временной комнаты:', err), false))
+        )
+            return;
+        if (
+            await suggestions
+                .handleModalSubmit(interaction)
+                .catch(err => (console.error('Ошибка формы предложения:', err), false))
         )
             return;
     }
