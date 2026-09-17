@@ -14,8 +14,33 @@ module.exports = {
 
         const status = enabled => (enabled ? 'Включено' : 'Выключено');
 
-        const embed = baseEmbed(COLORS.primary)
+        const lines = [];
+        if (config.manualLockdown.active) {
+            lines.push(
+                '## Lockdown: активен',
+                `- Каналов заблокировано: ${config.manualLockdown.channelIds.length}`,
+                ''
+            );
+        }
+        lines.push(
+            '### Anti-nuke',
+            `- ${status(config.antiNuke.enabled)} — макс. ${config.antiNuke.maxActions} действий / ${config.antiNuke.windowMs / 1000} сек.`,
+            '',
+            '### Raid shield',
+            `- ${status(config.raidShield.enabled)} — порог ${config.raidShield.joinThreshold} заходов / ${config.raidShield.windowMs / 1000} сек., lockdown ${config.raidShield.lockdownMs / 60000} мин.`,
+            '',
+            '### Automod',
+            `- ${status(config.automod.enabled)} — макс. ${config.automod.maxMentions} упоминаний, ${config.automod.maxMessagesPerWindow} сообщ. / ${config.automod.messageWindowMs / 1000} сек.`,
+            `- Запрещённых слов в списке: ${config.bannedWords.length}`,
+            '',
+            '### Прочее',
+            `- Audit log: ${status(config.auditLog.enabled)}`,
+            `- Верификация: ${status(config.verification.enabled)}`
+        );
+
+        const embed = baseEmbed(config.manualLockdown.active ? COLORS.critical : COLORS.primary)
             .setTitle('Статус системы безопасности')
+            .setDescription(lines.join('\n'))
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },
@@ -23,21 +48,7 @@ module.exports = {
                     name: 'Роль Trusted',
                     value: config.trustedRoleId ? `<@&${config.trustedRoleId}>` : 'не задана',
                     inline: true,
-                },
-                {
-                    name: 'Anti-nuke',
-                    value: `${status(config.antiNuke.enabled)} — макс. ${config.antiNuke.maxActions} действий / ${config.antiNuke.windowMs / 1000} сек.`,
-                },
-                {
-                    name: 'Raid shield',
-                    value: `${status(config.raidShield.enabled)} — порог ${config.raidShield.joinThreshold} заходов / ${config.raidShield.windowMs / 1000} сек., lockdown ${config.raidShield.lockdownMs / 60000} мин.`,
-                },
-                {
-                    name: 'Automod',
-                    value: `${status(config.automod.enabled)} — макс. ${config.automod.maxMentions} упоминаний, ${config.automod.maxMessagesPerWindow} сообщ. / ${config.automod.messageWindowMs / 1000} сек., запрещённых слов: ${config.bannedWords.length}`,
-                },
-                { name: 'Audit log', value: status(config.auditLog.enabled), inline: true },
-                { name: 'Верификация', value: status(config.verification.enabled), inline: true }
+                }
             )
             .setFooter({ text: 'Конфиг хранится в PostgreSQL (bot_stores.security-config)' });
 

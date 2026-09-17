@@ -5,6 +5,7 @@ const raidShield = require('./raidShield');
 const auditLog = require('./auditLog');
 const automod = require('./automod');
 const verification = require('./verification');
+const lockdown = require('./lockdown');
 
 function register(client) {
     antiNuke.register(client);
@@ -33,4 +34,6 @@ module.exports = {
     createBackup: backup.createBackup,
     listBackups: backup.listBackups,
     restoreBackup: backup.restoreBackup,
+    activateLockdown: lockdown.activate,
+    deactivateLockdown: lockdown.deactivate,
 };

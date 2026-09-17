@@ -7,6 +7,28 @@ const { COLORS, baseEmbed } = require('../utils/embeds');
 const messageTimestamps = new Map();
 const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]+/i;
 
+// Небольшой курируемый список типичных паттернов фишинга/скама, которые
+// массово рассылают через компрометированные аккаунты и веб-хуки:
+// поддельные раздачи Nitro, поддельные трейд-офферы Steam, тайпсквоты
+// домена discord.com. Не претендует на полноту — это первая линия
+// защиты от самых частых шаблонов, не универсальный антифишинг-сервис.
+const PHISHING_REGEX =
+    /(dis(?:c|cc|k)ord(?:app)?[-.]?(?:nitro|gift|airdrop)|steamcommunity[-.]?(?:gift|trade)|free[-.]?nitro)\.[a-z]{2,10}\b/i;
+
+// Массовый КАПС читается как агрессия/спам. Проверяем долю прописных
+// букв только среди буквенных символов (а не среди всей строки), иначе
+// упоминания/ссылки/эмодзи искажали бы долю в любую сторону.
+function isExcessiveCaps(content) {
+    const letters = content.replace(/[^a-zA-Zа-яА-ЯёЁ]/g, '');
+    if (letters.length < 12) return false;
+    const upper = letters.replace(/[^A-ZА-ЯЁ]/g, '');
+    return upper.length / letters.length > 0.7;
+}
+
+function isPhishingLink(content) {
+    return PHISHING_REGEX.test(content);
+}
+
 async function violate(msg, reasonText) {
     await msg.delete().catch(() => {});
     const warnings = await addWarning(msg.guild.id, msg.author.id, `[Automod] ${reasonText}`, 'Automod');
@@ -61,6 +83,14 @@ async function handle(msg) {
         return violate(msg, 'Приглашение на сторонний сервер');
     }
 
+    if (isPhishingLink(msg.content)) {
+        return violate(msg, 'Похоже на фишинговую/скам-ссылку');
+    }
+
+    if (isExcessiveCaps(msg.content)) {
+        return violate(msg, 'Избыточный капс');
+    }
+
     const lower = msg.content.toLowerCase();
     const hit = config.bannedWords.find(w => w && lower.includes(w.toLowerCase()));
     if (hit) {
@@ -72,4 +102,4 @@ function register(client) {
     client.on('messageCreate', msg => handle(msg).catch(err => console.error('automod:', err)));
 }
 
-module.exports = { register };
+module.exports = { register, isPhishingLink, isExcessiveCaps };
