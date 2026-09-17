@@ -18,13 +18,16 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     try {
         console.log(`Регистрация ${commands.length} slash-команд...`);
 
-        const route = process.env.GUILD_ID
-            ? Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID)
-            : Routes.applicationCommands(process.env.CLIENT_ID);
+        const globalRoute = Routes.applicationCommands(process.env.CLIENT_ID);
+        await rest.put(globalRoute, { body: commands });
+        console.log(`Глобально зарегистрировано: ${commands.length}`);
 
-        await rest.put(route, { body: commands });
+        if (process.env.GUILD_ID) {
+            const guildRoute = Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID);
+            await rest.put(guildRoute, { body: commands });
+            console.log(`На сервере зарегистрировано: ${commands.length}`);
+        }
 
-        console.log('Команды успешно зарегистрированы.');
     } catch (error) {
         console.error(error);
     }

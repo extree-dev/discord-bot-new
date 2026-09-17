@@ -200,10 +200,43 @@ async function handleButton(interaction) {
                 await interaction.reply({ embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')], ephemeral: true });
                 return true;
             }
+            if (entry.claimedBy && entry.claimedBy !== interaction.user.id) {
+                await interaction.reply({
+                    embeds: [errorEmbed(`Тикет уже взят в работу <@${entry.claimedBy}>.`)],
+                    ephemeral: true,
+                });
+                return true;
+            }
+            if (entry.claimedBy === interaction.user.id) {
+                await interaction.reply({
+                    embeds: [errorEmbed('Ты уже ведёшь этот тикет.')],
+                    ephemeral: true,
+                });
+                return true;
+            }
+
             entry.claimedBy = interaction.user.id;
             save(config);
+
+            if (config.supportRoleId) {
+                await interaction.channel.permissionOverwrites.delete(config.supportRoleId).catch(() => {});
+            }
+
+            await interaction.channel.permissionOverwrites
+                .edit(interaction.user.id, {
+                    ViewChannel: true,
+                    SendMessages: true,
+                    ManageMessages: true,
+                    ReadMessageHistory: true,
+                })
+                .catch(() => {});
+
             await interaction.reply({
-                embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${interaction.user} взял тикет в работу.`)],
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor(0x57f287)
+                        .setDescription(`<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`),
+                ],
             });
             return true;
         }
@@ -227,11 +260,26 @@ async function handleButton(interaction) {
         }
 
         if (interaction.customId === 'ticket_close') {
-            const isOwner = entry.ownerId === interaction.user.id;
-            if (!isOwner && !isStaff(config, interaction.member)) {
-                await interaction.reply({ embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')], ephemeral: true });
-                return true;
+            const userId = interaction.user.id;
+            const isOwner = entry.ownerId === userId;
+
+            if (!entry.claimedBy) {
+                if (!isOwner && !isStaff(config, interaction.member)) {
+                    await interaction.reply({ embeds: [errorEmbed('Только автор тикета или поддержка может его закрыть.')], ephemeral: true });
+                    return true;
+                }
+            } else {
+                const isClaimer = entry.claimedBy === userId;
+                const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+                if (!isOwner && !isClaimer && !isAdmin) {
+                    await interaction.reply({
+                        embeds: [errorEmbed(`Тикет ведёт <@${entry.claimedBy}>. Закрыть может только он или автор тикета.`)],
+                        ephemeral: true,
+                    });
+                    return true;
+                }
             }
+
             await interaction.deferUpdate();
             await closeTicket(interaction, interaction.channel, entry);
             return true;

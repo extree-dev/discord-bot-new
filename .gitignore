@@ -1,3 +1,7 @@
 node_modules/
 .env
 data/
+*.backup
+*.backup2
+*.backup3
+*.backup4
