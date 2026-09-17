@@ -5,10 +5,8 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('kick')
         .setDescription('Кикнуть участника с сервера')
-        .addUserOption(option =>
-            option.setName('user').setDescription('Участник').setRequired(true))
-        .addStringOption(option =>
-            option.setName('reason').setDescription('Причина').setRequired(false))
+        .addUserOption(option => option.setName('user').setDescription('Участник').setRequired(true))
+        .addStringOption(option => option.setName('reason').setDescription('Причина').setRequired(false))
         .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
 
     async execute(interaction) {
@@ -17,7 +15,10 @@ module.exports = {
         const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
         if (!member) {
-            return interaction.reply({ embeds: [errorEmbed('Не удалось найти этого участника на сервере.')], ephemeral: true });
+            return interaction.reply({
+                embeds: [errorEmbed('Не удалось найти этого участника на сервере.')],
+                ephemeral: true,
+            });
         }
         if (!member.kickable) {
             return interaction.reply({
@@ -35,7 +36,7 @@ module.exports = {
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
-                { name: 'Причина', value: reason },
+                { name: 'Причина', value: reason }
             )
             .setFooter({ text: `ID: ${target.id}` })
             .setTimestamp();

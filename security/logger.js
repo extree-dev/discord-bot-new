@@ -4,16 +4,12 @@ const { load, update } = require('./config');
 const pendingCreation = new Map();
 
 async function createLogChannel(guild) {
-    let category = guild.channels.cache.find(
-        c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация'
-    );
+    let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация');
     if (!category) {
         category = await guild.channels.create({
             name: '🔐 Модерация',
             type: ChannelType.GuildCategory,
-            permissionOverwrites: [
-                { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-            ],
+            permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
         });
     }
 
@@ -23,9 +19,7 @@ async function createLogChannel(guild) {
             name: 'security-log',
             type: ChannelType.GuildText,
             parent: category.id,
-            permissionOverwrites: [
-                { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-            ],
+            permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
         });
     }
 

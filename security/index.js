@@ -12,7 +12,9 @@ function register(client) {
     automod.register(client);
     verification.register(client);
     scheduleAutoBackup(client);
-    console.log('Система безопасности активирована (anti-nuke, raid shield, audit log, automod, верификация, автобэкап).');
+    console.log(
+        'Система безопасности активирована (anti-nuke, raid shield, audit log, automod, верификация, автобэкап).'
+    );
 }
 
 module.exports = {

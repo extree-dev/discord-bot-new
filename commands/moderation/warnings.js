@@ -5,10 +5,10 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('warnings')
         .setDescription('Показать или очистить предупреждения участника')
-        .addUserOption(option =>
-            option.setName('user').setDescription('Участник').setRequired(true))
+        .addUserOption(option => option.setName('user').setDescription('Участник').setRequired(true))
         .addBooleanOption(option =>
-            option.setName('clear').setDescription('Очистить все предупреждения').setRequired(false))
+            option.setName('clear').setDescription('Очистить все предупреждения').setRequired(false)
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
@@ -42,8 +42,11 @@ module.exports = {
             .setTitle('Предупреждения')
             .setDescription(
                 warnings
-                    .map((w, i) => `**${i + 1}.** ${w.reason} — от ${w.moderatorTag} (${new Date(w.date).toLocaleString('ru-RU')})`)
-                    .join('\n'),
+                    .map(
+                        (w, i) =>
+                            `**${i + 1}.** ${w.reason} — от ${w.moderatorTag} (${new Date(w.date).toLocaleString('ru-RU')})`
+                    )
+                    .join('\n')
             )
             .setFooter({ text: `Всего: ${warnings.length} · ID: ${target.id}` });
 

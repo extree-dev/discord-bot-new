@@ -37,7 +37,9 @@ async function handleButton(interaction) {
     const guild = interaction.guild;
     const member = interaction.member;
 
-    const unverifiedRole = config.verification.unverifiedRoleId ? guild.roles.cache.get(config.verification.unverifiedRoleId) : null;
+    const unverifiedRole = config.verification.unverifiedRoleId
+        ? guild.roles.cache.get(config.verification.unverifiedRoleId)
+        : null;
 
     if (unverifiedRole && !member.roles.cache.has(unverifiedRole.id)) {
         await interaction.reply({
@@ -94,8 +96,12 @@ async function handleModalSubmit(interaction) {
         return true;
     }
 
-    const unverifiedRole = config.verification.unverifiedRoleId ? guild.roles.cache.get(config.verification.unverifiedRoleId) : null;
-    const verifiedRole = config.verification.verifiedRoleId ? guild.roles.cache.get(config.verification.verifiedRoleId) : null;
+    const unverifiedRole = config.verification.unverifiedRoleId
+        ? guild.roles.cache.get(config.verification.unverifiedRoleId)
+        : null;
+    const verifiedRole = config.verification.verifiedRoleId
+        ? guild.roles.cache.get(config.verification.verifiedRoleId)
+        : null;
 
     try {
         if (unverifiedRole) await member.roles.remove(unverifiedRole, 'Верификация пройдена');
@@ -109,7 +115,10 @@ async function handleModalSubmit(interaction) {
         return true;
     }
 
-    const successEmbed = new EmbedBuilder().setColor(0x57f287).setTitle('Верификация пройдена').setDescription('Добро пожаловать!');
+    const successEmbed = new EmbedBuilder()
+        .setColor(0x57f287)
+        .setTitle('Верификация пройдена')
+        .setDescription('Добро пожаловать!');
     await interaction.reply({ embeds: [successEmbed], ephemeral: true });
     await log(
         guild,

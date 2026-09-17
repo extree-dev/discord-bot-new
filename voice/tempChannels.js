@@ -54,7 +54,10 @@ const OWNER_PERMISSION_FLAGS = [
 
 function isOwnerOrStaff(entry, member) {
     if (entry.ownerId === member.id) return true;
-    return member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ModerateMembers);
+    return (
+        member.permissions.has(PermissionFlagsBits.Administrator) ||
+        member.permissions.has(PermissionFlagsBits.ModerateMembers)
+    );
 }
 
 function resolveTarget(interaction, config) {
@@ -95,17 +98,41 @@ function buildPanelMessage() {
         );
 
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('tempvoice_lock').setEmoji({ id: CUSTOM_ICONS.lock, name: 'icon_lock' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_hide').setEmoji({ id: CUSTOM_ICONS.hide, name: 'icon_hide' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_rename').setEmoji({ id: CUSTOM_ICONS.edit, name: 'icon_edit' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_limit').setEmoji({ id: CUSTOM_ICONS.limit, name: 'icon_limit' }).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+            .setCustomId('tempvoice_lock')
+            .setEmoji({ id: CUSTOM_ICONS.lock, name: 'icon_lock' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_hide')
+            .setEmoji({ id: CUSTOM_ICONS.hide, name: 'icon_hide' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_rename')
+            .setEmoji({ id: CUSTOM_ICONS.edit, name: 'icon_edit' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_limit')
+            .setEmoji({ id: CUSTOM_ICONS.limit, name: 'icon_limit' })
+            .setStyle(ButtonStyle.Secondary)
     );
 
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('tempvoice_kick').setEmoji({ id: CUSTOM_ICONS.kick, name: 'icon_kick' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_block').setEmoji({ id: CUSTOM_ICONS.block, name: 'icon_block' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_unblock').setEmoji({ id: CUSTOM_ICONS.unlock, name: 'icon_unlock' }).setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('tempvoice_transfer').setEmoji({ id: CUSTOM_ICONS.crown, name: 'icon_crown' }).setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+            .setCustomId('tempvoice_kick')
+            .setEmoji({ id: CUSTOM_ICONS.kick, name: 'icon_kick' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_block')
+            .setEmoji({ id: CUSTOM_ICONS.block, name: 'icon_block' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_unblock')
+            .setEmoji({ id: CUSTOM_ICONS.unlock, name: 'icon_unlock' })
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('tempvoice_transfer')
+            .setEmoji({ id: CUSTOM_ICONS.crown, name: 'icon_crown' })
+            .setStyle(ButtonStyle.Secondary)
     );
 
     return { embeds: [embed], components: [row1, row2] };
@@ -217,7 +244,11 @@ async function handleButton(interaction) {
             embeds: [
                 new EmbedBuilder()
                     .setColor(0x5865f2)
-                    .setDescription(isLocked ? `Комната **${channel.name}** открыта для всех.` : `Комната **${channel.name}** закрыта.`),
+                    .setDescription(
+                        isLocked
+                            ? `Комната **${channel.name}** открыта для всех.`
+                            : `Комната **${channel.name}** закрыта.`
+                    ),
             ],
             ephemeral: true,
         });
@@ -232,7 +263,11 @@ async function handleButton(interaction) {
             embeds: [
                 new EmbedBuilder()
                     .setColor(0x5865f2)
-                    .setDescription(isHidden ? `Комната **${channel.name}** снова видна всем.` : `Комната **${channel.name}** скрыта из списка каналов.`),
+                    .setDescription(
+                        isHidden
+                            ? `Комната **${channel.name}** снова видна всем.`
+                            : `Комната **${channel.name}** скрыта из списка каналов.`
+                    ),
             ],
             ephemeral: true,
         });
@@ -303,11 +338,15 @@ async function handleButton(interaction) {
         }
         const options = blocked
             .map(ow => {
-                const user = interaction.guild.members.cache.get(ow.id)?.user ?? interaction.client.users.cache.get(ow.id);
+                const user =
+                    interaction.guild.members.cache.get(ow.id)?.user ?? interaction.client.users.cache.get(ow.id);
                 return { label: user ? user.tag : ow.id, value: ow.id };
             })
             .slice(0, 25);
-        const select = new StringSelectMenuBuilder().setCustomId('tempvoice_unblock_select').setPlaceholder('Кого разблокировать?').addOptions(options);
+        const select = new StringSelectMenuBuilder()
+            .setCustomId('tempvoice_unblock_select')
+            .setPlaceholder('Кого разблокировать?')
+            .addOptions(options);
         await interaction.reply({
             content: `Выбери, кого разблокировать в «${channel.name}»:`,
             components: [new ActionRowBuilder().addComponents(select)],
@@ -367,7 +406,9 @@ async function handleModalSubmit(interaction) {
             embeds: [
                 new EmbedBuilder()
                     .setColor(0x57f287)
-                    .setDescription(`Лимит участников комнаты «${channel.name}»: ${limit === 0 ? 'без ограничений' : limit}.`),
+                    .setDescription(
+                        `Лимит участников комнаты «${channel.name}»: ${limit === 0 ? 'без ограничений' : limit}.`
+                    ),
             ],
             ephemeral: true,
         });
@@ -378,7 +419,12 @@ async function handleModalSubmit(interaction) {
 }
 
 async function handleSelectMenu(interaction) {
-    const selectIds = ['tempvoice_kick_select', 'tempvoice_block_select', 'tempvoice_unblock_select', 'tempvoice_transfer_select'];
+    const selectIds = [
+        'tempvoice_kick_select',
+        'tempvoice_block_select',
+        'tempvoice_unblock_select',
+        'tempvoice_transfer_select',
+    ];
     if (!selectIds.includes(interaction.customId)) return false;
 
     const config = await load();
@@ -398,7 +444,11 @@ async function handleSelectMenu(interaction) {
         }
         await targetMember.voice.disconnect('Отключён владельцем комнаты').catch(() => {});
         await interaction.reply({
-            embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${targetMember} отключён от комнаты «${channel.name}».`)],
+            embeds: [
+                new EmbedBuilder()
+                    .setColor(0x57f287)
+                    .setDescription(`${targetMember} отключён от комнаты «${channel.name}».`),
+            ],
             ephemeral: true,
         });
         return true;
@@ -414,9 +464,14 @@ async function handleSelectMenu(interaction) {
         if (memberInChannel) {
             await memberInChannel.voice.disconnect('Заблокирован владельцем комнаты').catch(() => {});
         }
-        const user = interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
+        const user =
+            interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
         await interaction.reply({
-            embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${user ?? 'Участник'} заблокирован в комнате «${channel.name}».`)],
+            embeds: [
+                new EmbedBuilder()
+                    .setColor(0x57f287)
+                    .setDescription(`${user ?? 'Участник'} заблокирован в комнате «${channel.name}».`),
+            ],
             ephemeral: true,
         });
         return true;
@@ -437,9 +492,14 @@ async function handleSelectMenu(interaction) {
             return true;
         }
         await transferOwnership(channel, entry, targetId);
-        const user = interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
+        const user =
+            interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId);
         await interaction.reply({
-            embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`Владельцем комнаты «${channel.name}» теперь ${user ?? 'выбранный участник'}.`)],
+            embeds: [
+                new EmbedBuilder()
+                    .setColor(0x57f287)
+                    .setDescription(`Владельцем комнаты «${channel.name}» теперь ${user ?? 'выбранный участник'}.`),
+            ],
             ephemeral: true,
         });
         return true;

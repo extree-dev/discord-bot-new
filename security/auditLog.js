@@ -29,7 +29,7 @@ function register(client) {
                 .addFields(
                     { name: 'Автор', value: msg.author ? `${msg.author.tag}` : 'неизвестно (не в кэше)', inline: true },
                     { name: 'Канал', value: `${msg.channel}`, inline: true },
-                    { name: 'Содержимое', value: (msg.content?.slice(0, 1000)) || '*(нет текста / не в кэше)*' }
+                    { name: 'Содержимое', value: msg.content?.slice(0, 1000) || '*(нет текста / не в кэше)*' }
                 )
                 .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
@@ -91,7 +91,11 @@ function register(client) {
         if (await wasDoneByBot(ch.guild, AuditLogEvent.ChannelCreate, ch.id)) return;
         safeLog(
             ch.guild,
-            new EmbedBuilder().setColor(0x00cc66).setTitle('📁 Канал создан').addFields({ name: 'Канал', value: `${ch.name}` }).setTimestamp()
+            new EmbedBuilder()
+                .setColor(0x00cc66)
+                .setTitle('📁 Канал создан')
+                .addFields({ name: 'Канал', value: `${ch.name}` })
+                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
@@ -99,7 +103,11 @@ function register(client) {
         if (await wasDoneByBot(role.guild, AuditLogEvent.RoleCreate, role.id)) return;
         safeLog(
             role.guild,
-            new EmbedBuilder().setColor(0x00cc66).setTitle('🏷️ Роль создана').addFields({ name: 'Роль', value: role.name }).setTimestamp()
+            new EmbedBuilder()
+                .setColor(0x00cc66)
+                .setTitle('🏷️ Роль создана')
+                .addFields({ name: 'Роль', value: role.name })
+                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 }

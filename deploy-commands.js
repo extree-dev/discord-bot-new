@@ -27,7 +27,6 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
             await rest.put(guildRoute, { body: commands });
             console.log(`На сервере зарегистрировано: ${commands.length}`);
         }
-
     } catch (error) {
         console.error(error);
     }
