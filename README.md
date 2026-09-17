@@ -66,6 +66,37 @@ npm start         # запустить бота
 
 После настройки включите нужные модули (verification, antiNuke, raidShield и т.д.) через `data/security-config.json` — файл создаётся автоматически при первом запуске бота с дефолтными значениями (`security/config.js`).
 
+## Деплой на VPS
+
+Бот запускается на сервере через `docker compose` (см. `Dockerfile`/`docker-compose.yml`) — контейнер бота и Postgres.
+
+### Первоначальная настройка сервера (один раз)
+
+```bash
+# Docker + Docker Compose, если ещё не установлены
+curl -fsSL https://get.docker.com | sh
+
+git clone https://github.com/extree-dev/discord-bot-new.git /opt/discord-bot-new
+cd /opt/discord-bot-new
+cp .env.example .env
+nano .env   # заполнить DISCORD_TOKEN, CLIENT_ID, GUILD_ID и т.д.
+
+docker compose up -d --build
+```
+
+### Автодеплой при пуше в main
+
+`.github/workflows/deploy.yml` подключается по SSH к серверу при каждом push в `main` и выполняет `git reset --hard origin/main && docker compose up -d --build`. Для этого в репозитории (Settings → Secrets and variables → Actions) нужно задать секреты:
+
+| Секрет        | Значение                                                                                |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `VPS_HOST`    | IP или домен сервера                                                                    |
+| `VPS_PORT`    | SSH-порт (обычно `22`)                                                                  |
+| `VPS_USER`    | пользователь для SSH (например, `root`)                                                 |
+| `VPS_SSH_KEY` | приватный SSH-ключ, чей публичный аналог добавлен в `~/.ssh/authorized_keys` на сервере |
+
+`.env` на сервере деплой не трогает — секреты бота (`DISCORD_TOKEN` и т.д.) обновляются вручную на сервере, а не через GitHub Actions.
+
 ## Структура проекта
 
 ```
