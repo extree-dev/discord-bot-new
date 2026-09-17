@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { addWarning } = require('../../utils/warnings');
+const { COLORS, baseEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,29 +16,25 @@ module.exports = {
 
         const warnings = await addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
 
-        const embed = new EmbedBuilder()
-            .setColor(0xfee75c)
+        const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Предупреждение выдано')
+            .setTitle('⚠️ Предупреждение выдано')
             .addFields(
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason },
                 { name: 'Всего предупреждений', value: `${warnings.length}`, inline: true }
             )
-            .setFooter({ text: `ID: ${target.id}` })
-            .setTimestamp();
+            .setFooter({ text: `ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
 
-        const dmEmbed = new EmbedBuilder()
-            .setColor(0xfee75c)
-            .setTitle('Вы получили предупреждение')
+        const dmEmbed = baseEmbed(COLORS.warning)
+            .setTitle('⚠️ Вы получили предупреждение')
             .addFields(
                 { name: 'Сервер', value: interaction.guild.name, inline: true },
                 { name: 'Причина', value: reason }
-            )
-            .setTimestamp();
+            );
 
         await target.send({ embeds: [dmEmbed] }).catch(() => {});
     },

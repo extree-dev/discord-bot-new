@@ -2,9 +2,9 @@
 // обработчиком через карту (вместо цепочки if/else) и делегирует всю
 // доменную работу в tickets/model.js — здесь только разбор
 // interaction'а и построение ответных сообщений.
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } = require('discord.js');
+const { ActionRowBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } = require('discord.js');
 const { load } = require('./config');
-const { errorEmbed } = require('../utils/embeds');
+const { errorEmbed, successEmbed } = require('../utils/embeds');
 const model = require('./model');
 
 async function handleOpenButton(interaction) {
@@ -86,11 +86,10 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
 
     await interaction.reply({
         embeds: [
-            new EmbedBuilder()
-                .setColor(0x57f287)
-                .setDescription(
-                    `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`
-                ),
+            successEmbed(
+                `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`,
+                '🙋 Тикет взят в работу'
+            ),
         ],
     });
 });
@@ -152,7 +151,7 @@ async function handleReasonSelect(interaction) {
     }
     await interaction.update({
         content: null,
-        embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`Тикет создан: ${result.channel}`)],
+        embeds: [successEmbed(`Тикет создан: ${result.channel}`, '🎫 Тикет создан')],
         components: [],
     });
 }
@@ -167,7 +166,7 @@ async function handleAddUserSelect(interaction) {
     const targetId = interaction.values[0];
     const user = await model.addTicketMember(interaction, targetId);
     await interaction.reply({
-        embeds: [new EmbedBuilder().setColor(0x57f287).setDescription(`${user ?? 'Участник'} добавлен в тикет.`)],
+        embeds: [successEmbed(`${user ?? 'Участник'} добавлен в тикет.`, '➕ Участник добавлен')],
         ephemeral: true,
     });
 }

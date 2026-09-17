@@ -1,6 +1,7 @@
-const { EmbedBuilder, GuildVerificationLevel } = require('discord.js');
+const { GuildVerificationLevel } = require('discord.js');
 const { load } = require('./config');
 const { log, alertOwner } = require('./logger');
+const { COLORS, baseEmbed, criticalEmbed } = require('../utils/embeds');
 
 const joinTimestamps = new Map();
 const lockdownUntil = new Map();
@@ -25,14 +26,11 @@ async function triggerLockdown(guild, config, joinCount) {
 
     await log(
         guild,
-        new EmbedBuilder()
-            .setColor(0xff0000)
-            .setTitle('🚨 Raid shield активирован')
-            .setDescription(
-                `За последние ${config.raidShield.windowMs / 1000} сек. зашло ${joinCount} участников.\n` +
-                    `Уровень верификации поднят до максимума на ${Math.round(config.raidShield.lockdownMs / 60000)} мин.`
-            )
-            .setTimestamp()
+        criticalEmbed(
+            `За последние ${config.raidShield.windowMs / 1000} сек. зашло ${joinCount} участников.\n` +
+                `Уровень верификации поднят до максимума на ${Math.round(config.raidShield.lockdownMs / 60000)} мин.`,
+            '🚨 Raid shield активирован'
+        )
     );
     await alertOwner(
         guild,
@@ -47,10 +45,7 @@ async function triggerLockdown(guild, config, joinCount) {
             previousVerification.delete(guild.id);
             await log(
                 guild,
-                new EmbedBuilder()
-                    .setColor(0x00cc66)
-                    .setTitle('✅ Raid shield снят, уровень верификации восстановлен')
-                    .setTimestamp()
+                baseEmbed(COLORS.success).setTitle('✅ Raid shield снят, уровень верификации восстановлен')
             );
         } catch (err) {
             console.error('raidShield: не удалось вернуть verification level:', err.message);
@@ -69,14 +64,12 @@ async function handleJoin(member) {
             await member.kick('Raid shield: новый аккаунт во время рейд-режима').catch(() => {});
             await log(
                 guild,
-                new EmbedBuilder()
-                    .setColor(0xff8800)
+                baseEmbed(COLORS.warning)
                     .setTitle('🛡️ Raid shield: кикнут новый аккаунт')
                     .addFields(
                         { name: 'Участник', value: `${member.user.tag} (${member.id})` },
                         { name: 'Возраст аккаунта', value: `${Math.round(age / 3600000)} ч.` }
                     )
-                    .setTimestamp()
             );
             return;
         }

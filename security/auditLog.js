@@ -1,6 +1,7 @@
-const { EmbedBuilder, AuditLogEvent } = require('discord.js');
+const { AuditLogEvent } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
+const { COLORS, baseEmbed } = require('../utils/embeds');
 
 async function safeLog(guild, embed) {
     const config = await load();
@@ -23,15 +24,13 @@ function register(client) {
         if (!msg.guild || msg.author?.bot) return;
         safeLog(
             msg.guild,
-            new EmbedBuilder()
-                .setColor(0x999999)
+            baseEmbed(COLORS.neutral)
                 .setTitle('🗑️ Сообщение удалено')
                 .addFields(
                     { name: 'Автор', value: msg.author ? `${msg.author.tag}` : 'неизвестно (не в кэше)', inline: true },
                     { name: 'Канал', value: `${msg.channel}`, inline: true },
                     { name: 'Содержимое', value: msg.content?.slice(0, 1000) || '*(нет текста / не в кэше)*' }
                 )
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
@@ -40,8 +39,7 @@ function register(client) {
         if (oldMsg.content === newMsg.content) return;
         safeLog(
             newMsg.guild,
-            new EmbedBuilder()
-                .setColor(0x5599ff)
+            baseEmbed(COLORS.neutral)
                 .setTitle('✏️ Сообщение изменено')
                 .addFields(
                     { name: 'Автор', value: `${newMsg.author.tag}`, inline: true },
@@ -49,40 +47,33 @@ function register(client) {
                     { name: 'Было', value: (oldMsg.content || '*(пусто / не в кэше)*').slice(0, 500) },
                     { name: 'Стало', value: (newMsg.content || '*(пусто)*').slice(0, 500) }
                 )
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildBanAdd', ban => {
         safeLog(
             ban.guild,
-            new EmbedBuilder()
-                .setColor(0xff0000)
+            baseEmbed(COLORS.danger)
                 .setTitle('🔨 Бан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildBanRemove', ban => {
         safeLog(
             ban.guild,
-            new EmbedBuilder()
-                .setColor(0x00cc66)
+            baseEmbed(COLORS.success)
                 .setTitle('🔓 Разбан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
     client.on('guildMemberRemove', member => {
         safeLog(
             member.guild,
-            new EmbedBuilder()
-                .setColor(0xcc6600)
+            baseEmbed(COLORS.neutral)
                 .setTitle('👋 Участник вышел или был кикнут')
                 .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
@@ -91,11 +82,9 @@ function register(client) {
         if (await wasDoneByBot(ch.guild, AuditLogEvent.ChannelCreate, ch.id)) return;
         safeLog(
             ch.guild,
-            new EmbedBuilder()
-                .setColor(0x00cc66)
+            baseEmbed(COLORS.success)
                 .setTitle('📁 Канал создан')
                 .addFields({ name: 'Канал', value: `${ch.name}` })
-                .setTimestamp()
         ).catch(err => console.error('auditLog:', err));
     });
 
@@ -103,11 +92,7 @@ function register(client) {
         if (await wasDoneByBot(role.guild, AuditLogEvent.RoleCreate, role.id)) return;
         safeLog(
             role.guild,
-            new EmbedBuilder()
-                .setColor(0x00cc66)
-                .setTitle('🏷️ Роль создана')
-                .addFields({ name: 'Роль', value: role.name })
-                .setTimestamp()
+            baseEmbed(COLORS.success).setTitle('🏷️ Роль создана').addFields({ name: 'Роль', value: role.name })
         ).catch(err => console.error('auditLog:', err));
     });
 }

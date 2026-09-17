@@ -1,7 +1,7 @@
-const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
-const { errorEmbed } = require('../utils/embeds');
+const { COLORS, baseEmbed, errorEmbed, infoEmbed } = require('../utils/embeds');
 
 const VERIFY_BUTTON_ID = 'security_verify';
 const VERIFY_MODAL_ID = 'security_verify_modal';
@@ -43,7 +43,7 @@ async function handleButton(interaction) {
 
     if (unverifiedRole && !member.roles.cache.has(unverifiedRole.id)) {
         await interaction.reply({
-            embeds: [errorEmbed('Ты уже верифицирован.').setColor(0x5865f2).setTitle('Уже верифицирован')],
+            embeds: [infoEmbed('Ты уже верифицирован.', 'ℹ️ Уже верифицирован')],
             ephemeral: true,
         });
         return true;
@@ -115,18 +115,15 @@ async function handleModalSubmit(interaction) {
         return true;
     }
 
-    const successEmbed = new EmbedBuilder()
-        .setColor(0x57f287)
-        .setTitle('Верификация пройдена')
+    const passedEmbed = baseEmbed(COLORS.success)
+        .setTitle('✅ Верификация пройдена')
         .setDescription('Добро пожаловать!');
-    await interaction.reply({ embeds: [successEmbed], ephemeral: true });
+    await interaction.reply({ embeds: [passedEmbed], ephemeral: true });
     await log(
         guild,
-        new EmbedBuilder()
-            .setColor(0x57f287)
-            .setTitle('Верификация пройдена')
+        baseEmbed(COLORS.success)
+            .setTitle('✅ Верификация пройдена')
             .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
-            .setTimestamp()
     );
     return true;
 }

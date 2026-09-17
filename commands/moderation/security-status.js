@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const security = require('../../security');
+const { COLORS, baseEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,9 +14,8 @@ module.exports = {
 
         const status = enabled => (enabled ? 'Включено' : 'Выключено');
 
-        const embed = new EmbedBuilder()
-            .setColor(0x5865f2)
-            .setTitle('Статус системы безопасности')
+        const embed = baseEmbed(COLORS.primary)
+            .setTitle('🛡️ Статус системы безопасности')
             .addFields(
                 { name: 'Лог-канал', value: logChannel, inline: true },
                 { name: 'Доверенные ID (вручную)', value: `${config.trustedIds.length}`, inline: true },
@@ -39,8 +39,7 @@ module.exports = {
                 { name: 'Audit log', value: status(config.auditLog.enabled), inline: true },
                 { name: 'Верификация', value: status(config.verification.enabled), inline: true }
             )
-            .setFooter({ text: 'Конфиг хранится в PostgreSQL (bot_stores.security-config)' })
-            .setTimestamp();
+            .setFooter({ text: 'Конфиг хранится в PostgreSQL (bot_stores.security-config)' });
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
     },

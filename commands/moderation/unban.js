@@ -1,5 +1,5 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const { errorEmbed } = require('../../utils/embeds');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { COLORS, baseEmbed, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,14 +18,12 @@ module.exports = {
 
         await interaction.guild.members.unban(userId);
 
-        const embed = new EmbedBuilder()
-            .setColor(0x57f287)
-            .setTitle('Пользователь разбанен')
+        const embed = baseEmbed(COLORS.success)
+            .setTitle('🔓 Пользователь разбанен')
             .addFields(
                 { name: 'ID пользователя', value: userId, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }
-            )
-            .setTimestamp();
+            );
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },

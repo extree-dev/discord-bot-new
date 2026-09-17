@@ -1,7 +1,8 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log } = require('./logger');
 const { addWarning } = require('../utils/warnings');
+const { COLORS, baseEmbed } = require('../utils/embeds');
 
 const messageTimestamps = new Map();
 const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]+/i;
@@ -12,8 +13,7 @@ async function violate(msg, reasonText) {
 
     await log(
         msg.guild,
-        new EmbedBuilder()
-            .setColor(0xffaa00)
+        baseEmbed(COLORS.warning)
             .setTitle('🤖 Automod сработал')
             .addFields(
                 { name: 'Участник', value: `${msg.author.tag} (${msg.author.id})`, inline: true },
@@ -21,7 +21,6 @@ async function violate(msg, reasonText) {
                 { name: 'Причина', value: reasonText },
                 { name: 'Предупреждений всего', value: `${warnings.length}` }
             )
-            .setTimestamp()
     );
 
     const member = await msg.guild.members.fetch(msg.author.id).catch(() => null);

@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { getWarnings, clearWarnings } = require('../../utils/warnings');
+const { COLORS, baseEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -17,29 +18,25 @@ module.exports = {
 
         if (shouldClear) {
             await clearWarnings(interaction.guild.id, target.id);
-            const clearedEmbed = new EmbedBuilder()
-                .setColor(0x57f287)
+            const clearedEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setTitle('Предупреждения очищены')
-                .addFields({ name: 'Модератор', value: `${interaction.user}`, inline: true })
-                .setTimestamp();
+                .setTitle('✅ Предупреждения очищены')
+                .addFields({ name: 'Модератор', value: `${interaction.user}`, inline: true });
             return interaction.reply({ embeds: [clearedEmbed], ephemeral: true });
         }
 
         const warnings = await getWarnings(interaction.guild.id, target.id);
 
         if (warnings.length === 0) {
-            const emptyEmbed = new EmbedBuilder()
-                .setColor(0x5865f2)
+            const emptyEmbed = baseEmbed(COLORS.primary)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
                 .setDescription('У этого участника нет предупреждений.');
             return interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
         }
 
-        const embed = new EmbedBuilder()
-            .setColor(0xfee75c)
+        const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('Предупреждения')
+            .setTitle('⚠️ Предупреждения')
             .setDescription(
                 warnings
                     .map(

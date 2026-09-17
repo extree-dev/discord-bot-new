@@ -1,5 +1,6 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const security = require('../../security');
+const { COLORS, baseEmbed, infoEmbed, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -23,23 +24,22 @@ module.exports = {
         if (sub === 'create') {
             await interaction.deferReply({ ephemeral: true });
             const filename = await security.createBackup(interaction.guild);
-            const embed = new EmbedBuilder()
-                .setColor(0x57f287)
-                .setTitle('Бэкап создан')
-                .addFields({ name: 'Файл', value: `\`${filename}\`` })
-                .setTimestamp();
+            const embed = baseEmbed(COLORS.success)
+                .setTitle('✅ Бэкап создан')
+                .addFields({ name: 'Файл', value: `\`${filename}\`` });
             return interaction.editReply({ embeds: [embed] });
         }
 
         if (sub === 'list') {
             const files = security.listBackups();
             if (!files.length) {
-                const emptyEmbed = new EmbedBuilder().setColor(0x5865f2).setDescription('Бэкапов пока нет.');
-                return interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
+                return interaction.reply({
+                    embeds: [infoEmbed('Бэкапов пока нет.', 'ℹ️ Бэкапы')],
+                    ephemeral: true,
+                });
             }
-            const embed = new EmbedBuilder()
-                .setColor(0x5865f2)
-                .setTitle('Список бэкапов')
+            const embed = baseEmbed(COLORS.primary)
+                .setTitle('🗂️ Список бэкапов')
                 .setDescription(
                     files
                         .slice(0, 15)
@@ -55,9 +55,8 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
             try {
                 const result = await security.restoreBackup(interaction.guild, file);
-                const embed = new EmbedBuilder()
-                    .setColor(0x57f287)
-                    .setTitle('Восстановление завершено')
+                const embed = baseEmbed(COLORS.success)
+                    .setTitle('✅ Восстановление завершено')
                     .setDescription(
                         'Восстановление только добавляет недостающее — ничего не удаляет и не перезаписывает.'
                     )
@@ -74,15 +73,10 @@ module.exports = {
                             name: 'Каналы добавлены',
                             value: result.createdChannels.length ? result.createdChannels.join(', ') : 'нет',
                         }
-                    )
-                    .setTimestamp();
+                    );
                 return interaction.editReply({ embeds: [embed] });
             } catch (err) {
-                const errorEmbed = new EmbedBuilder()
-                    .setColor(0xed4245)
-                    .setTitle('Ошибка восстановления')
-                    .setDescription(err.message);
-                return interaction.editReply({ embeds: [errorEmbed] });
+                return interaction.editReply({ embeds: [errorEmbed(err.message, '❌ Ошибка восстановления')] });
             }
         }
     },
