@@ -28,7 +28,7 @@ module.exports = {
         const deleted = await interaction.channel.bulkDelete(filtered, true);
 
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('🧹 Сообщения удалены')
+            .setTitle('Сообщения удалены')
             .addFields(
                 { name: 'Количество', value: `${deleted.size}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }

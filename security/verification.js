@@ -43,7 +43,7 @@ async function handleButton(interaction) {
 
     if (unverifiedRole && !member.roles.cache.has(unverifiedRole.id)) {
         await interaction.reply({
-            embeds: [infoEmbed('Ты уже верифицирован.', 'ℹ️ Уже верифицирован')],
+            embeds: [infoEmbed('Ты уже верифицирован.', 'Уже верифицирован')],
             ephemeral: true,
         });
         return true;
@@ -116,13 +116,13 @@ async function handleModalSubmit(interaction) {
     }
 
     const passedEmbed = baseEmbed(COLORS.success)
-        .setTitle('✅ Верификация пройдена')
-        .setDescription('Добро пожаловать!');
+        .setTitle('Верификация пройдена')
+        .setDescription('**Добро пожаловать!**');
     await interaction.reply({ embeds: [passedEmbed], ephemeral: true });
     await log(
         guild,
         baseEmbed(COLORS.success)
-            .setTitle('✅ Верификация пройдена')
+            .setTitle('Верификация пройдена')
             .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
     );
     return true;

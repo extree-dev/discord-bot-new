@@ -41,7 +41,7 @@ const handleLockButton = withTarget(async (interaction, channel) => {
     await interaction.reply({
         embeds: [
             baseEmbed(COLORS.primary)
-                .setTitle(wasLocked ? '🔓 Комната открыта' : '🔒 Комната закрыта')
+                .setTitle(wasLocked ? 'Комната открыта' : 'Комната закрыта')
                 .setDescription(
                     wasLocked ? `Комната **${channel.name}** открыта для всех.` : `Комната **${channel.name}** закрыта.`
                 ),
@@ -56,7 +56,7 @@ const handleHideButton = withTarget(async (interaction, channel) => {
     await interaction.reply({
         embeds: [
             baseEmbed(COLORS.primary)
-                .setTitle(wasHidden ? '👁️ Комната видна' : '🙈 Комната скрыта')
+                .setTitle(wasHidden ? 'Комната видна' : 'Комната скрыта')
                 .setDescription(
                     wasHidden
                         ? `Комната **${channel.name}** снова видна всем.`
@@ -178,7 +178,7 @@ const handleRenameModal = withTarget(async (interaction, channel) => {
     const name = interaction.fields.getTextInputValue('tempvoice_rename_input').trim();
     await model.renameRoom(channel, name);
     await interaction.reply({
-        embeds: [successEmbed(`Комната переименована в **${name}**.`, '✏️ Комната переименована')],
+        embeds: [successEmbed(`Комната переименована в **${name}**.`, 'Комната переименована')],
         ephemeral: true,
     });
 });
@@ -195,7 +195,7 @@ const handleLimitModal = withTarget(async (interaction, channel) => {
         embeds: [
             successEmbed(
                 `Лимит участников комнаты «${channel.name}»: ${limit === 0 ? 'без ограничений' : limit}.`,
-                '🔢 Лимит обновлён'
+                'Лимит обновлён'
             ),
         ],
         ephemeral: true,
@@ -225,7 +225,7 @@ const handleKickSelect = withTarget(async (interaction, channel) => {
     }
     await model.kickFromRoom(targetMember);
     await interaction.reply({
-        embeds: [successEmbed(`${targetMember} отключён от комнаты «${channel.name}».`, '👋 Участник отключён')],
+        embeds: [successEmbed(`${targetMember} отключён от комнаты «${channel.name}».`, 'Участник отключён')],
         ephemeral: true,
     });
 });
@@ -240,7 +240,7 @@ const handleBlockSelect = withTarget(async (interaction, channel, entry) => {
     const user = resolveUser(interaction, targetId);
     await interaction.reply({
         embeds: [
-            successEmbed(`${user ?? 'Участник'} заблокирован в комнате «${channel.name}».`, '🚫 Участник заблокирован'),
+            successEmbed(`${user ?? 'Участник'} заблокирован в комнате «${channel.name}».`, 'Участник заблокирован'),
         ],
         ephemeral: true,
     });
@@ -250,7 +250,7 @@ const handleUnblockSelect = withTarget(async (interaction, channel) => {
     const targetId = interaction.values[0];
     await model.unblockInRoom(channel, targetId);
     await interaction.reply({
-        embeds: [successEmbed('Блокировка снята.', '✅ Блокировка снята')],
+        embeds: [successEmbed('Блокировка снята.', 'Блокировка снята')],
         ephemeral: true,
     });
 });
@@ -267,7 +267,7 @@ const handleTransferSelect = withTarget(async (interaction, channel, entry) => {
         embeds: [
             successEmbed(
                 `Владельцем комнаты «${channel.name}» теперь ${user ?? 'выбранный участник'}.`,
-                '👑 Права переданы'
+                'Права переданы'
             ),
         ],
         ephemeral: true,

@@ -7,7 +7,7 @@ const { COLORS, baseEmbed } = require('../utils/embeds');
 
 function buildPanelMessage() {
     const embed = baseEmbed(COLORS.primary)
-        .setTitle('💡 Предложи идею')
+        .setTitle('Предложи идею')
         .setDescription(
             'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
                 'она будет опубликована в канале предложений для обсуждения командой и другими участниками.'
@@ -28,11 +28,11 @@ function buildPanelMessage() {
 function buildSuggestionEmbed({ member, title, description, number }) {
     return baseEmbed(COLORS.warning)
         .setAuthor({ name: member.displayName, iconURL: member.displayAvatarURL() })
-        .setTitle(`💡 ${title}`)
+        .setTitle(title)
         .setDescription(description)
         .addFields(
             { name: 'Автор', value: `${member}`, inline: true },
-            { name: 'Статус', value: '🆕 Новое', inline: true }
+            { name: 'Статус', value: 'Новое', inline: true }
         )
         .setFooter({ text: `Предложение #${number}` });
 }

@@ -25,7 +25,7 @@ function register(client) {
         safeLog(
             msg.guild,
             baseEmbed(COLORS.neutral)
-                .setTitle('🗑️ Сообщение удалено')
+                .setTitle('Сообщение удалено')
                 .addFields(
                     { name: 'Автор', value: msg.author ? `${msg.author.tag}` : 'неизвестно (не в кэше)', inline: true },
                     { name: 'Канал', value: `${msg.channel}`, inline: true },
@@ -40,7 +40,7 @@ function register(client) {
         safeLog(
             newMsg.guild,
             baseEmbed(COLORS.neutral)
-                .setTitle('✏️ Сообщение изменено')
+                .setTitle('Сообщение изменено')
                 .addFields(
                     { name: 'Автор', value: `${newMsg.author.tag}`, inline: true },
                     { name: 'Канал', value: `${newMsg.channel}`, inline: true },
@@ -54,7 +54,7 @@ function register(client) {
         safeLog(
             ban.guild,
             baseEmbed(COLORS.danger)
-                .setTitle('🔨 Бан')
+                .setTitle('Бан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
         ).catch(err => console.error('auditLog:', err));
     });
@@ -63,7 +63,7 @@ function register(client) {
         safeLog(
             ban.guild,
             baseEmbed(COLORS.success)
-                .setTitle('🔓 Разбан')
+                .setTitle('Разбан')
                 .addFields({ name: 'Участник', value: `${ban.user.tag} (${ban.user.id})` })
         ).catch(err => console.error('auditLog:', err));
     });
@@ -72,7 +72,7 @@ function register(client) {
         safeLog(
             member.guild,
             baseEmbed(COLORS.neutral)
-                .setTitle('👋 Участник вышел или был кикнут')
+                .setTitle('Участник вышел или был кикнут')
                 .addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
         ).catch(err => console.error('auditLog:', err));
     });
@@ -83,7 +83,7 @@ function register(client) {
         safeLog(
             ch.guild,
             baseEmbed(COLORS.success)
-                .setTitle('📁 Канал создан')
+                .setTitle('Канал создан')
                 .addFields({ name: 'Канал', value: `${ch.name}` })
         ).catch(err => console.error('auditLog:', err));
     });
@@ -92,7 +92,7 @@ function register(client) {
         if (await wasDoneByBot(role.guild, AuditLogEvent.RoleCreate, role.id)) return;
         safeLog(
             role.guild,
-            baseEmbed(COLORS.success).setTitle('🏷️ Роль создана').addFields({ name: 'Роль', value: role.name })
+            baseEmbed(COLORS.success).setTitle('Роль создана').addFields({ name: 'Роль', value: role.name })
         ).catch(err => console.error('auditLog:', err));
     });
 }

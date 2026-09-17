@@ -65,7 +65,7 @@ function resolveTarget(interaction, config) {
 
 function buildPanelMessage() {
     const embed = baseEmbed(COLORS.primary)
-        .setTitle('🔊 Управление временной комнатой')
+        .setTitle('Управление временной комнатой')
         .setDescription(
             'Зайди в свою комнату в голосовом канале и жми кнопки — действие применится к ней.\n\n' +
                 [

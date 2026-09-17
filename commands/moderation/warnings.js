@@ -20,7 +20,7 @@ module.exports = {
             await clearWarnings(interaction.guild.id, target.id);
             const clearedEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-                .setTitle('✅ Предупреждения очищены')
+                .setTitle('Предупреждения очищены')
                 .addFields({ name: 'Модератор', value: `${interaction.user}`, inline: true });
             return interaction.reply({ embeds: [clearedEmbed], ephemeral: true });
         }
@@ -36,7 +36,7 @@ module.exports = {
 
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
-            .setTitle('⚠️ Предупреждения')
+            .setTitle('Предупреждения')
             .setDescription(
                 warnings
                     .map(

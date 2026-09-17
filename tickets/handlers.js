@@ -88,7 +88,7 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
         embeds: [
             successEmbed(
                 `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`,
-                '🙋 Тикет взят в работу'
+                'Тикет взят в работу'
             ),
         ],
     });
@@ -151,7 +151,7 @@ async function handleReasonSelect(interaction) {
     }
     await interaction.update({
         content: null,
-        embeds: [successEmbed(`Тикет создан: ${result.channel}`, '🎫 Тикет создан')],
+        embeds: [successEmbed(`Тикет создан: ${result.channel}`, 'Тикет создан')],
         components: [],
     });
 }
@@ -166,7 +166,7 @@ async function handleAddUserSelect(interaction) {
     const targetId = interaction.values[0];
     const user = await model.addTicketMember(interaction, targetId);
     await interaction.reply({
-        embeds: [successEmbed(`${user ?? 'Участник'} добавлен в тикет.`, '➕ Участник добавлен')],
+        embeds: [successEmbed(`${user ?? 'Участник'} добавлен в тикет.`, 'Участник добавлен')],
         ephemeral: true,
     });
 }

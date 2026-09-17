@@ -29,7 +29,7 @@ async function triggerLockdown(guild, config, joinCount) {
         criticalEmbed(
             `За последние ${config.raidShield.windowMs / 1000} сек. зашло ${joinCount} участников.\n` +
                 `Уровень верификации поднят до максимума на ${Math.round(config.raidShield.lockdownMs / 60000)} мин.`,
-            '🚨 Raid shield активирован'
+            'Raid shield активирован'
         )
     );
     await alertOwner(
@@ -43,10 +43,7 @@ async function triggerLockdown(guild, config, joinCount) {
             const original = previousVerification.get(guild.id) ?? GuildVerificationLevel.None;
             await guild.setVerificationLevel(original, 'Raid shield: окончание рейд-режима');
             previousVerification.delete(guild.id);
-            await log(
-                guild,
-                baseEmbed(COLORS.success).setTitle('✅ Raid shield снят, уровень верификации восстановлен')
-            );
+            await log(guild, baseEmbed(COLORS.success).setTitle('Raid shield снят, уровень верификации восстановлен'));
         } catch (err) {
             console.error('raidShield: не удалось вернуть verification level:', err.message);
         }
@@ -65,7 +62,7 @@ async function handleJoin(member) {
             await log(
                 guild,
                 baseEmbed(COLORS.warning)
-                    .setTitle('🛡️ Raid shield: кикнут новый аккаунт')
+                    .setTitle('Raid shield: кикнут новый аккаунт')
                     .addFields(
                         { name: 'Участник', value: `${member.user.tag} (${member.id})` },
                         { name: 'Возраст аккаунта', value: `${Math.round(age / 3600000)} ч.` }

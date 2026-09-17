@@ -7,7 +7,7 @@ module.exports = {
 
     async execute(interaction) {
         const embed = baseEmbed(COLORS.primary)
-            .setTitle('ℹ️ О боте')
+            .setTitle('О боте')
             .addFields(
                 { name: 'Версия', value: `v${getVersion()}`, inline: true },
                 { name: 'discord.js', value: `v${discordJsVersion}`, inline: true },

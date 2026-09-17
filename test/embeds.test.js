@@ -12,7 +12,7 @@ const {
 
 test('errorEmbed собирает embed цвета danger с заголовком по умолчанию и переданным текстом', () => {
     const embed = errorEmbed('Что-то пошло не так').toJSON();
-    assert.equal(embed.title, '❌ Ошибка');
+    assert.equal(embed.title, 'Ошибка');
     assert.equal(embed.description, 'Что-то пошло не так');
     assert.equal(embed.color, COLORS.danger);
     assert.ok(embed.timestamp);
@@ -26,8 +26,8 @@ test('successEmbed/infoEmbed/warningEmbed/criticalEmbed используют ц�
 });
 
 test('builder-функции принимают свой title вместо дефолтного', () => {
-    const embed = successEmbed('Комната переименована', '✏️ Переименовано').toJSON();
-    assert.equal(embed.title, '✏️ Переименовано');
+    const embed = successEmbed('Комната переименована', 'Переименовано').toJSON();
+    assert.equal(embed.title, 'Переименовано');
 });
 
 test('neutralEmbed не выставляет title, если он не передан', () => {

@@ -86,7 +86,7 @@ async function handleDestructiveAction(guild, auditType, targetId, description) 
     await log(
         guild,
         baseEmbed(COLORS.warning)
-            .setTitle('⚠️ Anti-nuke: подозрительное действие')
+            .setTitle('Anti-nuke: подозрительное действие')
             .addFields(
                 { name: 'Действие', value: description },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },
@@ -101,7 +101,7 @@ async function handleDestructiveAction(guild, auditType, targetId, description) 
             criticalEmbed(
                 `Пользователь ${executor.tag} (${executor.id}) превысил лимит разрушительных действий.\n` +
                     `Роли сняты: ${result.rolesStripped ? 'да' : 'нет'}. Забанен: ${result.banned ? 'да' : 'нет (не удалось — проверь вручную)'}.`,
-                '🚨 Anti-nuke сработал'
+                'Anti-nuke сработал'
             )
         );
         await alertOwner(
@@ -141,7 +141,7 @@ async function handleDangerousRole(role, isNew, oldPermissions) {
     await log(
         role.guild,
         baseEmbed(COLORS.critical)
-            .setTitle('🚨 Anti-nuke: попытка повышения прав')
+            .setTitle('Anti-nuke: попытка повышения прав')
             .addFields(
                 { name: 'Роль', value: role.name },
                 { name: 'Исполнитель', value: `${executor.tag} (${executor.id})` },

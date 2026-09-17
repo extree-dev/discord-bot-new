@@ -58,7 +58,7 @@ async function handleSuggestionModal(interaction) {
         embeds: [
             successEmbed(
                 `Спасибо! Предложение **#${result.number}** опубликовано и ждёт рассмотрения.`,
-                '💡 Предложение отправлено'
+                'Предложение отправлено'
             ),
         ],
         ephemeral: true,
