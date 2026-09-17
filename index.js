@@ -82,4 +82,23 @@ process.on('uncaughtException', err => {
     console.error('Uncaught exception (бот продолжает работать):', err);
 });
 
+let shuttingDown = false;
+
+async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Получен ${signal}, завершаю работу...`);
+    try {
+        client.destroy();
+        console.log('Соединение с Discord закрыто.');
+    } catch (err) {
+        console.error('Ошибка при остановке клиента:', err);
+    } finally {
+        process.exit(0);
+    }
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
 client.login(process.env.DISCORD_TOKEN);
