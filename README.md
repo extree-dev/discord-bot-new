@@ -76,8 +76,8 @@ npm start         # запустить бота
 # Docker + Docker Compose, если ещё не установлены
 curl -fsSL https://get.docker.com | sh
 
-git clone https://github.com/extree-dev/discord-bot-new.git /opt/discord-bot-new
-cd /opt/discord-bot-new
+git clone https://github.com/extree-dev/discord-bot-new.git /root/discord-bot-new
+cd /root/discord-bot-new
 cp .env.example .env
 nano .env   # заполнить DISCORD_TOKEN, CLIENT_ID, GUILD_ID и т.д.
 
@@ -86,7 +86,7 @@ docker compose up -d --build
 
 ### Автодеплой при пуше в main
 
-`.github/workflows/deploy.yml` подключается по SSH к серверу при каждом push в `main` и выполняет `git reset --hard origin/main && docker compose up -d --build`. Для этого в репозитории (Settings → Secrets and variables → Actions) нужно задать секреты:
+`.github/workflows/deploy.yml` подключается по SSH к серверу при каждом push в `main`, переходит в `/root/discord-bot-new` и выполняет `git reset --hard origin/main && docker compose up -d --build`. Для этого в репозитории (Settings → Secrets and variables → Actions) нужно задать секреты:
 
 | Секрет        | Значение                                                                                |
 | ------------- | --------------------------------------------------------------------------------------- |
