@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const { load, save } = require('../voice/config');
-const { load: loadSecurity } = require('../security/config');
+const security = require('../security');
 const { buildPanelMessage } = require('../voice');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -68,9 +68,9 @@ client.once('clientReady', async () => {
         if (trigger.parentId !== category.id) await trigger.setParent(category.id).catch(() => {});
         await controlChannel.setPosition(0).catch(() => {});
 
-        const security = await loadSecurity();
-        if (security.verification.unverifiedRoleId) {
-            const unverifiedRole = guild.roles.cache.get(security.verification.unverifiedRoleId);
+        const securityConfig = await security.getConfig();
+        if (securityConfig.verification.unverifiedRoleId) {
+            const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
             if (unverifiedRole) {
                 await category.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
                 console.log(`Категория закрыта от роли ${unverifiedRole.name}`);

@@ -2,7 +2,7 @@ const test = require('node:test');
 const { after } = test;
 const assert = require('node:assert/strict');
 const { PermissionFlagsBits } = require('discord.js');
-const { isStaff, findTicketByOwner } = require('../tickets/tickets');
+const { isStaff, findTicketByOwner, canCloseTicket } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
 const { closePool } = require('../utils/db');
@@ -55,6 +55,35 @@ test('findTicketByOwner находит тикет по ownerId и возвращ
     assert.equal(found[1].ownerId, 'user-2');
 
     assert.equal(findTicketByOwner(config, 'no-such-user'), undefined);
+});
+
+test('canCloseTicket: незанятый тикет закрывает автор или любой staff', () => {
+    const config = { supportRoleId: 'support-role' };
+    const entry = { ownerId: 'owner-1', claimedBy: null };
+    assert.equal(canCloseTicket(config, entry, makeMember({})), false, 'посторонний — нет');
+    assert.equal(canCloseTicket(config, entry, { ...makeMember({}), id: 'owner-1' }), true, 'автор — да');
+    assert.equal(canCloseTicket(config, entry, makeMember({ isModerator: true })), true, 'staff — да');
+});
+
+test('canCloseTicket: занятый тикет закрывает автор, тот кто взял, или админ — но не любой staff', () => {
+    const config = { supportRoleId: 'support-role' };
+    const entry = { ownerId: 'owner-1', claimedBy: 'claimer-1' };
+
+    const owner = makeMember({});
+    owner.id = 'owner-1';
+    assert.equal(canCloseTicket(config, entry, owner), true, 'автор — да');
+
+    const claimer = makeMember({});
+    claimer.id = 'claimer-1';
+    assert.equal(canCloseTicket(config, entry, claimer), true, 'тот, кто взял — да');
+
+    const admin = makeMember({ isAdmin: true });
+    admin.id = 'someone-else';
+    assert.equal(canCloseTicket(config, entry, admin), true, 'админ — да');
+
+    const moderator = makeMember({ isModerator: true });
+    moderator.id = 'someone-else';
+    assert.equal(canCloseTicket(config, entry, moderator), false, 'просто модератор (не админ) — нет');
 });
 
 test('tickets/config load() подставляет дефолты и не путает вложенный tickets между вызовами', async () => {
