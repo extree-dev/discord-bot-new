@@ -1,13 +1,15 @@
-const tempChannels = require('./tempChannels');
+const handlers = require('./handlers');
+const model = require('./model');
 
 function register(client) {
-    tempChannels.register(client);
+    handlers.register(client);
     console.log('Система временных голосовых комнат активирована.');
 }
 
 module.exports = {
     register,
-    handleButton: tempChannels.handleButton,
-    handleModalSubmit: tempChannels.handleModalSubmit,
-    handleSelectMenu: tempChannels.handleSelectMenu,
+    handleButton: handlers.handleButton,
+    handleModalSubmit: handlers.handleModalSubmit,
+    handleSelectMenu: handlers.handleSelectMenu,
+    buildPanelMessage: model.buildPanelMessage,
 };
