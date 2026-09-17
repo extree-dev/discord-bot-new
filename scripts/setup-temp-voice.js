@@ -2,7 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const { load, save } = require('../voice/config');
 const security = require('../security');
-const { buildPanelMessage } = require('../voice/tempChannels');
+const { buildPanelMessage } = require('../voice');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
