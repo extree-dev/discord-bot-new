@@ -44,7 +44,6 @@ jobs:
                           fi
                       }
                       run_setup_step deploy-commands.js
-                      run_setup_step scripts/setup-server.js
                       run_setup_step scripts/setup-roles.js
                       run_setup_step scripts/setup-verification.js
                       run_setup_step scripts/setup-tickets.js
