@@ -163,6 +163,16 @@ async function trackRoom(channelId, ownerId) {
     });
 }
 
+// Обратная сторона trackRoom() — вызывающая фича сама удалила канал
+// (например, тикет закрылся вместе со своей голосовой комнатой) и
+// снимает его с учёта, чтобы handleLeave() не пытался работать с уже
+// не существующим каналом.
+async function untrackRoom(channelId) {
+    await update(cfg => {
+        delete cfg.channels[channelId];
+    });
+}
+
 async function transferOwnership(channel, entry, newOwnerId) {
     await channel.permissionOverwrites.delete(entry.ownerId).catch(() => {});
     await channel.permissionOverwrites.edit(newOwnerId, ownerPermissions()).catch(() => {});
@@ -274,6 +284,7 @@ module.exports = {
     buildPanelMessage,
     createRoom,
     trackRoom,
+    untrackRoom,
     transferOwnership,
     handleLeave,
     handleVoiceStateUpdate,

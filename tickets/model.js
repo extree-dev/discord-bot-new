@@ -117,19 +117,33 @@ function aggregateStats(config) {
     let ratingSum = 0;
     let ratedCount = 0;
 
+    function getStats(staffId) {
+        if (!perStaff[staffId]) {
+            perStaff[staffId] = { closed: 0, totalResolveMs: 0, ratingSum: 0, ratedCount: 0 };
+        }
+        return perStaff[staffId];
+    }
+
     for (const entry of Object.values(config.tickets)) {
         if (entry.status !== STATUS.RESOLVED) continue;
         if (typeof entry.rating === 'number') {
             ratingSum += entry.rating;
             ratedCount += 1;
+            // Оценка относится к тому, кто вёл тикет (claimedBy), а не к
+            // тому, кто его закрыл (closedBy) — закрыть может и сам автор
+            // обращения, и он не "модератор" для целей рейтинга.
+            if (entry.claimedBy) {
+                const stats = getStats(entry.claimedBy);
+                stats.ratingSum += entry.rating;
+                stats.ratedCount += 1;
+            }
         }
         if (!entry.closedBy) continue;
-        const stats = perStaff[entry.closedBy] ?? { closed: 0, totalResolveMs: 0 };
+        const stats = getStats(entry.closedBy);
         stats.closed += 1;
         if (typeof entry.closedAt === 'number' && typeof entry.createdAt === 'number') {
             stats.totalResolveMs += entry.closedAt - entry.createdAt;
         }
-        perStaff[entry.closedBy] = stats;
     }
 
     return { perStaff, averageRating: ratedCount ? ratingSum / ratedCount : null, ratedCount };
@@ -241,6 +255,8 @@ async function createTicket(interaction, reason, description) {
         rating: null,
         ratedAt: null,
         notesThreadId: null,
+        voiceChannelId: null,
+        rootMessageId: null,
     };
     await update(cfg => {
         cfg.tickets[thread.id] = entry;
@@ -249,13 +265,33 @@ async function createTicket(interaction, reason, description) {
     const pings = [supportRoleId, reasonRoleId].filter(Boolean);
     const uniquePings = [...new Set(pings)].map(id => `<@&${id}>`);
 
-    await thread.send({
+    // rootMessageId запоминаем, чтобы claim/reopen/смена статуса могли
+    // обновить именно это сообщение в месте, а не только слать новое —
+    // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
+    const rootMessage = await thread.send({
         content: `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`,
         embeds: [buildTicketEmbed(entry)],
         components: buildTicketControlRow(),
     });
+    await update(cfg => {
+        const e = cfg.tickets[thread.id];
+        if (e) e.rootMessageId = rootMessage.id;
+    });
 
     return { thread };
+}
+
+// Перерисовывает embed стартового сообщения тикета (тема/статус/кто
+// взял в работу) актуальными данными — вызывается после claim, любой
+// активности в треде и reopen, чтобы это сообщение не застревало на
+// "Взял в работу: никто" после того, как тикет уже давно взяли.
+async function updateTicketRootMessage(client, threadId, entry) {
+    if (!entry?.rootMessageId) return;
+    const thread = client.channels.cache.get(threadId) ?? (await client.channels.fetch(threadId).catch(() => null));
+    if (!thread) return;
+    const message = await thread.messages.fetch(entry.rootMessageId).catch(() => null);
+    if (!message) return;
+    await message.edit({ embeds: [buildTicketEmbed(entry)] }).catch(() => {});
 }
 
 // Атомарный захват тикета: перечитывает свежие данные внутри лока и
@@ -342,6 +378,27 @@ async function createDiscussionVoiceChannel(interaction, entry) {
     return channel;
 }
 
+// Переиспользует уже созданную для этого тикета голосовую комнату,
+// если она ещё существует (повторный клик "Обсудить голосом" не должен
+// плодить второй канал и терять ссылку на первый), иначе создаёт новую
+// и запоминает её id на entry — без этого closeTicket не знал бы, какой
+// канал удалять при закрытии тикета.
+async function getOrCreateDiscussionVoiceChannel(interaction, entry) {
+    if (entry.voiceChannelId) {
+        const existing =
+            interaction.guild.channels.cache.get(entry.voiceChannelId) ??
+            (await interaction.guild.channels.fetch(entry.voiceChannelId).catch(() => null));
+        if (existing) return { channel: existing, created: false };
+    }
+
+    const channel = await createDiscussionVoiceChannel(interaction, entry);
+    await update(cfg => {
+        const e = cfg.tickets[interaction.channelId];
+        if (e) e.voiceChannelId = channel.id;
+    });
+    return { channel, created: true };
+}
+
 // Приватный тред с внутренними заметками staff, отдельный от основного
 // тикета (чтобы автор обращения их не видел) — создаётся лениво при
 // первом /ticket note и переиспользуется дальше. Участники добавляются
@@ -426,6 +483,26 @@ async function closeTicket(guild, channel, entry, closedBy) {
         pruneOldResolved(cfg);
     });
 
+    // Побочные ресурсы тикета (голосовая комната для обсуждения, тред
+    // с внутренними заметками staff) не нужны после закрытия — если их
+    // не убрать явно, они остаются висеть: голосовой канал — до тех
+    // пор, пока кто-то не зайдёт и не выйдет из него, тред с заметками
+    // — навсегда (архивировать его бессмысленно, реопенить тикет не
+    // восстанавливает доступ к заметкам отдельно).
+    if (entry.notesThreadId) {
+        const notesThread =
+            guild.channels.cache.get(entry.notesThreadId) ??
+            (await guild.channels.fetch(entry.notesThreadId).catch(() => null));
+        await notesThread?.delete('Тикет закрыт').catch(() => {});
+    }
+    if (entry.voiceChannelId) {
+        const voiceChannel =
+            guild.channels.cache.get(entry.voiceChannelId) ??
+            (await guild.channels.fetch(entry.voiceChannelId).catch(() => null));
+        await voiceChannel?.delete('Тикет закрыт').catch(() => {});
+        await voice.untrackRoom(entry.voiceChannelId);
+    }
+
     await channel
         .send({
             embeds: [baseEmbed(COLORS.danger).setDescription(formatBody('Тикет закрывается', 'Через 5 секунд...'))],
@@ -490,7 +567,8 @@ async function postCannedResponse(interaction, key) {
     const canned = CANNED_RESPONSES[key];
     if (!canned) return { error: 'Неизвестный шаблон ответа.' };
     await interaction.channel.send({ embeds: [infoEmbed(canned.text, canned.label)] });
-    await recordActivity(interaction.channelId, false);
+    const updatedEntry = await recordActivity(interaction.channelId, false);
+    if (updatedEntry) await updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
     return {};
 }
 
@@ -540,6 +618,7 @@ async function reopenTicket(guild, number) {
 
     if (updatedEntry) {
         await thread.send({ embeds: [buildTicketEmbed(updatedEntry)] }).catch(() => {});
+        await updateTicketRootMessage(guild.client, threadId, updatedEntry);
     }
 
     return { thread };
@@ -571,6 +650,7 @@ async function sendRatingRequest(client, entry, threadId) {
 // наконец что-то произошло.
 async function recordActivity(threadId, authorIsOwner) {
     const now = Date.now();
+    let updatedEntry = null;
     await update(cfg => {
         const e = cfg.tickets[threadId];
         if (!e || e.status === STATUS.RESOLVED) return;
@@ -581,7 +661,9 @@ async function recordActivity(threadId, authorIsOwner) {
         } else {
             e.status = STATUS.WAITING_ON_USER;
         }
+        updatedEntry = e;
     });
+    return updatedEntry;
 }
 
 async function recordRating(threadId, rating) {
@@ -616,9 +698,11 @@ module.exports = {
     buildTicketControlRow,
     buildTicketEmbed,
     createTicket,
+    updateTicketRootMessage,
     claimTicket,
     addTicketMember,
     createDiscussionVoiceChannel,
+    getOrCreateDiscussionVoiceChannel,
     getOrCreateNotesThread,
     closeTicket,
     reopenTicket,

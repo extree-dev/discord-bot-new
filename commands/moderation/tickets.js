@@ -74,10 +74,15 @@ module.exports = {
             }
             const lines = staffEntries
                 .sort(([, a], [, b]) => b.closed - a.closed)
-                .map(
-                    ([staffId, s]) =>
-                        `<@${staffId}> — закрыл: ${s.closed}, среднее время решения: ${tickets.formatDuration(s.totalResolveMs / s.closed)}`
-                );
+                .map(([staffId, s]) => {
+                    const resolveTime = s.closed
+                        ? `, среднее время решения: ${tickets.formatDuration(s.totalResolveMs / s.closed)}`
+                        : '';
+                    const rating = s.ratedCount
+                        ? `, оценка: ${(s.ratingSum / s.ratedCount).toFixed(1)}/5 (${s.ratedCount})`
+                        : '';
+                    return `<@${staffId}> — закрыл: ${s.closed}${resolveTime}${rating}`;
+                });
             const embed = baseEmbed(COLORS.primary)
                 .setDescription(formatBody('Статистика поддержки'))
                 .addFields(

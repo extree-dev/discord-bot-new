@@ -116,18 +116,56 @@ test('formatDuration форматирует миллисекунды в чело
 test('aggregateStats считает закрытые тикеты по staff и среднюю оценку', () => {
     const config = {
         tickets: {
-            t1: { status: STATUS.RESOLVED, closedBy: 'staff-1', createdAt: 0, closedAt: 1000, rating: 5 },
-            t2: { status: STATUS.RESOLVED, closedBy: 'staff-1', createdAt: 0, closedAt: 3000, rating: 3 },
-            t3: { status: STATUS.RESOLVED, closedBy: 'staff-2', createdAt: 0, closedAt: 2000 },
+            t1: {
+                status: STATUS.RESOLVED,
+                closedBy: 'staff-1',
+                claimedBy: 'staff-1',
+                createdAt: 0,
+                closedAt: 1000,
+                rating: 5,
+            },
+            t2: {
+                status: STATUS.RESOLVED,
+                closedBy: 'staff-1',
+                claimedBy: 'staff-1',
+                createdAt: 0,
+                closedAt: 3000,
+                rating: 3,
+            },
+            t3: { status: STATUS.RESOLVED, closedBy: 'staff-2', claimedBy: 'staff-2', createdAt: 0, closedAt: 2000 },
             t4: { status: STATUS.OPEN, closedBy: null, createdAt: 0 },
         },
     };
     const { perStaff, averageRating, ratedCount } = aggregateStats(config);
     assert.equal(perStaff['staff-1'].closed, 2);
     assert.equal(perStaff['staff-1'].totalResolveMs, 4000);
+    assert.equal(perStaff['staff-1'].ratedCount, 2);
+    assert.equal(perStaff['staff-1'].ratingSum, 8);
     assert.equal(perStaff['staff-2'].closed, 1);
+    assert.equal(perStaff['staff-2'].ratedCount, 0);
     assert.equal(ratedCount, 2);
     assert.equal(averageRating, 4);
+});
+
+test('aggregateStats относит оценку к claimedBy, а не к closedBy (автор мог закрыть тикет сам)', () => {
+    const config = {
+        tickets: {
+            t1: {
+                status: STATUS.RESOLVED,
+                closedBy: 'owner-1',
+                claimedBy: 'staff-1',
+                createdAt: 0,
+                closedAt: 1000,
+                rating: 4,
+            },
+        },
+    };
+    const { perStaff } = aggregateStats(config);
+    assert.equal(perStaff['staff-1'].ratedCount, 1);
+    assert.equal(perStaff['staff-1'].ratingSum, 4);
+    assert.equal(perStaff['staff-1'].closed, 0);
+    assert.equal(perStaff['owner-1'].closed, 1);
+    assert.equal(perStaff['owner-1'].ratedCount, 0);
 });
 
 test('findTicketsToEscalate: только тред-тикеты без claim, старше claimTimeoutMs и ещё не эскалированные', () => {
