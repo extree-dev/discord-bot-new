@@ -7,7 +7,13 @@ const {
     countRecentGivenTo,
     buildLeaderboardMovement,
     formatRemaining,
+    buildRankCardAttachment,
 } = require('../reputation/model');
+
+// Discord CDN принимает только эти размеры — любое другое значение роняет
+// bannerURL()/displayAvatarURL() RangeError'ом (см. 3.9.2: size: 600 валил
+// всю команду /rep profile, как только у пользователя оказывался баннер).
+const VALID_CDN_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024, 2048, 4096]);
 
 test('getLevelIndex возвращает индекс последнего пройденного порога', () => {
     assert.equal(getLevelIndex(0), 0);
@@ -82,4 +88,25 @@ test('formatRemaining форматирует миллисекунды в час�
     assert.equal(formatRemaining(60 * 1000), '1 мин');
     assert.equal(formatRemaining(90 * 60 * 1000), '1 ч 30 мин');
     assert.equal(formatRemaining(2 * 60 * 60 * 1000), '2 ч 0 мин');
+});
+
+test('buildRankCardAttachment: запрашивает аватар и баннер только валидными размерами CDN', async () => {
+    const fakeUser = {
+        globalName: 'Тест',
+        username: 'test',
+        displayAvatarURL: (options = {}) => {
+            assert.ok(VALID_CDN_SIZES.has(options.size), `displayAvatarURL: невалидный size ${options.size}`);
+            return null;
+        },
+        bannerURL: (options = {}) => {
+            assert.ok(VALID_CDN_SIZES.has(options.size), `bannerURL: невалидный size ${options.size}`);
+            return null;
+        },
+    };
+    const fakeClient = { users: { fetch: async () => fakeUser } };
+    const level = { title: 'Участник', min: 5, next: { title: 'Активный участник', min: 15 }, progress: 0.5 };
+
+    const attachment = await buildRankCardAttachment(fakeClient, 'user-1', { score: 10, level, rank: 3 });
+
+    assert.ok(attachment);
 });
