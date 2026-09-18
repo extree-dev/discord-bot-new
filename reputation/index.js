@@ -16,6 +16,7 @@ module.exports = {
     getLeaderboard: model.getLeaderboard,
     setReputation: model.setReputation,
     getLevelRoleId: model.getLevelRoleId,
+    getGuildConfig: model.getGuildConfig,
     configureGuild: model.configureGuild,
     buildRankCardAttachment: model.buildRankCardAttachment,
     buildLevelUpCard: model.buildLevelUpCard,

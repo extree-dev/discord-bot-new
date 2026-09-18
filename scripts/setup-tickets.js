@@ -73,11 +73,13 @@ client.once('clientReady', async () => {
                     permissions: [],
                 });
                 console.log(`Создана роль: ${spec.name}`);
-            } else if (role.name !== spec.name || role.hexColor !== `#${spec.color.toString(16).padStart(6, '0')}`) {
-                await role.edit({ name: spec.name, color: spec.color }).catch(() => {});
-                console.log(`Роль обновлена: ${spec.name}`);
             } else {
-                console.log(`Роль ${spec.name} уже существует`);
+                // Найдена по уже сохранённому ID (или по имени на самом первом
+                // запуске) — используем как есть, не переименовываем и не
+                // перекрашиваем: администратор мог осознанно изменить имя/цвет
+                // после создания, и это не повод откатывать их на дефолт при
+                // каждом деплое.
+                console.log(`Роль уже настроена: ${role.name}`);
             }
             reasonRoleIds[reasonValue] = role.id;
             specialistRoles.push(role);

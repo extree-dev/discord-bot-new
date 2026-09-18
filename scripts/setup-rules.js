@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const rules = require('../rules');
+const { findOrCreateChannel } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -12,22 +13,28 @@ client.once('clientReady', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
 
+        const { channelId: existingChannelId, messageId } = await rules.getPostedLocation();
+
         let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME);
         if (!category) {
             category = await guild.channels.create({ name: CATEGORY_NAME, type: ChannelType.GuildCategory });
             console.log(`Создана категория: ${CATEGORY_NAME}`);
         }
 
-        let channel = guild.channels.cache.find(c => c.parentId === category.id && c.name === CHANNEL_NAME);
-        if (!channel) {
-            channel = await guild.channels.create({
-                name: CHANNEL_NAME,
-                type: ChannelType.GuildText,
-                parent: category.id,
+        const { channel, created } = await findOrCreateChannel({
+            guild,
+            existingId: existingChannelId,
+            name: CHANNEL_NAME,
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            createOptions: {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            });
+            },
+        });
+        if (created) {
             console.log(`Создан канал: ${CHANNEL_NAME}`);
         } else {
+            console.log(`Канал правил уже настроен: ${channel.name}`);
             // Канал мог существовать до этого скрипта (например, из
             // setup-server.js) без ограничения на отправку сообщений —
             // правила должны быть read-only для всех, кроме модерации.
@@ -37,10 +44,9 @@ client.once('clientReady', async () => {
         }
 
         const embed = rules.buildRulesEmbed();
-        const { channelId, messageId } = await rules.getPostedLocation();
 
         let message = null;
-        if (channelId === channel.id && messageId) {
+        if (existingChannelId === channel.id && messageId) {
             message = await channel.messages.fetch(messageId).catch(() => null);
         }
 

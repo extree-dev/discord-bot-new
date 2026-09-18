@@ -6,6 +6,12 @@ const DEFAULTS = {
     logChannelId: null,
     trustedIds: [],
     trustedRoleId: null,
+    // Память scripts/setup-roles.js для базовых ролей (Admin/Moderator/
+    // Trusted) — отдельно от trustedRoleId (у которого есть собственный
+    // функциональный смысл для isTrusted() ниже), чтобы повторный запуск
+    // скрипта находил уже переименованную администратором роль по ID,
+    // а не создавал рядом дубликат с дефолтным именем.
+    baseRoleIds: {},
     bannedWords: [],
     antiNuke: { enabled: true, maxActions: 3, windowMs: 10000 },
     raidShield: {
@@ -26,6 +32,7 @@ function normalize(data) {
     return {
         ...DEFAULTS,
         ...data,
+        baseRoleIds: { ...DEFAULTS.baseRoleIds, ...data.baseRoleIds },
         antiNuke: { ...DEFAULTS.antiNuke, ...data.antiNuke },
         raidShield: { ...DEFAULTS.raidShield, ...data.raidShield },
         automod: { ...DEFAULTS.automod, ...data.automod },

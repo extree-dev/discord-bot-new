@@ -256,6 +256,15 @@ async function getLevelRoleId(guildId, levelIndex) {
     return cfg.guilds[guildId]?.levelRoles?.[levelIndex] ?? null;
 }
 
+// Вызывается из scripts/setup-reputation.js, чтобы предпочесть уже
+// сохранённые announceChannelId/levelRoles поиску по имени — иначе
+// переименованный вручную канал/роль уровня считался бы "не найденным"
+// при следующем деплое и получал бы дубликат с дефолтным именем.
+async function getGuildConfig(guildId) {
+    const cfg = await config.load();
+    return cfg.guilds[guildId] ?? {};
+}
+
 // Вызывается из scripts/setup-reputation.js — сохраняет канал для
 // автопостов рейтинга/level-up и карту "индекс уровня → роль", созданную
 // скриптом. Отдельная функция, а не прямой config.update() из скрипта —
@@ -284,6 +293,7 @@ module.exports = {
     getProfile,
     setReputation,
     getLevelRoleId,
+    getGuildConfig,
     configureGuild,
     buildRankCardAttachment,
     buildLevelUpCard,
