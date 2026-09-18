@@ -203,9 +203,14 @@ const handleCloseButton = withTicketEntry(async (interaction, config, entry) => 
 });
 
 const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member) && interaction.user.id !== entry.ownerId) {
+    // Только staff создаёт голосовое обсуждение — у автора тикета нет
+    // причин заводить голосовой канал самостоятельно (например, чтобы
+    // куда-то позвать посторонних без контроля поддержки); доступ в уже
+    // созданную комнату у него при этом остаётся (см. overwrites в
+    // createDiscussionVoiceChannel).
+    if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
-            embeds: [errorEmbed('Только автор тикета или поддержка может открыть голосовое обсуждение.')],
+            embeds: [errorEmbed('Только поддержка может открыть голосовое обсуждение.')],
             ephemeral: true,
         });
         return;
