@@ -305,16 +305,6 @@ function aggregateStats(config) {
     return { perStaff, averageRating: ratedCount ? ratingSum / ratedCount : null, ratedCount };
 }
 
-// Цвет кнопки категории — единственный способ визуально различать темы
-// обращений без эмодзи: срочные/про нарушения — красным, донат — зелёным
-// (позитивная тема), остальное — синим/серым.
-const REASON_BUTTON_STYLES = {
-    bug: ButtonStyle.Primary,
-    report: ButtonStyle.Danger,
-    payment: ButtonStyle.Success,
-    security: ButtonStyle.Danger,
-};
-
 // Короткая подпись на кнопке — полный REASONS[].label ("Баг / техническая
 // проблема") слишком длинный и разъезжается в сетке кнопок; на кнопке
 // достаточно одного слова, полное название и так есть в тексте выше.
@@ -330,8 +320,8 @@ const REASON_BUTTON_LABELS = {
 
 // Панель — один Container: заголовок с общим описанием, список тем текстом
 // и ряды кнопок под ним (до 5 в ряд — ограничение Discord). Без картинок
-// и повторяющихся подписей на каждой строке — просто цвет кнопки по смыслу
-// темы и её короткое имя.
+// и повторяющихся подписей на каждой строке — короткое имя темы на кнопке,
+// все кнопки одного (серого) цвета, чтобы не рябило в глазах.
 function buildPanelMessage() {
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(
@@ -352,7 +342,7 @@ function buildPanelMessage() {
         new ButtonBuilder()
             .setCustomId(`${OPEN_REASON_PREFIX}${r.value}`)
             .setLabel(REASON_BUTTON_LABELS[r.value] ?? r.label)
-            .setStyle(REASON_BUTTON_STYLES[r.value] ?? ButtonStyle.Secondary)
+            .setStyle(ButtonStyle.Secondary)
     );
     const rows = [];
     for (let i = 0; i < buttons.length; i += 4) {
@@ -363,7 +353,9 @@ function buildPanelMessage() {
 }
 
 // entry — опционально: кнопка "Наказать" появляется только у тикетов
-// с указанным нарушителем (reportedUserId), остальные её не видят.
+// с указанным нарушителем (reportedUserId), остальные её не видят. Все
+// кнопки одного (серого) цвета — разноцветные "Закрыть"/"Наказать" на
+// общем сером фоне рябили в глазах, не давая настоящего сигнала важности.
 function buildTicketControlRow(entry = null) {
     const secondRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_voice').setLabel('Обсудить голосом').setStyle(ButtonStyle.Secondary),
@@ -371,7 +363,7 @@ function buildTicketControlRow(entry = null) {
     );
     if (entry?.reportedUserId) {
         secondRow.addComponents(
-            new ButtonBuilder().setCustomId('ticket_punish').setLabel('Наказать').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('ticket_punish').setLabel('Наказать').setStyle(ButtonStyle.Secondary)
         );
     }
     return [
@@ -381,7 +373,7 @@ function buildTicketControlRow(entry = null) {
                 .setCustomId('ticket_adduser')
                 .setLabel('Добавить участника')
                 .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
         ),
         secondRow,
     ];
