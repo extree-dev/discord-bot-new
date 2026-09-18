@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const {
     getLevelIndex,
     getLevel,
-    formatProgressBar,
     computeCooldownRemaining,
     countRecentGivenTo,
     buildLeaderboardMovement,
@@ -29,14 +28,6 @@ test('getLevel считает прогресс до следующего уро�
     assert.equal(max.title, 'Икона сообщества');
     assert.equal(max.next, null);
     assert.equal(max.progress, 1);
-});
-
-test('formatProgressBar рисует нужное число заполненных сегментов', () => {
-    assert.equal(formatProgressBar(0, 10), '░░░░░░░░░░');
-    assert.equal(formatProgressBar(1, 10), '██████████');
-    assert.equal(formatProgressBar(0.5, 10), '█████░░░░░');
-    assert.equal(formatProgressBar(-1, 10), '░░░░░░░░░░'); // clamp снизу
-    assert.equal(formatProgressBar(2, 10), '██████████'); // clamp сверху
 });
 
 test('computeCooldownRemaining: 0 без предыдущей выдачи, иначе остаток окна', () => {

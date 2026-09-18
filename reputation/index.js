@@ -18,6 +18,7 @@ module.exports = {
     getLevelRoleId: model.getLevelRoleId,
     configureGuild: model.configureGuild,
     buildProfileCard: model.buildProfileCard,
+    buildProfileAttachment: model.buildProfileAttachment,
     buildLevelUpCard: model.buildLevelUpCard,
     buildLeaderboardCard: model.buildLeaderboardCard,
     buildLeaderboardMovement: model.buildLeaderboardMovement,
