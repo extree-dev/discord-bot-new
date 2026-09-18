@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require(
 const { load, save } = require('../suggestions/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../suggestions');
+const { findOrCreateChannel } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -15,32 +16,28 @@ client.once('clientReady', async () => {
         const config = await load();
 
         // канал с панелью — сюда пишет только бот, участники жмут кнопку
-        let panelChannel = config.panelChannelId ? guild.channels.cache.get(config.panelChannelId) : null;
-        if (!panelChannel) panelChannel = guild.channels.cache.find(c => c.name === 'предложить-идею');
-        if (!panelChannel) {
-            panelChannel = await guild.channels.create({
-                name: 'предложить-идею',
-                type: ChannelType.GuildText,
+        const { channel: panelChannel, created: panelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.panelChannelId,
+            name: 'предложить-идею',
+            type: ChannelType.GuildText,
+            createOptions: {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            });
-            console.log('Создан канал: предложить-идею');
-        } else {
-            console.log('Канал предложить-идею уже существует');
-        }
+            },
+        });
+        console.log(panelCreated ? 'Создан канал: предложить-идею' : 'Канал предложить-идею уже настроен');
 
         // канал вывода предложений — тоже read-only для участников, туда публикует бот
-        let outputChannel = config.outputChannelId ? guild.channels.cache.get(config.outputChannelId) : null;
-        if (!outputChannel) outputChannel = guild.channels.cache.find(c => c.name === 'предложения');
-        if (!outputChannel) {
-            outputChannel = await guild.channels.create({
-                name: 'предложения',
-                type: ChannelType.GuildText,
+        const { channel: outputChannel, created: outputCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.outputChannelId,
+            name: 'предложения',
+            type: ChannelType.GuildText,
+            createOptions: {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            });
-            console.log('Создан канал: предложения');
-        } else {
-            console.log('Канал предложения уже существует');
-        }
+            },
+        });
+        console.log(outputCreated ? 'Создан канал: предложения' : 'Канал предложения уже настроен');
 
         const securityConfig = await security.getConfig();
         if (securityConfig.verification.unverifiedRoleId) {

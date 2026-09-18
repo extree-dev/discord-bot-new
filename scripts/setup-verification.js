@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 const security = require('../security');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
+const { findOrCreateChannel, findOrCreateRole } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -27,68 +28,62 @@ client.once('clientReady', async () => {
         // имя реальной роли отличается от того, что ищется по умолчанию.
         const existingConfig = await security.getConfig();
 
-        let unverifiedRole = existingConfig.verification.unverifiedRoleId
-            ? guild.roles.cache.get(existingConfig.verification.unverifiedRoleId)
-            : null;
-        if (!unverifiedRole) {
-            unverifiedRole = guild.roles.cache.find(r => r.name === 'Unverified');
-        }
-        if (!unverifiedRole) {
-            unverifiedRole = await guild.roles.create({
-                name: 'Unverified',
-                color: 0x808080,
-                hoist: false,
-                mentionable: false,
-                permissions: [],
-            });
-            console.log('Создана роль: Unverified');
-        } else {
-            console.log(`Роль для "не верифицирован" уже настроена: ${unverifiedRole.name}`);
-        }
-
-        let verifiedRole = existingConfig.verification.verifiedRoleId
-            ? guild.roles.cache.get(existingConfig.verification.verifiedRoleId)
-            : null;
-        if (!verifiedRole) {
-            verifiedRole = guild.roles.cache.find(r => r.name === 'Верифицирован');
-        }
-        if (!verifiedRole) {
-            verifiedRole = await guild.roles.create({
-                name: 'Верифицирован',
-                color: 0x57f287,
-                hoist: false,
-                mentionable: false,
-                permissions: [],
-            });
-            console.log('Создана роль: Верифицирован');
-        } else {
-            console.log(`Роль для "верифицирован" уже настроена: ${verifiedRole.name}`);
-        }
-
-        let category = guild.channels.cache.find(
-            c => c.type === ChannelType.GuildCategory && c.name === '🚪 Верификация'
+        const { role: unverifiedRole, created: unverifiedCreated } = await findOrCreateRole({
+            guild,
+            existingId: existingConfig.verification.unverifiedRoleId,
+            name: 'Unverified',
+            color: 0x808080,
+            hoist: false,
+            mentionable: false,
+            permissions: [],
+        });
+        console.log(
+            unverifiedCreated
+                ? 'Создана роль: Unverified'
+                : `Роль для "не верифицирован" уже настроена: ${unverifiedRole.name}`
         );
-        if (!category) {
-            category = await guild.channels.create({
-                name: '🚪 Верификация',
-                type: ChannelType.GuildCategory,
+
+        const { role: verifiedRole, created: verifiedCreated } = await findOrCreateRole({
+            guild,
+            existingId: existingConfig.verification.verifiedRoleId,
+            name: 'Верифицирован',
+            color: 0x57f287,
+            hoist: false,
+            mentionable: false,
+            permissions: [],
+        });
+        console.log(
+            verifiedCreated
+                ? 'Создана роль: Верифицирован'
+                : `Роль для "верифицирован" уже настроена: ${verifiedRole.name}`
+        );
+
+        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existingConfig.verification.categoryId,
+            name: '🚪 Верификация',
+            type: ChannelType.GuildCategory,
+            createOptions: {
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
                     { id: unverifiedRole.id, allow: [PermissionFlagsBits.ViewChannel] },
                 ],
-            });
+            },
+        });
+        if (categoryCreated) {
             await category.setPosition(0);
             console.log('Создана категория: 🚪 Верификация');
         } else {
-            console.log('Категория 🚪 Верификация уже существует');
+            console.log('Категория 🚪 Верификация уже настроена');
         }
 
-        let channel = guild.channels.cache.find(c => c.parentId === category.id && c.name === 'verification');
-        if (!channel) {
-            channel = await guild.channels.create({
-                name: 'verification',
-                type: ChannelType.GuildText,
-                parent: category.id,
+        const { channel, created: channelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existingConfig.verification.channelId,
+            name: 'verification',
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            createOptions: {
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
                     {
@@ -97,11 +92,9 @@ client.once('clientReady', async () => {
                         deny: [PermissionFlagsBits.SendMessages],
                     },
                 ],
-            });
-            console.log('Создан канал: verification');
-        } else {
-            console.log('Канал verification уже существует');
-        }
+            },
+        });
+        console.log(channelCreated ? 'Создан канал: verification' : 'Канал verification уже настроен');
 
         // Закрываем остальные существующие категории от Unverified
         await guild.channels.fetch();
@@ -148,6 +141,7 @@ client.once('clientReady', async () => {
                 unverifiedRoleId: unverifiedRole.id,
                 verifiedRoleId: verifiedRole.id,
                 channelId: channel.id,
+                categoryId: category.id,
             };
         });
 

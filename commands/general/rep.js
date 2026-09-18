@@ -69,10 +69,17 @@ module.exports = {
         }
 
         if (sub === 'profile') {
+            // deferReply обязателен: buildRankCardAttachment делает force-fetch
+            // пользователя и параллельно тянет аватар/баннер с CDN Discord перед
+            // рендером канваса — суммарно легко выходит за 3-секундное окно
+            // ответа на interaction, и без defer второй/третий запрос подряд
+            // укладывался в лимит нестабильно (иногда — "Взаимодействие не
+            // удалось" на клиенте).
+            await interaction.deferReply();
             const target = interaction.options.getUser('user') ?? interaction.user;
             const profile = await reputation.getProfile(guildId, target.id);
             const attachment = await reputation.buildRankCardAttachment(interaction.client, target.id, profile);
-            await interaction.reply({ files: [attachment] });
+            await interaction.editReply({ files: [attachment] });
             return;
         }
 

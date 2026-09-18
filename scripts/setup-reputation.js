@@ -22,11 +22,13 @@ client.once('clientReady', async () => {
 
         const existingGuildConfig = await reputation.getGuildConfig(guild.id);
 
-        let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME);
-        if (!category) {
-            category = await guild.channels.create({ name: CATEGORY_NAME, type: ChannelType.GuildCategory });
-            console.log(`Создана категория: ${CATEGORY_NAME}`);
-        }
+        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existingGuildConfig.categoryId,
+            name: CATEGORY_NAME,
+            type: ChannelType.GuildCategory,
+        });
+        if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
         const { channel, created: channelCreated } = await findOrCreateChannel({
             guild,
@@ -67,7 +69,7 @@ client.once('clientReady', async () => {
             levelRoles[i] = role.id;
         }
 
-        await reputation.configureGuild(guild.id, { channelId: channel.id, levelRoles });
+        await reputation.configureGuild(guild.id, { channelId: channel.id, categoryId: category.id, levelRoles });
 
         console.log('Готово. Рейтинг публикуется автоматически раз в неделю в канал #' + CHANNEL_NAME + '.');
         process.exit(0);

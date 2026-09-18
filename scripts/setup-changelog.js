@@ -16,12 +16,16 @@ client.once('clientReady', async () => {
         const existing = await changelog.getConfig();
 
         // Та же категория, что и у #правила — обе про "справочную"
-        // информацию о сервере/боте, не про общение.
-        let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME);
-        if (!category) {
-            category = await guild.channels.create({ name: CATEGORY_NAME, type: ChannelType.GuildCategory });
-            console.log(`Создана категория: ${CATEGORY_NAME}`);
-        }
+        // информацию о сервере/боте, не про общение. Свой categoryId в
+        // конфиге changelog/ (не общий с rules/) — у каждой фичи
+        // независимый config-store (см. FSD-границы в README).
+        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existing.categoryId,
+            name: CATEGORY_NAME,
+            type: ChannelType.GuildCategory,
+        });
+        if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
         const { channel, created } = await findOrCreateChannel({
             guild,
@@ -42,8 +46,8 @@ client.once('clientReady', async () => {
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
         }
 
-        if (existing.channelId !== channel.id) {
-            await changelog.saveChannel(channel.id);
+        if (existing.channelId !== channel.id || existing.categoryId !== category.id) {
+            await changelog.saveChannel(channel.id, category.id);
             console.log('Канал обновлений сохранён в конфиге.');
         }
 

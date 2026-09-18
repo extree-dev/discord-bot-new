@@ -24,7 +24,7 @@ const DEFAULTS = {
     },
     automod: { enabled: true, maxMentions: 5, maxMessagesPerWindow: 6, messageWindowMs: 5000 },
     auditLog: { enabled: true },
-    verification: { enabled: false, unverifiedRoleId: null, verifiedRoleId: null, channelId: null },
+    verification: { enabled: false, unverifiedRoleId: null, verifiedRoleId: null, channelId: null, categoryId: null },
     manualLockdown: { active: false, channelIds: [] },
 };
 

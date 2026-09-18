@@ -10,6 +10,7 @@ function makeGuild({ channels = [], roles = [] } = {}) {
             cache: {
                 get: id => channels.find(c => c.id === id) ?? null,
                 find: predicate => channels.find(predicate) ?? null,
+                filter: predicate => channels.filter(predicate),
             },
             create: async options => {
                 const channel = { id: `new-channel-${createdChannels.length}`, ...options };
@@ -21,6 +22,7 @@ function makeGuild({ channels = [], roles = [] } = {}) {
             cache: {
                 get: id => roles.find(r => r.id === id) ?? null,
                 find: predicate => roles.find(predicate) ?? null,
+                filter: predicate => roles.filter(predicate),
             },
             create: async options => {
                 const role = { id: `new-role-${createdRoles.length}`, ...options };
@@ -83,6 +85,35 @@ test('findOrCreateChannel: ничего не найдено — создаёт �
     assert.equal(guild.createdChannels.length, 1);
 });
 
+test('findOrCreateChannel: найдено несколько по имени (уже случившийся дубль) — берёт самый старый по ID, не создаёт новый', async () => {
+    const older = { id: '100', type: 'text', name: 'канал', parentId: 'cat-1' };
+    const newer = { id: '200', type: 'text', name: 'канал', parentId: 'cat-1' };
+    // порядок в кэше — как будто более новый дубль был создан/найден первым
+    const guild = makeGuild({ channels: [newer, older] });
+
+    const originalWarn = console.warn;
+    const warnCalls = [];
+    console.warn = msg => warnCalls.push(msg);
+    let channel, created;
+    try {
+        ({ channel, created } = await findOrCreateChannel({
+            guild,
+            existingId: null,
+            name: 'канал',
+            type: 'text',
+            parentId: 'cat-1',
+        }));
+    } finally {
+        console.warn = originalWarn;
+    }
+
+    assert.equal(channel, older);
+    assert.equal(created, false);
+    assert.equal(guild.createdChannels.length, 0);
+    assert.equal(warnCalls.length, 1);
+    assert.match(warnCalls[0], /200/);
+});
+
 test('findOrCreateRole: роль уже настроена по ID — используется как есть, даже если имя не совпадает', async () => {
     const renamedRole = { id: 'role-1', name: 'Кастомное имя' };
     const guild = makeGuild({ roles: [renamedRole] });
@@ -95,6 +126,25 @@ test('findOrCreateRole: роль уже настроена по ID — испо�
     });
 
     assert.equal(role, renamedRole);
+    assert.equal(created, false);
+    assert.equal(guild.createdRoles.length, 0);
+});
+
+test('findOrCreateRole: найдено несколько по имени (уже случившийся дубль) — берёт самую старую по ID', async () => {
+    const older = { id: '100', name: 'Роль' };
+    const newer = { id: '200', name: 'Роль' };
+    const guild = makeGuild({ roles: [newer, older] });
+
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    let role, created;
+    try {
+        ({ role, created } = await findOrCreateRole({ guild, existingId: null, name: 'Роль', color: 0x000000 }));
+    } finally {
+        console.warn = originalWarn;
+    }
+
+    assert.equal(role, older);
     assert.equal(created, false);
     assert.equal(guild.createdRoles.length, 0);
 });
