@@ -11,6 +11,7 @@ const {
     findTicketsToEscalate,
     findTicketsToWarn,
     findTicketsToAutoClose,
+    REASONS,
     STATUS,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
@@ -34,6 +35,17 @@ function makeMember({ roleIds = [], isAdmin = false, isModerator = false }) {
         },
     };
 }
+
+test('REASONS: значения уникальны, и только "report" требует выбора пользователя', () => {
+    const values = REASONS.map(r => r.value);
+    assert.equal(values.length, new Set(values).size);
+    const withTargetUser = REASONS.filter(r => r.requiresTargetUser).map(r => r.value);
+    assert.deepEqual(withTargetUser, ['report']);
+    for (const r of REASONS) {
+        assert.equal(typeof r.label, 'string');
+        assert.ok(r.label.length > 0);
+    }
+});
 
 test('isStaff: пропускает участника с ролью поддержки', () => {
     const config = { supportRoleId: 'support-role' };

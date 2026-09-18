@@ -11,6 +11,8 @@ const STORE_NAME = 'tickets';
 //   escalatedAt, warnedAt,       // метки, чтобы не слать повторные напоминания
 //   rating, ratedAt,             // оценка автора после закрытия
 //   notesThreadId,               // приватный тред с внутренними заметками staff (создаётся лениво)
+//   voiceChannelId, rootMessageId,
+//   reportedUserId,              // для темы "Жалоба на игрока" — ID выбранный через UserSelectMenu
 // }
 const DEFAULTS = {
     categoryId: null,

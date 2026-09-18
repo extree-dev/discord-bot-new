@@ -32,16 +32,57 @@ const STATUS_COLORS = {
     [STATUS.RESOLVED]: COLORS.success,
 };
 
+// descriptionLabel/descriptionPlaceholder — чтобы модалка окна создания
+// тикета явно объясняла, что писать, а не показывала одну и ту же общую
+// подпись для всех тем (жалоба на баг ждёт совсем не то, что донат-вопрос).
+// requiresTargetUser — вместо текстового поля с ником/ID нарушителя,
+// который автор жалобы не всегда знает как достать, tickets/handlers.js
+// сначала показывает UserSelectMenu и передаёт выбранный ID в модалку.
 const REASONS = [
-    { value: 'general', label: 'Общий вопрос' },
-    { value: 'bug', label: 'Баг / техническая проблема' },
+    {
+        value: 'general',
+        label: 'Общий вопрос',
+        descriptionLabel: 'Опиши свой вопрос',
+        descriptionPlaceholder: 'Например: как получить роль за уровень?',
+    },
+    {
+        value: 'bug',
+        label: 'Баг / техническая проблема',
+        descriptionLabel: 'Что не работает? Опиши шаги по порядку',
+        descriptionPlaceholder: '1) Что делал 2) Что ожидал 3) Что произошло. Приложи ссылку на скрин/видео.',
+    },
     {
         value: 'report',
         label: 'Жалоба на игрока',
-        extraFieldLabel: 'Ник нарушителя и ссылка на сообщение-доказательство',
+        requiresTargetUser: true,
+        descriptionLabel: 'Что нарушил игрок?',
+        descriptionPlaceholder: 'Приложи ссылку на сообщение или скрин-доказательство.',
     },
-    { value: 'payment', label: 'Донат / платежи', extraFieldLabel: 'ID платежа или транзакции' },
-    { value: 'other', label: 'Другое' },
+    {
+        value: 'payment',
+        label: 'Донат / платежи',
+        descriptionLabel: 'Опиши проблему с платежом',
+        descriptionPlaceholder: 'Например: оплатил донат, но роль/предмет не выдался.',
+        extraFieldLabel: 'ID платежа или транзакции',
+        extraFieldPlaceholder: 'Номер чека, ID транзакции или способ оплаты',
+    },
+    {
+        value: 'appeal',
+        label: 'Обжалование наказания',
+        descriptionLabel: 'За что наказание и почему оно ошибочно?',
+        descriptionPlaceholder: 'Укажи тип наказания (бан/мут/варн) и свою версию произошедшего.',
+    },
+    {
+        value: 'security',
+        label: 'Безопасность аккаунта',
+        descriptionLabel: 'Что случилось с аккаунтом?',
+        descriptionPlaceholder: 'Например: аккаунт взломали, рассылает спам, подозрительные входы.',
+    },
+    {
+        value: 'other',
+        label: 'Другое',
+        descriptionLabel: 'Опиши свой вопрос подробно',
+    },
 ];
 
 // Готовые ответы для частых вопросов — /ticket reply <ключ> публикует
@@ -187,16 +228,23 @@ function buildTicketControlRow() {
 }
 
 function buildTicketEmbed(entry) {
+    const fields = [
+        { name: 'Тема', value: entry.reason, inline: true },
+        { name: 'Статус', value: STATUS_LABELS[entry.status] ?? entry.status, inline: true },
+        { name: 'Взял в работу', value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто', inline: true },
+    ];
+    if (entry.reportedUserId) {
+        fields.push({ name: 'Жалоба на', value: `<@${entry.reportedUserId}>`, inline: true });
+    }
     return baseEmbed(STATUS_COLORS[entry.status] ?? COLORS.primary)
         .setDescription(`${formatBody(`Тикет #${entry.number}`, entry.description)}`)
-        .addFields(
-            { name: 'Тема', value: entry.reason, inline: true },
-            { name: 'Статус', value: STATUS_LABELS[entry.status] ?? entry.status, inline: true },
-            { name: 'Взял в работу', value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто', inline: true }
-        );
+        .addFields(...fields);
 }
 
-async function createTicket(interaction, reason, description) {
+// extra.reportedUserId — заполняется только для тем с requiresTargetUser
+// (сейчас это "Жалоба на игрока"): ID выбирается через UserSelectMenu в
+// handlers.js, а не вписывается вручную в текстовое поле модалки.
+async function createTicket(interaction, reason, description, extra = {}) {
     const guild = interaction.guild;
     const member = interaction.member;
 
@@ -256,6 +304,7 @@ async function createTicket(interaction, reason, description) {
         ratedAt: null,
         notesThreadId: null,
         voiceChannelId: null,
+        reportedUserId: extra.reportedUserId ?? null,
         rootMessageId: null,
     };
     await update(cfg => {
