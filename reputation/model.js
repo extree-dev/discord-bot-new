@@ -106,7 +106,8 @@ async function giveReputation(guildId, fromId, toId) {
 
         const toKey = userKey(guildId, toId);
         const toUser = cfg.users[toKey] ?? { score: 0, givenTo: {}, history: [] };
-        const oldLevelIndex = getLevelIndex(toUser.score);
+        const oldScore = toUser.score;
+        const oldLevelIndex = getLevelIndex(oldScore);
         toUser.score += 1;
         toUser.history = [{ fromId, date: now }, ...toUser.history].slice(0, HISTORY_LIMIT);
         const newLevelIndex = getLevelIndex(toUser.score);
@@ -117,6 +118,11 @@ async function giveReputation(guildId, fromId, toId) {
 
         return {
             newScore: toUser.score,
+            // Первое очко вообще не двигает индекс уровня (0 и 1-4 — оба
+            // "Новичок"), но именно на нём роль нужно выдать первый раз —
+            // leveledUp тут всегда false, поэтому это отдельный флаг, а
+            // не частный случай сравнения индексов.
+            firstPoint: oldScore === 0,
             leveledUp: newLevelIndex > oldLevelIndex,
             levelIndex: newLevelIndex,
         };
