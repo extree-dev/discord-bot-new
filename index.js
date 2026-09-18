@@ -27,6 +27,7 @@ const security = require('./security');
 const voice = require('./voice');
 const tickets = require('./tickets');
 const suggestions = require('./suggestions');
+const presence = require('./presence');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
@@ -34,6 +35,7 @@ client.once('ready', () => {
     voice.register(client);
     tickets.register(client);
     suggestions.register(client);
+    presence.register(client);
 });
 
 client.on('interactionCreate', async interaction => {

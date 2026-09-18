@@ -1,7 +1,7 @@
 const test = require('node:test');
 const { after } = test;
 const assert = require('node:assert/strict');
-const { addWarning, getWarnings, clearWarnings, storeName } = require('../utils/warnings');
+const { addWarning, getWarnings, clearWarnings, getWarningStats, storeName } = require('../utils/warnings');
 const { withStoreBackup } = require('./helpers/withBackup');
 const { closePool } = require('../utils/db');
 
@@ -30,6 +30,28 @@ test('addWarning копит предупреждения, getWarnings их во�
 
         await clearWarnings(guildId, userId);
         assert.deepEqual(await getWarnings(guildId, userId), []);
+    });
+});
+
+test('getWarningStats считает пользователей с варнами и сумму всех варнов, игнорируя очищенных', async () => {
+    await withStoreBackup(storeName, async () => {
+        await clearWarnings('stats-guild', 'user-1');
+        await clearWarnings('stats-guild', 'user-2');
+        await clearWarnings('stats-guild', 'user-3');
+
+        await addWarning('stats-guild', 'user-1', 'причина', 'Модератор');
+        await addWarning('stats-guild', 'user-1', 'причина 2', 'Модератор');
+        await addWarning('stats-guild', 'user-2', 'причина', 'Модератор');
+        // user-3 получает и сразу теряет варн — не должен попасть в статистику
+        await addWarning('stats-guild', 'user-3', 'причина', 'Модератор');
+        await clearWarnings('stats-guild', 'user-3');
+
+        const stats = await getWarningStats();
+        assert.ok(stats.warnedUsers >= 2, 'должно быть хотя бы 2 пользователя с варнами');
+        assert.ok(stats.totalWarnings >= 3, 'должно быть хотя бы 3 варна суммарно');
+
+        await clearWarnings('stats-guild', 'user-1');
+        await clearWarnings('stats-guild', 'user-2');
     });
 });
 

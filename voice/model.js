@@ -19,11 +19,14 @@ const CUSTOM_ICONS = {
 };
 
 // Для channel.permissionOverwrites.edit() — объект { флаг: true/false/null }
+// ManageChannels владельцу намеренно не даём — управление комнатой
+// должно идти через кнопки на панели (rename/limit и т.д. уже покрыты),
+// а не через нативный "Edit Channel" в Discord, который эти кнопки
+// обходит.
 function ownerPermissions() {
     return {
         ViewChannel: true,
         Connect: true,
-        ManageChannels: true,
         MoveMembers: true,
         MuteMembers: true,
         DeafenMembers: true,
@@ -34,7 +37,6 @@ function ownerPermissions() {
 const OWNER_PERMISSION_FLAGS = [
     PermissionFlagsBits.ViewChannel,
     PermissionFlagsBits.Connect,
-    PermissionFlagsBits.ManageChannels,
     PermissionFlagsBits.MoveMembers,
     PermissionFlagsBits.MuteMembers,
     PermissionFlagsBits.DeafenMembers,
@@ -123,7 +125,14 @@ function buildPanelMessage() {
 async function createRoom(state, config) {
     const guild = state.guild;
     const member = state.member;
-    const category = config.categoryId ? guild.channels.cache.get(config.categoryId) : null;
+    // cache.get() тихо возвращает undefined, если категория не попала в
+    // кэш (например, сразу после рестарта бота) — тогда комната молча
+    // создавалась бы без родителя вместо нужной категории. fetch() —
+    // подстраховка на этот случай, а не основной путь.
+    const category = config.categoryId
+        ? (guild.channels.cache.get(config.categoryId) ??
+          (await guild.channels.fetch(config.categoryId).catch(() => null)))
+        : null;
 
     const name = `Комната ${member.displayName}`.slice(0, 95);
 
@@ -139,6 +148,11 @@ async function createRoom(state, config) {
         userLimit: config.defaultLimit,
         permissionOverwrites: overwrites,
     });
+
+    // Никто, включая владельца, не должен ставить нативный "статус
+    // голосового канала" Discord — управление комнатой только через
+    // кнопки на панели, а не через отдельную функцию клиента.
+    await channel.permissionOverwrites.edit(guild.roles.everyone.id, { SetVoiceChannelStatus: false }).catch(() => {});
 
     await member.voice.setChannel(channel).catch(err => {
         console.error('tempVoice: не удалось переместить участника в новую комнату:', err.message);
