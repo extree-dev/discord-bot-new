@@ -4,6 +4,7 @@ const { errorEmbed } = require('./utils/embeds');
 const { ensureSchema, closePool } = require('./utils/db');
 const { loadCommands } = require('./utils/loadCommands');
 const { getVersion } = require('./utils/version');
+const commandsChannel = require('./commandsChannel');
 
 const client = new Client({
     intents: [
@@ -112,6 +113,26 @@ client.on('interactionCreate', async interaction => {
 
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
+
+    // Общие команды (папка commands/general/) можно ограничить одним
+    // каналом (/commands-channel set) — модерация не трогается: staff-
+    // командам нужно работать там, где случилась проблема, а не в одном
+    // выделенном канале. ephemeral-ответ не выполняет саму команду и не
+    // виден никому кроме автора — правило Discord: если ответ на
+    // interaction ephemeral, строка "использовал /команда" тоже видна
+    // только ему, остальным в канале ничего не показывается.
+    if (command.category === 'general') {
+        const allowed = await commandsChannel.isAllowedChannel(interaction.channelId).catch(() => true);
+        if (!allowed) {
+            const cfg = await commandsChannel.getConfig().catch(() => null);
+            const target = cfg?.channelId ? `<#${cfg.channelId}>` : 'специальном канале';
+            await interaction.reply({
+                embeds: [errorEmbed(`Общие команды доступны только в ${target}.`)],
+                ephemeral: true,
+            });
+            return;
+        }
+    }
 
     try {
         await command.execute(interaction);
