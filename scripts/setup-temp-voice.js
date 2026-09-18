@@ -80,7 +80,11 @@ client.once('clientReady', async () => {
         const messages = await controlChannel.messages.fetch({ limit: 10 });
         const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
         if (existingPanel) {
-            await existingPanel.edit(buildPanelMessage());
+            // embeds: [] — старая панель была embed'ом; без явной очистки
+            // Discord отвергает PATCH, включающий флаг IS_COMPONENTS_V2 на
+            // сообщении, у которого остаётся старый embed (см. тот же баг,
+            // пойманный на панели тикетов).
+            await existingPanel.edit({ ...buildPanelMessage(), embeds: [] });
             console.log('Панель управления обновлена.');
         } else {
             await controlChannel.send(buildPanelMessage());
