@@ -12,6 +12,7 @@ const {
     findTicketsToWarn,
     findTicketsToAutoClose,
     REASONS,
+    CANNED_RESPONSES,
     STATUS,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
@@ -44,6 +45,19 @@ test('REASONS: значения уникальны, и только "report" т�
     for (const r of REASONS) {
         assert.equal(typeof r.label, 'string');
         assert.ok(r.label.length > 0);
+        assert.equal(typeof r.welcomeMessage, 'string');
+        assert.ok(r.welcomeMessage.length > 0, `у темы "${r.value}" нет приветственного сообщения`);
+    }
+});
+
+test('CANNED_RESPONSES: у каждого шаблона есть подпись и текст, а их число укладывается в лимит слэш-команды (25 choices)', () => {
+    const entries = Object.entries(CANNED_RESPONSES);
+    assert.ok(entries.length <= 25, 'addChoices() в /ticket reply не примет больше 25 вариантов');
+    for (const [key, canned] of entries) {
+        assert.equal(typeof canned.label, 'string', `у шаблона "${key}" нет label`);
+        assert.ok(canned.label.length > 0);
+        assert.equal(typeof canned.text, 'string', `у шаблона "${key}" нет text`);
+        assert.ok(canned.text.length > 0);
     }
 });
 
