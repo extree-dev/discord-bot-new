@@ -11,7 +11,15 @@ const {
     AttachmentBuilder,
 } = require('discord.js');
 const { load, update } = require('./config');
-const { COLORS, baseEmbed, formatBody, infoEmbed } = require('../utils/embeds');
+const { COLORS, formatBody } = require('../utils/embeds');
+const {
+    baseContainer,
+    textDisplay,
+    separator,
+    infoContainer,
+    warningContainer,
+    toMessage,
+} = require('../utils/components');
 const voice = require('../voice');
 
 const STATUS = {
@@ -292,21 +300,21 @@ function aggregateStats(config) {
     return { perStaff, averageRating: ratedCount ? ratingSum / ratedCount : null, ratedCount };
 }
 
-function buildPanelMessage(guild) {
-    const embed = baseEmbed(COLORS.primary)
-        .setDescription(
-            `${formatBody('Поддержка сервера')}\n\n` +
-                'Нужна помощь? Нажми кнопку ниже, выбери тему и опиши проблему в форме — мы откроем приватный тред с ' +
-                'командой поддержки, который увидишь только ты и staff.\n\n' +
-                '**Темы обращений:**\n' +
-                REASONS.map(r => `\`${r.label}\``).join('\n')
+function buildPanelMessage() {
+    const container = baseContainer(COLORS.primary)
+        .addTextDisplayComponents(
+            textDisplay(
+                `${formatBody('Поддержка сервера')}\n\n` +
+                    'Нужна помощь? Нажми кнопку ниже, выбери тему и опиши проблему в форме — мы откроем приватный ' +
+                    'тред с командой поддержки, который увидишь только ты и staff.'
+            )
         )
-        .setThumbnail(guild?.iconURL() ?? null)
-        .setFooter({ text: guild?.name ?? 'Поддержка' });
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(textDisplay(`**Темы обращений:**\n${REASONS.map(r => `- ${r.label}`).join('\n')}`));
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_open').setLabel('Открыть тикет').setStyle(ButtonStyle.Primary)
     );
-    return { embeds: [embed], components: [row] };
+    return toMessage(container, row);
 }
 
 // entry — опционально: кнопка "Наказать" появляется только у тикетов
@@ -334,28 +342,47 @@ function buildTicketControlRow(entry = null) {
     ];
 }
 
-function buildTicketEmbed(entry) {
-    const fields = [
-        { name: 'Тема', value: entry.reason, inline: true },
-        { name: 'Статус', value: STATUS_LABELS[entry.status] ?? entry.status, inline: true },
-        { name: 'Взял в работу', value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто', inline: true },
+// Текстовый степпер статуса вместо цветного поля embed'а: три стадии
+// жизненного цикла тикета (Открыт → В работе → Решён), текущая — жирным.
+// WAITING_ON_USER не отдельная стадия степпера (она возможна только
+// после claim, см. recordActivity), а уточнение внутри стадии "В работе".
+function buildStatusStepper(entry) {
+    const steps = ['Открыт', 'В работе', 'Решён'];
+    const activeIndex = entry.status === STATUS.RESOLVED ? 2 : entry.claimedBy ? 1 : 0;
+    let line = steps.map((label, i) => (i === activeIndex ? `**${label}**` : label)).join(' → ');
+    if (entry.status === STATUS.WAITING_ON_USER) line += ' _(ждём ответа автора)_';
+    return line;
+}
+
+// Карточка тикета на Components V2 вместо embed'а с полями-сеткой —
+// стопка текстовых блоков, разделённых Separator, тот же смысл, что был
+// у fields, но без грид-раскладки embed'а и без эмодзи-маркеров (см.
+// договорённость по редизайну тикетов — только текст).
+function buildTicketCard(entry) {
+    const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary)
+        .addTextDisplayComponents(
+            textDisplay(
+                formatBody(
+                    entry.urgent ? `Тикет #${entry.number} — срочно` : `Тикет #${entry.number}`,
+                    entry.description
+                )
+            )
+        )
+        .addSeparatorComponents(separator());
+
+    const infoLines = [
+        `**Тема:** ${entry.reason}`,
+        `**Статус:** ${buildStatusStepper(entry)}`,
+        `**Взял в работу:** ${entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто'}`,
     ];
     if (entry.reportedUserId) {
-        fields.push({ name: 'Жалоба на', value: `<@${entry.reportedUserId}>`, inline: true });
+        infoLines.push(`**Жалоба на:** <@${entry.reportedUserId}>`);
         if (entry.reportHistoryCount > 1) {
-            fields.push({
-                name: '⚠️ История',
-                value: `${entry.reportHistoryCount} жалоб(ы) за 30 дней`,
-                inline: true,
-            });
+            infoLines.push(`**История:** ${entry.reportHistoryCount} жалоб(ы) за 30 дней`);
         }
     }
-    const description = entry.urgent
-        ? `${formatBody(`🚨 Тикет #${entry.number} — срочно`, entry.description)}`
-        : `${formatBody(`Тикет #${entry.number}`, entry.description)}`;
-    return baseEmbed(STATUS_COLORS[entry.status] ?? COLORS.primary)
-        .setDescription(description)
-        .addFields(...fields);
+    container.addTextDisplayComponents(textDisplay(infoLines.join('\n')));
+    return container;
 }
 
 // extra.reportedUserId — заполняется только для тем с requiresTargetUser
@@ -383,7 +410,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
             reasonRoleId: config.reasonRoleIds[reason.value] ?? null,
             // Снимок на момент создания — сколько жалоб на этого же
             // игрока уже было, чтобы показать в самой карточке тикета
-            // (см. buildTicketEmbed). Считаем здесь же, внутри лока
+            // (см. buildTicketCard). Считаем здесь же, внутри лока
             // update(), а не отдельным чтением конфига — так число не
             // разъедется с counter при параллельном создании тикетов.
             reportHistoryCount: extra.reportedUserId
@@ -401,7 +428,9 @@ async function createTicket(interaction, reason, description, extra = {}) {
     }
 
     const thread = await panelChannel.threads.create({
-        name: `тикет-${number}-${member.user.username}`.slice(0, 95).toLowerCase(),
+        // Тема обращения в имени треда (не только номер и ник) — чтобы
+        // staff видел, о чём тикет, прямо в списке тредов, без клика.
+        name: `тикет-${number}-${reason.value}-${member.user.username}`.slice(0, 95).toLowerCase(),
         type: ChannelType.PrivateThread,
         invitable: false,
         reason: `Тикет #${number} от ${member.user.tag}`,
@@ -442,14 +471,18 @@ async function createTicket(interaction, reason, description, extra = {}) {
     const pings = [supportRoleId, reasonRoleId].filter(Boolean);
     const uniquePings = [...new Set(pings)].map(id => `<@&${id}>`);
 
+    // Пинг автора и ролей — как текстовый блок компонента, а не через
+    // content: сообщение с флагом IsComponentsV2 не может содержать
+    // content/embeds, только components (см. utils/components.js).
+    // Упоминания внутри TextDisplay всё равно доставляют уведомление.
+    const pingLine = `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`;
+
     // rootMessageId запоминаем, чтобы claim/reopen/смена статуса могли
     // обновить именно это сообщение в месте, а не только слать новое —
     // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
-    const rootMessage = await thread.send({
-        content: `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`,
-        embeds: [buildTicketEmbed(entry)],
-        components: buildTicketControlRow(entry),
-    });
+    const rootMessage = await thread.send(
+        toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
+    );
     await update(cfg => {
         const e = cfg.tickets[thread.id];
         if (e) e.rootMessageId = rootMessage.id;
@@ -459,7 +492,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // намекает, что уточнить/приложить, а не только фиксирует факт
     // создания тикета (это уже показывает rootMessage выше).
     if (reason.welcomeMessage) {
-        await thread.send({ embeds: [infoEmbed(reason.welcomeMessage, 'Пока ждёшь ответа')] }).catch(() => {});
+        await thread.send(toMessage(infoContainer(reason.welcomeMessage, 'Пока ждёшь ответа'))).catch(() => {});
     }
 
     // Мини-чеклист для staff под конкретную тему — сразу в тред заметок
@@ -469,21 +502,21 @@ async function createTicket(interaction, reason, description, extra = {}) {
     if (reason.staffChecklist?.length) {
         const notesThread = await createNotesThread(panelChannel, thread.id, number);
         await notesThread
-            .send({
-                embeds: [
-                    infoEmbed(
+            .send(
+                toMessage(
+                    infoContainer(
                         reason.staffChecklist.map((step, i) => `${i + 1}. ${step}`).join('\n'),
                         'Чек-лист для staff'
-                    ),
-                ],
-            })
+                    )
+                )
+            )
             .catch(() => {});
     }
 
     return { thread };
 }
 
-// Перерисовывает embed стартового сообщения тикета (тема/статус/кто
+// Перерисовывает карточку стартового сообщения тикета (тема/статус/кто
 // взял в работу) актуальными данными — вызывается после claim, любой
 // активности в треде и reopen, чтобы это сообщение не застревало на
 // "Взял в работу: никто" после того, как тикет уже давно взяли.
@@ -493,7 +526,11 @@ async function updateTicketRootMessage(client, threadId, entry) {
     if (!thread) return;
     const message = await thread.messages.fetch(entry.rootMessageId).catch(() => null);
     if (!message) return;
-    await message.edit({ embeds: [buildTicketEmbed(entry)] }).catch(() => {});
+    // Компонентное сообщение редактируется целиком (нет частичного
+    // патча полей, как у embed'а) — пинг-строка из исходного сообщения
+    // не переносится, она была одноразовым уведомлением, не частью
+    // карточки.
+    await message.edit(toMessage(buildTicketCard(entry), ...buildTicketControlRow(entry))).catch(() => {});
 }
 
 // Атомарный захват тикета: перечитывает свежие данные внутри лока и
@@ -690,30 +727,19 @@ async function closeTicket(guild, channel, entry, closedBy) {
     const logChannel = config.logChannelId ? guild.channels.cache.get(config.logChannelId) : null;
     if (logChannel) {
         const owner = await guild.members.fetch(entry.ownerId).catch(() => null);
-        await logChannel
-            .send({
-                embeds: [
-                    baseEmbed(COLORS.primary)
-                        .setDescription(formatBody(`Тикет #${entry.number} закрыт`))
-                        .addFields(
-                            { name: 'Открыл', value: owner ? `${owner}` : entry.ownerId, inline: true },
-                            { name: 'Тема', value: entry.reason, inline: true },
-                            {
-                                name: 'Закрыл',
-                                value: closedBy ? `<@${closedBy}>` : 'автоматически (неактивность)',
-                                inline: true,
-                            },
-                            {
-                                name: 'Взял в работу',
-                                value: entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто',
-                                inline: true,
-                            },
-                            { name: 'Время решения', value: formatDuration(now - entry.createdAt), inline: true }
-                        ),
-                ],
-                files: [transcript],
-            })
-            .catch(() => {});
+        const logLines = [
+            `**Открыл:** ${owner ? `${owner}` : entry.ownerId}`,
+            `**Тема:** ${entry.reason}`,
+            `**Закрыл:** ${closedBy ? `<@${closedBy}>` : 'автоматически (неактивность)'}`,
+            `**Взял в работу:** ${entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто'}`,
+            `**Время решения:** ${formatDuration(now - entry.createdAt)}`,
+        ];
+        if (entry.reportedUserId) logLines.push(`**Жалоба на:** <@${entry.reportedUserId}>`);
+        const logCard = baseContainer(COLORS.primary)
+            .addTextDisplayComponents(textDisplay(formatBody(`Тикет #${entry.number} закрыт`)))
+            .addSeparatorComponents(separator())
+            .addTextDisplayComponents(textDisplay(logLines.join('\n')));
+        await logChannel.send({ ...toMessage(logCard), files: [transcript] }).catch(() => {});
     }
 
     // Запись о тикете НЕ удаляется (в отличие от старой версии) — она
@@ -751,11 +777,22 @@ async function closeTicket(guild, channel, entry, closedBy) {
         await voice.untrackRoom(entry.voiceChannelId);
     }
 
-    await channel
-        .send({
-            embeds: [baseEmbed(COLORS.danger).setDescription(formatBody('Тикет закрывается', 'Через 5 секунд...'))],
-        })
-        .catch(() => {});
+    // Более информативная карточка закрытия для самого треда (не только
+    // "Через 5 секунд...", но и тема/кто закрыл/время решения — раньше
+    // это было видно только в приватном логе staff).
+    const closeCard = baseContainer(COLORS.danger)
+        .addTextDisplayComponents(textDisplay(formatBody('Тикет закрывается', 'Тред заархивируется через 5 секунд')))
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(
+            textDisplay(
+                [
+                    `**Тема:** ${entry.reason}`,
+                    `**Закрыл:** ${closedBy ? `<@${closedBy}>` : 'автоматически (неактивность)'}`,
+                    `**Время решения:** ${formatDuration(now - entry.createdAt)}`,
+                ].join('\n')
+            )
+        );
+    await channel.send(toMessage(closeCard)).catch(() => {});
 
     setTimeout(async () => {
         if (channel.isThread()) {
@@ -826,7 +863,7 @@ function findTicketsToRemindOwner(config, now) {
 async function postCannedResponse(interaction, key) {
     const canned = CANNED_RESPONSES[key];
     if (!canned) return { error: 'Неизвестный шаблон ответа.' };
-    await interaction.channel.send({ embeds: [infoEmbed(canned.text, canned.label)] });
+    await interaction.channel.send(toMessage(infoContainer(canned.text, canned.label)));
     const updatedEntry = await recordActivity(interaction.channelId, false);
     if (updatedEntry) await updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
     return {};
@@ -877,7 +914,7 @@ async function reopenTicket(guild, number) {
     });
 
     if (updatedEntry) {
-        await thread.send({ embeds: [buildTicketEmbed(updatedEntry)] }).catch(() => {});
+        await thread.send(toMessage(buildTicketCard(updatedEntry))).catch(() => {});
         await updateTicketRootMessage(guild.client, threadId, updatedEntry);
     }
 
@@ -890,8 +927,9 @@ async function sendRatingRequest(client, entry, threadId) {
     const user = await client.users.fetch(entry.ownerId).catch(() => null);
     if (!user) return;
 
-    const embed = baseEmbed(COLORS.primary).setDescription(
-        formatBody('Оцени поддержку', `Как тебе помогли с тикетом #${entry.number}? Выбери оценку от 1 до 5.`)
+    const card = infoContainer(
+        `Как тебе помогли с тикетом #${entry.number}? Выбери оценку от 1 до 5.`,
+        'Оцени поддержку'
     );
     const row = new ActionRowBuilder().addComponents(
         [1, 2, 3, 4, 5].map(n =>
@@ -901,7 +939,7 @@ async function sendRatingRequest(client, entry, threadId) {
                 .setStyle(ButtonStyle.Secondary)
         )
     );
-    await user.send({ embeds: [embed], components: [row] }).catch(() => {});
+    await user.send(toMessage(card, row)).catch(() => {});
 }
 
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
@@ -939,14 +977,12 @@ async function sendOwnerReminder(client, entry, threadId) {
     if (!user) return;
 
     const link = entry.guildId ? `https://discord.com/channels/${entry.guildId}/${threadId}` : null;
-    const embed = baseEmbed(COLORS.warning).setDescription(
-        formatBody(
-            'Тикет ждёт твоего ответа',
-            `Поддержка ответила в тикете #${entry.number}, но мы давно не видели ответа от тебя.` +
-                (link ? ` [Перейти в тикет](${link})` : '')
-        )
+    const card = warningContainer(
+        `Поддержка ответила в тикете #${entry.number}, но мы давно не видели ответа от тебя.` +
+            (link ? ` [Перейти в тикет](${link})` : ''),
+        'Тикет ждёт твоего ответа'
     );
-    await user.send({ embeds: [embed] }).catch(() => {});
+    await user.send(toMessage(card)).catch(() => {});
 }
 
 async function markOwnerNotified(threadId) {
@@ -990,7 +1026,8 @@ module.exports = {
     sendOwnerReminder,
     buildPanelMessage,
     buildTicketControlRow,
-    buildTicketEmbed,
+    buildTicketCard,
+    buildStatusStepper,
     createTicket,
     updateTicketRootMessage,
     claimTicket,
