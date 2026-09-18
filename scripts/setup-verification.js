@@ -19,7 +19,20 @@ client.once('clientReady', async () => {
         await guild.roles.fetch();
         await guild.channels.fetch();
 
-        let unverifiedRole = guild.roles.cache.find(r => r.name === 'Unverified');
+        // Если роль уже настроена явно (через /verification-role или
+        // предыдущий запуск этого скрипта) и всё ещё существует — берём
+        // именно её, не ищем по имени. Так администратор может назначить
+        // любую свою роль (например, ID, присланный вручную), и скрипт
+        // никогда не создаст рядом дубликат с похожим именем, даже если
+        // имя реальной роли отличается от того, что ищется по умолчанию.
+        const existingConfig = await security.getConfig();
+
+        let unverifiedRole = existingConfig.verification.unverifiedRoleId
+            ? guild.roles.cache.get(existingConfig.verification.unverifiedRoleId)
+            : null;
+        if (!unverifiedRole) {
+            unverifiedRole = guild.roles.cache.find(r => r.name === 'Unverified');
+        }
         if (!unverifiedRole) {
             unverifiedRole = await guild.roles.create({
                 name: 'Unverified',
@@ -30,15 +43,15 @@ client.once('clientReady', async () => {
             });
             console.log('Создана роль: Unverified');
         } else {
-            console.log('Роль Unverified уже существует');
+            console.log(`Роль для "не верифицирован" уже настроена: ${unverifiedRole.name}`);
         }
 
-        // Отдельная роль именно для "прошёл верификацию" — раньше скрипт
-        // переиспользовал роль Participant из setup-roles.js, но это была
-        // роль общего назначения, ничем не привязанная к смыслу "прошёл
-        // капчу", и путалась с одноимённой ролью, которую администратор
-        // мог создать вручную под тем же именем "Верифицирован".
-        let verifiedRole = guild.roles.cache.find(r => r.name === 'Верифицирован');
+        let verifiedRole = existingConfig.verification.verifiedRoleId
+            ? guild.roles.cache.get(existingConfig.verification.verifiedRoleId)
+            : null;
+        if (!verifiedRole) {
+            verifiedRole = guild.roles.cache.find(r => r.name === 'Верифицирован');
+        }
         if (!verifiedRole) {
             verifiedRole = await guild.roles.create({
                 name: 'Верифицирован',
@@ -49,7 +62,7 @@ client.once('clientReady', async () => {
             });
             console.log('Создана роль: Верифицирован');
         } else {
-            console.log('Роль Верифицирован уже существует');
+            console.log(`Роль для "верифицирован" уже настроена: ${verifiedRole.name}`);
         }
 
         let category = guild.channels.cache.find(
