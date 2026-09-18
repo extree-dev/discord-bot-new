@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const tickets = require('../../tickets');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
 
@@ -6,6 +6,11 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('ticket')
         .setDescription('Управление системой тикетов (для поддержки)')
+        // Раньше тут не было этого вызова — команда была видна и обычным
+        // участникам в списке слэш-команд (execute() блокировал их только
+        // после выбора), что не согласуется с остальными staff-командами
+        // (dashboard, warn, timeout и т.д. скрыты этим же флагом).
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
         .addSubcommand(sub => sub.setName('list').setDescription('Список открытых тикетов'))
         .addSubcommand(sub => sub.setName('stats').setDescription('Статистика поддержки'))
         .addSubcommand(sub =>
