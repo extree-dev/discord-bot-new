@@ -11,9 +11,10 @@ module.exports = {
     getEntry: model.getEntry,
     buildChangelogSummary: model.buildChangelogSummary,
     getConfig: config.load,
-    saveChannel: async channelId => {
+    saveChannel: async (channelId, categoryId) => {
         await config.update(cfg => {
             cfg.channelId = channelId;
+            if (categoryId !== undefined) cfg.categoryId = categoryId;
         });
     },
 };

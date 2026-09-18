@@ -3,34 +3,21 @@ const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const { load, save } = require('../voice/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../voice');
+const { findOrCreateChannel } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// Если уже настроен ID (через предыдущий запуск или админ-команду, например
+// /temp-voice-category) — используем именно этот канал как есть, не
+// переименовывая его на дефолтное имя. Раньше здесь было принудительное
+// setName() при несовпадении, из-за чего категория, которую администратор
+// указал вручную под своим именем, откатывалась обратно на "Активные
+// комнаты" на следующем деплое (тот же класс багов, что был у ролей
+// верификации — см. scripts/setup-verification.js).
 async function findOrCreate({ guild, config, idKey, name, type, parentId }) {
-    // Если уже настроен ID (через предыдущий запуск или админ-команду,
-    // например /temp-voice-category) — используем именно этот канал как
-    // есть, не переименовывая его на дефолтное имя. Раньше здесь было
-    // принудительное setName() при несовпадении, из-за чего категория,
-    // которую администратор указал вручную под своим именем, откатывалась
-    // обратно на "Активные комнаты" на следующем деплое (тот же класс
-    // багов, что был у ролей верификации — см. scripts/setup-verification.js).
-    const existingById = config[idKey] ? guild.channels.cache.get(config[idKey]) : null;
-    if (existingById) {
-        console.log(`Уже настроено: ${existingById.name}`);
-        return existingById;
-    }
-
-    const byName = guild.channels.cache.find(
-        c => c.type === type && c.name === name && (!parentId || c.parentId === parentId)
-    );
-    if (byName) {
-        console.log(`Найден по имени: ${name}`);
-        return byName;
-    }
-
-    const created = await guild.channels.create({ name, type, parent: parentId ?? null });
-    console.log(`Создан: ${name}`);
-    return created;
+    const { channel, created } = await findOrCreateChannel({ guild, existingId: config[idKey], name, type, parentId });
+    console.log(created ? `Создан: ${name}` : `Уже настроено: ${channel.name}`);
+    return channel;
 }
 
 client.once('clientReady', async () => {

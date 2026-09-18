@@ -8,12 +8,17 @@ module.exports = {
     buildRulesEmbed,
     getPostedLocation: async () => {
         const cfg = await config.load();
-        return { channelId: cfg.channelId, messageId: cfg.messageId };
+        return { channelId: cfg.channelId, messageId: cfg.messageId, categoryId: cfg.categoryId };
     },
     savePostedLocation: async (channelId, messageId) => {
         await config.update(cfg => {
             cfg.channelId = channelId;
             cfg.messageId = messageId;
+        });
+    },
+    saveCategoryId: async categoryId => {
+        await config.update(cfg => {
+            cfg.categoryId = categoryId;
         });
     },
 };

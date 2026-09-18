@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require(
 const { load, save } = require('../tickets/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../tickets');
+const { findOrCreateChannel, findOrCreateRole } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -30,26 +31,23 @@ client.once('clientReady', async () => {
         const config = await load();
 
         // роль поддержки
-        let supportRole = config.supportRoleId ? guild.roles.cache.get(config.supportRoleId) : null;
-        if (!supportRole) {
-            supportRole = guild.roles.cache.find(r => r.name === 'Support');
-        }
-        if (!supportRole) {
-            supportRole = await guild.roles.create({
-                name: 'Support',
-                color: 0x2ecc71,
-                hoist: true,
-                mentionable: false,
-                permissions: [],
-            });
+        const { role: supportRole, created: supportCreated } = await findOrCreateRole({
+            guild,
+            existingId: config.supportRoleId,
+            name: 'Support',
+            color: 0x2ecc71,
+            hoist: true,
+            mentionable: false,
+            permissions: [],
+        });
+        if (supportCreated) {
             console.log('Создана роль: Support');
-
             const moderatorRole = guild.roles.cache.find(r => r.name === 'Moderator');
             if (moderatorRole) {
                 await supportRole.setPosition(moderatorRole.position - 1).catch(() => {});
             }
         } else {
-            console.log('Роль Support уже существует');
+            console.log(`Роль Support уже настроена: ${supportRole.name}`);
         }
 
         // роли-специалисты по темам тикетов — убранные темы ("payment",
@@ -62,25 +60,20 @@ client.once('clientReady', async () => {
         }
         const specialistRoles = [];
         for (const [reasonValue, spec] of Object.entries(SPECIALIST_ROLES)) {
-            let role = reasonRoleIds[reasonValue] ? guild.roles.cache.get(reasonRoleIds[reasonValue]) : null;
-            if (!role) role = guild.roles.cache.find(r => r.name === spec.name);
-            if (!role) {
-                role = await guild.roles.create({
-                    name: spec.name,
-                    color: spec.color,
-                    hoist: true,
-                    mentionable: false,
-                    permissions: [],
-                });
-                console.log(`Создана роль: ${spec.name}`);
-            } else {
-                // Найдена по уже сохранённому ID (или по имени на самом первом
-                // запуске) — используем как есть, не переименовываем и не
-                // перекрашиваем: администратор мог осознанно изменить имя/цвет
-                // после создания, и это не повод откатывать их на дефолт при
-                // каждом деплое.
-                console.log(`Роль уже настроена: ${role.name}`);
-            }
+            // existingId найден — используем как есть, не переименовываем и не
+            // перекрашиваем: администратор мог осознанно изменить имя/цвет
+            // после создания, и это не повод откатывать их на дефолт при
+            // каждом деплое.
+            const { role, created } = await findOrCreateRole({
+                guild,
+                existingId: reasonRoleIds[reasonValue],
+                name: spec.name,
+                color: spec.color,
+                hoist: true,
+                mentionable: false,
+                permissions: [],
+            });
+            console.log(created ? `Создана роль: ${spec.name}` : `Роль уже настроена: ${role.name}`);
             reasonRoleIds[reasonValue] = role.id;
             specialistRoles.push(role);
         }
@@ -93,15 +86,13 @@ client.once('clientReady', async () => {
             .catch(err => console.error('Не удалось поднять роли-специалистов в иерархии:', err.message));
 
         // категория тикетов
-        let category = config.categoryId ? guild.channels.cache.get(config.categoryId) : null;
-        if (!category)
-            category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'Поддержка');
-        if (!category) {
-            category = await guild.channels.create({ name: 'Поддержка', type: ChannelType.GuildCategory });
-            console.log('Создана категория: Поддержка');
-        } else {
-            console.log('Категория Поддержка уже существует');
-        }
+        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.categoryId,
+            name: 'Поддержка',
+            type: ChannelType.GuildCategory,
+        });
+        console.log(categoryCreated ? 'Создана категория: Поддержка' : 'Категория Поддержка уже настроена');
 
         const securityConfig = await security.getConfig();
         if (securityConfig.verification.unverifiedRoleId) {
@@ -118,14 +109,13 @@ client.once('clientReady', async () => {
         // открывать любой приватный тред канала без ручного добавления
         // в каждый — иначе пришлось бы add()'ить каждого сотрудника в
         // каждый новый тикет по отдельности.
-        let panelChannel = config.panelChannelId ? guild.channels.cache.get(config.panelChannelId) : null;
-        if (!panelChannel)
-            panelChannel = guild.channels.cache.find(c => c.parentId === category.id && c.name === 'открыть-тикет');
-        if (!panelChannel) {
-            panelChannel = await guild.channels.create({
-                name: 'открыть-тикет',
-                type: ChannelType.GuildText,
-                parent: category.id,
+        const { channel: panelChannel, created: panelChannelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.panelChannelId,
+            name: 'открыть-тикет',
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            createOptions: {
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] },
                     {
@@ -133,10 +123,12 @@ client.once('clientReady', async () => {
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
                     },
                 ],
-            });
+            },
+        });
+        if (panelChannelCreated) {
             console.log('Создан канал: открыть-тикет');
         } else {
-            console.log('Канал открыть-тикет уже существует');
+            console.log('Канал открыть-тикет уже настроен');
             await panelChannel.permissionOverwrites
                 .edit(supportRole.id, { ViewChannel: true, ManageThreads: true })
                 .catch(() => {});
@@ -166,30 +158,26 @@ client.once('clientReady', async () => {
         }
 
         // лог-канал для транскриптов, в уже существующей стафф-категории 🔐 Модерация
-        let logChannel = config.logChannelId ? guild.channels.cache.get(config.logChannelId) : null;
-        if (!logChannel) {
-            const staffCategory = guild.channels.cache.find(
-                c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация'
-            );
-            logChannel = guild.channels.cache.find(c => c.name === 'ticket-log');
-            if (!logChannel) {
-                logChannel = await guild.channels.create({
-                    name: 'ticket-log',
-                    type: ChannelType.GuildText,
-                    parent: staffCategory?.id ?? null,
-                    permissionOverwrites: [
-                        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                        {
-                            id: supportRole.id,
-                            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-                        },
-                    ],
-                });
-                console.log('Создан канал: ticket-log');
-            } else {
-                console.log('Канал ticket-log уже существует');
-            }
-        }
+        const staffCategory = guild.channels.cache.find(
+            c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация'
+        );
+        const { channel: logChannel, created: logChannelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.logChannelId,
+            name: 'ticket-log',
+            type: ChannelType.GuildText,
+            parentId: staffCategory?.id,
+            createOptions: {
+                permissionOverwrites: [
+                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    {
+                        id: supportRole.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                    },
+                ],
+            },
+        });
+        console.log(logChannelCreated ? 'Создан канал: ticket-log' : 'Канал ticket-log уже настроен');
 
         config.categoryId = category.id;
         config.panelChannelId = panelChannel.id;

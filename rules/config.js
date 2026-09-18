@@ -5,6 +5,10 @@ const STORE_NAME = 'rules';
 const DEFAULTS = {
     channelId: null,
     messageId: null,
+    // Категория "📋 Информация" (общая с changelog/ и reputation/, но у
+    // каждой фичи свой config-store) — нужна scripts/setup-rules.js, чтобы
+    // не искать категорию по одному только имени при повторном деплое.
+    categoryId: null,
 };
 
 const store = createStore(STORE_NAME, DEFAULTS);

@@ -266,13 +266,16 @@ async function getGuildConfig(guildId) {
 }
 
 // Вызывается из scripts/setup-reputation.js — сохраняет канал для
-// автопостов рейтинга/level-up и карту "индекс уровня → роль", созданную
-// скриптом. Отдельная функция, а не прямой config.update() из скрипта —
-// scripts/ обращаются к фиче только через её публичный API (см. index.js).
-async function configureGuild(guildId, { channelId, levelRoles }) {
+// автопостов рейтинга/level-up, категорию "📋 Информация" (общую с
+// changelog/ и rules/, но у каждой фичи свой config-store) и карту
+// "индекс уровня → роль", созданную скриптом. Отдельная функция, а не
+// прямой config.update() из скрипта — scripts/ обращаются к фиче только
+// через её публичный API (см. index.js).
+async function configureGuild(guildId, { channelId, categoryId, levelRoles }) {
     await config.update(cfg => {
         const guildCfg = cfg.guilds[guildId] ?? {};
         if (channelId !== undefined) guildCfg.announceChannelId = channelId;
+        if (categoryId !== undefined) guildCfg.categoryId = categoryId;
         if (levelRoles !== undefined) guildCfg.levelRoles = levelRoles;
         cfg.guilds[guildId] = guildCfg;
     });

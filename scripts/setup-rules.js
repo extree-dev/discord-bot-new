@@ -13,13 +13,20 @@ client.once('clientReady', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
 
-        const { channelId: existingChannelId, messageId } = await rules.getPostedLocation();
+        const {
+            channelId: existingChannelId,
+            messageId,
+            categoryId: existingCategoryId,
+        } = await rules.getPostedLocation();
 
-        let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME);
-        if (!category) {
-            category = await guild.channels.create({ name: CATEGORY_NAME, type: ChannelType.GuildCategory });
-            console.log(`Создана категория: ${CATEGORY_NAME}`);
-        }
+        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existingCategoryId,
+            name: CATEGORY_NAME,
+            type: ChannelType.GuildCategory,
+        });
+        if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
+        if (existingCategoryId !== category.id) await rules.saveCategoryId(category.id);
 
         const { channel, created } = await findOrCreateChannel({
             guild,
