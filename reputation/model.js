@@ -11,14 +11,19 @@ const config = require('./config');
 
 // Пороги — не эмодзи-бейджи, а титулы: единственный способ показать
 // "уровень" без визуального мусора, но так, чтобы рост чувствовался.
+// color — растёт по "теплоте" вместе с уровнем (тот же принцип, что и у
+// SPECIALIST_ROLES в setup-tickets.js: цвет несёт смысл, не просто
+// украшение); единственный источник правды — используется и для роли
+// уровня (scripts/setup-reputation.js), и для акцента на rank-карточке
+// (rankCardImage.js), чтобы эти два места не могли разъехаться.
 const LEVELS = [
-    { title: 'Новичок', min: 0 },
-    { title: 'Участник', min: 5 },
-    { title: 'Активный участник', min: 15 },
-    { title: 'Уважаемый', min: 30 },
-    { title: 'Авторитет', min: 60 },
-    { title: 'Легенда сервера', min: 100 },
-    { title: 'Икона сообщества', min: 200 },
+    { title: 'Новичок', min: 0, color: 0x99aab5 },
+    { title: 'Участник', min: 5, color: 0x2ecc71 },
+    { title: 'Активный участник', min: 15, color: 0x3498db },
+    { title: 'Уважаемый', min: 30, color: 0x9b59b6 },
+    { title: 'Авторитет', min: 60, color: 0xe67e22 },
+    { title: 'Легенда сервера', min: 100, color: 0xe91e63 },
+    { title: 'Икона сообщества', min: 200, color: 0xf1c40f },
 ];
 
 const GIVE_COOLDOWN_MS = 20 * 60 * 60 * 1000; // 20ч между репутацией одному и тому же человеку
@@ -40,7 +45,7 @@ function getLevelIndex(score) {
     return index;
 }
 
-// {index, title, min, next: {title, min} | null, progress: 0..1 до
+// {index, title, min, color, next: {title, min} | null, progress: 0..1 до
 // следующего уровня} — progress всегда 1 на максимальном уровне (нет
 // следующего порога, куда расти).
 function getLevel(score) {
@@ -48,7 +53,7 @@ function getLevel(score) {
     const current = LEVELS[index];
     const next = LEVELS[index + 1] ?? null;
     const progress = next ? (score - current.min) / (next.min - current.min) : 1;
-    return { index, title: current.title, min: current.min, next, progress };
+    return { index, title: current.title, min: current.min, color: current.color, next, progress };
 }
 
 // Сколько миллисекунд осталось до конца кулдауна между парой
@@ -163,7 +168,16 @@ async function getProfile(guildId, userId) {
     const user = cfg.users[userKey(guildId, userId)] ?? { score: 0, givenTo: {}, history: [] };
     const leaderboard = await getLeaderboard(guildId, Infinity);
     const rank = leaderboard.findIndex(e => e.userId === userId) + 1;
-    return { score: user.score, level: getLevel(user.score), rank: rank || null, history: user.history };
+    return {
+        score: user.score,
+        level: getLevel(user.score),
+        rank: rank || null,
+        history: user.history,
+        // Сколько разным людям сам дал репутацию за всё время (не только за
+        // сутки, как countRecentGivenTo для лимита) — показывается на
+        // rank-карточке как показатель активности, не только "сколько получил".
+        givenCount: Object.keys(user.givenTo ?? {}).length,
+    };
 }
 
 async function setReputation(guildId, userId, score) {
@@ -192,19 +206,38 @@ async function fetchImageBuffer(url) {
 // текстом. force: true при получении пользователя обязателен — баннер
 // не входит в частичные данные из кэша/resolved interaction, только в
 // полный fetch. Если баннера у пользователя нет вообще — renderRankCard
-// сам подставляет градиент вместо фона.
-async function buildRankCardAttachment(client, userId, { score, level, rank }) {
+// сам подставляет градиент вместо фона. guild — опционален (команда всё
+// равно вызывается только из гильдии, но не завязываем сигнатуру жёстко):
+// без него карточка просто не рисует уголок с иконкой/именем сервера.
+async function buildRankCardAttachment(client, userId, { score, level, rank, givenCount }, guild) {
     const user = await client.users.fetch(userId, { force: true }).catch(() => null);
     const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
     const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null;
     // Discord CDN принимает только степени двойки (16..4096) — 600 не
     // валиден и ронял всю команду RangeError-ом ещё до рендера, стоило
     // только у пользователя оказаться баннеру (упало в проде — см. 3.9.2).
+    // Та же грабля актуальна для guildIconUrl ниже — отсюда именно 64, а
+    // не "любое удобное" число.
     const bannerUrl = user?.bannerURL({ extension: 'png', size: 1024 }) ?? null;
+    const guildIconUrl = guild?.iconURL({ extension: 'png', size: 64 }) ?? null;
 
-    const [avatarBuffer, bannerBuffer] = await Promise.all([fetchImageBuffer(avatarUrl), fetchImageBuffer(bannerUrl)]);
+    const [avatarBuffer, bannerBuffer, guildIconBuffer] = await Promise.all([
+        fetchImageBuffer(avatarUrl),
+        fetchImageBuffer(bannerUrl),
+        fetchImageBuffer(guildIconUrl),
+    ]);
 
-    const png = await renderRankCard({ displayName, avatarBuffer, bannerBuffer, level, score, rank });
+    const png = await renderRankCard({
+        displayName,
+        avatarBuffer,
+        bannerBuffer,
+        level,
+        score,
+        rank,
+        givenCount,
+        guildName: guild?.name ?? null,
+        guildIconBuffer,
+    });
     return new AttachmentBuilder(png, { name: 'rank-card.png' });
 }
 

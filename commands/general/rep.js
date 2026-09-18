@@ -78,7 +78,12 @@ module.exports = {
             await interaction.deferReply();
             const target = interaction.options.getUser('user') ?? interaction.user;
             const profile = await reputation.getProfile(guildId, target.id);
-            const attachment = await reputation.buildRankCardAttachment(interaction.client, target.id, profile);
+            const attachment = await reputation.buildRankCardAttachment(
+                interaction.client,
+                target.id,
+                profile,
+                interaction.guild
+            );
             await interaction.editReply({ files: [attachment] });
             return;
         }
