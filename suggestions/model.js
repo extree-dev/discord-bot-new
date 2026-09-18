@@ -4,17 +4,21 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { update } = require('./config');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
+const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
 function buildPanelMessage() {
-    const embed = baseEmbed(COLORS.primary)
-        .setDescription(
-            formatBody(
-                'Предложи идею',
-                'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
-                    'она будет опубликована в канале предложений для обсуждения командой и другими участниками.'
+    const container = baseContainer(COLORS.primary)
+        .addTextDisplayComponents(
+            textDisplay(
+                formatBody(
+                    'Предложи идею',
+                    'Есть мысль, как сделать сервер лучше? Нажми кнопку ниже и опиши идею — ' +
+                        'она будет опубликована в канале предложений для обсуждения командой и другими участниками.'
+                )
             )
         )
-        .setFooter({ text: 'Заголовок и описание — в модальном окне, это займёт меньше минуты' });
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(textDisplay('-# Заголовок и описание — в модальном окне, это займёт меньше минуты'));
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -24,7 +28,7 @@ function buildPanelMessage() {
             .setStyle(ButtonStyle.Primary)
     );
 
-    return { embeds: [embed], components: [row] };
+    return toMessage(container, row);
 }
 
 function buildSuggestionEmbed({ member, title, description, number }) {

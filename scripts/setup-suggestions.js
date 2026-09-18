@@ -55,7 +55,11 @@ client.once('clientReady', async () => {
         const messages = await panelChannel.messages.fetch({ limit: 10 });
         const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
         if (existingPanel) {
-            await existingPanel.edit(buildPanelMessage());
+            // embeds: [] — та же причина, что и у панели тикетов/голосовых
+            // комнат: без явной очистки Discord отвергает PATCH, который
+            // одновременно оставляет старый embed и включает флаг
+            // IS_COMPONENTS_V2.
+            await existingPanel.edit({ ...buildPanelMessage(), embeds: [] });
             console.log('Панель предложений обновлена.');
         } else {
             await panelChannel.send(buildPanelMessage());

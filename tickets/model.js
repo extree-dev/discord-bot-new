@@ -9,7 +9,6 @@ const {
     ButtonBuilder,
     ButtonStyle,
     AttachmentBuilder,
-    SeparatorSpacingSize,
 } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
@@ -17,8 +16,6 @@ const {
     baseContainer,
     textDisplay,
     separator,
-    sectionWithThumbnail,
-    sectionWithButton,
     infoContainer,
     warningContainer,
     toMessage,
@@ -318,34 +315,51 @@ const REASON_BUTTON_STYLES = {
     security: ButtonStyle.Danger,
 };
 
-// Панель — один Container: секция с иконкой сервера и общим описанием,
-// затем по секции на каждую тему обращения с кнопкой-аксессуаром справа —
-// открывает тикет конкретной темы в один клик, без промежуточного списка
-// выбора (так выглядят тикет-панели у большинства крупных серверов).
-function buildPanelMessage(guild) {
+// Короткая подпись на кнопке — полный REASONS[].label ("Баг / техническая
+// проблема") слишком длинный и разъезжается в сетке кнопок; на кнопке
+// достаточно одного слова, полное название и так есть в тексте выше.
+const REASON_BUTTON_LABELS = {
+    general: 'Общий',
+    bug: 'Баг',
+    report: 'Жалоба',
+    payment: 'Донат',
+    appeal: 'Апелляция',
+    security: 'Безопасность',
+    other: 'Другое',
+};
+
+// Панель — один Container: заголовок с общим описанием, список тем текстом
+// и ряды кнопок под ним (до 5 в ряд — ограничение Discord). Без картинок
+// и повторяющихся подписей на каждой строке — просто цвет кнопки по смыслу
+// темы и её короткое имя.
+function buildPanelMessage() {
     const container = baseContainer(COLORS.primary)
-        .addSectionComponents(
-            sectionWithThumbnail(
+        .addTextDisplayComponents(
+            textDisplay(
                 formatBody(
                     'Поддержка сервера',
-                    'Выбери тему обращения кнопкой справа — откроется приватный тред с командой поддержки, ' +
+                    'Выбери тему обращения кнопкой ниже — откроется приватный тред с командой поддержки, ' +
                         'который увидишь только ты и staff.'
-                ),
-                guild?.iconURL({ size: 128 }) ?? null
+                )
             )
         )
-        .addSeparatorComponents(separator(SeparatorSpacingSize.Large));
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(
+            textDisplay(REASONS.map(r => `**${r.label}** — ${r.descriptionLabel ?? ''}`).join('\n'))
+        );
 
-    REASONS.forEach((r, i) => {
-        const button = new ButtonBuilder()
+    const buttons = REASONS.map(r =>
+        new ButtonBuilder()
             .setCustomId(`${OPEN_REASON_PREFIX}${r.value}`)
-            .setLabel('Открыть')
-            .setStyle(REASON_BUTTON_STYLES[r.value] ?? ButtonStyle.Secondary);
-        container.addSectionComponents(sectionWithButton(`**${r.label}**\n-# ${r.descriptionLabel ?? ''}`, button));
-        if (i < REASONS.length - 1) container.addSeparatorComponents(separator());
-    });
+            .setLabel(REASON_BUTTON_LABELS[r.value] ?? r.label)
+            .setStyle(REASON_BUTTON_STYLES[r.value] ?? ButtonStyle.Secondary)
+    );
+    const rows = [];
+    for (let i = 0; i < buttons.length; i += 4) {
+        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 4)));
+    }
 
-    return toMessage(container);
+    return toMessage(container, ...rows);
 }
 
 // entry — опционально: кнопка "Наказать" появляется только у тикетов
@@ -388,22 +402,15 @@ function buildStatusStepper(entry) {
 // Карточка тикета на Components V2 вместо embed'а с полями-сеткой —
 // стопка текстовых блоков, разделённых Separator, тот же смысл, что был
 // у fields, но без грид-раскладки embed'а и без эмодзи-маркеров (см.
-// договорённость по редизайну тикетов — только текст). avatarUrl —
-// аватар автора тикета: когда известен, заголовок превращается в Section
-// с превью аватара справа (как карточка обращения в реальных
-// support-ботах), без него — обычный текстовый блок.
-function buildTicketCard(entry, avatarUrl = null) {
+// договорённость по редизайну тикетов — только текст).
+function buildTicketCard(entry) {
     const headerText = formatBody(
         entry.urgent ? `Тикет #${entry.number} — срочно` : `Тикет #${entry.number}`,
         entry.description
     );
-    const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary);
-    if (avatarUrl) {
-        container.addSectionComponents(sectionWithThumbnail(headerText, avatarUrl));
-    } else {
-        container.addTextDisplayComponents(textDisplay(headerText));
-    }
-    container.addSeparatorComponents(separator());
+    const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary)
+        .addTextDisplayComponents(textDisplay(headerText))
+        .addSeparatorComponents(separator());
 
     const infoLines = [
         `**Тема:** ${entry.reason}`,
@@ -516,11 +523,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // обновить именно это сообщение в месте, а не только слать новое —
     // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
     const rootMessage = await thread.send(
-        toMessage(
-            textDisplay(pingLine),
-            buildTicketCard(entry, member.user.displayAvatarURL({ size: 128 })),
-            ...buildTicketControlRow(entry)
-        )
+        toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
     );
     await update(cfg => {
         const e = cfg.tickets[thread.id];
@@ -565,7 +568,6 @@ async function updateTicketRootMessage(client, threadId, entry) {
     if (!thread) return;
     const message = await thread.messages.fetch(entry.rootMessageId).catch(() => null);
     if (!message) return;
-    const owner = await client.users.fetch(entry.ownerId).catch(() => null);
     // Компонентное сообщение редактируется целиком (нет частичного
     // патча полей, как у embed'а) — пинг-строка из исходного сообщения
     // не переносится, она была одноразовым уведомлением, не частью
@@ -574,13 +576,7 @@ async function updateTicketRootMessage(client, threadId, entry) {
     // PATCH без явной очистки оставляет старый embed как есть, и Discord
     // отвергает результат (embeds + IS_COMPONENTS_V2 одновременно).
     await message
-        .edit({
-            ...toMessage(
-                buildTicketCard(entry, owner?.displayAvatarURL({ size: 128 }) ?? null),
-                ...buildTicketControlRow(entry)
-            ),
-            embeds: [],
-        })
+        .edit({ ...toMessage(buildTicketCard(entry), ...buildTicketControlRow(entry)), embeds: [] })
         .catch(() => {});
 }
 
@@ -965,10 +961,7 @@ async function reopenTicket(guild, number) {
     });
 
     if (updatedEntry) {
-        const owner = await guild.client.users.fetch(updatedEntry.ownerId).catch(() => null);
-        await thread
-            .send(toMessage(buildTicketCard(updatedEntry, owner?.displayAvatarURL({ size: 128 }) ?? null)))
-            .catch(() => {});
+        await thread.send(toMessage(buildTicketCard(updatedEntry))).catch(() => {});
         await updateTicketRootMessage(guild.client, threadId, updatedEntry);
     }
 
