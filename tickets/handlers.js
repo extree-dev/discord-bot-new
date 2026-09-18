@@ -100,6 +100,7 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
     await interaction.reply({
         embeds: [successEmbed(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу')],
     });
+    await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
 });
 
 const handleAddUserButton = withTicketEntry(async (interaction, config) => {
@@ -146,9 +147,14 @@ const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => 
         return;
     }
     await interaction.deferReply({ ephemeral: true });
-    const channel = await model.createDiscussionVoiceChannel(interaction, entry);
+    const { channel, created } = await model.getOrCreateDiscussionVoiceChannel(interaction, entry);
     await interaction.editReply({
-        embeds: [successEmbed(`Голосовая комната для обсуждения: ${channel}`, 'Комната создана')],
+        embeds: [
+            successEmbed(
+                `Голосовая комната для обсуждения: ${channel}`,
+                created ? 'Комната создана' : 'Комната для обсуждения'
+            ),
+        ],
     });
 });
 
@@ -326,7 +332,8 @@ async function handleMessageCreate(msg) {
     if (!entry) return;
 
     const authorIsOwner = msg.author.id === entry.ownerId;
-    await model.recordActivity(msg.channelId, authorIsOwner);
+    const updatedEntry = await model.recordActivity(msg.channelId, authorIsOwner);
+    if (updatedEntry) await model.updateTicketRootMessage(msg.client, msg.channelId, updatedEntry);
 }
 
 function register(client) {

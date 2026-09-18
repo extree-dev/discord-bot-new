@@ -13,4 +13,5 @@ module.exports = {
     handleSelectMenu: handlers.handleSelectMenu,
     buildPanelMessage: model.buildPanelMessage,
     trackRoom: model.trackRoom,
+    untrackRoom: model.untrackRoom,
 };
