@@ -33,13 +33,6 @@ const ROLES = [
         mentionable: false,
         permissions: [],
     },
-    {
-        name: 'Participant',
-        color: 0x99aab5,
-        hoist: false,
-        mentionable: false,
-        permissions: [],
-    },
 ];
 
 client.once('clientReady', async () => {

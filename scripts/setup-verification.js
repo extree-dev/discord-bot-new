@@ -33,10 +33,23 @@ client.once('clientReady', async () => {
             console.log('Роль Unverified уже существует');
         }
 
-        const participantRole = guild.roles.cache.find(r => r.name === 'Participant');
-        if (!participantRole) {
-            console.error('Роль Participant не найдена — сначала запусти scripts/setup-roles.js');
-            process.exit(1);
+        // Отдельная роль именно для "прошёл верификацию" — раньше скрипт
+        // переиспользовал роль Participant из setup-roles.js, но это была
+        // роль общего назначения, ничем не привязанная к смыслу "прошёл
+        // капчу", и путалась с одноимённой ролью, которую администратор
+        // мог создать вручную под тем же именем "Верифицирован".
+        let verifiedRole = guild.roles.cache.find(r => r.name === 'Верифицирован');
+        if (!verifiedRole) {
+            verifiedRole = await guild.roles.create({
+                name: 'Верифицирован',
+                color: 0x57f287,
+                hoist: false,
+                mentionable: false,
+                permissions: [],
+            });
+            console.log('Создана роль: Верифицирован');
+        } else {
+            console.log('Роль Верифицирован уже существует');
         }
 
         let category = guild.channels.cache.find(
@@ -120,7 +133,7 @@ client.once('clientReady', async () => {
             config.verification = {
                 enabled: true,
                 unverifiedRoleId: unverifiedRole.id,
-                verifiedRoleId: participantRole.id,
+                verifiedRoleId: verifiedRole.id,
                 channelId: channel.id,
             };
         });
