@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseChangelog, getEntry, getLatestEntries } = require('../changelog/model');
+const { parseChangelog, getEntry, getLatestEntries, isReleaseVersion } = require('../changelog/model');
 
 const SAMPLE = [
     '# Changelog',
@@ -59,6 +59,13 @@ test('getEntry находит секцию по номеру версии, ин�
     assert.equal(getEntry('2.0.0', SAMPLE)?.title, 'рефакторинг');
     assert.equal(getEntry('9.9.9', SAMPLE), null);
     assert.equal(getEntry('Unreleased', SAMPLE), null);
+});
+
+test('isReleaseVersion: релиз — PATCH равен 0, багфикс — не равен', () => {
+    assert.equal(isReleaseVersion('3.6.0'), true);
+    assert.equal(isReleaseVersion('4.0.0'), true);
+    assert.equal(isReleaseVersion('3.6.1'), false);
+    assert.equal(isReleaseVersion('3.6.12'), false);
 });
 
 test('getLatestEntries(n) возвращает не больше n секций в порядке файла', () => {

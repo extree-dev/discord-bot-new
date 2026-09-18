@@ -24,7 +24,10 @@ function readChangelogFile() {
 // это новейшая версия сверху, поэтому результат уже отсортирован от
 // новых к старым.
 function parseChangelog(text = readChangelogFile()) {
-    const lines = text.split('\n');
+    // /\r?\n/, а не просто '\n' — на CRLF ('\r\n') "$" в регулярке ниже не
+    // матчится перед висящим "\r" в конце строки, и весь парсинг молча
+    // возвращает пустой список секций (без единой ошибки).
+    const lines = text.split(/\r?\n/);
     const sections = [];
     let current = null;
 
@@ -42,6 +45,17 @@ function parseChangelog(text = readChangelogFile()) {
     return sections
         .filter(s => s.version.toLowerCase() !== 'unreleased')
         .map(s => ({ version: s.version, title: s.title, body: s.lines.join('\n').trim() }));
+}
+
+// По SemVer PATCH (третье число) — багфикс, не новая функциональность;
+// анонс "что нового" в канал имеет смысл только для релизов (MINOR/MAJOR,
+// PATCH === 0) — иначе каждое мелкое исправление превращается в отдельный
+// пост, и участники перестают отличать релиз от рядового патча. Полная
+// история версий, включая патчи, всё равно остаётся в CHANGELOG.md и
+// видна через /changelog — от анонса освобождены только автопосты.
+function isReleaseVersion(version) {
+    const parts = version.split('.').map(Number);
+    return parts[2] === 0;
 }
 
 // text — опциональный аргумент только для тестов (см. test/changelog.test.js):
@@ -92,11 +106,20 @@ function buildChangelogSummary(entries) {
 // не была анонсирована и для неё есть запись в CHANGELOG.md. Молча
 // ничего не делает (ждёт следующего перезапуска), если канал не настроен
 // или запись пока не добавлена — не отмечает версию как объявленную,
-// чтобы релиз не потерялся молча, если о канале/записи забыли.
+// чтобы релиз не потерялся молча, если о канале/записи забыли. Патч-версии
+// (см. isReleaseVersion) отмечаются как обработанные сразу, без попытки
+// публикации — это осознанный пропуск, а не забытая настройка.
 async function checkAndAnnounce(client) {
     const currentVersion = getVersion();
     const cfg = await config.load();
     if (cfg.lastAnnouncedVersion === currentVersion) return;
+
+    if (!isReleaseVersion(currentVersion)) {
+        await config.update(c => {
+            c.lastAnnouncedVersion = currentVersion;
+        });
+        return;
+    }
 
     const entry = getEntry(currentVersion);
     if (!cfg.channelId || !entry) return;
@@ -113,6 +136,7 @@ async function checkAndAnnounce(client) {
 
 module.exports = {
     parseChangelog,
+    isReleaseVersion,
     getEntry,
     getLatestEntries,
     buildAnnounceCard,
