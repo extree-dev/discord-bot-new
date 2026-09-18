@@ -6,6 +6,7 @@ const auditLog = require('./auditLog');
 const automod = require('./automod');
 const verification = require('./verification');
 const lockdown = require('./lockdown');
+const logger = require('./logger');
 
 function register(client) {
     antiNuke.register(client);
@@ -36,4 +37,5 @@ module.exports = {
     restoreBackup: backup.restoreBackup,
     activateLockdown: lockdown.activate,
     deactivateLockdown: lockdown.deactivate,
+    log: logger.log,
 };
