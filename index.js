@@ -28,6 +28,7 @@ const voice = require('./voice');
 const tickets = require('./tickets');
 const suggestions = require('./suggestions');
 const presence = require('./presence');
+const changelog = require('./changelog');
 const reputation = require('./reputation');
 
 client.once('ready', () => {
@@ -37,6 +38,7 @@ client.once('ready', () => {
     tickets.register(client);
     suggestions.register(client);
     presence.register(client);
+    changelog.register(client);
     reputation.register(client);
 });
 
