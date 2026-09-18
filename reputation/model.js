@@ -197,7 +197,10 @@ async function buildRankCardAttachment(client, userId, { score, level, rank }) {
     const user = await client.users.fetch(userId, { force: true }).catch(() => null);
     const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
     const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null;
-    const bannerUrl = user?.bannerURL({ extension: 'png', size: 600 }) ?? null;
+    // Discord CDN принимает только степени двойки (16..4096) — 600 не
+    // валиден и ронял всю команду RangeError-ом ещё до рендера, стоило
+    // только у пользователя оказаться баннеру (упало в проде — см. 3.9.2).
+    const bannerUrl = user?.bannerURL({ extension: 'png', size: 1024 }) ?? null;
 
     const [avatarBuffer, bannerBuffer] = await Promise.all([fetchImageBuffer(avatarUrl), fetchImageBuffer(bannerUrl)]);
 
