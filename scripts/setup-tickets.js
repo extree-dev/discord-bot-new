@@ -7,19 +7,18 @@ const { buildPanelMessage } = require('../tickets');
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // Роли-специалисты по темам тикетов — не каждый модератор из общего
-// Support понимает, например, донат-платежи или апелляции наказаний,
-// поэтому createTicket() дополнительно пингует нужную роль под темой
-// (tickets/model.js REASONS + config.reasonRoleIds). Видимость треда
-// даёт то же ManageThreads на панельном канале, что и у supportRole —
-// тот же trade-off, что и для supportRole: роль видит вообще все
-// тикеты, не только свою тему, но зато точно не пропустит пинг.
-// Цвет у каждой роли свой — по смыслу темы (баги/жалобы/деньги/суд/защита).
+// Support понимает, например, апелляции наказаний, поэтому createTicket()
+// дополнительно пингует нужную роль под темой (tickets/model.js REASONS +
+// config.reasonRoleIds). Видимость треда даёт то же ManageThreads на
+// панельном канале, что и у supportRole — тот же trade-off, что и для
+// supportRole: роль видит вообще все тикеты, не только свою тему, но
+// зато точно не пропустит пинг. Баг в самом боте — не вопрос модерации,
+// а вопрос того, кто его написал, поэтому у темы "bug" не роль поддержки,
+// а роль разработчика. Цвет у каждой роли свой — по смыслу темы.
 const SPECIALIST_ROLES = {
-    bug: { name: 'Bugs', color: 0xe67e22 },
+    bug: { name: 'Разработчик бота', color: 0xe67e22 },
     report: { name: 'Reports', color: 0xe74c3c },
-    payment: { name: 'Payments', color: 0xf1c40f },
     appeal: { name: 'Appeals', color: 0x9b59b6 },
-    security: { name: 'Security', color: 0x1abc9c },
 };
 
 client.once('clientReady', async () => {
@@ -53,8 +52,14 @@ client.once('clientReady', async () => {
             console.log('Роль Support уже существует');
         }
 
-        // роли-специалисты по темам тикетов
-        const reasonRoleIds = { ...config.reasonRoleIds };
+        // роли-специалисты по темам тикетов — убранные темы ("payment",
+        // "security") просто перестают отслеживаться и получать пинги;
+        // сами роли на сервере скрипт не трогает и не удаляет, это на
+        // усмотрение администратора.
+        const reasonRoleIds = {};
+        for (const reasonValue of Object.keys(SPECIALIST_ROLES)) {
+            if (config.reasonRoleIds[reasonValue]) reasonRoleIds[reasonValue] = config.reasonRoleIds[reasonValue];
+        }
         const specialistRoles = [];
         for (const [reasonValue, spec] of Object.entries(SPECIALIST_ROLES)) {
             let role = reasonRoleIds[reasonValue] ? guild.roles.cache.get(reasonRoleIds[reasonValue]) : null;

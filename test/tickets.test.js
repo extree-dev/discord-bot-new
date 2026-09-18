@@ -58,7 +58,7 @@ test('REASONS: значения уникальны, и только "report" т�
         }
     }
     const urgent = REASONS.filter(r => r.urgent).map(r => r.value);
-    assert.deepEqual(urgent, ['security']);
+    assert.deepEqual(urgent, []);
 });
 
 test('CANNED_RESPONSES: у каждого шаблона есть подпись и текст, а их число укладывается в лимит слэш-команды (25 choices)', () => {
