@@ -13,12 +13,13 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // даёт то же ManageThreads на панельном канале, что и у supportRole —
 // тот же trade-off, что и для supportRole: роль видит вообще все
 // тикеты, не только свою тему, но зато точно не пропустит пинг.
+// Цвет у каждой роли свой — по смыслу темы (баги/жалобы/деньги/суд/защита).
 const SPECIALIST_ROLES = {
-    bug: 'Тикеты: Баги',
-    report: 'Тикеты: Жалобы',
-    payment: 'Тикеты: Донат',
-    appeal: 'Тикеты: Апелляции',
-    security: 'Тикеты: Безопасность',
+    bug: { name: '🐞 Спец. по багам', color: 0xe67e22 },
+    report: { name: '🚩 Спец. по жалобам', color: 0xe74c3c },
+    payment: { name: '💳 Спец. по донату', color: 0xf1c40f },
+    appeal: { name: '⚖️ Спец. по апелляциям', color: 0x9b59b6 },
+    security: { name: '🛡️ Спец. по безопасности', color: 0x1abc9c },
 };
 
 client.once('clientReady', async () => {
@@ -54,17 +55,35 @@ client.once('clientReady', async () => {
 
         // роли-специалисты по темам тикетов
         const reasonRoleIds = { ...config.reasonRoleIds };
-        for (const [reasonValue, roleName] of Object.entries(SPECIALIST_ROLES)) {
+        const specialistRoles = [];
+        for (const [reasonValue, spec] of Object.entries(SPECIALIST_ROLES)) {
             let role = reasonRoleIds[reasonValue] ? guild.roles.cache.get(reasonRoleIds[reasonValue]) : null;
-            if (!role) role = guild.roles.cache.find(r => r.name === roleName);
+            if (!role) role = guild.roles.cache.find(r => r.name === spec.name);
             if (!role) {
-                role = await guild.roles.create({ name: roleName, mentionable: false, hoist: false, permissions: [] });
-                console.log(`Создана роль: ${roleName}`);
+                role = await guild.roles.create({
+                    name: spec.name,
+                    color: spec.color,
+                    hoist: true,
+                    mentionable: false,
+                    permissions: [],
+                });
+                console.log(`Создана роль: ${spec.name}`);
+            } else if (role.name !== spec.name || role.hexColor !== `#${spec.color.toString(16).padStart(6, '0')}`) {
+                await role.edit({ name: spec.name, color: spec.color }).catch(() => {});
+                console.log(`Роль обновлена: ${spec.name}`);
             } else {
-                console.log(`Роль ${roleName} уже существует`);
+                console.log(`Роль ${spec.name} уже существует`);
             }
             reasonRoleIds[reasonValue] = role.id;
+            specialistRoles.push(role);
         }
+
+        // По умолчанию Discord создаёт новую роль в самом низу иерархии
+        // (сразу над @everyone) — поднимаем роли-специалистов на уровень
+        // Support, чтобы они были на виду, а не терялись внизу списка.
+        await guild.roles
+            .setPositions(specialistRoles.map(role => ({ role, position: supportRole.position })))
+            .catch(err => console.error('Не удалось поднять роли-специалистов в иерархии:', err.message));
 
         // категория тикетов
         let category = config.categoryId ? guild.channels.cache.get(config.categoryId) : null;

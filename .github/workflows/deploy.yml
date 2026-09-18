@@ -23,3 +23,17 @@ jobs:
                       git reset --hard origin/main
                       docker compose up -d --build
                       docker image prune -f
+
+                      # Регистрация слэш-команд и все setup-скрипты идемпотентны
+                      # (находят/создают недостающее, ничего не портят при повторном
+                      # запуске) — прогоняем их на каждый деплой, чтобы новые команды,
+                      # роли, каналы и т.п. появлялись на сервере без ручного захода
+                      # по SSH после каждого push.
+                      docker compose run --rm bot node deploy-commands.js
+                      docker compose run --rm bot node scripts/setup-server.js
+                      docker compose run --rm bot node scripts/setup-roles.js
+                      docker compose run --rm bot node scripts/setup-verification.js
+                      docker compose run --rm bot node scripts/setup-tickets.js
+                      docker compose run --rm bot node scripts/setup-temp-voice.js
+                      docker compose run --rm bot node scripts/setup-suggestions.js
+                      docker compose run --rm bot node scripts/setup-rules.js
