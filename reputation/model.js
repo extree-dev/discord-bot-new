@@ -1,10 +1,12 @@
 // Доменный слой репутации: уровни/титулы, выдача/профиль/рейтинг,
 // автороль при повышении уровня, еженедельный рейтинг с изменением
-// позиций. Чистые функции (getLevel/formatProgressBar/computeCooldown/
-// buildLeaderboardMovement) не трогают Discord API и покрыты тестами
-// отдельно от giveReputation/checkAndPostLeaderboard.
+// позиций. Чистые функции (getLevel/computeCooldown/buildLeaderboardMovement)
+// не трогают Discord API и покрыты тестами отдельно от
+// giveReputation/checkAndPostLeaderboard.
+const { AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
+const { renderProgressBarImage } = require('./progressBarImage');
 const config = require('./config');
 
 // Пороги — не эмодзи-бейджи, а титулы: единственный способ показать
@@ -23,7 +25,6 @@ const GIVE_COOLDOWN_MS = 20 * 60 * 60 * 1000; // 20ч между репутац�
 const DAILY_GIVE_LIMIT = 5; // максимум разным людям в сутки — от накрутки/сговора
 const LEADERBOARD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 const HISTORY_LIMIT = 20;
-const PROGRESS_BAR_LENGTH = 10;
 
 function userKey(guildId, userId) {
     return `${guildId}_${userId}`;
@@ -48,15 +49,6 @@ function getLevel(score) {
     const next = LEVELS[index + 1] ?? null;
     const progress = next ? (score - current.min) / (next.min - current.min) : 1;
     return { index, title: current.title, min: current.min, next, progress };
-}
-
-// "[███████░░░] 7/10" — текстовый прогресс-бар без картинок/эмодзи,
-// █/░ (Unicode Block Elements) читаются одинаково на любом устройстве
-// и не мигают цветом.
-function formatProgressBar(progress, length = PROGRESS_BAR_LENGTH) {
-    const clamped = Math.max(0, Math.min(1, progress));
-    const filled = Math.round(clamped * length);
-    return '█'.repeat(filled) + '░'.repeat(length - filled);
 }
 
 // Сколько миллисекунд осталось до конца кулдауна между парой
@@ -184,18 +176,38 @@ async function setReputation(guildId, userId, score) {
     });
 }
 
+// Имя файла общее для buildProfileCard() (ссылается на него через
+// MediaGallery) и buildProfileAttachment() (собирает сам файл) — команда
+// должна передать оба в одном сообщении (components + files).
+const PROGRESS_BAR_FILENAME = 'progress-bar.png';
+
 function buildProfileCard(user, { score, level, rank }) {
     const lines = [
         `**Уровень:** ${level.title}`,
         `**Репутация:** ${score}${level.next ? ` / ${level.next.min}` : ''}`,
-        `**Прогресс:** \`${formatProgressBar(level.progress)}\`${level.next ? ` до «${level.next.title}»` : ' (максимум)'}`,
+        `**Прогресс:**${level.next ? ` до «${level.next.title}»` : ' (максимум)'}`,
     ];
     if (rank) lines.push(`**Место в рейтинге:** #${rank}`);
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(textDisplay(formatBody(`Репутация ${user}`)))
         .addSeparatorComponents(separator())
-        .addTextDisplayComponents(textDisplay(lines.join('\n')));
+        .addTextDisplayComponents(textDisplay(lines.join('\n')))
+        .addMediaGalleryComponents(
+            new MediaGalleryBuilder().addItems(
+                new MediaGalleryItemBuilder()
+                    .setURL(`attachment://${PROGRESS_BAR_FILENAME}`)
+                    .setDescription('Полоса прогресса до следующего уровня')
+            )
+        );
     return container;
+}
+
+// Картинка полосы прогресса — отдельный AttachmentBuilder, который
+// команда обязана передать в files той же send()/reply(), что и
+// buildProfileCard() (MediaGallery выше ссылается на неё по имени файла).
+function buildProfileAttachment(level) {
+    const buffer = renderProgressBarImage(level.progress);
+    return new AttachmentBuilder(buffer, { name: PROGRESS_BAR_FILENAME });
 }
 
 function buildLevelUpCard(user, level) {
@@ -268,7 +280,6 @@ module.exports = {
     DAILY_GIVE_LIMIT,
     getLevelIndex,
     getLevel,
-    formatProgressBar,
     computeCooldownRemaining,
     countRecentGivenTo,
     buildLeaderboardMovement,
@@ -280,6 +291,7 @@ module.exports = {
     getLevelRoleId,
     configureGuild,
     buildProfileCard,
+    buildProfileAttachment,
     buildLevelUpCard,
     buildLeaderboardCard,
     checkAndPostLeaderboard,

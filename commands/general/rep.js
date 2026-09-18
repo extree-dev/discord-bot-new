@@ -71,7 +71,10 @@ module.exports = {
         if (sub === 'profile') {
             const target = interaction.options.getUser('user') ?? interaction.user;
             const profile = await reputation.getProfile(guildId, target.id);
-            await interaction.reply(toMessage(reputation.buildProfileCard(`${target}`, profile)));
+            await interaction.reply({
+                ...toMessage(reputation.buildProfileCard(`${target}`, profile)),
+                files: [reputation.buildProfileAttachment(profile.level)],
+            });
             return;
         }
 
