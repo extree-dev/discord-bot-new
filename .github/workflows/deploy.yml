@@ -50,4 +50,5 @@ jobs:
                       run_setup_step scripts/setup-temp-voice.js
                       run_setup_step scripts/setup-suggestions.js
                       run_setup_step scripts/setup-rules.js
+                      run_setup_step scripts/setup-reputation.js
                       exit $FAILED
