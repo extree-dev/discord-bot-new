@@ -106,8 +106,15 @@ client.once('clientReady', async () => {
                 .setStyle(ButtonStyle.Success)
         );
 
-        await channel.send({ embeds: [embed], components: [row] });
-        console.log('Сообщение с кнопкой верификации отправлено.');
+        const existingMessages = await channel.messages.fetch({ limit: 10 });
+        const existingPanel = existingMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
+        if (existingPanel) {
+            await existingPanel.edit({ embeds: [embed], components: [row] });
+            console.log('Сообщение с кнопкой верификации обновлено.');
+        } else {
+            await channel.send({ embeds: [embed], components: [row] });
+            console.log('Сообщение с кнопкой верификации отправлено.');
+        }
 
         await security.updateConfig(config => {
             config.verification = {

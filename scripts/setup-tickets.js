@@ -15,11 +15,11 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // тикеты, не только свою тему, но зато точно не пропустит пинг.
 // Цвет у каждой роли свой — по смыслу темы (баги/жалобы/деньги/суд/защита).
 const SPECIALIST_ROLES = {
-    bug: { name: '🐞 Спец. по багам', color: 0xe67e22 },
-    report: { name: '🚩 Спец. по жалобам', color: 0xe74c3c },
-    payment: { name: '💳 Спец. по донату', color: 0xf1c40f },
-    appeal: { name: '⚖️ Спец. по апелляциям', color: 0x9b59b6 },
-    security: { name: '🛡️ Спец. по безопасности', color: 0x1abc9c },
+    bug: { name: 'Bugs', color: 0xe67e22 },
+    report: { name: 'Reports', color: 0xe74c3c },
+    payment: { name: 'Payments', color: 0xf1c40f },
+    appeal: { name: 'Appeals', color: 0x9b59b6 },
+    security: { name: 'Security', color: 0x1abc9c },
 };
 
 client.once('clientReady', async () => {
