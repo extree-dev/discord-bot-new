@@ -5,12 +5,14 @@ const { PermissionFlagsBits } = require('discord.js');
 const {
     isStaff,
     findOpenTicketByOwner,
+    findRecentlyClosedTicketByOwner,
     canCloseTicket,
     formatDuration,
     aggregateStats,
     findTicketsToEscalate,
     findTicketsToWarn,
     findTicketsToAutoClose,
+    findTicketsToRemindOwner,
     REASONS,
     CANNED_RESPONSES,
     STATUS,
@@ -47,7 +49,16 @@ test('REASONS: значения уникальны, и только "report" т�
         assert.ok(r.label.length > 0);
         assert.equal(typeof r.welcomeMessage, 'string');
         assert.ok(r.welcomeMessage.length > 0, `у темы "${r.value}" нет приветственного сообщения`);
+        if (r.staffChecklist) {
+            assert.ok(
+                Array.isArray(r.staffChecklist) && r.staffChecklist.length > 0,
+                `staffChecklist у "${r.value}" пуст`
+            );
+            for (const step of r.staffChecklist) assert.ok(typeof step === 'string' && step.length > 0);
+        }
     }
+    const urgent = REASONS.filter(r => r.urgent).map(r => r.value);
+    assert.deepEqual(urgent, ['security']);
 });
 
 test('CANNED_RESPONSES: у каждого шаблона есть подпись и текст, а их число укладывается в лимит слэш-команды (25 choices)', () => {
@@ -100,6 +111,25 @@ test('findOpenTicketByOwner игнорирует уже закрытые (RESOLV
         },
     };
     assert.equal(findOpenTicketByOwner(config, 'user-1'), undefined);
+});
+
+test('findRecentlyClosedTicketByOwner находит тикет, закрытый недавно, и не находит после истечения кулдауна или для другого автора', () => {
+    const now = 1_000_000;
+    const config = {
+        tickets: {
+            justClosed: { ownerId: 'user-1', status: STATUS.RESOLVED, closedAt: now - 1_000 },
+            closedLongAgo: { ownerId: 'user-2', status: STATUS.RESOLVED, closedAt: now - 100_000 },
+            stillOpen: { ownerId: 'user-3', status: STATUS.OPEN, closedAt: null },
+        },
+    };
+    const cooldownMs = 5_000;
+    const found = findRecentlyClosedTicketByOwner(config, 'user-1', now, cooldownMs);
+    assert.ok(found);
+    assert.equal(found[0], 'justClosed');
+
+    assert.equal(findRecentlyClosedTicketByOwner(config, 'user-2', now, cooldownMs), undefined);
+    assert.equal(findRecentlyClosedTicketByOwner(config, 'user-3', now, cooldownMs), undefined);
+    assert.equal(findRecentlyClosedTicketByOwner(config, 'no-such-user', now, cooldownMs), undefined);
 });
 
 test('canCloseTicket: незанятый тикет закрывает автор или любой staff', () => {
@@ -232,6 +262,62 @@ test('findTicketsToEscalate: только тред-тикеты без claim, с
     };
     const result = findTicketsToEscalate(config, now).map(([id]) => id);
     assert.deepEqual(result, ['overdue']);
+});
+
+test('findTicketsToEscalate: срочные тикеты (urgent) эскалируются по urgentClaimTimeoutMs, не claimTimeoutMs', () => {
+    const now = 1_000_000;
+    const config = {
+        claimTimeoutMs: 20_000,
+        urgentClaimTimeoutMs: 5_000,
+        tickets: {
+            urgentOverdue: {
+                isThread: true,
+                status: STATUS.OPEN,
+                claimedBy: null,
+                escalatedAt: null,
+                urgent: true,
+                createdAt: now - 10_000,
+            },
+            urgentFresh: {
+                isThread: true,
+                status: STATUS.OPEN,
+                claimedBy: null,
+                escalatedAt: null,
+                urgent: true,
+                createdAt: now - 1_000,
+            },
+            normalNotYetOverdue: {
+                isThread: true,
+                status: STATUS.OPEN,
+                claimedBy: null,
+                escalatedAt: null,
+                createdAt: now - 10_000,
+            },
+        },
+    };
+    const result = findTicketsToEscalate(config, now).map(([id]) => id);
+    assert.deepEqual(result, ['urgentOverdue']);
+});
+
+test('findTicketsToRemindOwner: только WAITING_ON_USER, не уведомлённые, простаивающие дольше ownerReminderMs', () => {
+    const now = 1_000_000;
+    const config = {
+        ownerReminderMs: 10_000,
+        tickets: {
+            needsReminder: { status: STATUS.WAITING_ON_USER, ownerNotifiedAt: null, lastActivityAt: now - 20_000 },
+            recentlyAnswered: { status: STATUS.WAITING_ON_USER, ownerNotifiedAt: null, lastActivityAt: now - 1_000 },
+            alreadyNotified: {
+                status: STATUS.WAITING_ON_USER,
+                ownerNotifiedAt: now - 1_000,
+                lastActivityAt: now - 20_000,
+            },
+            openStatus: { status: STATUS.OPEN, ownerNotifiedAt: null, lastActivityAt: now - 20_000 },
+        },
+    };
+    assert.deepEqual(
+        findTicketsToRemindOwner(config, now).map(([id]) => id),
+        ['needsReminder']
+    );
 });
 
 test('findTicketsToWarn / findTicketsToAutoClose: работают по lastActivityAt/warnedAt', () => {

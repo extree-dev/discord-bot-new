@@ -51,10 +51,12 @@ module.exports = {
                 });
             }
             const lines = open
-                .sort((a, b) => a.createdAt - b.createdAt)
+                // Срочные тикеты — в начале списка, чтобы staff видел их
+                // первыми, а не искал среди обычных вопросов.
+                .sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.createdAt - b.createdAt)
                 .map(
                     t =>
-                        `#${t.number} · ${tickets.STATUS_LABELS[t.status] ?? t.status} · <@${t.ownerId}> · ` +
+                        `${t.urgent ? '🚨 ' : ''}#${t.number} · ${tickets.STATUS_LABELS[t.status] ?? t.status} · <@${t.ownerId}> · ` +
                         `${t.claimedBy ? `взял <@${t.claimedBy}>` : 'не взят'} · открыт ${tickets.formatDuration(Date.now() - t.createdAt)} назад`
                 );
             const embed = baseEmbed(COLORS.primary)

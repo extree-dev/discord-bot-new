@@ -10,9 +10,13 @@ const STORE_NAME = 'tickets';
 //   createdAt, lastActivityAt, claimedAt, closedAt, closedBy,
 //   escalatedAt, warnedAt,       // метки, чтобы не слать повторные напоминания
 //   rating, ratedAt,             // оценка автора после закрытия
-//   notesThreadId,               // приватный тред с внутренними заметками staff (создаётся лениво)
+//   notesThreadId,               // приватный тред с внутренними заметками staff (создаётся лениво,
+//                                // либо сразу при создании — если у темы есть staffChecklist)
 //   voiceChannelId, rootMessageId,
 //   reportedUserId,              // для темы "Жалоба на игрока" — ID выбранный через UserSelectMenu
+//   reportHistoryCount,          // сколько жалоб на этого же игрока было за последние 30 дней
+//   urgent,                      // true у тем с REASONS[].urgent — эскалируется быстрее (urgentClaimTimeoutMs)
+//   ownerNotifiedAt,             // когда автору последний раз слали DM-напоминание ответить
 // }
 const DEFAULTS = {
     categoryId: null,
@@ -22,8 +26,11 @@ const DEFAULTS = {
     escalationRoleId: null,
     reasonRoleIds: {},
     claimTimeoutMs: 10 * 60 * 1000,
+    urgentClaimTimeoutMs: 5 * 60 * 1000,
     inactivityWarnMs: 24 * 60 * 60 * 1000,
     inactivityCloseMs: 48 * 60 * 60 * 1000,
+    ownerReminderMs: 6 * 60 * 60 * 1000,
+    ticketCooldownMs: 5 * 60 * 1000,
     counter: 0,
     tickets: {},
 };
