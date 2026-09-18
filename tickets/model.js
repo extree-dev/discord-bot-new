@@ -569,14 +569,18 @@ async function updateTicketRootMessage(client, threadId, entry) {
     // Компонентное сообщение редактируется целиком (нет частичного
     // патча полей, как у embed'а) — пинг-строка из исходного сообщения
     // не переносится, она была одноразовым уведомлением, не частью
-    // карточки.
+    // карточки. embeds: [] — обязательно явно очистить: если это
+    // сообщение создавалось до перехода на Components V2 (старый embed),
+    // PATCH без явной очистки оставляет старый embed как есть, и Discord
+    // отвергает результат (embeds + IS_COMPONENTS_V2 одновременно).
     await message
-        .edit(
-            toMessage(
+        .edit({
+            ...toMessage(
                 buildTicketCard(entry, owner?.displayAvatarURL({ size: 128 }) ?? null),
                 ...buildTicketControlRow(entry)
-            )
-        )
+            ),
+            embeds: [],
+        })
         .catch(() => {});
 }
 
