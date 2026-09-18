@@ -37,11 +37,19 @@ async function handleButton(interaction) {
     const guild = interaction.guild;
     const member = interaction.member;
 
-    const unverifiedRole = config.verification.unverifiedRoleId
-        ? guild.roles.cache.get(config.verification.unverifiedRoleId)
+    // "Уже верифицирован" проверяем по наличию именно verifiedRole, а не
+    // по отсутствию unverifiedRole — это не одно и то же: если админ
+    // вручную снял verifiedRole (не тронув unverifiedRole, которого у
+    // участника вообще могло не быть — например, он зашёл до включения
+    // верификации), у участника нет ни одной из двух ролей. Проверка по
+    // "нет unverifiedRole → значит уже верифицирован" в этом случае
+    // ошибочно блокировала повторную верификацию, не выдавая verifiedRole
+    // обратно.
+    const verifiedRole = config.verification.verifiedRoleId
+        ? guild.roles.cache.get(config.verification.verifiedRoleId)
         : null;
 
-    if (unverifiedRole && !member.roles.cache.has(unverifiedRole.id)) {
+    if (verifiedRole && member.roles.cache.has(verifiedRole.id)) {
         await interaction.reply({
             embeds: [infoEmbed('Ты уже верифицирован.', 'Уже верифицирован')],
             ephemeral: true,
