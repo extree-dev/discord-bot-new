@@ -51,7 +51,10 @@ module.exports = {
                 ],
             });
 
-            if (result.leveledUp) {
+            // firstPoint — первое очко вообще (см. giveReputation): индекс
+            // уровня не меняется (0 и 1-4 очка — оба "Новичок"), но именно
+            // тогда нужно выдать саму роль уровня "Новичок" первый раз.
+            if (result.leveledUp || result.firstPoint) {
                 const roleId = await reputation.getLevelRoleId(guildId, result.levelIndex);
                 if (roleId) {
                     const member = await interaction.guild.members.fetch(target.id).catch(() => null);

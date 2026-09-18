@@ -9,9 +9,9 @@ const CHANNEL_NAME = 'рейтинг';
 
 // Цвет роли растёт по "теплоте" вместе с уровнем — тот же принцип, что
 // и у SPECIALIST_ROLES в setup-tickets.js (цвет несёт смысл, не просто
-// украшение). Индекс 0 (LEVELS[0], "Новичок") без роли — это стартовое
-// состояние всех, отдельная роль для него не нужна.
-const LEVEL_ROLE_COLORS = [0x99aab5, 0x2ecc71, 0x3498db, 0x9b59b6, 0xe67e22, 0xe91e63];
+// украшение). По одному цвету на каждый уровень, включая стартовый
+// "Новичок" (LEVELS[0]) — роль выдаётся уже с первого очка репутации.
+const LEVEL_ROLE_COLORS = [0x99aab5, 0x2ecc71, 0x3498db, 0x9b59b6, 0xe67e22, 0xe91e63, 0xf1c40f];
 
 client.once('clientReady', async () => {
     try {
@@ -40,15 +40,16 @@ client.once('clientReady', async () => {
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
         }
 
-        // Роль на каждый уровень, кроме стартового "Новичок" (LEVELS[0]).
+        // Роль на каждый уровень, включая стартовый "Новичок" (LEVELS[0]) —
+        // выдаётся уже с первого очка репутации (см. giveReputation().firstPoint).
         const levelRoles = {};
-        for (let i = 1; i < reputation.LEVELS.length; i++) {
+        for (let i = 0; i < reputation.LEVELS.length; i++) {
             const level = reputation.LEVELS[i];
             let role = guild.roles.cache.find(r => r.name === level.title);
             if (!role) {
                 role = await guild.roles.create({
                     name: level.title,
-                    color: LEVEL_ROLE_COLORS[i - 1] ?? 0x99aab5,
+                    color: LEVEL_ROLE_COLORS[i] ?? 0x99aab5,
                     hoist: true,
                     mentionable: false,
                     permissions: [],
