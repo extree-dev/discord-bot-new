@@ -79,8 +79,20 @@ client.once('clientReady', async () => {
             p => p.position >= 1
         );
         if (positions.length) {
-            await guild.roles.setPositions(positions);
-            console.log('Позиции ролей выставлены ниже роли бота.');
+            // Discord отказывает (Missing Permissions) всей пачке, если хотя бы
+            // одна из этих ролей уже стоит выше роли бота в иерархии (например,
+            // её вручную подвинул администратор) — это не мешает остальной
+            // настройке (сами роли уже созданы/найдены выше), поэтому не даём
+            // этой ошибке прервать скрипт.
+            try {
+                await guild.roles.setPositions(positions);
+                console.log('Позиции ролей выставлены ниже роли бота.');
+            } catch (err) {
+                console.error(
+                    'Не удалось выставить позиции ролей (вероятно, конфликт иерархии — поправь позиции вручную в Настройках сервера → Роли):',
+                    err.message
+                );
+            }
         }
 
         await security.updateConfig(config => {
