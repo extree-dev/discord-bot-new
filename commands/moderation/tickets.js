@@ -56,7 +56,7 @@ module.exports = {
                 .sort((a, b) => Number(b.urgent) - Number(a.urgent) || a.createdAt - b.createdAt)
                 .map(
                     t =>
-                        `${t.urgent ? '🚨 ' : ''}#${t.number} · ${tickets.STATUS_LABELS[t.status] ?? t.status} · <@${t.ownerId}> · ` +
+                        `${t.urgent ? '[Срочно] ' : ''}#${t.number} · ${tickets.STATUS_LABELS[t.status] ?? t.status} · <@${t.ownerId}> · ` +
                         `${t.claimedBy ? `взял <@${t.claimedBy}>` : 'не взят'} · открыт ${tickets.formatDuration(Date.now() - t.createdAt)} назад`
                 );
             const embed = baseEmbed(COLORS.primary)

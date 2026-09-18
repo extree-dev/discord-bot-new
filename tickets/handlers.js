@@ -11,7 +11,8 @@ const {
     UserSelectMenuBuilder,
 } = require('discord.js');
 const { load } = require('./config');
-const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
+const { errorEmbed, successEmbed } = require('../utils/embeds');
+const { successContainer, infoContainer, errorContainer, toMessage } = require('../utils/components');
 const model = require('./model');
 
 const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
@@ -148,9 +149,9 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
         return;
     }
 
-    await interaction.reply({
-        embeds: [successEmbed(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу')],
-    });
+    await interaction.reply(
+        toMessage(successContainer(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу'))
+    );
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
 });
 
@@ -276,14 +277,14 @@ const handlePunishSelect = withTicketEntry(async (interaction, config, entry) =>
         components: [],
     });
     await interaction.channel
-        .send({
-            embeds: [
-                infoEmbed(
+        .send(
+            toMessage(
+                infoContainer(
                     `<@${entry.reportedUserId}> — ${result.label} модератором ${interaction.user}.`,
                     'Наказание применено'
-                ),
-            ],
-        })
+                )
+            )
+        )
         .catch(() => {});
 });
 
@@ -301,18 +302,10 @@ async function handleRatingButton(interaction) {
     const [, threadId, valueStr] = interaction.customId.split(':');
     const entry = await model.recordRating(threadId, Number(valueStr));
     if (!entry) {
-        await interaction.update({
-            content: null,
-            embeds: [errorEmbed('Не удалось сохранить оценку — тикет не найден в базе.')],
-            components: [],
-        });
+        await interaction.update(toMessage(errorContainer('Не удалось сохранить оценку — тикет не найден в базе.')));
         return;
     }
-    await interaction.update({
-        content: null,
-        embeds: [successEmbed('Спасибо за оценку!', 'Оценка сохранена')],
-        components: [],
-    });
+    await interaction.update(toMessage(successContainer('Спасибо за оценку!', 'Оценка сохранена')));
 }
 
 async function handleButton(interaction) {
@@ -424,9 +417,7 @@ const handleNoteModal = withTicketEntry(async (interaction, config, entry) => {
     const text = interaction.fields.getTextInputValue(NOTE_INPUT_ID).trim();
     const notesThread = await model.getOrCreateNotesThread(interaction, entry);
     await notesThread.members.add(interaction.user.id).catch(() => {});
-    await notesThread.send({
-        embeds: [infoEmbed(text, `Заметка от ${interaction.user.tag}`)],
-    });
+    await notesThread.send(toMessage(infoContainer(text, `Заметка от ${interaction.user.tag}`)));
     await interaction.reply({
         embeds: [successEmbed(`Заметка добавлена: ${notesThread}`, 'Сохранено')],
         ephemeral: true,

@@ -3,7 +3,8 @@
 // предикаты (findTicketsToEscalate/Warn/AutoClose) живут в model.js —
 // здесь только побочные эффекты Discord (сообщения, закрытие) и таймер.
 const { load } = require('./config');
-const { warningEmbed } = require('../utils/embeds');
+const { COLORS, formatBody } = require('../utils/embeds');
+const { baseContainer, textDisplay, warningContainer, toMessage } = require('../utils/components');
 const model = require('./model');
 
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
@@ -21,18 +22,20 @@ async function runOnce(client) {
         await model.markEscalated(threadId);
         if (!thread) continue;
 
+        // Пинг роли — первой строкой TextDisplay, а не через content:
+        // сообщение с флагом IsComponentsV2 не может содержать content
+        // (см. utils/components.js), но упоминание всё равно доставляет
+        // уведомление, даже находясь внутри компонента.
         const roleId = config.escalationRoleId ?? config.supportRoleId;
-        await thread
-            .send({
-                content: roleId ? `<@&${roleId}>` : undefined,
-                embeds: [
-                    warningEmbed(
-                        `Тикет #${entry.number} не взят в работу уже ${model.formatDuration(now - entry.createdAt)}.`,
-                        'Эскалация'
-                    ),
-                ],
-            })
-            .catch(() => {});
+        const escalationCard = baseContainer(COLORS.warning).addTextDisplayComponents(
+            textDisplay(
+                `${roleId ? `<@&${roleId}>\n` : ''}${formatBody(
+                    'Эскалация',
+                    `Тикет #${entry.number} не взят в работу уже ${model.formatDuration(now - entry.createdAt)}.`
+                )}`
+            )
+        );
+        await thread.send(toMessage(escalationCard)).catch(() => {});
     }
 
     for (const [threadId, entry] of model.findTicketsToWarn(config, now)) {
@@ -41,15 +44,15 @@ async function runOnce(client) {
         if (!thread) continue;
 
         await thread
-            .send({
-                embeds: [
-                    warningEmbed(
+            .send(
+                toMessage(
+                    warningContainer(
                         `В тикете #${entry.number} нет активности. Если вопрос решён — закройте тикет; иначе он ` +
                             `закроется автоматически через ${model.formatDuration(config.inactivityCloseMs)}.`,
                         'Тикет неактивен'
-                    ),
-                ],
-            })
+                    )
+                )
+            )
             .catch(() => {});
     }
 
