@@ -9,6 +9,7 @@ const {
     ButtonBuilder,
     ButtonStyle,
     AttachmentBuilder,
+    SeparatorSpacingSize,
 } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
@@ -16,6 +17,8 @@ const {
     baseContainer,
     textDisplay,
     separator,
+    sectionWithThumbnail,
+    sectionWithButton,
     infoContainer,
     warningContainer,
     toMessage,
@@ -39,6 +42,11 @@ const STATUS_COLORS = {
     [STATUS.WAITING_ON_USER]: COLORS.warning,
     [STATUS.RESOLVED]: COLORS.success,
 };
+
+// customId-префикс кнопки конкретной темы на панели поддержки — общий
+// с tickets/handlers.js, поэтому экспортируется, а не только используется
+// локально в buildPanelMessage.
+const OPEN_REASON_PREFIX = 'ticket_open_reason:';
 
 // descriptionLabel/descriptionPlaceholder — чтобы модалка окна создания
 // тикета явно объясняла, что писать, а не показывала одну и ту же общую
@@ -300,21 +308,44 @@ function aggregateStats(config) {
     return { perStaff, averageRating: ratedCount ? ratingSum / ratedCount : null, ratedCount };
 }
 
-function buildPanelMessage() {
+// Цвет кнопки категории — единственный способ визуально различать темы
+// обращений без эмодзи: срочные/про нарушения — красным, донат — зелёным
+// (позитивная тема), остальное — синим/серым.
+const REASON_BUTTON_STYLES = {
+    bug: ButtonStyle.Primary,
+    report: ButtonStyle.Danger,
+    payment: ButtonStyle.Success,
+    security: ButtonStyle.Danger,
+};
+
+// Панель — один Container: секция с иконкой сервера и общим описанием,
+// затем по секции на каждую тему обращения с кнопкой-аксессуаром справа —
+// открывает тикет конкретной темы в один клик, без промежуточного списка
+// выбора (так выглядят тикет-панели у большинства крупных серверов).
+function buildPanelMessage(guild) {
     const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(
-            textDisplay(
-                `${formatBody('Поддержка сервера')}\n\n` +
-                    'Нужна помощь? Нажми кнопку ниже, выбери тему и опиши проблему в форме — мы откроем приватный ' +
-                    'тред с командой поддержки, который увидишь только ты и staff.'
+        .addSectionComponents(
+            sectionWithThumbnail(
+                formatBody(
+                    'Поддержка сервера',
+                    'Выбери тему обращения кнопкой справа — откроется приватный тред с командой поддержки, ' +
+                        'который увидишь только ты и staff.'
+                ),
+                guild?.iconURL({ size: 128 }) ?? null
             )
         )
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(textDisplay(`**Темы обращений:**\n${REASONS.map(r => `- ${r.label}`).join('\n')}`));
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ticket_open').setLabel('Открыть тикет').setStyle(ButtonStyle.Primary)
-    );
-    return toMessage(container, row);
+        .addSeparatorComponents(separator(SeparatorSpacingSize.Large));
+
+    REASONS.forEach((r, i) => {
+        const button = new ButtonBuilder()
+            .setCustomId(`${OPEN_REASON_PREFIX}${r.value}`)
+            .setLabel('Открыть')
+            .setStyle(REASON_BUTTON_STYLES[r.value] ?? ButtonStyle.Secondary);
+        container.addSectionComponents(sectionWithButton(`**${r.label}**\n-# ${r.descriptionLabel ?? ''}`, button));
+        if (i < REASONS.length - 1) container.addSeparatorComponents(separator());
+    });
+
+    return toMessage(container);
 }
 
 // entry — опционально: кнопка "Наказать" появляется только у тикетов
@@ -357,18 +388,22 @@ function buildStatusStepper(entry) {
 // Карточка тикета на Components V2 вместо embed'а с полями-сеткой —
 // стопка текстовых блоков, разделённых Separator, тот же смысл, что был
 // у fields, но без грид-раскладки embed'а и без эмодзи-маркеров (см.
-// договорённость по редизайну тикетов — только текст).
-function buildTicketCard(entry) {
-    const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary)
-        .addTextDisplayComponents(
-            textDisplay(
-                formatBody(
-                    entry.urgent ? `Тикет #${entry.number} — срочно` : `Тикет #${entry.number}`,
-                    entry.description
-                )
-            )
-        )
-        .addSeparatorComponents(separator());
+// договорённость по редизайну тикетов — только текст). avatarUrl —
+// аватар автора тикета: когда известен, заголовок превращается в Section
+// с превью аватара справа (как карточка обращения в реальных
+// support-ботах), без него — обычный текстовый блок.
+function buildTicketCard(entry, avatarUrl = null) {
+    const headerText = formatBody(
+        entry.urgent ? `Тикет #${entry.number} — срочно` : `Тикет #${entry.number}`,
+        entry.description
+    );
+    const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary);
+    if (avatarUrl) {
+        container.addSectionComponents(sectionWithThumbnail(headerText, avatarUrl));
+    } else {
+        container.addTextDisplayComponents(textDisplay(headerText));
+    }
+    container.addSeparatorComponents(separator());
 
     const infoLines = [
         `**Тема:** ${entry.reason}`,
@@ -481,7 +516,11 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // обновить именно это сообщение в месте, а не только слать новое —
     // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
     const rootMessage = await thread.send(
-        toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
+        toMessage(
+            textDisplay(pingLine),
+            buildTicketCard(entry, member.user.displayAvatarURL({ size: 128 })),
+            ...buildTicketControlRow(entry)
+        )
     );
     await update(cfg => {
         const e = cfg.tickets[thread.id];
@@ -526,11 +565,19 @@ async function updateTicketRootMessage(client, threadId, entry) {
     if (!thread) return;
     const message = await thread.messages.fetch(entry.rootMessageId).catch(() => null);
     if (!message) return;
+    const owner = await client.users.fetch(entry.ownerId).catch(() => null);
     // Компонентное сообщение редактируется целиком (нет частичного
     // патча полей, как у embed'а) — пинг-строка из исходного сообщения
     // не переносится, она была одноразовым уведомлением, не частью
     // карточки.
-    await message.edit(toMessage(buildTicketCard(entry), ...buildTicketControlRow(entry))).catch(() => {});
+    await message
+        .edit(
+            toMessage(
+                buildTicketCard(entry, owner?.displayAvatarURL({ size: 128 }) ?? null),
+                ...buildTicketControlRow(entry)
+            )
+        )
+        .catch(() => {});
 }
 
 // Атомарный захват тикета: перечитывает свежие данные внутри лока и
@@ -914,7 +961,10 @@ async function reopenTicket(guild, number) {
     });
 
     if (updatedEntry) {
-        await thread.send(toMessage(buildTicketCard(updatedEntry))).catch(() => {});
+        const owner = await guild.client.users.fetch(updatedEntry.ownerId).catch(() => null);
+        await thread
+            .send(toMessage(buildTicketCard(updatedEntry, owner?.displayAvatarURL({ size: 128 }) ?? null)))
+            .catch(() => {});
         await updateTicketRootMessage(guild.client, threadId, updatedEntry);
     }
 
@@ -1009,6 +1059,7 @@ module.exports = {
     STATUS_LABELS,
     STATUS_COLORS,
     REASONS,
+    OPEN_REASON_PREFIX,
     CANNED_RESPONSES,
     isStaff,
     findOpenTicketByOwner,

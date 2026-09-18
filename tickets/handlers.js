@@ -54,7 +54,13 @@ function buildCreateModal(reason, targetId = null) {
     return modal;
 }
 
-async function handleOpenButton(interaction) {
+// Каждая тема на панели теперь открывается своей кнопкой (см.
+// tickets/model.js buildPanelMessage) — без промежуточного выпадающего
+// списка. reasonValue зашит в customId кнопки.
+async function handleOpenReasonButton(interaction) {
+    const reasonValue = interaction.customId.slice(model.OPEN_REASON_PREFIX.length);
+    const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
+
     const config = await load();
     const existing = model.findOpenTicketByOwner(config, interaction.user.id);
     if (existing) {
@@ -83,15 +89,21 @@ async function handleOpenButton(interaction) {
         return;
     }
 
-    const select = new StringSelectMenuBuilder()
-        .setCustomId('ticket_reason_select')
-        .setPlaceholder('Выбери тему обращения')
-        .addOptions(model.REASONS.map(r => ({ label: r.label, value: r.value })));
-    await interaction.reply({
-        content: 'С чем нужна помощь?',
-        components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
-    });
+    if (reason.requiresTargetUser) {
+        const select = new UserSelectMenuBuilder()
+            .setCustomId(`${TARGET_SELECT_PREFIX}${reason.value}`)
+            .setPlaceholder('Кого касается жалоба?')
+            .setMinValues(1)
+            .setMaxValues(1);
+        await interaction.reply({
+            content: 'Выбери игрока, на которого жалуешься:',
+            components: [new ActionRowBuilder().addComponents(select)],
+            ephemeral: true,
+        });
+        return;
+    }
+
+    await interaction.showModal(buildCreateModal(reason));
 }
 
 // Общая для claim/adduser/close/voice/note проверка "это вообще канал
@@ -289,7 +301,6 @@ const handlePunishSelect = withTicketEntry(async (interaction, config, entry) =>
 });
 
 const BUTTON_HANDLERS = {
-    ticket_open: handleOpenButton,
     ticket_claim: handleClaimButton,
     ticket_adduser: handleAddUserButton,
     ticket_close: handleCloseButton,
@@ -313,30 +324,14 @@ async function handleButton(interaction) {
         await handleRatingButton(interaction);
         return true;
     }
+    if (interaction.customId.startsWith(model.OPEN_REASON_PREFIX)) {
+        await handleOpenReasonButton(interaction);
+        return true;
+    }
     const handler = BUTTON_HANDLERS[interaction.customId];
     if (!handler) return false;
     await handler(interaction);
     return true;
-}
-
-async function handleReasonSelect(interaction) {
-    const value = interaction.values[0];
-    const reason = model.REASONS.find(r => r.value === value) ?? model.REASONS[model.REASONS.length - 1];
-
-    if (reason.requiresTargetUser) {
-        const select = new UserSelectMenuBuilder()
-            .setCustomId(`${TARGET_SELECT_PREFIX}${reason.value}`)
-            .setPlaceholder('Кого касается жалоба?')
-            .setMinValues(1)
-            .setMaxValues(1);
-        await interaction.update({
-            content: 'Выбери игрока, на которого жалуешься:',
-            components: [new ActionRowBuilder().addComponents(select)],
-        });
-        return;
-    }
-
-    await interaction.showModal(buildCreateModal(reason));
 }
 
 async function handleTargetUserSelect(interaction) {
@@ -370,7 +365,6 @@ async function handleAddUserSelect(interaction) {
 }
 
 const SELECT_MENU_HANDLERS = {
-    ticket_reason_select: handleReasonSelect,
     ticket_adduser_select: handleAddUserSelect,
     [PUNISH_SELECT_ID]: handlePunishSelect,
 };

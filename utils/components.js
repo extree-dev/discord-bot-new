@@ -9,6 +9,8 @@ const {
     TextDisplayBuilder,
     SeparatorBuilder,
     SeparatorSpacingSize,
+    SectionBuilder,
+    ThumbnailBuilder,
     MessageFlags,
 } = require('discord.js');
 const { COLORS, formatBody } = require('./embeds');
@@ -23,6 +25,24 @@ function textDisplay(content) {
 
 function separator(spacing = SeparatorSpacingSize.Small) {
     return new SeparatorBuilder().setSpacing(spacing);
+}
+
+// Section — блок текста с "аксессуаром" справа (картинка или кнопка), тот
+// самый "как у других серверов" вид: превью аватара/иконки рядом с текстом
+// вместо голого текста в столбик. thumbnailUrl отсутствует — просто текст
+// без аксессуара (не все карточки его требуют, например DM без превью).
+function sectionWithThumbnail(content, thumbnailUrl) {
+    const section = new SectionBuilder().addTextDisplayComponents(textDisplay(content));
+    if (thumbnailUrl) section.setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnailUrl));
+    return section;
+}
+
+// Section с кнопкой-аксессуаром вместо картинки — строка "текст + кнопка
+// действия" в одной секции, как категории в тикет-панелях других ботов
+// (клик по кнопке сразу открывает конкретную категорию, без промежуточного
+// выпадающего списка).
+function sectionWithButton(content, button) {
+    return new SectionBuilder().addTextDisplayComponents(textDisplay(content)).setButtonAccessory(button);
 }
 
 // Контейнер из одного блока "### заголовок\n-# описание" — прямой аналог
@@ -58,6 +78,8 @@ module.exports = {
     baseContainer,
     textDisplay,
     separator,
+    sectionWithThumbnail,
+    sectionWithButton,
     messageContainer,
     errorContainer,
     successContainer,
