@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const reputation = require('../reputation');
+const { findOrCreateChannel, findOrCreateRole } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -19,22 +20,28 @@ client.once('clientReady', async () => {
         await guild.roles.fetch();
         await guild.channels.fetch();
 
+        const existingGuildConfig = await reputation.getGuildConfig(guild.id);
+
         let category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === CATEGORY_NAME);
         if (!category) {
             category = await guild.channels.create({ name: CATEGORY_NAME, type: ChannelType.GuildCategory });
             console.log(`Создана категория: ${CATEGORY_NAME}`);
         }
 
-        let channel = guild.channels.cache.find(c => c.parentId === category.id && c.name === CHANNEL_NAME);
-        if (!channel) {
-            channel = await guild.channels.create({
-                name: CHANNEL_NAME,
-                type: ChannelType.GuildText,
-                parent: category.id,
+        const { channel, created: channelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: existingGuildConfig.announceChannelId,
+            name: CHANNEL_NAME,
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            createOptions: {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            });
+            },
+        });
+        if (channelCreated) {
             console.log(`Создан канал: ${CHANNEL_NAME}`);
         } else {
+            console.log(`Канал рейтинга уже настроен: ${channel.name}`);
             await channel.permissionOverwrites
                 .edit(guild.roles.everyone.id, { SendMessages: false })
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
@@ -45,19 +52,18 @@ client.once('clientReady', async () => {
         const levelRoles = {};
         for (let i = 0; i < reputation.LEVELS.length; i++) {
             const level = reputation.LEVELS[i];
-            let role = guild.roles.cache.find(r => r.name === level.title);
-            if (!role) {
-                role = await guild.roles.create({
-                    name: level.title,
-                    color: LEVEL_ROLE_COLORS[i] ?? 0x99aab5,
-                    hoist: true,
-                    mentionable: false,
-                    permissions: [],
-                });
-                console.log(`Создана роль уровня: ${level.title}`);
-            } else {
-                console.log(`Роль уровня уже существует: ${level.title}`);
-            }
+            const { role, created: roleCreated } = await findOrCreateRole({
+                guild,
+                existingId: existingGuildConfig.levelRoles?.[i],
+                name: level.title,
+                color: LEVEL_ROLE_COLORS[i] ?? 0x99aab5,
+                hoist: true,
+                mentionable: false,
+                permissions: [],
+            });
+            console.log(
+                roleCreated ? `Создана роль уровня: ${level.title}` : `Роль уровня уже настроена: ${role.name}`
+            );
             levelRoles[i] = role.id;
         }
 
