@@ -54,6 +54,11 @@ const REASONS = [
         descriptionPlaceholder: '1) Что делал 2) Что ожидал 3) Что произошло. Приложи ссылку на скрин/видео.',
         welcomeMessage:
             'Спасибо за репорт! Если ещё не приложил — пришли скриншот или видео и укажи платформу (ПК/моб.) — это сильно ускорит разбор.',
+        staffChecklist: [
+            'Проверь, воспроизводится ли баг у тебя',
+            'Уточни платформу и версию клиента, если автор не указал',
+            'Если баг подтверждён — передай разработчикам и отметь тикет шаблоном «Баг подтверждён»',
+        ],
     },
     {
         value: 'report',
@@ -63,6 +68,11 @@ const REASONS = [
         descriptionPlaceholder: 'Приложи ссылку на сообщение или скрин-доказательство.',
         welcomeMessage:
             'Жалоба принята в обработку. Если есть ещё скриншоты или ссылки на сообщения с нарушением — прикрепи их сюда, это поможет модератору быстрее принять решение.',
+        staffChecklist: [
+            'Проверь приложенные доказательства',
+            'Посмотри историю сообщений нарушителя в канале, если нужно больше контекста',
+            'Прими решение: наказать кнопкой «Наказать» или отклонить шаблоном ответа',
+        ],
     },
     {
         value: 'payment',
@@ -72,6 +82,11 @@ const REASONS = [
         extraFieldLabel: 'ID платежа или транзакции',
         extraFieldPlaceholder: 'Номер чека, ID транзакции или способ оплаты',
         welcomeMessage: 'Мы проверим платёж по указанным данным. Если понадобятся детали — уточним здесь же.',
+        staffChecklist: [
+            'Сверь ID транзакции/чек в панели платёжной системы',
+            'Проверь, что оплаченный товар не был выдан ранее',
+            'Выдай недостающее или сообщи автору об ошибке платежа',
+        ],
     },
     {
         value: 'appeal',
@@ -80,6 +95,11 @@ const REASONS = [
         descriptionPlaceholder: 'Укажи тип наказания (бан/мут/варн) и свою версию произошедшего.',
         welcomeMessage:
             'Апелляция принята и передана модерации. Дождись решения здесь — повторные обращения по тому же наказанию не ускорят рассмотрение.',
+        staffChecklist: [
+            'Проверь причину и срок наказания в журнале модерации',
+            'Оцени, есть ли основания для смягчения',
+            'Прими решение и сообщи автору шаблоном «Апелляция на рассмотрении/отклонена»',
+        ],
     },
     {
         value: 'security',
@@ -88,6 +108,15 @@ const REASONS = [
         descriptionPlaceholder: 'Например: аккаунт взломали, рассылает спам, подозрительные входы.',
         welcomeMessage:
             'Если аккаунт мог быть скомпрометирован — на всякий случай смени пароль от Discord и включи двухфакторную аутентификацию (2FA), если она ещё не включена. С остальным поможет модератор.',
+        // Взлом аккаунта — самая горящая из тем (спам/фишинг от чужого имени
+        // продолжается прямо сейчас), поэтому эскалируется быстрее остальных
+        // (см. urgentClaimTimeoutMs в tickets/config.js).
+        urgent: true,
+        staffChecklist: [
+            'Уточни, менял ли автор пароль/включил 2FA',
+            'Проверь последние действия аккаунта на подозрительную активность',
+            'При необходимости — сними подозрительные роли/сессии',
+        ],
     },
     {
         value: 'other',
@@ -172,6 +201,27 @@ function isStaff(config, member) {
 function findOpenTicketByOwner(config, userId) {
     return Object.entries(config.tickets).find(([, t]) => t.ownerId === userId && t.status !== STATUS.RESOLVED);
 }
+
+// Антиспам на повторное открытие: пока не прошёл ticketCooldownMs с
+// момента закрытия предыдущего тикета этого автора — новый не открыть.
+// Не мешает findOpenTicketByOwner (тот уже блокирует, если тикет вообще
+// не закрыт) — это отдельная проверка именно на скорость повторного
+// открытия после закрытия.
+function findRecentlyClosedTicketByOwner(config, userId, now, cooldownMs) {
+    return Object.entries(config.tickets).find(
+        ([, t]) => t.ownerId === userId && t.status === STATUS.RESOLVED && t.closedAt && now - t.closedAt < cooldownMs
+    );
+}
+
+// Сколько жалоб на того же игрока (reportedUserId) уже было за последние
+// windowMs — снимок в момент создания тикета, чтобы модератор сразу видел
+// повторного нарушителя в самой карточке, а не искал историю руками.
+function countRecentReportsOn(config, reportedUserId, now, windowMs) {
+    return Object.values(config.tickets).filter(
+        e => e.reportedUserId === reportedUserId && now - e.createdAt <= windowMs
+    ).length;
+}
+const REPORT_HISTORY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Пока тикет не взят в работу — закрыть может автор или любой staff.
 // После взятия в работу круг сужается: автор, тот, кто взял, или
@@ -259,7 +309,18 @@ function buildPanelMessage(guild) {
     return { embeds: [embed], components: [row] };
 }
 
-function buildTicketControlRow() {
+// entry — опционально: кнопка "Наказать" появляется только у тикетов
+// с указанным нарушителем (reportedUserId), остальные её не видят.
+function buildTicketControlRow(entry = null) {
+    const secondRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_voice').setLabel('Обсудить голосом').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ticket_note').setLabel('Заметка (staff)').setStyle(ButtonStyle.Secondary)
+    );
+    if (entry?.reportedUserId) {
+        secondRow.addComponents(
+            new ButtonBuilder().setCustomId('ticket_punish').setLabel('Наказать').setStyle(ButtonStyle.Danger)
+        );
+    }
     return [
         new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId('ticket_claim').setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
@@ -269,13 +330,7 @@ function buildTicketControlRow() {
                 .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Danger)
         ),
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('ticket_voice')
-                .setLabel('Обсудить голосом')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('ticket_note').setLabel('Заметка (staff)').setStyle(ButtonStyle.Secondary)
-        ),
+        secondRow,
     ];
 }
 
@@ -287,9 +342,19 @@ function buildTicketEmbed(entry) {
     ];
     if (entry.reportedUserId) {
         fields.push({ name: 'Жалоба на', value: `<@${entry.reportedUserId}>`, inline: true });
+        if (entry.reportHistoryCount > 1) {
+            fields.push({
+                name: '⚠️ История',
+                value: `${entry.reportHistoryCount} жалоб(ы) за 30 дней`,
+                inline: true,
+            });
+        }
     }
+    const description = entry.urgent
+        ? `${formatBody(`🚨 Тикет #${entry.number} — срочно`, entry.description)}`
+        : `${formatBody(`Тикет #${entry.number}`, entry.description)}`;
     return baseEmbed(STATUS_COLORS[entry.status] ?? COLORS.primary)
-        .setDescription(`${formatBody(`Тикет #${entry.number}`, entry.description)}`)
+        .setDescription(description)
         .addFields(...fields);
 }
 
@@ -316,12 +381,20 @@ async function createTicket(interaction, reason, description, extra = {}) {
             panelChannelId: config.panelChannelId,
             supportRoleId: config.supportRoleId,
             reasonRoleId: config.reasonRoleIds[reason.value] ?? null,
+            // Снимок на момент создания — сколько жалоб на этого же
+            // игрока уже было, чтобы показать в самой карточке тикета
+            // (см. buildTicketEmbed). Считаем здесь же, внутри лока
+            // update(), а не отдельным чтением конфига — так число не
+            // разъедется с counter при параллельном создании тикетов.
+            reportHistoryCount: extra.reportedUserId
+                ? countRecentReportsOn(config, extra.reportedUserId, Date.now(), REPORT_HISTORY_WINDOW_MS)
+                : 0,
         };
     });
 
     if (reservation.error) return { error: reservation.error };
 
-    const { number, panelChannelId, supportRoleId, reasonRoleId } = reservation;
+    const { number, panelChannelId, supportRoleId, reasonRoleId, reportHistoryCount } = reservation;
     const panelChannel = panelChannelId ? guild.channels.cache.get(panelChannelId) : null;
     if (!panelChannel) {
         return { error: 'Система тикетов не настроена (нет канала для тредов). Обратись к администратору.' };
@@ -357,6 +430,9 @@ async function createTicket(interaction, reason, description, extra = {}) {
         notesThreadId: null,
         voiceChannelId: null,
         reportedUserId: extra.reportedUserId ?? null,
+        reportHistoryCount,
+        urgent: Boolean(reason.urgent),
+        ownerNotifiedAt: null,
         rootMessageId: null,
     };
     await update(cfg => {
@@ -372,7 +448,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
     const rootMessage = await thread.send({
         content: `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`,
         embeds: [buildTicketEmbed(entry)],
-        components: buildTicketControlRow(),
+        components: buildTicketControlRow(entry),
     });
     await update(cfg => {
         const e = cfg.tickets[thread.id];
@@ -384,6 +460,24 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // создания тикета (это уже показывает rootMessage выше).
     if (reason.welcomeMessage) {
         await thread.send({ embeds: [infoEmbed(reason.welcomeMessage, 'Пока ждёшь ответа')] }).catch(() => {});
+    }
+
+    // Мини-чеклист для staff под конкретную тему — сразу в тред заметок
+    // (создаём его сейчас же, а не лениво при первом /ticket note, только
+    // если у темы есть готовый чеклист: без него пустой тред заметок
+    // никому не нужен).
+    if (reason.staffChecklist?.length) {
+        const notesThread = await createNotesThread(panelChannel, thread.id, number);
+        await notesThread
+            .send({
+                embeds: [
+                    infoEmbed(
+                        reason.staffChecklist.map((step, i) => `${i + 1}. ${step}`).join('\n'),
+                        'Чек-лист для staff'
+                    ),
+                ],
+            })
+            .catch(() => {});
     }
 
     return { thread };
@@ -452,6 +546,43 @@ async function addTicketMember(interaction, targetId) {
     return interaction.guild.members.cache.get(targetId)?.user ?? interaction.client.users.cache.get(targetId) ?? null;
 }
 
+// Наказание нарушителя прямо из тикета «Жалоба на игрока» — без выхода
+// в /ban или /timeout руками. action — 'ban' или 'mute:<секунды>'.
+// Право на конкретное действие проверяем по настоящим Discord-правам
+// исполнителя (BanMembers/ModerateMembers), а не по isStaff() — роль
+// Support сама по себе не должна давать возможность банить/мутить,
+// если у неё нет соответствующего права на сервере.
+async function punishReportedUser(interaction, entry, action) {
+    if (!entry.reportedUserId) return { error: 'В этом тикете не указан нарушитель.' };
+    const targetId = entry.reportedUserId;
+    const guild = interaction.guild;
+    const auditReason = `Тикет #${entry.number}, модератор ${interaction.user.tag}`;
+
+    if (action === 'ban') {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
+            return { error: 'У тебя нет права банить участников.' };
+        }
+        const member = await guild.members.fetch(targetId).catch(() => null);
+        if (member && !member.bannable) {
+            return { error: 'Не могу забанить этого участника (недостаточно прав или роль выше моей).' };
+        }
+        await guild.members.ban(targetId, { reason: auditReason });
+        return { label: 'забанен' };
+    }
+
+    const seconds = Number(action.split(':')[1]);
+    if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+        return { error: 'У тебя нет права мутить участников.' };
+    }
+    const member = await guild.members.fetch(targetId).catch(() => null);
+    if (!member) return { error: 'Участник не найден на сервере.' };
+    if (!member.moderatable) {
+        return { error: 'Не могу замутить этого участника (недостаточно прав или роль выше моей).' };
+    }
+    await member.timeout(seconds * 1000, auditReason);
+    return { label: `замучен на ${formatDuration(seconds * 1000)}` };
+}
+
 // Голосовая комната для обсуждения тикета — создаётся как обычный voice-
 // канал, но регистрируется в системе временных комнат (voice.trackRoom),
 // чтобы её удаление при опустении обрабатывал уже существующий механизм
@@ -507,11 +638,31 @@ async function getOrCreateDiscussionVoiceChannel(interaction, entry) {
     return { channel, created: true };
 }
 
+// Общая часть создания треда заметок — вынесена, чтобы createTicket
+// (нет никакого interaction внутри уже созданного треда, только сам
+// panelChannel) мог завести notes-тред сразу под staffChecklist, не
+// подставляя туда чужой interaction.channelId по ошибке.
+async function createNotesThread(parentChannel, threadId, number) {
+    const notesThread = await parentChannel.threads.create({
+        name: `тикет-${number}-заметки`.slice(0, 95).toLowerCase(),
+        type: ChannelType.PrivateThread,
+        invitable: false,
+        reason: `Заметки staff по тикету #${number}`,
+    });
+    await update(cfg => {
+        const e = cfg.tickets[threadId];
+        if (e) e.notesThreadId = notesThread.id;
+    });
+    return notesThread;
+}
+
 // Приватный тред с внутренними заметками staff, отдельный от основного
 // тикета (чтобы автор обращения их не видел) — создаётся лениво при
-// первом /ticket note и переиспользуется дальше. Участники добавляются
-// по одному по мере использования команды, а не массово по роли — Discord
-// не даёт добавить в тред "всех с ролью X" одним вызовом API.
+// первом /ticket note и переиспользуется дальше (либо сразу при
+// createTicket, если у темы есть staffChecklist — см. createNotesThread
+// выше). Участники добавляются по одному по мере использования команды,
+// а не массово по роли — Discord не даёт добавить в тред "всех с ролью
+// X" одним вызовом API.
 async function getOrCreateNotesThread(interaction, entry) {
     if (entry.notesThreadId) {
         const existing =
@@ -521,18 +672,7 @@ async function getOrCreateNotesThread(interaction, entry) {
     }
 
     const parent = interaction.channel.isThread() ? interaction.channel.parent : interaction.channel;
-    const notesThread = await parent.threads.create({
-        name: `тикет-${entry.number}-заметки`.slice(0, 95).toLowerCase(),
-        type: ChannelType.PrivateThread,
-        invitable: false,
-        reason: `Заметки staff по тикету #${entry.number}`,
-    });
-
-    await update(cfg => {
-        if (cfg.tickets[interaction.channelId]) cfg.tickets[interaction.channelId].notesThreadId = notesThread.id;
-    });
-
-    return notesThread;
+    return createNotesThread(parent, interaction.channelId, entry.number);
 }
 
 async function closeTicket(guild, channel, entry, closedBy) {
@@ -647,14 +787,13 @@ function pruneOldResolved(cfg) {
 // Три чистые функции для sweep.js — принимают config и текущее время,
 // не трогают Discord API, поэтому легко тестируются без моков.
 function findTicketsToEscalate(config, now) {
-    return Object.entries(config.tickets).filter(
-        ([, e]) =>
-            e.isThread &&
-            e.status !== STATUS.RESOLVED &&
-            !e.claimedBy &&
-            !e.escalatedAt &&
-            now - e.createdAt >= config.claimTimeoutMs
-    );
+    return Object.entries(config.tickets).filter(([, e]) => {
+        if (!e.isThread || e.status === STATUS.RESOLVED || e.claimedBy || e.escalatedAt) return false;
+        // Срочные темы (см. REASONS[].urgent, сейчас — "Безопасность
+        // аккаунта") ждут вдвое меньше обычных, прежде чем эскалироваться.
+        const timeout = e.urgent ? (config.urgentClaimTimeoutMs ?? config.claimTimeoutMs) : config.claimTimeoutMs;
+        return now - e.createdAt >= timeout;
+    });
 }
 
 function findTicketsToWarn(config, now) {
@@ -666,6 +805,19 @@ function findTicketsToWarn(config, now) {
 function findTicketsToAutoClose(config, now) {
     return Object.entries(config.tickets).filter(
         ([, e]) => e.status !== STATUS.RESOLVED && e.warnedAt && now - e.warnedAt >= config.inactivityCloseMs
+    );
+}
+
+// Обратная сторона findTicketsToWarn: там напоминаем staff, что автор
+// молчит, здесь — напоминаем автору, что staff уже ответил, а он молчит.
+// Не пересекается по полям с warnedAt/escalatedAt — ownerNotifiedAt
+// сбрасывается в recordActivity(), как только автор сам напишет.
+function findTicketsToRemindOwner(config, now) {
+    return Object.entries(config.tickets).filter(
+        ([, e]) =>
+            e.status === STATUS.WAITING_ON_USER &&
+            !e.ownerNotifiedAt &&
+            now - e.lastActivityAt >= config.ownerReminderMs
     );
 }
 
@@ -766,12 +918,42 @@ async function recordActivity(threadId, authorIsOwner) {
         e.warnedAt = null;
         if (authorIsOwner) {
             if (e.status === STATUS.WAITING_ON_USER) e.status = STATUS.OPEN;
+            // Автор ответил — снимаем отметку о напоминании, чтобы
+            // следующий период ожидания (если тикет снова затихнет)
+            // мог напомнить о себе заново.
+            e.ownerNotifiedAt = null;
         } else {
             e.status = STATUS.WAITING_ON_USER;
         }
         updatedEntry = e;
     });
     return updatedEntry;
+}
+
+// DM автору, если staff ответил, а от автора давно нет ответа (обратная
+// сторона напоминания staff о неактивности — см. findTicketsToWarn) —
+// чтобы тикет не затих просто потому, что автор не заметил уведомление
+// в самом Discord. Молча ничего не делает, если DM закрыты.
+async function sendOwnerReminder(client, entry, threadId) {
+    const user = await client.users.fetch(entry.ownerId).catch(() => null);
+    if (!user) return;
+
+    const link = entry.guildId ? `https://discord.com/channels/${entry.guildId}/${threadId}` : null;
+    const embed = baseEmbed(COLORS.warning).setDescription(
+        formatBody(
+            'Тикет ждёт твоего ответа',
+            `Поддержка ответила в тикете #${entry.number}, но мы давно не видели ответа от тебя.` +
+                (link ? ` [Перейти в тикет](${link})` : '')
+        )
+    );
+    await user.send({ embeds: [embed] }).catch(() => {});
+}
+
+async function markOwnerNotified(threadId) {
+    await update(cfg => {
+        const e = cfg.tickets[threadId];
+        if (e) e.ownerNotifiedAt = Date.now();
+    });
 }
 
 async function recordRating(threadId, rating) {
@@ -794,14 +976,18 @@ module.exports = {
     CANNED_RESPONSES,
     isStaff,
     findOpenTicketByOwner,
+    findRecentlyClosedTicketByOwner,
     canCloseTicket,
     formatDuration,
     aggregateStats,
     findTicketsToEscalate,
     findTicketsToWarn,
     findTicketsToAutoClose,
+    findTicketsToRemindOwner,
     markEscalated,
     markWarned,
+    markOwnerNotified,
+    sendOwnerReminder,
     buildPanelMessage,
     buildTicketControlRow,
     buildTicketEmbed,
@@ -809,6 +995,7 @@ module.exports = {
     updateTicketRootMessage,
     claimTicket,
     addTicketMember,
+    punishReportedUser,
     createDiscussionVoiceChannel,
     getOrCreateDiscussionVoiceChannel,
     getOrCreateNotesThread,

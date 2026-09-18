@@ -64,6 +64,24 @@ async function handleOpenButton(interaction) {
         return;
     }
 
+    // Антиспам: не даём сразу открыть новый тикет после закрытия
+    // предыдущего — проверяем до показа формы, чтобы не заставлять
+    // человека заполнять модалку зря.
+    const recentlyClosed = model.findRecentlyClosedTicketByOwner(
+        config,
+        interaction.user.id,
+        Date.now(),
+        config.ticketCooldownMs
+    );
+    if (recentlyClosed) {
+        const waitMs = config.ticketCooldownMs - (Date.now() - recentlyClosed[1].closedAt);
+        await interaction.reply({
+            embeds: [errorEmbed(`Подожди ещё ${model.formatDuration(waitMs)} перед созданием нового тикета.`)],
+            ephemeral: true,
+        });
+        return;
+    }
+
     const select = new StringSelectMenuBuilder()
         .setCustomId('ticket_reason_select')
         .setPlaceholder('Выбери тему обращения')
@@ -210,6 +228,65 @@ const handleNoteButton = withTicketEntry(async (interaction, config) => {
     await interaction.showModal(modal);
 });
 
+const PUNISH_SELECT_ID = 'ticket_punish_select';
+
+const handlePunishButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может применять наказания.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    if (!entry.reportedUserId) {
+        await interaction.reply({ embeds: [errorEmbed('В этом тикете не указан нарушитель.')], ephemeral: true });
+        return;
+    }
+    const select = new StringSelectMenuBuilder()
+        .setCustomId(PUNISH_SELECT_ID)
+        .setPlaceholder('Выбери наказание')
+        .addOptions(
+            { label: 'Мут на 10 минут', value: 'mute:600' },
+            { label: 'Мут на 1 час', value: 'mute:3600' },
+            { label: 'Мут на 1 день', value: 'mute:86400' },
+            { label: 'Мут на 7 дней', value: 'mute:604800' },
+            { label: 'Забанить', value: 'ban' }
+        );
+    await interaction.reply({
+        content: `Выбери наказание для <@${entry.reportedUserId}>:`,
+        components: [new ActionRowBuilder().addComponents(select)],
+        ephemeral: true,
+    });
+});
+
+const handlePunishSelect = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
+        return;
+    }
+    const action = interaction.values[0];
+    const result = await model.punishReportedUser(interaction, entry, action);
+    if (result.error) {
+        await interaction.update({ content: null, embeds: [errorEmbed(result.error)], components: [] });
+        return;
+    }
+    await interaction.update({
+        content: null,
+        embeds: [successEmbed(`<@${entry.reportedUserId}> — ${result.label}.`, 'Наказание применено')],
+        components: [],
+    });
+    await interaction.channel
+        .send({
+            embeds: [
+                infoEmbed(
+                    `<@${entry.reportedUserId}> — ${result.label} модератором ${interaction.user}.`,
+                    'Наказание применено'
+                ),
+            ],
+        })
+        .catch(() => {});
+});
+
 const BUTTON_HANDLERS = {
     ticket_open: handleOpenButton,
     ticket_claim: handleClaimButton,
@@ -217,6 +294,7 @@ const BUTTON_HANDLERS = {
     ticket_close: handleCloseButton,
     ticket_voice: handleVoiceButton,
     ticket_note: handleNoteButton,
+    ticket_punish: handlePunishButton,
 };
 
 async function handleRatingButton(interaction) {
@@ -301,6 +379,7 @@ async function handleAddUserSelect(interaction) {
 const SELECT_MENU_HANDLERS = {
     ticket_reason_select: handleReasonSelect,
     ticket_adduser_select: handleAddUserSelect,
+    [PUNISH_SELECT_ID]: handlePunishSelect,
 };
 
 async function handleSelectMenu(interaction) {

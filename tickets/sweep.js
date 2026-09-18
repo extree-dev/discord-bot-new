@@ -53,6 +53,11 @@ async function runOnce(client) {
             .catch(() => {});
     }
 
+    for (const [threadId, entry] of model.findTicketsToRemindOwner(config, now)) {
+        await model.markOwnerNotified(threadId);
+        await model.sendOwnerReminder(client, entry, threadId).catch(() => {});
+    }
+
     for (const [threadId, entry] of model.findTicketsToAutoClose(config, now)) {
         const thread = await fetchThread(client, threadId);
         if (!thread) continue;
