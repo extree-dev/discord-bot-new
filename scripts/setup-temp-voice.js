@@ -68,12 +68,26 @@ client.once('clientReady', async () => {
         if (trigger.parentId !== category.id) await trigger.setParent(category.id).catch(() => {});
         await controlChannel.setPosition(0).catch(() => {});
 
+        // Отдельная категория для самих временных комнат участников —
+        // раньше voice/model.js createRoom() создавал их в той же
+        // категории, что триггер-канал и панель управления (categoryId),
+        // и та категория зарастала десятками комнат. roomsCategoryId
+        // указывает на новую, отдельную категорию именно для этого.
+        const roomsCategory = await findOrCreate({
+            guild,
+            config,
+            idKey: 'roomsCategoryId',
+            name: 'Активные комнаты',
+            type: ChannelType.GuildCategory,
+        });
+
         const securityConfig = await security.getConfig();
         if (securityConfig.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
             if (unverifiedRole) {
                 await category.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
-                console.log(`Категория закрыта от роли ${unverifiedRole.name}`);
+                await roomsCategory.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
+                console.log(`Категории закрыты от роли ${unverifiedRole.name}`);
             }
         }
 
@@ -92,6 +106,7 @@ client.once('clientReady', async () => {
         }
 
         config.categoryId = category.id;
+        config.roomsCategoryId = roomsCategory.id;
         config.triggerChannelId = trigger.id;
         config.controlChannelId = controlChannel.id;
         await save(config);
