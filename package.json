@@ -19,6 +19,7 @@
     "type": "commonjs",
     "dependencies": {
         "@napi-rs/canvas": "^1.0.9",
+        "@openfonts/noto-sans_cyrillic": "^1.44.3",
         "discord.js": "^14.27.0",
         "dotenv": "^17.4.2",
         "pg": "^8.23.0"

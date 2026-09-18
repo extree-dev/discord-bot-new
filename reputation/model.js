@@ -3,10 +3,10 @@
 // позиций. Чистые функции (getLevel/computeCooldown/buildLeaderboardMovement)
 // не трогают Discord API и покрыты тестами отдельно от
 // giveReputation/checkAndPostLeaderboard.
-const { AttachmentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder } = require('discord.js');
+const { AttachmentBuilder } = require('discord.js');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
-const { renderProgressBarImage } = require('./progressBarImage');
+const { renderRankCard } = require('./rankCardImage');
 const config = require('./config');
 
 // Пороги — не эмодзи-бейджи, а титулы: единственный способ показать
@@ -176,38 +176,33 @@ async function setReputation(guildId, userId, score) {
     });
 }
 
-// Имя файла общее для buildProfileCard() (ссылается на него через
-// MediaGallery) и buildProfileAttachment() (собирает сам файл) — команда
-// должна передать оба в одном сообщении (components + files).
-const PROGRESS_BAR_FILENAME = 'progress-bar.png';
-
-function buildProfileCard(user, { score, level, rank }) {
-    const lines = [
-        `**Уровень:** ${level.title}`,
-        `**Репутация:** ${score}${level.next ? ` / ${level.next.min}` : ''}`,
-        `**Прогресс:**${level.next ? ` до «${level.next.title}»` : ' (максимум)'}`,
-    ];
-    if (rank) lines.push(`**Место в рейтинге:** #${rank}`);
-    const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(textDisplay(formatBody(`Репутация ${user}`)))
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(textDisplay(lines.join('\n')))
-        .addMediaGalleryComponents(
-            new MediaGalleryBuilder().addItems(
-                new MediaGalleryItemBuilder()
-                    .setURL(`attachment://${PROGRESS_BAR_FILENAME}`)
-                    .setDescription('Полоса прогресса до следующего уровня')
-            )
-        );
-    return container;
+async function fetchImageBuffer(url) {
+    if (!url) return null;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        return Buffer.from(await res.arrayBuffer());
+    } catch {
+        return null;
+    }
 }
 
-// Картинка полосы прогресса — отдельный AttachmentBuilder, который
-// команда обязана передать в files той же send()/reply(), что и
-// buildProfileCard() (MediaGallery выше ссылается на неё по имени файла).
-function buildProfileAttachment(level) {
-    const buffer = renderProgressBarImage(level.progress);
-    return new AttachmentBuilder(buffer, { name: PROGRESS_BAR_FILENAME });
+// Профиль репутации — целиком одна картинка (баннер профиля как фон,
+// круглый аватар, имя/уровень/счёт/полоса), не embed/Components V2 с
+// текстом. force: true при получении пользователя обязателен — баннер
+// не входит в частичные данные из кэша/resolved interaction, только в
+// полный fetch. Если баннера у пользователя нет вообще — renderRankCard
+// сам подставляет градиент вместо фона.
+async function buildRankCardAttachment(client, userId, { score, level, rank }) {
+    const user = await client.users.fetch(userId, { force: true }).catch(() => null);
+    const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
+    const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null;
+    const bannerUrl = user?.bannerURL({ extension: 'png', size: 600 }) ?? null;
+
+    const [avatarBuffer, bannerBuffer] = await Promise.all([fetchImageBuffer(avatarUrl), fetchImageBuffer(bannerUrl)]);
+
+    const png = await renderRankCard({ displayName, avatarBuffer, bannerBuffer, level, score, rank });
+    return new AttachmentBuilder(png, { name: 'rank-card.png' });
 }
 
 function buildLevelUpCard(user, level) {
@@ -300,8 +295,7 @@ module.exports = {
     getLevelRoleId,
     getGuildConfig,
     configureGuild,
-    buildProfileCard,
-    buildProfileAttachment,
+    buildRankCardAttachment,
     buildLevelUpCard,
     buildLeaderboardCard,
     checkAndPostLeaderboard,
