@@ -57,7 +57,12 @@ client.once('clientReady', async () => {
             }
         }
 
-        // панель открытия тикета
+        // Панель открытия тикета — этот же канал теперь родитель для
+        // приватных тредов-тикетов (createTicket создаёт тред прямо в
+        // нём). supportRole получает ManageThreads, чтобы видеть и
+        // открывать любой приватный тред канала без ручного добавления
+        // в каждый — иначе пришлось бы add()'ить каждого сотрудника в
+        // каждый новый тикет по отдельности.
         let panelChannel = config.panelChannelId ? guild.channels.cache.get(config.panelChannelId) : null;
         if (!panelChannel)
             panelChannel = guild.channels.cache.find(c => c.parentId === category.id && c.name === 'открыть-тикет');
@@ -66,11 +71,20 @@ client.once('clientReady', async () => {
                 name: 'открыть-тикет',
                 type: ChannelType.GuildText,
                 parent: category.id,
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
+                permissionOverwrites: [
+                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] },
+                    {
+                        id: supportRole.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
+                    },
+                ],
             });
             console.log('Создан канал: открыть-тикет');
         } else {
             console.log('Канал открыть-тикет уже существует');
+            await panelChannel.permissionOverwrites
+                .edit(supportRole.id, { ViewChannel: true, ManageThreads: true })
+                .catch(() => {});
         }
 
         const messages = await panelChannel.messages.fetch({ limit: 10 });

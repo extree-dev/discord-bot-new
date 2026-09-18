@@ -152,6 +152,17 @@ async function createRoom(state, config) {
     });
 }
 
+// Регистрирует уже существующий voice-канал (созданный не через
+// createRoom — например, tickets/model.js для обсуждения тикета
+// голосом) в системе временных комнат, чтобы его удалением при
+// опустении занимался уже существующий handleLeave(), а не отдельная
+// копия той же логики в вызывающей фиче.
+async function trackRoom(channelId, ownerId) {
+    await update(cfg => {
+        cfg.channels[channelId] = { ownerId, createdAt: Date.now() };
+    });
+}
+
 async function transferOwnership(channel, entry, newOwnerId) {
     await channel.permissionOverwrites.delete(entry.ownerId).catch(() => {});
     await channel.permissionOverwrites.edit(newOwnerId, ownerPermissions()).catch(() => {});
@@ -262,6 +273,7 @@ module.exports = {
     resolveTarget,
     buildPanelMessage,
     createRoom,
+    trackRoom,
     transferOwnership,
     handleLeave,
     handleVoiceStateUpdate,

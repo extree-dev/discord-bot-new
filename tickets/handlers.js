@@ -1,15 +1,28 @@
 // Роутинг Discord-взаимодействий тикетов: сопоставляет customId с
 // обработчиком через карту (вместо цепочки if/else) и делегирует всю
 // доменную работу в tickets/model.js — здесь только разбор
-// interaction'а и построение ответных сообщений.
-const { ActionRowBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder } = require('discord.js');
+// interaction'а/события и построение ответных сообщений.
+const {
+    ActionRowBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    StringSelectMenuBuilder,
+    UserSelectMenuBuilder,
+} = require('discord.js');
 const { load } = require('./config');
-const { errorEmbed, successEmbed } = require('../utils/embeds');
+const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
 const model = require('./model');
+
+const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
+const DESCRIPTION_INPUT_ID = 'ticket_description_input';
+const EXTRA_INPUT_ID = 'ticket_extra_input';
+const NOTE_MODAL_ID = 'ticket_modal_note';
+const NOTE_INPUT_ID = 'ticket_note_input';
 
 async function handleOpenButton(interaction) {
     const config = await load();
-    const existing = model.findTicketByOwner(config, interaction.user.id);
+    const existing = model.findOpenTicketByOwner(config, interaction.user.id);
     if (existing) {
         await interaction.reply({
             embeds: [errorEmbed(`У тебя уже открыт тикет: <#${existing[0]}>`)],
@@ -29,9 +42,9 @@ async function handleOpenButton(interaction) {
     });
 }
 
-// Общая для claim/adduser/close проверка "это вообще канал тикета?" —
-// раньше жила один раз перед веткой if в handleButton, теперь оборачивает
-// каждый из трёх обработчиков, чтобы каждый оставался самостоятельным.
+// Общая для claim/adduser/close/voice/note проверка "это вообще канал
+// тикета?" — оборачивает каждый обработчик, чтобы каждый оставался
+// самостоятельным.
 function withTicketEntry(handler) {
     return async interaction => {
         const config = await load();
@@ -85,12 +98,7 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
     }
 
     await interaction.reply({
-        embeds: [
-            successEmbed(
-                `<@${interaction.user.id}> взял тикет в работу. Остальная поддержка больше не видит этот канал.`,
-                'Тикет взят в работу'
-            ),
-        ],
+        embeds: [successEmbed(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу')],
     });
 });
 
@@ -124,7 +132,43 @@ const handleCloseButton = withTicketEntry(async (interaction, config, entry) => 
     }
 
     await interaction.deferUpdate();
-    await model.closeTicket(interaction, interaction.channel, entry);
+    const threadId = interaction.channelId;
+    await model.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
+    await model.sendRatingRequest(interaction.client, entry, threadId).catch(() => {});
+});
+
+const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member) && interaction.user.id !== entry.ownerId) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только автор тикета или поддержка может открыть голосовое обсуждение.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    await interaction.deferReply({ ephemeral: true });
+    const channel = await model.createDiscussionVoiceChannel(interaction, entry);
+    await interaction.editReply({
+        embeds: [successEmbed(`Голосовая комната для обсуждения: ${channel}`, 'Комната создана')],
+    });
+});
+
+const handleNoteButton = withTicketEntry(async (interaction, config) => {
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const modal = new ModalBuilder().setCustomId(NOTE_MODAL_ID).setTitle('Внутренняя заметка');
+    const input = new TextInputBuilder()
+        .setCustomId(NOTE_INPUT_ID)
+        .setLabel('Текст заметки (видно только staff)')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    await interaction.showModal(modal);
 });
 
 const BUTTON_HANDLERS = {
@@ -132,9 +176,33 @@ const BUTTON_HANDLERS = {
     ticket_claim: handleClaimButton,
     ticket_adduser: handleAddUserButton,
     ticket_close: handleCloseButton,
+    ticket_voice: handleVoiceButton,
+    ticket_note: handleNoteButton,
 };
 
+async function handleRatingButton(interaction) {
+    const [, threadId, valueStr] = interaction.customId.split(':');
+    const entry = await model.recordRating(threadId, Number(valueStr));
+    if (!entry) {
+        await interaction.update({
+            content: null,
+            embeds: [errorEmbed('Не удалось сохранить оценку — тикет не найден в базе.')],
+            components: [],
+        });
+        return;
+    }
+    await interaction.update({
+        content: null,
+        embeds: [successEmbed('Спасибо за оценку!', 'Оценка сохранена')],
+        components: [],
+    });
+}
+
 async function handleButton(interaction) {
+    if (interaction.customId.startsWith('ticket_rate:')) {
+        await handleRatingButton(interaction);
+        return true;
+    }
     const handler = BUTTON_HANDLERS[interaction.customId];
     if (!handler) return false;
     await handler(interaction);
@@ -144,16 +212,27 @@ async function handleButton(interaction) {
 async function handleReasonSelect(interaction) {
     const value = interaction.values[0];
     const reason = model.REASONS.find(r => r.value === value) ?? model.REASONS[model.REASONS.length - 1];
-    const result = await model.createTicket(interaction, reason);
-    if (result.error) {
-        await interaction.update({ content: null, embeds: [errorEmbed(result.error)], components: [] });
-        return;
+
+    const modal = new ModalBuilder().setCustomId(`${CREATE_MODAL_PREFIX}${reason.value}`).setTitle('Открыть тикет');
+    const descriptionInput = new TextInputBuilder()
+        .setCustomId(DESCRIPTION_INPUT_ID)
+        .setLabel('Опиши проблему подробно')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(descriptionInput));
+
+    if (reason.extraFieldLabel) {
+        const extraInput = new TextInputBuilder()
+            .setCustomId(EXTRA_INPUT_ID)
+            .setLabel(reason.extraFieldLabel.slice(0, 45))
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(200)
+            .setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(extraInput));
     }
-    await interaction.update({
-        content: null,
-        embeds: [successEmbed(`Тикет создан: ${result.channel}`, 'Тикет создан')],
-        components: [],
-    });
+
+    await interaction.showModal(modal);
 }
 
 async function handleAddUserSelect(interaction) {
@@ -183,6 +262,75 @@ async function handleSelectMenu(interaction) {
     return true;
 }
 
-function register() {}
+async function handleCreateModal(interaction) {
+    const reasonValue = interaction.customId.slice(CREATE_MODAL_PREFIX.length);
+    const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
+    const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
+    const hasExtra = interaction.fields.fields.has(EXTRA_INPUT_ID);
+    const extra = hasExtra ? interaction.fields.getTextInputValue(EXTRA_INPUT_ID).trim() : null;
 
-module.exports = { register, handleButton, handleSelectMenu };
+    const fullDescription = extra ? `${description}\n\n**${reason.extraFieldLabel}:** ${extra}` : description;
+
+    const result = await model.createTicket(interaction, reason, fullDescription);
+    if (result.error) {
+        await interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
+        return;
+    }
+    await interaction.reply({
+        embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан')],
+        ephemeral: true,
+    });
+}
+
+const handleNoteModal = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const text = interaction.fields.getTextInputValue(NOTE_INPUT_ID).trim();
+    const notesThread = await model.getOrCreateNotesThread(interaction, entry);
+    await notesThread.members.add(interaction.user.id).catch(() => {});
+    await notesThread.send({
+        embeds: [infoEmbed(text, `Заметка от ${interaction.user.tag}`)],
+    });
+    await interaction.reply({
+        embeds: [successEmbed(`Заметка добавлена: ${notesThread}`, 'Сохранено')],
+        ephemeral: true,
+    });
+});
+
+async function handleModalSubmit(interaction) {
+    if (interaction.customId.startsWith(CREATE_MODAL_PREFIX)) {
+        await handleCreateModal(interaction);
+        return true;
+    }
+    if (interaction.customId === NOTE_MODAL_ID) {
+        await handleNoteModal(interaction);
+        return true;
+    }
+    return false;
+}
+
+// Тред тикета — тоже обычный текстовый канал для событий Discord:
+// каждое сообщение в нём двигает lastActivityAt и переключает статус
+// open/waiting_on_user в зависимости от того, кто написал (см.
+// model.recordActivity). Не трогаем DM (interaction.guild отсутствует
+// у сообщений без гильдии) и сообщения самого бота.
+async function handleMessageCreate(msg) {
+    if (!msg.guild || msg.author.bot) return;
+    const config = await load();
+    const entry = config.tickets[msg.channelId];
+    if (!entry) return;
+
+    const authorIsOwner = msg.author.id === entry.ownerId;
+    await model.recordActivity(msg.channelId, authorIsOwner);
+}
+
+function register(client) {
+    client.on('messageCreate', msg => handleMessageCreate(msg).catch(err => console.error('tickets:', err)));
+}
+
+module.exports = { register, handleButton, handleModalSubmit, handleSelectMenu };

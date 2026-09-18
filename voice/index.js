@@ -12,4 +12,5 @@ module.exports = {
     handleModalSubmit: handlers.handleModalSubmit,
     handleSelectMenu: handlers.handleSelectMenu,
     buildPanelMessage: model.buildPanelMessage,
+    trackRoom: model.trackRoom,
 };

@@ -74,6 +74,12 @@ client.on('interactionCreate', async interaction => {
         )
             return;
         if (
+            await tickets
+                .handleModalSubmit(interaction)
+                .catch(err => (console.error('Ошибка формы тикета:', err), false))
+        )
+            return;
+        if (
             await suggestions
                 .handleModalSubmit(interaction)
                 .catch(err => (console.error('Ошибка формы предложения:', err), false))
