@@ -6,6 +6,21 @@ const { buildPanelMessage } = require('../tickets');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// Роли-специалисты по темам тикетов — не каждый модератор из общего
+// Support понимает, например, донат-платежи или апелляции наказаний,
+// поэтому createTicket() дополнительно пингует нужную роль под темой
+// (tickets/model.js REASONS + config.reasonRoleIds). Видимость треда
+// даёт то же ManageThreads на панельном канале, что и у supportRole —
+// тот же trade-off, что и для supportRole: роль видит вообще все
+// тикеты, не только свою тему, но зато точно не пропустит пинг.
+const SPECIALIST_ROLES = {
+    bug: 'Тикеты: Баги',
+    report: 'Тикеты: Жалобы',
+    payment: 'Тикеты: Донат',
+    appeal: 'Тикеты: Апелляции',
+    security: 'Тикеты: Безопасность',
+};
+
 client.once('clientReady', async () => {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
@@ -35,6 +50,20 @@ client.once('clientReady', async () => {
             }
         } else {
             console.log('Роль Support уже существует');
+        }
+
+        // роли-специалисты по темам тикетов
+        const reasonRoleIds = { ...config.reasonRoleIds };
+        for (const [reasonValue, roleName] of Object.entries(SPECIALIST_ROLES)) {
+            let role = reasonRoleIds[reasonValue] ? guild.roles.cache.get(reasonRoleIds[reasonValue]) : null;
+            if (!role) role = guild.roles.cache.find(r => r.name === roleName);
+            if (!role) {
+                role = await guild.roles.create({ name: roleName, mentionable: false, hoist: false, permissions: [] });
+                console.log(`Создана роль: ${roleName}`);
+            } else {
+                console.log(`Роль ${roleName} уже существует`);
+            }
+            reasonRoleIds[reasonValue] = role.id;
         }
 
         // категория тикетов
@@ -87,6 +116,15 @@ client.once('clientReady', async () => {
                 .catch(() => {});
         }
 
+        // Специалисты по темам получают тот же доступ, что и supportRole —
+        // без ManageThreads на этом канале роль не увидит приватный тред,
+        // в который её только пингнули.
+        for (const roleId of Object.values(reasonRoleIds)) {
+            await panelChannel.permissionOverwrites
+                .edit(roleId, { ViewChannel: true, ManageThreads: true })
+                .catch(() => {});
+        }
+
         const messages = await panelChannel.messages.fetch({ limit: 10 });
         const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
         if (existingPanel) {
@@ -127,6 +165,7 @@ client.once('clientReady', async () => {
         config.panelChannelId = panelChannel.id;
         config.logChannelId = logChannel.id;
         config.supportRoleId = supportRole.id;
+        config.reasonRoleIds = reasonRoleIds;
         await save(config);
 
         console.log('Готово. Система тикетов настроена.');

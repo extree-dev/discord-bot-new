@@ -15,10 +15,43 @@ const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
 const model = require('./model');
 
 const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
+const TARGET_SELECT_PREFIX = 'ticket_target_select:';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const EXTRA_INPUT_ID = 'ticket_extra_input';
 const NOTE_MODAL_ID = 'ticket_modal_note';
 const NOTE_INPUT_ID = 'ticket_note_input';
+
+// Общий сборщик модалки создания тикета — вызывается сразу после выбора
+// темы, либо (для тем с requiresTargetUser, например "Жалоба на игрока")
+// уже после того, как автор выбрал конкретного игрока через UserSelectMenu
+// — тогда targetId зашивается в customId и не даёт заново потерять выбор.
+function buildCreateModal(reason, targetId = null) {
+    const customId = targetId
+        ? `${CREATE_MODAL_PREFIX}${reason.value}:${targetId}`
+        : `${CREATE_MODAL_PREFIX}${reason.value}`;
+    const modal = new ModalBuilder().setCustomId(customId).setTitle('Открыть тикет');
+
+    const descriptionInput = new TextInputBuilder()
+        .setCustomId(DESCRIPTION_INPUT_ID)
+        .setLabel((reason.descriptionLabel ?? 'Опиши проблему подробно').slice(0, 45))
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(1000)
+        .setRequired(true);
+    if (reason.descriptionPlaceholder) descriptionInput.setPlaceholder(reason.descriptionPlaceholder.slice(0, 100));
+    modal.addComponents(new ActionRowBuilder().addComponents(descriptionInput));
+
+    if (reason.extraFieldLabel) {
+        const extraInput = new TextInputBuilder()
+            .setCustomId(EXTRA_INPUT_ID)
+            .setLabel(reason.extraFieldLabel.slice(0, 45))
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(200)
+            .setRequired(true);
+        if (reason.extraFieldPlaceholder) extraInput.setPlaceholder(reason.extraFieldPlaceholder.slice(0, 100));
+        modal.addComponents(new ActionRowBuilder().addComponents(extraInput));
+    }
+    return modal;
+}
 
 async function handleOpenButton(interaction) {
     const config = await load();
@@ -219,26 +252,35 @@ async function handleReasonSelect(interaction) {
     const value = interaction.values[0];
     const reason = model.REASONS.find(r => r.value === value) ?? model.REASONS[model.REASONS.length - 1];
 
-    const modal = new ModalBuilder().setCustomId(`${CREATE_MODAL_PREFIX}${reason.value}`).setTitle('Открыть тикет');
-    const descriptionInput = new TextInputBuilder()
-        .setCustomId(DESCRIPTION_INPUT_ID)
-        .setLabel('Опиши проблему подробно')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(1000)
-        .setRequired(true);
-    modal.addComponents(new ActionRowBuilder().addComponents(descriptionInput));
-
-    if (reason.extraFieldLabel) {
-        const extraInput = new TextInputBuilder()
-            .setCustomId(EXTRA_INPUT_ID)
-            .setLabel(reason.extraFieldLabel.slice(0, 45))
-            .setStyle(TextInputStyle.Short)
-            .setMaxLength(200)
-            .setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(extraInput));
+    if (reason.requiresTargetUser) {
+        const select = new UserSelectMenuBuilder()
+            .setCustomId(`${TARGET_SELECT_PREFIX}${reason.value}`)
+            .setPlaceholder('Кого касается жалоба?')
+            .setMinValues(1)
+            .setMaxValues(1);
+        await interaction.update({
+            content: 'Выбери игрока, на которого жалуешься:',
+            components: [new ActionRowBuilder().addComponents(select)],
+        });
+        return;
     }
 
-    await interaction.showModal(modal);
+    await interaction.showModal(buildCreateModal(reason));
+}
+
+async function handleTargetUserSelect(interaction) {
+    const reasonValue = interaction.customId.slice(TARGET_SELECT_PREFIX.length);
+    const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
+    const targetId = interaction.values[0];
+    if (targetId === interaction.user.id) {
+        await interaction.update({
+            content: null,
+            embeds: [errorEmbed('Нельзя пожаловаться на самого себя.')],
+            components: [],
+        });
+        return;
+    }
+    await interaction.showModal(buildCreateModal(reason, targetId));
 }
 
 async function handleAddUserSelect(interaction) {
@@ -262,6 +304,10 @@ const SELECT_MENU_HANDLERS = {
 };
 
 async function handleSelectMenu(interaction) {
+    if (interaction.customId.startsWith(TARGET_SELECT_PREFIX)) {
+        await handleTargetUserSelect(interaction);
+        return true;
+    }
     const handler = SELECT_MENU_HANDLERS[interaction.customId];
     if (!handler) return false;
     await handler(interaction);
@@ -269,7 +315,7 @@ async function handleSelectMenu(interaction) {
 }
 
 async function handleCreateModal(interaction) {
-    const reasonValue = interaction.customId.slice(CREATE_MODAL_PREFIX.length);
+    const [reasonValue, targetId] = interaction.customId.slice(CREATE_MODAL_PREFIX.length).split(':');
     const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
     const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
     const hasExtra = interaction.fields.fields.has(EXTRA_INPUT_ID);
@@ -277,7 +323,7 @@ async function handleCreateModal(interaction) {
 
     const fullDescription = extra ? `${description}\n\n**${reason.extraFieldLabel}:** ${extra}` : description;
 
-    const result = await model.createTicket(interaction, reason, fullDescription);
+    const result = await model.createTicket(interaction, reason, fullDescription, { reportedUserId: targetId ?? null });
     if (result.error) {
         await interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
         return;
