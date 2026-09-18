@@ -16,4 +16,5 @@ module.exports = {
     trackRoom: model.trackRoom,
     untrackRoom: model.untrackRoom,
     getConfig: config.load,
+    updateConfig: config.update,
 };
