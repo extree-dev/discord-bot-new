@@ -23,7 +23,7 @@ Discord-бот для модерации сервера на [discord.js](https:
 
 ### Права бота и intents
 
-При приглашении бота на сервер нужны минимум права: `Manage Roles`, `Manage Channels`, `Kick Members`, `Ban Members`, `Moderate Members`, `Manage Messages`, `View Audit Log`, `Send Messages`, `Read Message History`, `Connect`/`Move Members` (для временных голосовых комнат).
+При приглашении бота на сервер нужны минимум права: `Manage Roles`, `Manage Channels`, `Kick Members`, `Ban Members`, `Moderate Members`, `Manage Messages`, `View Audit Log`, `Send Messages`, `Read Message History`, `Connect`/`Move Members` (для временных голосовых комнат), `Create Private Threads`/`Manage Threads` (для тикетов-тредов).
 
 В Developer Portal → Bot включите privileged intents: **Server Members Intent** и **Message Content Intent** (используются `GatewayIntentBits.GuildMembers` и `GatewayIntentBits.MessageContent` в `index.js`).
 
