@@ -7,14 +7,16 @@ const { buildPanelMessage } = require('../voice');
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 async function findOrCreate({ guild, config, idKey, name, type, parentId }) {
+    // Если уже настроен ID (через предыдущий запуск или админ-команду,
+    // например /temp-voice-category) — используем именно этот канал как
+    // есть, не переименовывая его на дефолтное имя. Раньше здесь было
+    // принудительное setName() при несовпадении, из-за чего категория,
+    // которую администратор указал вручную под своим именем, откатывалась
+    // обратно на "Активные комнаты" на следующем деплое (тот же класс
+    // багов, что был у ролей верификации — см. scripts/setup-verification.js).
     const existingById = config[idKey] ? guild.channels.cache.get(config[idKey]) : null;
     if (existingById) {
-        if (existingById.name !== name) {
-            await existingById.setName(name).catch(() => {});
-            console.log(`Переименовано: "${existingById.name}" -> "${name}"`);
-        } else {
-            console.log(`Уже существует: ${name}`);
-        }
+        console.log(`Уже настроено: ${existingById.name}`);
         return existingById;
     }
 
