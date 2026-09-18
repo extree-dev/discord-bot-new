@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const security = require('../security');
+const { findOrCreateRole } = require('./lib/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -50,21 +51,21 @@ client.once('clientReady', async () => {
             process.exit(1);
         }
 
+        const securityConfig = await security.getConfig();
+        const baseRoleIds = { ...securityConfig.baseRoleIds };
         const created = {};
         for (const r of ROLES) {
-            let role = guild.roles.cache.find(x => x.name === r.name);
-            if (role) {
-                console.log(`Роль уже существует: ${r.name}`);
-            } else {
-                role = await guild.roles.create({
-                    name: r.name,
-                    color: r.color,
-                    hoist: r.hoist,
-                    mentionable: r.mentionable,
-                    permissions: r.permissions,
-                });
-                console.log(`Создана роль: ${r.name}`);
-            }
+            const { role, created: wasCreated } = await findOrCreateRole({
+                guild,
+                existingId: baseRoleIds[r.name],
+                name: r.name,
+                color: r.color,
+                hoist: r.hoist,
+                mentionable: r.mentionable,
+                permissions: r.permissions,
+            });
+            console.log(wasCreated ? `Создана роль: ${r.name}` : `Роль уже настроена: ${role.name}`);
+            baseRoleIds[r.name] = role.id;
             created[r.name] = role;
         }
 
@@ -90,6 +91,7 @@ client.once('clientReady', async () => {
 
         await security.updateConfig(config => {
             config.trustedRoleId = created['Trusted'].id;
+            config.baseRoleIds = baseRoleIds;
         });
         console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
 
