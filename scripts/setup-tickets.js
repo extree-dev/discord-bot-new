@@ -147,7 +147,11 @@ client.once('clientReady', async () => {
         const messages = await panelChannel.messages.fetch({ limit: 10 });
         const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
         if (existingPanel) {
-            await existingPanel.edit(buildPanelMessage(guild));
+            // embeds: [] — старая панель (до перехода на Components V2)
+            // была embed'ом; без явной очистки Discord отвергает PATCH,
+            // который одновременно оставляет старый embed и включает флаг
+            // IS_COMPONENTS_V2 (см. падение деплоя на этом самом вызове).
+            await existingPanel.edit({ ...buildPanelMessage(guild), embeds: [] });
             console.log('Панель тикетов обновлена.');
         } else {
             await panelChannel.send(buildPanelMessage(guild));
