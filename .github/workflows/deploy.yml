@@ -28,12 +28,27 @@ jobs:
                       # (находят/создают недостающее, ничего не портят при повторном
                       # запуске) — прогоняем их на каждый деплой, чтобы новые команды,
                       # роли, каналы и т.п. появлялись на сервере без ручного захода
-                      # по SSH после каждого push.
-                      docker compose run --rm bot node deploy-commands.js
-                      docker compose run --rm bot node scripts/setup-server.js
-                      docker compose run --rm bot node scripts/setup-roles.js
-                      docker compose run --rm bot node scripts/setup-verification.js
-                      docker compose run --rm bot node scripts/setup-tickets.js
-                      docker compose run --rm bot node scripts/setup-temp-voice.js
-                      docker compose run --rm bot node scripts/setup-suggestions.js
-                      docker compose run --rm bot node scripts/setup-rules.js
+                      # по SSH после каждого push. Без set -e и по одному через
+                      # run_setup_step: они независимы друг от друга, и сбой одного
+                      # (например, конфликт иерархии ролей, который правится руками
+                      # в Настройках сервера) не должен мешать остальным выполниться.
+                      # Деплой всё равно помечается упавшим, если хоть один шаг не
+                      # прошёл, чтобы это не осталось незамеченным.
+                      set +e
+                      FAILED=0
+                      run_setup_step() {
+                          docker compose run --rm bot node "$1"
+                          if [ $? -ne 0 ]; then
+                              echo "::warning::$1 завершился с ошибкой, смотри лог выше"
+                              FAILED=1
+                          fi
+                      }
+                      run_setup_step deploy-commands.js
+                      run_setup_step scripts/setup-server.js
+                      run_setup_step scripts/setup-roles.js
+                      run_setup_step scripts/setup-verification.js
+                      run_setup_step scripts/setup-tickets.js
+                      run_setup_step scripts/setup-temp-voice.js
+                      run_setup_step scripts/setup-suggestions.js
+                      run_setup_step scripts/setup-rules.js
+                      exit $FAILED
