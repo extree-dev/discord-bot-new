@@ -29,4 +29,13 @@ async function clearWarnings(guildId, userId) {
     });
 }
 
-module.exports = { addWarning, getWarnings, clearWarnings, storeName: STORE_NAME };
+// Сводка для /dashboard: сколько разных пользователей сейчас имеют хотя
+// бы одно предупреждение и сколько предупреждений выдано всего.
+async function getWarningStats() {
+    const data = await store.load();
+    const entries = Object.values(data).filter(list => Array.isArray(list) && list.length > 0);
+    const totalWarnings = entries.reduce((sum, list) => sum + list.length, 0);
+    return { warnedUsers: entries.length, totalWarnings };
+}
+
+module.exports = { addWarning, getWarnings, clearWarnings, getWarningStats, storeName: STORE_NAME };
