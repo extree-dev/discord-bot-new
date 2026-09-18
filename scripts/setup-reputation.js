@@ -8,12 +8,6 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const CATEGORY_NAME = '📋 Информация';
 const CHANNEL_NAME = 'рейтинг';
 
-// Цвет роли растёт по "теплоте" вместе с уровнем — тот же принцип, что
-// и у SPECIALIST_ROLES в setup-tickets.js (цвет несёт смысл, не просто
-// украшение). По одному цвету на каждый уровень, включая стартовый
-// "Новичок" (LEVELS[0]) — роль выдаётся уже с первого очка репутации.
-const LEVEL_ROLE_COLORS = [0x99aab5, 0x2ecc71, 0x3498db, 0x9b59b6, 0xe67e22, 0xe91e63, 0xf1c40f];
-
 client.once('clientReady', async () => {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
@@ -58,7 +52,7 @@ client.once('clientReady', async () => {
                 guild,
                 existingId: existingGuildConfig.levelRoles?.[i],
                 name: level.title,
-                color: LEVEL_ROLE_COLORS[i] ?? 0x99aab5,
+                color: level.color,
                 hoist: true,
                 mentionable: false,
                 permissions: [],

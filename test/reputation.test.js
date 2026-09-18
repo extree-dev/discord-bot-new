@@ -90,7 +90,7 @@ test('formatRemaining форматирует миллисекунды в час�
     assert.equal(formatRemaining(2 * 60 * 60 * 1000), '2 ч 0 мин');
 });
 
-test('buildRankCardAttachment: запрашивает аватар и баннер только валидными размерами CDN', async () => {
+test('buildRankCardAttachment: запрашивает аватар, баннер и иконку сервера только валидными размерами CDN', async () => {
     const fakeUser = {
         globalName: 'Тест',
         username: 'test',
@@ -104,9 +104,48 @@ test('buildRankCardAttachment: запрашивает аватар и банне
         },
     };
     const fakeClient = { users: { fetch: async () => fakeUser } };
-    const level = { title: 'Участник', min: 5, next: { title: 'Активный участник', min: 15 }, progress: 0.5 };
+    const fakeGuild = {
+        name: 'Тестовый сервер',
+        iconURL: (options = {}) => {
+            assert.ok(VALID_CDN_SIZES.has(options.size), `iconURL: невалидный size ${options.size}`);
+            return null;
+        },
+    };
+    const level = {
+        title: 'Участник',
+        min: 5,
+        color: 0x2ecc71,
+        next: { title: 'Активный участник', min: 15 },
+        progress: 0.5,
+    };
 
-    const attachment = await buildRankCardAttachment(fakeClient, 'user-1', { score: 10, level, rank: 3 });
+    const attachment = await buildRankCardAttachment(
+        fakeClient,
+        'user-1',
+        { score: 10, level, rank: 3, givenCount: 4 },
+        fakeGuild
+    );
 
     assert.ok(attachment);
+});
+
+test('buildRankCardAttachment: работает и без гильдии (guild не передан)', async () => {
+    const fakeUser = {
+        globalName: 'Тест',
+        username: 'test',
+        displayAvatarURL: () => null,
+        bannerURL: () => null,
+    };
+    const fakeClient = { users: { fetch: async () => fakeUser } };
+    const level = { title: 'Новичок', min: 0, color: 0x99aab5, next: { title: 'Участник', min: 5 }, progress: 0 };
+
+    const attachment = await buildRankCardAttachment(fakeClient, 'user-1', { score: 0, level, rank: null });
+
+    assert.ok(attachment);
+});
+
+test('getLevel возвращает числовой color для каждого уровня', () => {
+    for (const score of [0, 5, 15, 30, 60, 100, 200, 999]) {
+        assert.equal(typeof getLevel(score).color, 'number');
+    }
 });

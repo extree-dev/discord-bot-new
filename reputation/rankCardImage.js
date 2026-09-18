@@ -1,10 +1,10 @@
 // Карточка профиля репутации — одна картинка (баннер профиля как фон,
 // круглый аватар, имя/уровень/счёт/полоса прогресса, место в рейтинге),
-// а не embed/Components V2 с текстом. Все данные (буферы аватара/баннера,
-// собранные из Discord CDN) передаются готовыми — сама функция рисования
-// не трогает сеть и не трогает Discord API, поэтому тестируется отдельно
-// (см. reputation/model.js buildRankCardAttachment(), где буферы
-// собираются).
+// а не embed/Components V2 с текстом. Все данные (буферы аватара/баннера/
+// иконки сервера, собранные из Discord CDN) передаются готовыми — сама
+// функция рисования не трогает сеть и не трогает Discord API, поэтому
+// тестируется отдельно (см. reputation/model.js buildRankCardAttachment(),
+// где буферы собираются).
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 const { COLORS } = require('../utils/embeds');
@@ -16,6 +16,15 @@ const AVATAR_X = 60;
 const AVATAR_Y = (HEIGHT - AVATAR_SIZE) / 2;
 const TEXT_X = AVATAR_X + AVATAR_SIZE + 40;
 const PRIMARY_HEX = `#${COLORS.primary.toString(16).padStart(6, '0')}`;
+
+// Золото/серебро/бронза для топ-3 в рейтинге — остальным местам просто
+// белый текст, как раньше.
+const RANK_MEDAL_COLORS = { 1: '#ffd700', 2: '#c0c0c0', 3: '#cd7f32' };
+
+const GUILD_ICON_SIZE = 28;
+const GUILD_ICON_X = 16;
+const GUILD_ICON_Y = 16;
+const GUILD_NAME_MAX_CHARS = 28;
 
 // GlobalFonts — процесс-глобальный реестр, регистрируем один раз: без
 // этого на деплое (Alpine, node:20-alpine — без единого системного
@@ -51,7 +60,7 @@ function drawImageCover(ctx, image, x, y, w, h) {
     ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
-function drawProgressBar(ctx, x, y, w, h, progress) {
+function drawProgressBar(ctx, x, y, w, h, progress, colorHex) {
     const clamped = Math.max(0, Math.min(1, progress));
     roundedRectPath(ctx, x, y, w, h, h / 2);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
@@ -60,24 +69,62 @@ function drawProgressBar(ctx, x, y, w, h, progress) {
     if (clamped > 0) {
         const filledWidth = Math.max(h, w * clamped);
         roundedRectPath(ctx, x, y, filledWidth, h, h / 2);
-        ctx.fillStyle = PRIMARY_HEX;
+        ctx.fillStyle = colorHex;
         ctx.fill();
     }
 }
 
-// avatarBuffer/bannerBuffer — PNG/JPEG Buffer или null (у пользователя
-// может не быть баннера вообще — тогда фон заменяет градиент).
-async function renderRankCard({ displayName, avatarBuffer, bannerBuffer, level, score, rank }) {
+// Рисует картинку внутри круга радиусом size/2 с центром в (cx, cy) —
+// общая логика для аватара и иконки сервера, отличаются только размером
+// и позицией.
+function drawCircleImage(ctx, image, cx, cy, size) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(image, cx - size / 2, cy - size / 2, size, size);
+    ctx.restore();
+}
+
+function truncate(text, maxChars) {
+    if (text.length <= maxChars) return text;
+    return `${text.slice(0, maxChars - 1)}…`;
+}
+
+// avatarBuffer/bannerBuffer/guildIconBuffer — PNG/JPEG Buffer или null
+// (у пользователя может не быть баннера вообще — тогда фон заменяет
+// градиент; guildIconBuffer отсутствует — просто не рисуем иконку сервера
+// в уголке, только имя, если оно передано).
+async function renderRankCard({
+    displayName,
+    avatarBuffer,
+    bannerBuffer,
+    level,
+    score,
+    rank,
+    givenCount,
+    guildName,
+    guildIconBuffer,
+}) {
     ensureFonts();
     const canvas = createCanvas(WIDTH, HEIGHT);
     const ctx = canvas.getContext('2d');
+
+    // Акцент карточки растёт вместе с уровнем (level.color из
+    // reputation/model.js LEVELS — тот же цвет, что у роли уровня на
+    // сервере) — кольцо аватара и полоса прогресса красятся им вместо
+    // одного статичного PRIMARY_HEX на все уровни. level.color может
+    // отсутствовать (старые вызовы/тесты без него) — тогда просто
+    // используем цвет бренда бота, как раньше.
+    const accentHex = typeof level?.color === 'number' ? `#${level.color.toString(16).padStart(6, '0')}` : PRIMARY_HEX;
 
     if (bannerBuffer) {
         const banner = await loadImage(bannerBuffer);
         drawImageCover(ctx, banner, 0, 0, WIDTH, HEIGHT);
     } else {
         const gradient = ctx.createLinearGradient(0, 0, WIDTH, HEIGHT);
-        gradient.addColorStop(0, PRIMARY_HEX);
+        gradient.addColorStop(0, accentHex);
         gradient.addColorStop(1, '#1e2140');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
@@ -97,17 +144,11 @@ async function renderRankCard({ displayName, avatarBuffer, bannerBuffer, level, 
 
     if (avatarBuffer) {
         const avatar = await loadImage(avatarBuffer);
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(avatarCenterX, avatarCenterY, AVATAR_SIZE / 2, 0, Math.PI * 2);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(avatar, AVATAR_X, AVATAR_Y, AVATAR_SIZE, AVATAR_SIZE);
-        ctx.restore();
+        drawCircleImage(ctx, avatar, avatarCenterX, avatarCenterY, AVATAR_SIZE);
     }
     ctx.beginPath();
     ctx.arc(avatarCenterX, avatarCenterY, AVATAR_SIZE / 2 + 3, 0, Math.PI * 2);
-    ctx.strokeStyle = PRIMARY_HEX;
+    ctx.strokeStyle = accentHex;
     ctx.lineWidth = 5;
     ctx.stroke();
 
@@ -126,14 +167,49 @@ async function renderRankCard({ displayName, avatarBuffer, bannerBuffer, level, 
     ctx.fillText(scoreLabel, WIDTH - 60, 112);
     ctx.textAlign = 'left';
 
-    drawProgressBar(ctx, TEXT_X, 148, WIDTH - TEXT_X - 60, 26, level.progress);
+    drawProgressBar(ctx, TEXT_X, 148, WIDTH - TEXT_X - 60, 26, level.progress, accentHex);
+
+    // Вторая строка статистики под полосой: слева — сколько очков осталось
+    // до следующего уровня (на максимуме — что расти уже некуда), справа —
+    // сколько репутации сам раздал (активность, не только "сколько получил").
+    ctx.font = '16px NotoSansCyrillic';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.textAlign = 'left';
+    const remainingLabel = level.next
+        ? `Осталось: ${Math.max(0, level.next.min - score)} очков`
+        : 'Максимальный уровень';
+    ctx.fillText(remainingLabel, TEXT_X, 200);
+    ctx.textAlign = 'right';
+    ctx.fillText(`Выдал репутации: ${givenCount ?? 0}`, WIDTH - 60, 200);
+    ctx.textAlign = 'left';
 
     if (rank) {
         ctx.font = '26px "NotoSansCyrillic Bold"';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = RANK_MEDAL_COLORS[rank] ?? '#ffffff';
         ctx.textAlign = 'right';
         ctx.fillText(`#${rank}`, WIDTH - 30, 45);
         ctx.textAlign = 'left';
+    }
+
+    // Уголок с брендингом сервера — маленькая круглая иконка + имя, не
+    // конкурирует с основной информацией о профиле. Рисуется, только если
+    // есть хотя бы имя (иконка у сервера может отсутствовать).
+    if (guildName) {
+        let textX = GUILD_ICON_X;
+        if (guildIconBuffer) {
+            const icon = await loadImage(guildIconBuffer);
+            drawCircleImage(
+                ctx,
+                icon,
+                GUILD_ICON_X + GUILD_ICON_SIZE / 2,
+                GUILD_ICON_Y + GUILD_ICON_SIZE / 2,
+                GUILD_ICON_SIZE
+            );
+            textX = GUILD_ICON_X + GUILD_ICON_SIZE + 10;
+        }
+        ctx.font = '16px NotoSansCyrillic';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.fillText(truncate(guildName, GUILD_NAME_MAX_CHARS), textX, GUILD_ICON_Y + GUILD_ICON_SIZE / 2 + 6);
     }
 
     return canvas.toBuffer('image/png');
