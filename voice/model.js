@@ -133,17 +133,26 @@ function buildPanelMessage() {
     return toMessage(container, row1, row2);
 }
 
+// cache.get() тихо возвращает undefined, если категория не попала в кэш
+// (например, сразу после рестарта бота) — тогда комната молча создавалась
+// бы без родителя вместо нужной категории. fetch() — подстраховка на этот
+// случай, а не основной путь.
+async function resolveCategory(guild, categoryId) {
+    if (!categoryId) return null;
+    return guild.channels.cache.get(categoryId) ?? (await guild.channels.fetch(categoryId).catch(() => null));
+}
+
 async function createRoom(state, config) {
     const guild = state.guild;
     const member = state.member;
-    // cache.get() тихо возвращает undefined, если категория не попала в
-    // кэш (например, сразу после рестарта бота) — тогда комната молча
-    // создавалась бы без родителя вместо нужной категории. fetch() —
-    // подстраховка на этот случай, а не основной путь.
-    const category = config.categoryId
-        ? (guild.channels.cache.get(config.categoryId) ??
-          (await guild.channels.fetch(config.categoryId).catch(() => null)))
-        : null;
+    // Комнаты создаются в отдельной категории (roomsCategoryId), а не в
+    // той же, где лежат триггер-канал и панель управления (categoryId) —
+    // иначе та категория зарастает десятками комнат участников. Если
+    // roomsCategoryId ещё не настроен (старый деплой, scripts/setup-temp-voice.js
+    // не перезапускали) — используем старую категорию как запасной
+    // вариант, чтобы комната хотя бы не осталась без родителя вообще.
+    const category =
+        (await resolveCategory(guild, config.roomsCategoryId)) ?? (await resolveCategory(guild, config.categoryId));
 
     const name = `Комната ${member.displayName}`.slice(0, 95);
 

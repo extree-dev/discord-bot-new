@@ -5,6 +5,10 @@ const STORE_NAME = 'temp-voice';
 const DEFAULTS = {
     triggerChannelId: null,
     categoryId: null,
+    // Отдельная категория для самих временных комнат — categoryId держит
+    // только триггер-канал и панель управления, чтобы она не зарастала
+    // десятками комнат участников (см. voice/model.js createRoom()).
+    roomsCategoryId: null,
     controlChannelId: null,
     defaultLimit: 5,
     channels: {},
