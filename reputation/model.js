@@ -159,7 +159,13 @@ async function getLeaderboard(guildId, limit = 10) {
     // не потому что у них есть репутация).
     const entries = Object.entries(cfg.users)
         .filter(([key, u]) => key.startsWith(prefix) && u.score > 0)
-        .map(([key, u]) => ({ userId: key.slice(prefix.length), score: u.score }))
+        .map(([key, u]) => ({
+            userId: key.slice(prefix.length),
+            score: u.score,
+            // Уже есть под рукой при переборе cfg.users — отдаём сразу, чтобы
+            // buildLeaderboardAttachment не делал по этому ещё один проход.
+            givenCount: Object.keys(u.givenTo ?? {}).length,
+        }))
         .sort((a, b) => b.score - a.score);
     return entries.slice(0, limit);
 }
@@ -248,13 +254,15 @@ function buildLevelUpCard(user, level) {
     );
 }
 
-// Топ репутации — одна картинка (аватары, медали топ-3, счёт, изменение
-// позиции), не embed/Components V2 с текстом, тот же принцип, что и у
-// buildRankCardAttachment(). entries уже содержат rank (и movement, если
-// он посчитан — см. buildLeaderboardMovement) — здесь только добираем
-// аватары по userId. client.users.fetch() без force: true — для аватара
-// (в отличие от баннера в buildRankCardAttachment) кэшированных данных
-// достаточно.
+// Топ репутации — одна картинка (подиум для топ-3, список для остальных,
+// уровень и выданная репутация у каждой строки, медали, изменение позиции),
+// не embed/Components V2 с текстом, тот же принцип, что и у
+// buildRankCardAttachment(). entries уже содержат rank, score, givenCount
+// (и movement, если он посчитан — см. buildLeaderboardMovement) — здесь
+// добираем аватар по userId и считаем level из score (чистая функция,
+// сетевого похода не стоит). client.users.fetch() без force: true — для
+// аватара (в отличие от баннера в buildRankCardAttachment) кэшированных
+// данных достаточно.
 async function buildLeaderboardAttachment(client, entries, title = 'Рейтинг репутации') {
     const withAvatars = await Promise.all(
         entries.map(async entry => {
@@ -262,7 +270,7 @@ async function buildLeaderboardAttachment(client, entries, title = 'Рейтин
             const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
             const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 128 }) ?? null;
             const avatarBuffer = await fetchImageBuffer(avatarUrl);
-            return { ...entry, displayName, avatarBuffer };
+            return { ...entry, displayName, avatarBuffer, level: getLevel(entry.score) };
         })
     );
 
