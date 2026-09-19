@@ -20,6 +20,6 @@ module.exports = {
     configureGuild: model.configureGuild,
     buildRankCardAttachment: model.buildRankCardAttachment,
     buildLevelUpCard: model.buildLevelUpCard,
-    buildLeaderboardCard: model.buildLeaderboardCard,
+    buildLeaderboardAttachment: model.buildLeaderboardAttachment,
     buildLeaderboardMovement: model.buildLeaderboardMovement,
 };

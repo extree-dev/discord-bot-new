@@ -5,8 +5,9 @@
 // giveReputation/checkAndPostLeaderboard.
 const { AttachmentBuilder } = require('discord.js');
 const { COLORS, formatBody } = require('../utils/embeds');
-const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
+const { baseContainer, textDisplay } = require('../utils/components');
 const { renderRankCard } = require('./rankCardImage');
+const { renderLeaderboardCard } = require('./leaderboardImage');
 const config = require('./config');
 
 // Пороги — не эмодзи-бейджи, а титулы: единственный способ показать
@@ -72,7 +73,7 @@ function countRecentGivenTo(givenTo, now, windowMs = 24 * 60 * 60 * 1000) {
 
 // Движение в рейтинге относительно предыдущего снимка — "+N"/"-N"/"="/
 // "новый" (не было в прошлом снимке). Чистая функция для теста и для
-// buildLeaderboardCard.
+// checkAndPostLeaderboard.
 function buildLeaderboardMovement(currentTop, previousSnapshot) {
     const previousRank = new Map((previousSnapshot ?? []).map((e, i) => [e.userId, i]));
     return currentTop.map((entry, i) => {
@@ -247,12 +248,26 @@ function buildLevelUpCard(user, level) {
     );
 }
 
-function buildLeaderboardCard(entries, title = 'Рейтинг репутации') {
-    const lines = entries.map(e => `**#${e.rank}** <@${e.userId}> — ${e.score}${e.movement ? ` (${e.movement})` : ''}`);
-    return baseContainer(COLORS.primary)
-        .addTextDisplayComponents(textDisplay(formatBody(title)))
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(textDisplay(lines.join('\n') || 'Пока никто не получил репутацию.'));
+// Топ репутации — одна картинка (аватары, медали топ-3, счёт, изменение
+// позиции), не embed/Components V2 с текстом, тот же принцип, что и у
+// buildRankCardAttachment(). entries уже содержат rank (и movement, если
+// он посчитан — см. buildLeaderboardMovement) — здесь только добираем
+// аватары по userId. client.users.fetch() без force: true — для аватара
+// (в отличие от баннера в buildRankCardAttachment) кэшированных данных
+// достаточно.
+async function buildLeaderboardAttachment(client, entries, title = 'Рейтинг репутации') {
+    const withAvatars = await Promise.all(
+        entries.map(async entry => {
+            const user = await client.users.fetch(entry.userId).catch(() => null);
+            const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
+            const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 128 }) ?? null;
+            const avatarBuffer = await fetchImageBuffer(avatarUrl);
+            return { ...entry, displayName, avatarBuffer };
+        })
+    );
+
+    const png = await renderLeaderboardCard({ title, entries: withAvatars });
+    return new AttachmentBuilder(png, { name: 'leaderboard.png' });
 }
 
 // Еженедельный автопост рейтинга с изменением позиций относительно
@@ -275,9 +290,8 @@ async function checkAndPostLeaderboard(client) {
         if (!channel) continue;
 
         const withMovement = buildLeaderboardMovement(top, guildCfg.lastSnapshot);
-        await channel
-            .send(toMessage(buildLeaderboardCard(withMovement, 'Рейтинг репутации за неделю')))
-            .catch(() => {});
+        const attachment = await buildLeaderboardAttachment(client, withMovement, 'Рейтинг репутации за неделю');
+        await channel.send({ files: [attachment] }).catch(() => {});
 
         await config.update(c => {
             if (!c.guilds[guildId]) c.guilds[guildId] = {};
@@ -336,6 +350,6 @@ module.exports = {
     configureGuild,
     buildRankCardAttachment,
     buildLevelUpCard,
-    buildLeaderboardCard,
+    buildLeaderboardAttachment,
     checkAndPostLeaderboard,
 };
