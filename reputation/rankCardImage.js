@@ -5,9 +5,9 @@
 // функция рисования не трогает сеть и не трогает Discord API, поэтому
 // тестируется отдельно (см. reputation/model.js buildRankCardAttachment(),
 // где буферы собираются).
-const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
-const path = require('path');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { COLORS } = require('../utils/embeds');
+const { ensureFonts, roundedRectPath, drawCircleImage, truncate } = require('./canvasUtils');
 
 const WIDTH = 900;
 const HEIGHT = 270;
@@ -25,29 +25,6 @@ const GUILD_ICON_SIZE = 28;
 const GUILD_ICON_X = 16;
 const GUILD_ICON_Y = 16;
 const GUILD_NAME_MAX_CHARS = 28;
-
-// GlobalFonts — процесс-глобальный реестр, регистрируем один раз: без
-// этого на деплое (Alpine, node:20-alpine — без единого системного
-// шрифта) кириллица рисовалась бы пустыми прямоугольниками вместо букв.
-let fontsRegistered = false;
-function ensureFonts() {
-    if (fontsRegistered) return;
-    const fontsDir = path.join(__dirname, '..', 'node_modules', '@openfonts', 'noto-sans_cyrillic', 'files');
-    GlobalFonts.registerFromPath(path.join(fontsDir, 'noto-sans-cyrillic-400.woff2'), 'NotoSansCyrillic');
-    GlobalFonts.registerFromPath(path.join(fontsDir, 'noto-sans-cyrillic-700.woff2'), 'NotoSansCyrillic Bold');
-    fontsRegistered = true;
-}
-
-function roundedRectPath(ctx, x, y, w, h, r) {
-    const radius = Math.min(r, h / 2, w / 2 || r);
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
-}
 
 // "background-size: cover" — растягивает картинку под область, обрезая
 // излишек по длинной стороне, вместо того чтобы сжимать/искажать баннер.
@@ -72,24 +49,6 @@ function drawProgressBar(ctx, x, y, w, h, progress, colorHex) {
         ctx.fillStyle = colorHex;
         ctx.fill();
     }
-}
-
-// Рисует картинку внутри круга радиусом size/2 с центром в (cx, cy) —
-// общая логика для аватара и иконки сервера, отличаются только размером
-// и позицией.
-function drawCircleImage(ctx, image, cx, cy, size) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(image, cx - size / 2, cy - size / 2, size, size);
-    ctx.restore();
-}
-
-function truncate(text, maxChars) {
-    if (text.length <= maxChars) return text;
-    return `${text.slice(0, maxChars - 1)}…`;
 }
 
 // avatarBuffer/bannerBuffer/guildIconBuffer — PNG/JPEG Buffer или null

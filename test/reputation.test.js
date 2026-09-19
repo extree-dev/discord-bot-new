@@ -8,6 +8,7 @@ const {
     buildLeaderboardMovement,
     formatRemaining,
     buildRankCardAttachment,
+    buildLeaderboardAttachment,
 } = require('../reputation/model');
 
 // Discord CDN принимает только эти размеры — любое другое значение роняет
@@ -148,4 +149,30 @@ test('getLevel возвращает числовой color для каждого
     for (const score of [0, 5, 15, 30, 60, 100, 200, 999]) {
         assert.equal(typeof getLevel(score).color, 'number');
     }
+});
+
+test('buildLeaderboardAttachment: запрашивает аватар каждого участника только валидным размером CDN', async () => {
+    const fakeUsers = {
+        a: { globalName: 'Первый', displayAvatarURL: opts => checkSize(opts) },
+        b: { globalName: 'Второй', displayAvatarURL: opts => checkSize(opts) },
+    };
+    function checkSize(options = {}) {
+        assert.ok(VALID_CDN_SIZES.has(options.size), `displayAvatarURL: невалидный size ${options.size}`);
+        return null;
+    }
+    const fakeClient = { users: { fetch: async id => fakeUsers[id] ?? null } };
+    const entries = [
+        { rank: 1, userId: 'a', score: 10 },
+        { rank: 2, userId: 'b', score: 5 },
+    ];
+
+    const attachment = await buildLeaderboardAttachment(fakeClient, entries);
+
+    assert.ok(attachment);
+});
+
+test('buildLeaderboardAttachment: пустой список не падает', async () => {
+    const fakeClient = { users: { fetch: async () => null } };
+    const attachment = await buildLeaderboardAttachment(fakeClient, []);
+    assert.ok(attachment);
 });

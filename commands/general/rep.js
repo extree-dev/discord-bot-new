@@ -89,9 +89,14 @@ module.exports = {
         }
 
         if (sub === 'leaderboard') {
+            // deferReply — та же причина, что и у profile (3.9.3): собираем
+            // аватары до 10 участников параллельно и рендерим картинку,
+            // суммарно ненадёжно укладывается в 3-секундное окно без defer.
+            await interaction.deferReply();
             const top = await reputation.getLeaderboard(guildId, 10);
             const entries = top.map((e, i) => ({ ...e, rank: i + 1 }));
-            await interaction.reply(toMessage(reputation.buildLeaderboardCard(entries)));
+            const attachment = await reputation.buildLeaderboardAttachment(interaction.client, entries);
+            await interaction.editReply({ files: [attachment] });
             return;
         }
 
