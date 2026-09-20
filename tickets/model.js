@@ -281,6 +281,21 @@ function formatDuration(ms) {
     return parts.join(' ') || '<1 мин';
 }
 
+// НЕ <@id> — Discord автоматически добавляет упомянутого пользователя в
+// участники треда при отправке сообщения с его упоминанием, даже в
+// приватный тред. Раньше карточка тикета "Жалоба на игрока" ментионила
+// reportedUserId прямо в стартовом сообщении треда — из-за этого
+// нарушитель сам оказывался в числе участников треда и видел жалобу на
+// себя. reportedUserTag — снимок tag'а на момент создания тикета
+// (сохраняется в entry, чтобы не дёргать Discord API из чистого
+// билдера); для тикетов, созданных до этого фикса, тега ещё нет —
+// тогда просто показываем ID.
+function formatReportedUser(entry) {
+    return entry.reportedUserTag
+        ? `${entry.reportedUserTag} (\`${entry.reportedUserId}\`)`
+        : `\`${entry.reportedUserId}\``;
+}
+
 // Сколько тикетов закрыл каждый staff, средняя оценка и среднее время
 // первого ответа — по всем записям в сторе (закрытые тикеты не удаляются,
 // только помечаются RESOLVED).
@@ -471,7 +486,7 @@ function buildTicketCard(entry) {
         `**Взял в работу:** ${entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто'}`,
     ];
     if (entry.reportedUserId) {
-        infoLines.push(`**Жалоба на:** <@${entry.reportedUserId}>`);
+        infoLines.push(`**Жалоба на:** ${formatReportedUser(entry)}`);
         if (entry.reportHistoryCount > 1) {
             infoLines.push(`**История:** ${entry.reportHistoryCount} жалоб(ы) за 30 дней`);
         }
@@ -559,6 +574,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
         notesThreadId: null,
         voiceChannelId: null,
         reportedUserId: extra.reportedUserId ?? null,
+        reportedUserTag: extra.reportedUserTag ?? null,
         reportHistoryCount,
         urgent: Boolean(reason.urgent),
         ownerNotifiedAt: null,
@@ -1360,6 +1376,7 @@ module.exports = {
     findRecentlyClosedTicketByOwner,
     canCloseTicket,
     formatDuration,
+    formatReportedUser,
     aggregateStats,
     findTicketsToEscalate,
     findTicketsToWarn,
