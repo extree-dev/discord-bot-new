@@ -139,7 +139,7 @@ async function renderRankCard({
         : 'Максимальный уровень';
     ctx.fillText(remainingLabel, TEXT_X, 200);
     ctx.textAlign = 'right';
-    ctx.fillText(`Выдал репутации: ${givenCount ?? 0}`, WIDTH - 60, 200);
+    ctx.fillText(`Дал репутации другим: ${givenCount ?? 0}`, WIDTH - 60, 200);
     ctx.textAlign = 'left';
 
     if (rank) {

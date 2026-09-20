@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ChannelType } = require('discord.js');
+const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const backupDir = path.join(__dirname, '..', 'data', 'backups');
 
@@ -28,6 +29,7 @@ async function createBackup(guild) {
         .filter(r => r.id !== guild.id)
         .sort((a, b) => b.position - a.position)
         .map(r => ({
+            id: r.id,
             name: r.name,
             color: r.color,
             hoist: r.hoist,
@@ -38,11 +40,12 @@ async function createBackup(guild) {
 
     const categories = guild.channels.cache
         .filter(c => c.type === ChannelType.GuildCategory)
-        .map(c => ({ name: c.name, position: c.position }));
+        .map(c => ({ id: c.id, name: c.name, position: c.position }));
 
     const channels = guild.channels.cache
         .filter(c => c.type !== ChannelType.GuildCategory)
         .map(c => ({
+            id: c.id,
             name: c.name,
             type: c.type,
             parentName: c.parent?.name ?? null,
@@ -73,6 +76,14 @@ function listBackups() {
         .reverse();
 }
 
+// existingId: r.id/c.id/ch.id — из бэкапов, снятых до этого фикса, у
+// записей ID нет (поле undefined), тогда findOrCreateRole/findOrCreateChannel
+// сами откатываются на поиск по имени, как и раньше. Для новых бэкапов
+// это и есть главное исправление: раньше восстановление искало роль/канал
+// только по имени — если админ переименовал что-то после снятия бэкапа,
+// поиск не находил его и создавал рядом дубликат со старым именем (так
+// на сервере задвоилась роль Admin). Теперь ID в приоритете — переименование
+// не мешает найти тот же объект, а не тот, что уже реально удалён.
 async function restoreBackup(guild, filename) {
     ensureDir();
     const filePath = path.join(backupDir, filename);
@@ -84,36 +95,43 @@ async function restoreBackup(guild, filename) {
 
     const createdRoles = [];
     for (const r of snapshot.roles) {
-        const exists = guild.roles.cache.find(role => role.name === r.name);
-        if (exists) continue;
-        await guild.roles.create({
+        const { role, created } = await findOrCreateRole({
+            guild,
+            existingId: r.id,
             name: r.name,
             color: r.color,
             hoist: r.hoist,
             mentionable: r.mentionable,
             permissions: BigInt(r.permissions),
         });
-        createdRoles.push(r.name);
+        if (created) createdRoles.push(role.name);
     }
 
     const createdCategories = [];
+    const categoryByName = new Map();
     for (const c of snapshot.categories) {
-        const exists = guild.channels.cache.find(ch => ch.type === ChannelType.GuildCategory && ch.name === c.name);
-        if (exists) continue;
-        await guild.channels.create({ name: c.name, type: ChannelType.GuildCategory });
-        createdCategories.push(c.name);
+        const { channel: category, created } = await findOrCreateChannel({
+            guild,
+            existingId: c.id,
+            name: c.name,
+            type: ChannelType.GuildCategory,
+        });
+        categoryByName.set(c.name, category);
+        if (created) createdCategories.push(category.name);
     }
 
     await guild.channels.fetch();
     const createdChannels = [];
     for (const ch of snapshot.channels) {
-        const exists = guild.channels.cache.find(c => c.name === ch.name && c.type === ch.type);
-        if (exists) continue;
-        const parent = ch.parentName
-            ? guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === ch.parentName)
-            : null;
-        await guild.channels.create({ name: ch.name, type: ch.type, parent: parent?.id });
-        createdChannels.push(ch.name);
+        const parent = ch.parentName ? categoryByName.get(ch.parentName) : null;
+        const { channel, created } = await findOrCreateChannel({
+            guild,
+            existingId: ch.id,
+            name: ch.name,
+            type: ch.type,
+            parentId: parent?.id,
+        });
+        if (created) createdChannels.push(channel.name);
     }
 
     return { createdRoles, createdCategories, createdChannels };

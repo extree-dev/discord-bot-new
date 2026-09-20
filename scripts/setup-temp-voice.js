@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const { load, save } = require('../voice/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../voice');
-const { findOrCreateChannel } = require('./lib/idempotent');
+const { findOrCreateChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

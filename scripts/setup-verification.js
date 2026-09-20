@@ -10,7 +10,7 @@ const {
 } = require('discord.js');
 const security = require('../security');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
-const { findOrCreateChannel, findOrCreateRole } = require('./lib/idempotent');
+const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

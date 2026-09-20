@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require(
 const { load, save } = require('../suggestions/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../suggestions');
-const { findOrCreateChannel } = require('./lib/idempotent');
+const { findOrCreateChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
