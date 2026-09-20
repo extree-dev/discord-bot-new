@@ -18,6 +18,9 @@ const {
     REASONS,
     CANNED_RESPONSES,
     STATUS,
+    OPEN_REASON_PREFIX,
+    buildPanelMessage,
+    buildBugPanelMessage,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -41,6 +44,12 @@ function makeMember({ roleIds = [], isAdmin = false, isModerator = false }) {
     };
 }
 
+// message — payload от toMessage()/toEphemeralMessage(): components[0] —
+// Container (заголовок/текст), остальные — ActionRowBuilder с кнопками тем.
+function extractButtonCustomIds(message) {
+    return message.components.slice(1).flatMap(row => row.components.map(btn => btn.toJSON().custom_id));
+}
+
 test('REASONS: значения уникальны, и только "report" требует выбора пользователя', () => {
     const values = REASONS.map(r => r.value);
     assert.equal(values.length, new Set(values).size);
@@ -61,6 +70,26 @@ test('REASONS: значения уникальны, и только "report" т�
     }
     const urgent = REASONS.filter(r => r.urgent).map(r => r.value);
     assert.deepEqual(urgent, []);
+});
+
+test('REASONS: только "bug" — отдельная (standalone) система', () => {
+    const standalone = REASONS.filter(r => r.standalone).map(r => r.value);
+    assert.deepEqual(standalone, ['bug']);
+});
+
+test('buildPanelMessage: не включает standalone-темы; buildBugPanelMessage — только их', () => {
+    const mainIds = extractButtonCustomIds(buildPanelMessage());
+    assert.ok(
+        !mainIds.includes(`${OPEN_REASON_PREFIX}bug`),
+        'основная панель не должна показывать кнопку бага — у него своя'
+    );
+    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}general`));
+    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}report`));
+    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}appeal`));
+    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}other`));
+
+    const bugIds = extractButtonCustomIds(buildBugPanelMessage());
+    assert.deepEqual(bugIds, [`${OPEN_REASON_PREFIX}bug`]);
 });
 
 test('CANNED_RESPONSES: у каждого шаблона есть подпись и текст, а их число укладывается в лимит слэш-команды (25 choices)', () => {
@@ -104,6 +133,29 @@ test('isStaff: пропускает Beta-Support и Beta-Moderator по одно
     };
     assert.equal(isStaff(config, makeMember({ roleIds: ['beta-support-role'] })), true);
     assert.equal(isStaff(config, makeMember({ roleIds: ['beta-mod-role'] })), true);
+});
+
+test('isStaff: специалист-роль темы (entry.reasonValue) считается staff только для тикетов своей темы', () => {
+    // Разработчик бота должен сам вести весь жизненный цикл баг-тикетов
+    // (отдельная система, см. REASONS "bug" standalone) без Support —
+    // но это не должно давать ему прав на чужие темы (report/appeal).
+    const config = {
+        supportRoleId: 'support-role',
+        reasonRoleIds: { bug: 'dev-role', report: 'reports-role' },
+    };
+    const devMember = makeMember({ roleIds: ['dev-role'] });
+    assert.equal(isStaff(config, devMember, { reasonValue: 'bug' }), true);
+    assert.equal(
+        isStaff(config, devMember, { reasonValue: 'report' }),
+        false,
+        'роль разработчика не даёт доступа к тикетам другой темы'
+    );
+    assert.equal(isStaff(config, devMember), false, 'без entry специалист-роль темы не учитывается вообще');
+    assert.equal(
+        isStaff(config, devMember, { reasonValue: 'general' }),
+        false,
+        'у темы без специалист-роли — тоже нет доступа'
+    );
 });
 
 test('isTrialStaff: пропускает Beta-Moderator и Beta-Support, но не полноценный Moderator/Support', () => {

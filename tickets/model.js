@@ -64,6 +64,15 @@ const REASONS = [
     {
         value: 'bug',
         label: 'Баг / техническая проблема',
+        // Отдельная система, а не тема общего тикет-пайплайна: своя
+        // кнопка живёт в своём канале (config.bugPanelChannelId, см.
+        // scripts/setup-tickets.js), не показывается на общей панели
+        // (buildPanelMessage() её фильтрует), пингуется только своя
+        // специалист-роль — Support не дёргаем (createTicket). Инженерно
+        // это по-прежнему тот же движок (claim/close/notes/шаблоны,
+        // /ticket list/stats), просто с другим "входом" и другой
+        // ролью-владельцем.
+        standalone: true,
         descriptionLabel: 'Что не работает? Опиши шаги по порядку',
         descriptionPlaceholder: '1) Что делал 2) Что ожидал 3) Что произошло. Приложи ссылку на скрин/видео.',
         welcomeMessage:
@@ -162,7 +171,15 @@ const CANNED_RESPONSES = {
     },
 };
 
-function isStaff(config, member) {
+// entry — опционально: если передан и у него есть reasonValue (см.
+// createTicket), участник со специалист-ролью именно этой темы
+// (config.reasonRoleIds[entry.reasonValue] — например, "Разработчик бота"
+// для багов) тоже считается staff ДЛЯ ЭТОГО тикета, даже без Support/
+// Moderator. Иначе специалист-роль была бы чисто пинг-уведомлением без
+// реальной возможности взять тикет в работу и закрыть его — а с отдельной
+// панелью багов (standalone-темы) разработчик как раз и должен вести весь
+// жизненный цикл сам, без Support.
+function isStaff(config, member, entry = null) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
     // Beta-Support (испытательный срок) не держит ModerateMembers и вообще
     // никаких Discord-прав (как и полноценный Support — доступ к тикетам у
@@ -174,6 +191,10 @@ function isStaff(config, member) {
     // зависит от того, какие права ему выданы в scripts/setup-roles.js.
     if (config.betaSupportRoleId && member.roles.cache.has(config.betaSupportRoleId)) return true;
     if (config.betaModeratorRoleId && member.roles.cache.has(config.betaModeratorRoleId)) return true;
+    if (entry?.reasonValue) {
+        const specialistRoleId = config.reasonRoleIds[entry.reasonValue];
+        if (specialistRoleId && member.roles.cache.has(specialistRoleId)) return true;
+    }
     return (
         member.permissions.has(PermissionFlagsBits.Administrator) ||
         member.permissions.has(PermissionFlagsBits.ModerateMembers)
@@ -237,7 +258,7 @@ const REPORT_HISTORY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 function canCloseTicket(config, entry, member) {
     const isOwner = entry.ownerId === member.id;
     if (!entry.claimedBy) {
-        return isOwner || isStaff(config, member);
+        return isOwner || isStaff(config, member, entry);
     }
     const isClaimer = entry.claimedBy === member.id;
     const isAdmin = member.permissions.has(PermissionFlagsBits.Administrator);
@@ -310,27 +331,21 @@ const REASON_BUTTON_LABELS = {
     other: 'Другое',
 };
 
-// Панель — один Container: заголовок с общим описанием, список тем текстом
-// и ряды кнопок под ним (до 5 в ряд — ограничение Discord). Без картинок
-// и повторяющихся подписей на каждой строке — короткое имя темы на кнопке,
-// все кнопки одного (серого) цвета, чтобы не рябило в глазах.
-function buildPanelMessage() {
+// Общий сборщик — заголовок с описанием, список тем текстом и ряды кнопок
+// под ним (до 4 в ряд — ограничение Discord). Без картинок и повторяющихся
+// подписей на каждой строке — короткое имя темы на кнопке, все кнопки
+// одного (серого) цвета, чтобы не рябило в глазах. Переиспользуется и
+// основной панелью, и отдельной панелью багов (buildBugPanelMessage) —
+// разница только в наборе тем и заголовке.
+function buildReasonPanelMessage(reasons, title, description) {
     const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(
-            textDisplay(
-                formatBody(
-                    'Поддержка сервера',
-                    'Выбери тему обращения кнопкой ниже — откроется приватный тред с командой поддержки, ' +
-                        'который увидишь только ты и staff.'
-                )
-            )
-        )
+        .addTextDisplayComponents(textDisplay(formatBody(title, description)))
         .addSeparatorComponents(separator())
         .addTextDisplayComponents(
-            textDisplay(REASONS.map(r => `**${r.label}** — ${r.descriptionLabel ?? ''}`).join('\n'))
+            textDisplay(reasons.map(r => `**${r.label}** — ${r.descriptionLabel ?? ''}`).join('\n'))
         );
 
-    const buttons = REASONS.map(r =>
+    const buttons = reasons.map(r =>
         new ButtonBuilder()
             .setCustomId(`${OPEN_REASON_PREFIX}${r.value}`)
             .setLabel(REASON_BUTTON_LABELS[r.value] ?? r.label)
@@ -342,6 +357,29 @@ function buildPanelMessage() {
     }
 
     return toMessage(container, ...rows);
+}
+
+// Основная панель — все темы, кроме отмеченных standalone (см. REASONS
+// "bug": у них своя отдельная панель/канал, buildBugPanelMessage ниже).
+function buildPanelMessage() {
+    return buildReasonPanelMessage(
+        REASONS.filter(r => !r.standalone),
+        'Поддержка сервера',
+        'Выбери тему обращения кнопкой ниже — откроется приватный тред с командой поддержки, ' +
+            'который увидишь только ты и staff.'
+    );
+}
+
+// Отдельная панель для тем со standalone: true — сейчас это только "bug".
+// Публикуется в свой канал (config.bugPanelChannelId, см.
+// scripts/setup-tickets.js) вместо основного, но ведёт себя как обычная
+// тема тикетов — тот же createTicket()/claim/close/notes/шаблоны.
+function buildBugPanelMessage() {
+    return buildReasonPanelMessage(
+        REASONS.filter(r => r.standalone),
+        'Баг-репорты',
+        'Нашёл баг в работе бота? Опиши его кнопкой ниже — откроется приватный тред с разработчиком.'
+    );
 }
 
 // entry — опционально: кнопка "Наказать" появляется только у тикетов
@@ -431,7 +469,8 @@ async function createTicket(interaction, reason, description, extra = {}) {
         config.counter += 1;
         return {
             number: config.counter,
-            panelChannelId: config.panelChannelId,
+            panelChannelId:
+                reason.standalone && config.bugPanelChannelId ? config.bugPanelChannelId : config.panelChannelId,
             supportRoleId: config.supportRoleId,
             reasonRoleId: config.reasonRoleIds[reason.value] ?? null,
             // Снимок на момент создания — сколько жалоб на этого же
@@ -469,6 +508,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
         ownerId: member.id,
         guildId: guild.id,
         reason: reason.label,
+        reasonValue: reason.value,
         description,
         claimedBy: null,
         status: STATUS.OPEN,
@@ -494,7 +534,10 @@ async function createTicket(interaction, reason, description, extra = {}) {
         cfg.tickets[thread.id] = entry;
     });
 
-    const pings = [supportRoleId, reasonRoleId].filter(Boolean);
+    // standalone-темы (сейчас — bug) не дёргают Support вообще, это же
+    // разделение и было целью отдельной панели — Support не должен видеть
+    // пинг по каждому баг-репорту, только своя специалист-роль.
+    const pings = reason.standalone ? [reasonRoleId].filter(Boolean) : [supportRoleId, reasonRoleId].filter(Boolean);
     const uniquePings = [...new Set(pings)].map(id => `<@&${id}>`);
 
     // Пинг автора и ролей — как текстовый блок компонента, а не через
@@ -1173,6 +1216,7 @@ module.exports = {
     markOwnerNotified,
     sendOwnerReminder,
     buildPanelMessage,
+    buildBugPanelMessage,
     buildTicketControlRow,
     buildTicketCard,
     buildStatusStepper,
