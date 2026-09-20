@@ -439,26 +439,28 @@ function buildTicketControlRow(entry = null) {
 
 // Живой статус треда виден прямо в списке тредов канала, без клика внутрь:
 // 🔴 никто не взял (нужно внимание) / 🟡 ждём ответа автора / 🟢 взят и
-// открыт, плюс 🔥, если отмечен приоритетным. force обходит троттлинг —
-// используется для редких осознанных действий staff (claim/unclaim/
-// reassign/reopen/смена приоритета), которые должны отразиться сразу;
-// без force (вызывается из recordActivity — потенциально на каждое
-// сообщение в треде) не чаще раза в THREAD_RENAME_THROTTLE_MS, чтобы
-// быстрая переписка не упёрлась в рейт-лимит Discord на переименование
-// канала.
+// открыт. Приоритет здесь НЕ отмечается — раньше был отдельный 🔥, но по
+// фидбэку администратора эмодзи-маркер приоритета в имени треда неудобен;
+// приоритет теперь виден в самой карточке тикета (см. buildTicketCard) и
+// обновляется там же при каждом переключении кнопкой "Приоритет". 🔥
+// остаётся в THREAD_EMOJI_PREFIX_RE — только чтобы можно было вычистить
+// его из имени треда, если тред переименовали ещё до этого фикса.
+// force обходит троттлинг — используется для редких осознанных действий
+// staff (claim/unclaim/reassign/reopen/смена приоритета), которые должны
+// отразиться сразу; без force (вызывается из recordActivity — потенциально
+// на каждое сообщение в треде) не чаще раза в THREAD_RENAME_THROTTLE_MS,
+// чтобы быстрая переписка не упёрлась в рейт-лимит Discord на
+// переименование канала.
 const THREAD_STATUS_EMOJI = { attention: '🔴', waiting: '🟡', active: '🟢' };
-const THREAD_PRIORITY_EMOJI = '🔥';
 const THREAD_EMOJI_PREFIX_RE = /^[🔴🟡🟢🔥]+/u;
 const THREAD_RENAME_THROTTLE_MS = 5 * 60 * 1000;
 
 function threadStatusPrefix(entry) {
-    const status =
-        entry.status === STATUS.WAITING_ON_USER
-            ? THREAD_STATUS_EMOJI.waiting
-            : entry.claimedBy
-              ? THREAD_STATUS_EMOJI.active
-              : THREAD_STATUS_EMOJI.attention;
-    return `${status}${entry.urgent ? THREAD_PRIORITY_EMOJI : ''}`;
+    return entry.status === STATUS.WAITING_ON_USER
+        ? THREAD_STATUS_EMOJI.waiting
+        : entry.claimedBy
+          ? THREAD_STATUS_EMOJI.active
+          : THREAD_STATUS_EMOJI.attention;
 }
 
 async function syncThreadStatusName(thread, entry, { force = false } = {}) {
@@ -490,12 +492,14 @@ function buildStatusStepper(entry) {
 // Карточка тикета на Components V2 вместо embed'а с полями-сеткой —
 // стопка текстовых блоков, разделённых Separator, тот же смысл, что был
 // у fields, но без грид-раскладки embed'а и без эмодзи-маркеров (см.
-// договорённость по редизайну тикетов — только текст).
+// договорённость по редизайну тикетов — только текст). Приоритет —
+// отдельная строка (а не суффикс в заголовке, как было раньше), потому
+// что это то самое сообщение, которое staff открывает при заходе в тред,
+// и оно уже перерисовывается (updateTicketRootMessage) при каждом
+// toggleTicketPriority — то есть строка сама следит за действиями
+// администратора без отдельного механизма.
 function buildTicketCard(entry) {
-    const headerText = formatBody(
-        entry.urgent ? `Тикет #${entry.number} — срочно` : `Тикет #${entry.number}`,
-        entry.description
-    );
+    const headerText = formatBody(`Тикет #${entry.number}`, entry.description);
     const container = baseContainer(STATUS_COLORS[entry.status] ?? COLORS.primary)
         .addTextDisplayComponents(textDisplay(headerText))
         .addSeparatorComponents(separator());
@@ -503,6 +507,7 @@ function buildTicketCard(entry) {
     const infoLines = [
         `**Тема:** ${entry.reason}`,
         `**Статус:** ${buildStatusStepper(entry)}`,
+        `**Приоритет:** ${entry.urgent ? 'Срочно' : 'Обычный'}`,
         `**Взял в работу:** ${entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто'}`,
     ];
     if (entry.reportedUserId) {
@@ -559,12 +564,14 @@ async function createTicket(interaction, reason, description, extra = {}) {
     }
 
     // 🔴 в начале имени — статус "никто не взял" сразу после создания
-    // (см. syncThreadStatusName), плюс 🔥, если тема сама помечена urgent.
-    const initialPrefix = `${THREAD_STATUS_EMOJI.attention}${reason.urgent ? THREAD_PRIORITY_EMOJI : ''}`;
+    // (см. syncThreadStatusName); приоритет в имя треда не идёт, он виден
+    // в самой карточке тикета (buildTicketCard).
     const thread = await panelChannel.threads.create({
         // Тема обращения в имени треда (не только номер и ник) — чтобы
         // staff видел, о чём тикет, прямо в списке тредов, без клика.
-        name: `${initialPrefix}тикет-${number}-${reason.value}-${member.user.username}`.slice(0, 95).toLowerCase(),
+        name: `${THREAD_STATUS_EMOJI.attention}тикет-${number}-${reason.value}-${member.user.username}`
+            .slice(0, 95)
+            .toLowerCase(),
         type: ChannelType.PrivateThread,
         invitable: false,
         reason: `Тикет #${number} от ${member.user.tag}`,
@@ -751,9 +758,10 @@ async function reassignTicket(threadId, targetId) {
 // REASONS (сейчас ни одна так не отмечена, "security" убрали), теперь
 // ещё и staff может отметить/снять его прямо в тикете кнопкой
 // "Приоритет". Влияет на /ticket list (сортировка), карточку тикета
-// (заголовок "— срочно") и эскалацию (findTicketsToEscalate ждёт вдвое
-// меньше для urgent-тикетов) — используется та же самая логика, что уже
-// была рассчитана на REASONS[].urgent.
+// (строка "Приоритет" — см. buildTicketCard) и эскалацию
+// (findTicketsToEscalate ждёт вдвое меньше для urgent-тикетов) —
+// используется та же самая логика, что уже была рассчитана на
+// REASONS[].urgent.
 async function toggleTicketPriority(threadId) {
     let updatedEntry = null;
     await update(cfg => {
