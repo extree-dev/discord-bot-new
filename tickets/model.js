@@ -13,6 +13,7 @@ const {
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { sendPunishmentDm } = require('../utils/punishmentNotice');
+const moderation = require('../moderation');
 const {
     baseContainer,
     textDisplay,
@@ -577,6 +578,18 @@ async function createTicket(interaction, reason, description, extra = {}) {
         reason: `Тикет #${number} от ${member.user.tag}`,
     });
     await thread.members.add(member.id).catch(() => {});
+    // Явный per-участнику allow-оверрайт на самом треде — подстраховка
+    // для кастомного мута (moderation/model.js: роль "Muted" запрещает
+    // писать почти везде на сервере через категорийный deny-оверрайт).
+    // У member-оверрайтов на канале/треде наивысший приоритет в
+    // разрешении прав Discord — выше любого ролевого запрета, поэтому
+    // автор тикета сможет писать в своём же треде, даже будучи
+    // замученным везде на сервере. Безвредно и для обычных (не
+    // замученных) авторов — просто явно подтверждает то, что у них и так
+    // есть через членство в приватном треде.
+    await thread.permissionOverwrites
+        .edit(member.id, { ViewChannel: true, SendMessagesInThreads: true })
+        .catch(() => {});
 
     const now = Date.now();
     const entry = {
@@ -806,11 +819,11 @@ async function addTicketMember(interaction, targetId) {
 // нарушителя по итогам разобранной жалобы — их прямая задача), а
 // Support/Beta-Support НЕ держат ModerateMembers по дизайну (см. выше),
 // поэтому раньше кнопка "Наказать → Мут" была для них всегда
-// недоступна, хотя сам тикет им вести можно. Доступ к тикету
-// (isStaff) уже проверен вызывающим кодом (handlers.js
-// handlePunishSelect) — этого достаточно, мутит от своего имени бот,
-// у которого право ModerateMembers есть всегда (см. README, "Права
-// бота и intents").
+// недоступна, хотя сам тикет им вести можно. Доступ к тикету (isStaff)
+// уже проверен вызывающим кодом (handlers.js handlePunishSelect) —
+// этого достаточно, мутит moderation.muteMember() от имени бота (см.
+// moderation/model.js — кастомная роль "Muted" вместо нативного
+// Discord-таймаута, чтобы нарушитель по-прежнему мог подать апелляцию).
 async function punishReportedUser(interaction, entry, action) {
     if (!entry.reportedUserId) return { error: 'В этом тикете не указан нарушитель.' };
     const targetId = entry.reportedUserId;
@@ -837,15 +850,13 @@ async function punishReportedUser(interaction, entry, action) {
     const seconds = Number(action.split(':')[1]);
     const member = await guild.members.fetch(targetId).catch(() => null);
     if (!member) return { error: 'Участник не найден на сервере.' };
-    if (!member.moderatable) {
-        return { error: 'Не могу замутить этого участника (недостаточно прав или роль выше моей).' };
-    }
+    const muteResult = await moderation.muteMember(guild, member, seconds * 1000, auditReason, interaction.user.id);
+    if (muteResult.error) return { error: muteResult.error };
     await sendPunishmentDm(member.user, guild, {
         kind: 'timeout',
         reason: dmReason,
         durationLabel: formatDuration(seconds * 1000),
     });
-    await member.timeout(seconds * 1000, auditReason);
     return { label: `замучен на ${formatDuration(seconds * 1000)}` };
 }
 

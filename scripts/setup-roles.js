@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require('discord.js');
 const security = require('../security');
+const moderation = require('../moderation');
 const { findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -50,6 +51,19 @@ const ROLES = [
         name: 'Trusted',
         color: 0xf1c40f,
         hoist: true,
+        mentionable: false,
+        permissions: [],
+    },
+    // Кастомный мут (moderation/model.js) вместо нативного Discord-
+    // таймаута — сама по себе роль без прав ничего не блокирует, реальный
+    // запрет писать/реагировать/подключаться к голосу выставляется ниже,
+    // отдельными per-категорийными оверрайтами (иначе нельзя: Discord-
+    // права ролей только выдают, отнять что-то у уже разрешённого может
+    // только явный оверрайт канала/категории).
+    {
+        name: 'Muted',
+        color: 0x7f8c8d,
+        hoist: false,
         mentionable: false,
         permissions: [],
     },
@@ -113,6 +127,19 @@ client.once('clientReady', async () => {
             config.baseRoleIds = baseRoleIds;
         });
         console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
+
+        // Deny-оверрайт роли Muted — на каждую категорию и на каждый
+        // канал без категории (каналы внутри категории наследуют оверрайт
+        // от родителя, отдельно их трогать не нужно). Идемпотентно:
+        // повторный запуск просто переустанавливает те же значения.
+        // Новые категории/каналы, созданные после этого запуска,
+        // подхватывает moderation/index.js (событие channelCreate).
+        await guild.channels.fetch();
+        const muteTargets = guild.channels.cache.filter(c => c.type === ChannelType.GuildCategory || !c.parentId);
+        for (const channel of muteTargets.values()) {
+            await moderation.applyMuteOverwrite(channel, created['Muted'].id);
+        }
+        console.log(`Роль Muted настроена на ${muteTargets.size} категориях/каналах без категории.`);
 
         console.log('Готово.');
         process.exit(0);

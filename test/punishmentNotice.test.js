@@ -40,7 +40,7 @@ test('sendPunishmentDm: таймаут — с кнопкой апелляции 
     assert.equal(button.custom_id, APPEAL_BUTTON_CUSTOM_ID);
 
     const embedJson = payload.embeds[0].toJSON();
-    assert.ok(embedJson.fields.some(f => f.name === 'Наказание' && f.value === 'Мут (таймаут) (1 ч)'));
+    assert.ok(embedJson.fields.some(f => f.name === 'Наказание' && f.value === 'Мут (1 ч)'));
 });
 
 test('sendPunishmentDm: не бросает исключение, если у участника закрыты личные сообщения', async () => {
