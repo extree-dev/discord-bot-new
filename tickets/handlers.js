@@ -12,7 +12,13 @@ const {
 } = require('discord.js');
 const { load } = require('./config');
 const { errorEmbed, successEmbed } = require('../utils/embeds');
-const { successContainer, infoContainer, errorContainer, toMessage } = require('../utils/components');
+const {
+    successContainer,
+    infoContainer,
+    errorContainer,
+    toMessage,
+    toEphemeralMessage,
+} = require('../utils/components');
 const model = require('./model');
 
 const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
@@ -166,7 +172,7 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
     }
 
     await interaction.reply(
-        toMessage(successContainer(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу'))
+        toEphemeralMessage(successContainer(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу'))
     );
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
 });
@@ -243,18 +249,14 @@ const handleCloseApproveButton = async interaction => {
     }
     const entry = config.tickets[ticketChannelId];
     if (!entry || entry.status === model.STATUS.RESOLVED) {
-        await interaction.update({
-            content: null,
-            embeds: [errorEmbed('Тикет не найден или уже закрыт.')],
-            components: [],
-        });
+        await interaction.reply({ embeds: [errorEmbed('Тикет не найден или уже закрыт.')], ephemeral: true });
         return;
     }
     const ticketChannel =
         interaction.guild.channels.cache.get(ticketChannelId) ??
         (await interaction.guild.channels.fetch(ticketChannelId).catch(() => null));
     if (!ticketChannel) {
-        await interaction.update({ content: null, embeds: [errorEmbed('Тред тикета не найден.')], components: [] });
+        await interaction.reply({ embeds: [errorEmbed('Тред тикета не найден.')], ephemeral: true });
         return;
     }
 
@@ -262,11 +264,21 @@ const handleCloseApproveButton = async interaction => {
     const closedBy = entry.closeRequestedBy ?? interaction.user.id;
     await model.closeTicket(interaction.guild, ticketChannel, entry, closedBy, interaction.user.id);
     await model.sendRatingRequest(interaction.client, entry, ticketChannelId).catch(() => {});
-    await interaction.editReply(
-        toMessage(
-            successContainer(`Закрытие тикета #${entry.number} подтверждено ${interaction.user}.`, 'Подтверждено')
+    // Карточку запроса в канале подтверждения снимаем с кнопок отдельным
+    // Message#edit (не interaction-ответом) — она остаётся видна всему
+    // старшему составу как запись "кто подтвердил", это не персональный
+    // ответ на нажатие. Сам же ответ нажавшему — только ему, эфемерно.
+    await interaction.message
+        .edit(
+            toMessage(
+                successContainer(`Закрытие тикета #${entry.number} подтверждено ${interaction.user}.`, 'Подтверждено')
+            )
         )
-    );
+        .catch(() => {});
+    await interaction.followUp({
+        embeds: [successEmbed(`Тикет #${entry.number} закрыт.`, 'Подтверждено')],
+        ephemeral: true,
+    });
 };
 
 const handleCloseRejectButton = async interaction => {
@@ -448,10 +460,23 @@ async function handleRatingButton(interaction) {
     const [, threadId, valueStr] = interaction.customId.split(':');
     const entry = await model.recordRating(threadId, Number(valueStr));
     if (!entry) {
-        await interaction.update(toMessage(errorContainer('Не удалось сохранить оценку — тикет не найден в базе.')));
+        await interaction.reply({
+            embeds: [errorEmbed('Не удалось сохранить оценку — тикет не найден в базе.')],
+            ephemeral: true,
+        });
         return;
     }
-    await interaction.update(toMessage(successContainer('Спасибо за оценку!', 'Оценка сохранена')));
+    // Карточку с кнопками оценки правим отдельным Message#edit — она видна
+    // всему треду и должна перестать быть кликабельной для всех, а не
+    // только для того, кто уже оценил; персональное "спасибо" — эфемерно.
+    await interaction.deferUpdate();
+    await interaction.message
+        .edit(toMessage(successContainer('Спасибо за оценку!', 'Оценка сохранена')))
+        .catch(() => {});
+    await interaction.followUp({
+        embeds: [successEmbed('Спасибо за оценку!', 'Оценка сохранена')],
+        ephemeral: true,
+    });
 }
 
 async function handleButton(interaction) {

@@ -49,6 +49,7 @@ module.exports = {
                         'Репутация начислена'
                     ),
                 ],
+                ephemeral: true,
             });
 
             // firstPoint — первое очко вообще (см. giveReputation): индекс
@@ -75,7 +76,7 @@ module.exports = {
             // ответа на interaction, и без defer второй/третий запрос подряд
             // укладывался в лимит нестабильно (иногда — "Взаимодействие не
             // удалось" на клиенте).
-            await interaction.deferReply();
+            await interaction.deferReply({ ephemeral: true });
             const target = interaction.options.getUser('user') ?? interaction.user;
             const profile = await reputation.getProfile(guildId, target.id);
             const attachment = await reputation.buildRankCardAttachment(
@@ -92,6 +93,9 @@ module.exports = {
             // deferReply — та же причина, что и у profile (3.9.3): собираем
             // аватары до 10 участников параллельно и рендерим картинку,
             // суммарно ненадёжно укладывается в 3-секундное окно без defer.
+            // НЕ ephemeral — единственное осознанное исключение из общего
+            // правила "все ответы на команды видны только автору": топ
+            // репутации должен быть виден всем в канале.
             await interaction.deferReply();
             const top = await reputation.getLeaderboard(guildId, 10);
             const entries = top.map((e, i) => ({ ...e, rank: i + 1 }));
