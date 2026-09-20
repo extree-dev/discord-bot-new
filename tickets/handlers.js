@@ -21,6 +21,10 @@ const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const EXTRA_INPUT_ID = 'ticket_extra_input';
 const NOTE_MODAL_ID = 'ticket_modal_note';
 const NOTE_INPUT_ID = 'ticket_note_input';
+const CLOSE_APPROVE_PREFIX = 'ticket_close_approve:';
+const CLOSE_REJECT_PREFIX = 'ticket_close_reject:';
+const CLOSE_REJECT_MODAL_PREFIX = 'ticket_close_reject_modal:';
+const CLOSE_REJECT_REASON_INPUT_ID = 'ticket_close_reject_reason_input';
 
 // Общий сборщик модалки создания тикета — вызывается сразу после выбора
 // темы, либо (для тем с requiresTargetUser, например "Жалоба на игрока")
@@ -196,11 +200,137 @@ const handleCloseButton = withTicketEntry(async (interaction, config, entry) => 
         return;
     }
 
+    // Стажёр (Beta-Moderator/Beta-Support) не закрывает тикет сразу —
+    // запрос уходит на подтверждение старшему составу (см.
+    // model.requestTicketClosure). Автора тикета это не касается, даже
+    // если он сам на испытательном сроке — гейт только на staff-закрытие,
+    // не на закрытие автором своего же тикета.
+    const isOwnerClosing = interaction.user.id === entry.ownerId;
+    if (!isOwnerClosing && model.isTrialStaff(config, interaction.member)) {
+        await interaction.deferReply({ ephemeral: true });
+        const result = await model.requestTicketClosure(
+            interaction.guild,
+            interaction.channel,
+            entry,
+            interaction.user.id
+        );
+        await interaction.editReply(
+            result.reviewChannel
+                ? 'Запрос на закрытие отправлен старшему составу на подтверждение.'
+                : 'Запрос сохранён, но канал подтверждения не настроен — сообщите администратору.'
+        );
+        return;
+    }
+
     await interaction.deferUpdate();
     const threadId = interaction.channelId;
     await model.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
     await model.sendRatingRequest(interaction.client, entry, threadId).catch(() => {});
 });
+
+// Кнопки живут в канале подтверждения, а не в треде тикета — customId
+// несёт ID треда, поэтому withTicketEntry (который берёт тикет из
+// interaction.channelId) тут не подходит, ищем запись сами.
+const handleCloseApproveButton = async interaction => {
+    const ticketChannelId = interaction.customId.slice(CLOSE_APPROVE_PREFIX.length);
+    const config = await load();
+    if (!model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Подтверждать закрытие может только старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const entry = config.tickets[ticketChannelId];
+    if (!entry || entry.status === model.STATUS.RESOLVED) {
+        await interaction.update({
+            content: null,
+            embeds: [errorEmbed('Тикет не найден или уже закрыт.')],
+            components: [],
+        });
+        return;
+    }
+    const ticketChannel =
+        interaction.guild.channels.cache.get(ticketChannelId) ??
+        (await interaction.guild.channels.fetch(ticketChannelId).catch(() => null));
+    if (!ticketChannel) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тред тикета не найден.')], components: [] });
+        return;
+    }
+
+    await interaction.deferUpdate();
+    const closedBy = entry.closeRequestedBy ?? interaction.user.id;
+    await model.closeTicket(interaction.guild, ticketChannel, entry, closedBy, interaction.user.id);
+    await model.sendRatingRequest(interaction.client, entry, ticketChannelId).catch(() => {});
+    await interaction.editReply(
+        toMessage(
+            successContainer(`Закрытие тикета #${entry.number} подтверждено ${interaction.user}.`, 'Подтверждено')
+        )
+    );
+};
+
+const handleCloseRejectButton = async interaction => {
+    const ticketChannelId = interaction.customId.slice(CLOSE_REJECT_PREFIX.length);
+    const config = await load();
+    if (!model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Отклонять закрытие может только старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    if (!config.tickets[ticketChannelId]) {
+        await interaction.reply({ embeds: [errorEmbed('Тикет не найден.')], ephemeral: true });
+        return;
+    }
+    const modal = new ModalBuilder()
+        .setCustomId(`${CLOSE_REJECT_MODAL_PREFIX}${ticketChannelId}`)
+        .setTitle('Отклонить закрытие');
+    const input = new TextInputBuilder()
+        .setCustomId(CLOSE_REJECT_REASON_INPUT_ID)
+        .setLabel('Почему не стоит закрывать?')
+        .setStyle(TextInputStyle.Paragraph)
+        .setMaxLength(500)
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    await interaction.showModal(modal);
+};
+
+const handleCloseRejectModal = async interaction => {
+    const ticketChannelId = interaction.customId.slice(CLOSE_REJECT_MODAL_PREFIX.length);
+    const config = await load();
+    const entry = config.tickets[ticketChannelId];
+    if (!entry) {
+        await interaction.reply({ embeds: [errorEmbed('Тикет не найден.')], ephemeral: true });
+        return;
+    }
+    const reason = interaction.fields.getTextInputValue(CLOSE_REJECT_REASON_INPUT_ID).trim();
+    const ticketChannel =
+        interaction.guild.channels.cache.get(ticketChannelId) ??
+        (await interaction.guild.channels.fetch(ticketChannelId).catch(() => null));
+    if (ticketChannel) {
+        await model.rejectTicketClosure(interaction.guild, ticketChannel, entry, interaction.user.id, reason);
+    }
+
+    if (entry.closeReviewMessageId && interaction.channel) {
+        const reviewMsg = await interaction.channel.messages.fetch(entry.closeReviewMessageId).catch(() => null);
+        await reviewMsg
+            ?.edit(
+                toMessage(
+                    errorContainer(
+                        `Запрос на закрытие тикета #${entry.number} отклонён ${interaction.user}: ${reason}`,
+                        'Отклонено'
+                    )
+                )
+            )
+            .catch(() => {});
+    }
+
+    await interaction.reply({
+        embeds: [successEmbed('Запрос на закрытие отклонён, автор тикета уведомлён в треде.', 'Готово')],
+        ephemeral: true,
+    });
+};
 
 const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => {
     // Только staff создаёт голосовое обсуждение — у автора тикета нет
@@ -333,6 +463,14 @@ async function handleButton(interaction) {
         await handleOpenReasonButton(interaction);
         return true;
     }
+    if (interaction.customId.startsWith(CLOSE_APPROVE_PREFIX)) {
+        await handleCloseApproveButton(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(CLOSE_REJECT_PREFIX)) {
+        await handleCloseRejectButton(interaction);
+        return true;
+    }
     const handler = BUTTON_HANDLERS[interaction.customId];
     if (!handler) return false;
     await handler(interaction);
@@ -430,6 +568,10 @@ async function handleModalSubmit(interaction) {
     }
     if (interaction.customId === NOTE_MODAL_ID) {
         await handleNoteModal(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(CLOSE_REJECT_MODAL_PREFIX)) {
+        await handleCloseRejectModal(interaction);
         return true;
     }
     return false;

@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const { PermissionFlagsBits } = require('discord.js');
 const {
     isStaff,
+    isTrialStaff,
+    isSeniorStaff,
     findOpenTicketByOwner,
     findRecentlyClosedTicketByOwner,
     canCloseTicket,
@@ -87,6 +89,53 @@ test('isStaff: пропускает администратора и модера
 test('isStaff: обычный участник без роли и прав — не staff', () => {
     const config = { supportRoleId: 'support-role' };
     assert.equal(isStaff(config, makeMember({})), false);
+});
+
+test('isTrialStaff: пропускает Beta-Moderator и Beta-Support, но не полноценный Moderator/Support', () => {
+    const config = {
+        supportRoleId: 'support-role',
+        betaModeratorRoleId: 'beta-mod-role',
+        betaSupportRoleId: 'beta-support-role',
+    };
+    assert.equal(isTrialStaff(config, makeMember({ roleIds: ['beta-mod-role'] })), true);
+    assert.equal(isTrialStaff(config, makeMember({ roleIds: ['beta-support-role'] })), true);
+    assert.equal(isTrialStaff(config, makeMember({ roleIds: ['support-role'] })), false);
+    assert.equal(
+        isTrialStaff(config, makeMember({ isModerator: true })),
+        false,
+        'право ModerateMembers само по себе не делает стажёром'
+    );
+});
+
+test('isTrialStaff: без настроенных beta-ролей в конфиге — никто не стажёр', () => {
+    const config = { supportRoleId: 'support-role' };
+    assert.equal(isTrialStaff(config, makeMember({ roleIds: ['support-role'] })), false);
+});
+
+test('isSeniorStaff: staff без beta-роли — старший состав; стажёр и не-staff — нет', () => {
+    const config = {
+        supportRoleId: 'support-role',
+        betaModeratorRoleId: 'beta-mod-role',
+        betaSupportRoleId: 'beta-support-role',
+    };
+    assert.equal(
+        isSeniorStaff(config, makeMember({ roleIds: ['support-role'] })),
+        true,
+        'полноценный Support — старший'
+    );
+    assert.equal(isSeniorStaff(config, makeMember({ isModerator: true })), true, 'полноценный Moderator — старший');
+    assert.equal(isSeniorStaff(config, makeMember({ isAdmin: true })), true, 'админ — старший');
+    assert.equal(
+        isSeniorStaff(config, makeMember({ roleIds: ['beta-mod-role'] })),
+        false,
+        'Beta-Moderator — не старший, даже если isStaff() true'
+    );
+    assert.equal(
+        isSeniorStaff(config, makeMember({ roleIds: ['beta-support-role'] })),
+        false,
+        'Beta-Support — не старший'
+    );
+    assert.equal(isSeniorStaff(config, makeMember({})), false, 'обычный участник — не staff вообще');
 });
 
 test('findOpenTicketByOwner находит незакрытый тикет по ownerId и возвращает undefined, если такого нет', () => {

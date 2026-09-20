@@ -29,6 +29,7 @@ client.once('clientReady', async () => {
         await guild.channels.fetch();
 
         const config = await load();
+        const moderatorRole = guild.roles.cache.find(r => r.name === 'Moderator');
 
         // роль поддержки
         const { role: supportRole, created: supportCreated } = await findOrCreateRole({
@@ -42,12 +43,32 @@ client.once('clientReady', async () => {
         });
         if (supportCreated) {
             console.log('Создана роль: Support');
-            const moderatorRole = guild.roles.cache.find(r => r.name === 'Moderator');
             if (moderatorRole) {
                 await supportRole.setPosition(moderatorRole.position - 1).catch(() => {});
             }
         } else {
             console.log(`Роль Support уже настроена: ${supportRole.name}`);
+        }
+
+        // Испытательный срок для саппорта — как и Beta-Moderator (см.
+        // setup-roles.js), без опасных Discord-прав (Support их тоже не
+        // держит — доступ к тикетам даёт не permission, а членство в
+        // роли), но closeTicket() для стажёра уходит на подтверждение
+        // старшему составу (tickets/model.js isTrialStaff/requestTicketClosure).
+        const { role: betaSupportRole, created: betaSupportCreated } = await findOrCreateRole({
+            guild,
+            existingId: config.betaSupportRoleId,
+            name: 'Beta-Support',
+            color: 0x58d68d,
+            hoist: true,
+            mentionable: false,
+            permissions: [],
+        });
+        if (betaSupportCreated) {
+            console.log('Создана роль: Beta-Support');
+            await betaSupportRole.setPosition(supportRole.position - 1).catch(() => {});
+        } else {
+            console.log(`Роль Beta-Support уже настроена: ${betaSupportRole.name}`);
         }
 
         // роли-специалисты по темам тикетов — убранные темы ("payment",
@@ -122,6 +143,10 @@ client.once('clientReady', async () => {
                         id: supportRole.id,
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
                     },
+                    {
+                        id: betaSupportRole.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
+                    },
                 ],
             },
         });
@@ -131,6 +156,9 @@ client.once('clientReady', async () => {
             console.log('Канал открыть-тикет уже настроен');
             await panelChannel.permissionOverwrites
                 .edit(supportRole.id, { ViewChannel: true, ManageThreads: true })
+                .catch(() => {});
+            await panelChannel.permissionOverwrites
+                .edit(betaSupportRole.id, { ViewChannel: true, ManageThreads: true })
                 .catch(() => {});
         }
 
@@ -179,10 +207,43 @@ client.once('clientReady', async () => {
         });
         console.log(logChannelCreated ? 'Создан канал: ticket-log' : 'Канал ticket-log уже настроен');
 
+        // Канал подтверждения стажёров — сюда падает embed с кнопками
+        // "Подтвердить"/"Отклонить", когда Beta-Moderator/Beta-Support
+        // запрашивает закрытие тикета (tickets/model.js
+        // requestTicketClosure). Видят его только "старшие" — Support и
+        // Moderator явными правами, Admin — как обычно, в обход
+        // overwrite'ов через Administrator; стажёрские роли доступа не
+        // получают, иначе могли бы сами себе подтвердить закрытие.
+        const reviewOverwrites = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+        if (moderatorRole) {
+            reviewOverwrites.push({
+                id: moderatorRole.id,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+            });
+        }
+        reviewOverwrites.push({
+            id: supportRole.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+        });
+        const { channel: reviewChannel, created: reviewChannelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.reviewChannelId,
+            name: 'подтверждение-стажёров',
+            type: ChannelType.GuildText,
+            parentId: staffCategory?.id,
+            createOptions: { permissionOverwrites: reviewOverwrites },
+        });
+        console.log(
+            reviewChannelCreated ? 'Создан канал: подтверждение-стажёров' : 'Канал подтверждение-стажёров уже настроен'
+        );
+
         config.categoryId = category.id;
         config.panelChannelId = panelChannel.id;
         config.logChannelId = logChannel.id;
+        config.reviewChannelId = reviewChannel.id;
         config.supportRoleId = supportRole.id;
+        config.betaSupportRoleId = betaSupportRole.id;
+        config.betaModeratorRoleId = securityConfig.baseRoleIds?.['Beta-Moderator'] ?? config.betaModeratorRoleId;
         config.reasonRoleIds = reasonRoleIds;
         await save(config);
 
