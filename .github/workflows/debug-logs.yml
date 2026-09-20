@@ -1,0 +1,33 @@
+name: Debug — Fetch bot container logs
+
+# Только ручной запуск, только чтение — ни одна команда здесь не меняет
+# состояние бота или контейнеров, только `docker compose logs`. Нужен
+# как временный диагностический инструмент: пользователь сообщает о
+# систематическом сбое (createTicket падает с исключением после
+# 3.9.11), а без прямого доступа к рантайм-логам бота на проде это
+# невозможно диагностировать точно — приходится гадать по коду.
+on:
+    workflow_dispatch:
+        inputs:
+            tail:
+                description: 'Сколько последних строк лога показать'
+                required: false
+                default: '400'
+
+jobs:
+    fetch-logs:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Fetch logs over SSH
+              uses: appleboy/ssh-action@v1.2.0
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  port: ${{ secrets.VPS_PORT }}
+                  username: ${{ secrets.VPS_USER }}
+                  key: ${{ secrets.VPS_SSH_KEY }}
+                  script: |
+                      cd /root/discord-bot-new
+                      echo "=== docker compose ps ==="
+                      docker compose ps
+                      echo "=== bot logs (tail ${{ inputs.tail }}) ==="
+                      docker compose logs bot --tail ${{ inputs.tail }} --no-color
