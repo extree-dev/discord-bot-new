@@ -175,6 +175,153 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
         toEphemeralMessage(successContainer(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу'))
     );
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
+    await model.syncThreadStatusName(interaction.channel, claim.entry, { force: true });
+});
+
+// Возврат тикета в очередь — доступен тому, кто его ведёт, или старшему
+// составу (не любому staff — иначе кто угодно мог бы снять чужой тикет
+// с исполнителя без его ведома).
+const handleUnclaimButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!entry.claimedBy) {
+        await interaction.reply({ embeds: [errorEmbed('Тикет ещё не взят в работу.')], ephemeral: true });
+        return;
+    }
+    const isClaimer = entry.claimedBy === interaction.user.id;
+    if (!isClaimer && !model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Отпустить тикет может только тот, кто его ведёт, или старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const updatedEntry = await model.unclaimTicket(interaction.channelId);
+    await interaction.reply(toEphemeralMessage(successContainer('Тикет возвращён в очередь.', 'Тикет отпущен')));
+    await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
+    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
+});
+
+// Прямая передача тикета другому staff — тот же круг прав, что и на
+// unclaim (см. выше). Показывает UserSelectMenu, само переназначение — в
+// handleReassignSelect.
+const handleReassignButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!entry.claimedBy) {
+        await interaction.reply({
+            embeds: [errorEmbed('Тикет ещё не взят в работу — сначала возьми его кнопкой «Взять в работу».')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const isClaimer = entry.claimedBy === interaction.user.id;
+    if (!isClaimer && !model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Переназначить тикет может только тот, кто его ведёт, или старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const select = new UserSelectMenuBuilder()
+        .setCustomId('ticket_reassign_select')
+        .setPlaceholder('Кому переназначить тикет?')
+        .setMinValues(1)
+        .setMaxValues(1);
+    await interaction.reply({
+        content: 'Выбери нового исполнителя:',
+        components: [new ActionRowBuilder().addComponents(select)],
+        ephemeral: true,
+    });
+});
+
+const handleReassignSelect = withTicketEntry(async (interaction, config, entry) => {
+    const isClaimer = entry.claimedBy === interaction.user.id;
+    if (!isClaimer && !model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Нет доступа к переназначению этого тикета.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const targetId = interaction.values[0];
+    const targetMember = await interaction.guild.members.fetch(targetId).catch(() => null);
+    if (!targetMember || !model.isStaff(config, targetMember, entry)) {
+        await interaction.update({
+            content: null,
+            embeds: [errorEmbed('Этот участник не может вести тикеты (не staff).')],
+            components: [],
+        });
+        return;
+    }
+    const updatedEntry = await model.reassignTicket(interaction.channelId, targetId);
+    if (interaction.channel.isThread()) await interaction.channel.members.add(targetId).catch(() => {});
+    await interaction.update({
+        content: null,
+        embeds: [successEmbed(`Тикет переназначен ${targetMember}.`, 'Переназначено')],
+        components: [],
+    });
+    await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
+    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
+});
+
+// Ручной приоритет — доступен любому staff тикета (в отличие от
+// unclaim/reassign не меняет "кто ведёт", ниже риск случайного вреда).
+const handlePriorityButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может менять приоритет.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const updatedEntry = await model.toggleTicketPriority(interaction.channelId);
+    await interaction.reply(
+        toEphemeralMessage(
+            updatedEntry.urgent
+                ? successContainer('Тикет отмечен приоритетным.', 'Приоритет включён')
+                : infoContainer('Приоритет снят.', 'Приоритет выключен')
+        )
+    );
+    await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
+    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
+});
+
+const QUICK_REPLY_SELECT_ID = 'ticket_quickreply_select';
+
+// Кнопка "Быстрый ответ" прямо в тикете — то же самое, что /ticket reply,
+// но без набора команды: удобно посреди работы в треде.
+const handleQuickReplyButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может отправлять быстрые ответы.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const select = new StringSelectMenuBuilder()
+        .setCustomId(QUICK_REPLY_SELECT_ID)
+        .setPlaceholder('Выбери готовый ответ')
+        .addOptions(Object.entries(model.CANNED_RESPONSES).map(([value, canned]) => ({ label: canned.label, value })));
+    await interaction.reply({
+        content: 'Выбери шаблон ответа:',
+        components: [new ActionRowBuilder().addComponents(select)],
+        ephemeral: true,
+    });
+});
+
+const handleQuickReplySelect = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
+        await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
+        return;
+    }
+    const key = interaction.values[0];
+    const result = await model.postCannedResponse(interaction, key);
+    if (result.error) {
+        await interaction.update({ content: null, embeds: [errorEmbed(result.error)], components: [] });
+        return;
+    }
+    await interaction.update({
+        content: null,
+        embeds: [successEmbed('Ответ отправлен в тред.', 'Готово')],
+        components: [],
+    });
 });
 
 const handleAddUserButton = withTicketEntry(async (interaction, config, entry) => {
@@ -449,10 +596,14 @@ const handlePunishSelect = withTicketEntry(async (interaction, config, entry) =>
 
 const BUTTON_HANDLERS = {
     ticket_claim: handleClaimButton,
+    ticket_unclaim: handleUnclaimButton,
+    ticket_reassign: handleReassignButton,
     ticket_adduser: handleAddUserButton,
     ticket_close: handleCloseButton,
     ticket_voice: handleVoiceButton,
     ticket_note: handleNoteButton,
+    ticket_priority: handlePriorityButton,
+    ticket_quickreply: handleQuickReplyButton,
     ticket_punish: handlePunishButton,
 };
 
@@ -534,7 +685,9 @@ async function handleAddUserSelect(interaction) {
 
 const SELECT_MENU_HANDLERS = {
     ticket_adduser_select: handleAddUserSelect,
+    ticket_reassign_select: handleReassignSelect,
     [PUNISH_SELECT_ID]: handlePunishSelect,
+    [QUICK_REPLY_SELECT_ID]: handleQuickReplySelect,
 };
 
 async function handleSelectMenu(interaction) {
@@ -614,8 +767,11 @@ async function handleMessageCreate(msg) {
     if (!entry) return;
 
     const authorIsOwner = msg.author.id === entry.ownerId;
-    const updatedEntry = await model.recordActivity(msg.channelId, authorIsOwner);
-    if (updatedEntry) await model.updateTicketRootMessage(msg.client, msg.channelId, updatedEntry);
+    const result = await model.recordActivity(msg.channelId, authorIsOwner);
+    if (result) {
+        await model.updateTicketRootMessage(msg.client, msg.channelId, result.entry);
+        await model.syncThreadStatusName(msg.channel, result.entry, { force: result.statusChanged });
+    }
 }
 
 function register(client) {
