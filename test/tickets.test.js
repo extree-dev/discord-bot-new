@@ -23,6 +23,7 @@ const {
     buildBugPanelMessage,
     buildTicketControlRow,
     buildTicketCard,
+    formatReportedUser,
     escapeHtml,
     buildHtmlTranscript,
 } = require('../tickets/model');
@@ -418,6 +419,49 @@ test('buildTicketCard: приоритет — отдельная строка "�
     assert.ok(urgent.includes('Приоритет:** Срочно'));
     assert.ok(!urgent.includes('— срочно'));
     assert.ok(!urgent.includes('🔥'));
+});
+
+test('formatReportedUser: НЕ <@id>-упоминание — только tag (если есть) и ID в code-блоке', () => {
+    // Регрессия: Discord автоматически добавляет упомянутого пользователя
+    // в участники треда при отправке сообщения с его <@id>-упоминанием,
+    // даже в приватный тред. Карточка "Жалоба на игрока" ментионила
+    // reportedUserId прямо в стартовом сообщении треда — из-за этого
+    // нарушитель сам оказывался среди участников треда и видел жалобу на
+    // себя. formatReportedUser() не должен возвращать <@...> ни в каком
+    // случае.
+    const withTag = formatReportedUser({ reportedUserId: '123', reportedUserTag: 'Nарушитель#0001' });
+    assert.equal(withTag, 'Nарушитель#0001 (`123`)');
+    assert.ok(!withTag.includes('<@'));
+
+    const withoutTag = formatReportedUser({ reportedUserId: '456', reportedUserTag: null });
+    assert.equal(withoutTag, '`456`');
+    assert.ok(!withoutTag.includes('<@'));
+});
+
+test('buildTicketCard: "Жалоба на" — без <@id>-упоминания нарушителя', () => {
+    const textOf = container =>
+        container
+            .toJSON()
+            .components.map(c => c.content)
+            .join('\n');
+
+    const withTag = textOf(
+        buildTicketCard({
+            number: 3,
+            reason: 'Жалоба на игрока',
+            status: STATUS.OPEN,
+            reportedUserId: 'user-9',
+            reportedUserTag: 'Нарушитель#0001',
+        })
+    );
+    assert.ok(withTag.includes('Жалоба на:** Нарушитель#0001 (`user-9`)'));
+    assert.ok(!withTag.includes(`<@user-9>`), 'упоминание нарушителя добавило бы его в участники треда');
+
+    const withoutTag = textOf(
+        buildTicketCard({ number: 4, reason: 'Жалоба на игрока', status: STATUS.OPEN, reportedUserId: 'user-9' })
+    );
+    assert.ok(withoutTag.includes('Жалоба на:** `user-9`'), 'без сохранённого тега — просто ID, тоже без упоминания');
+    assert.ok(!withoutTag.includes(`<@user-9>`));
 });
 
 test('escapeHtml: экранирует спецсимволы, не трогает обычный текст', () => {

@@ -559,7 +559,10 @@ const handlePunishButton = withTicketEntry(async (interaction, config, entry) =>
             { label: 'Забанить', value: 'ban' }
         );
     await interaction.reply({
-        content: `Выбери наказание для <@${entry.reportedUserId}>:`,
+        // НЕ <@id> — см. model.formatReportedUser: упоминание нарушителя в
+        // треде добавило бы его в участники этого приватного треда, и он
+        // увидел бы жалобу на самого себя.
+        content: `Выбери наказание для ${model.formatReportedUser(entry)}:`,
         components: [new ActionRowBuilder().addComponents(select)],
         ephemeral: true,
     });
@@ -578,14 +581,14 @@ const handlePunishSelect = withTicketEntry(async (interaction, config, entry) =>
     }
     await interaction.update({
         content: null,
-        embeds: [successEmbed(`<@${entry.reportedUserId}> — ${result.label}.`, 'Наказание применено')],
+        embeds: [successEmbed(`${model.formatReportedUser(entry)} — ${result.label}.`, 'Наказание применено')],
         components: [],
     });
     await interaction.channel
         .send(
             toMessage(
                 infoContainer(
-                    `<@${entry.reportedUserId}> — ${result.label} модератором ${interaction.user}.`,
+                    `${model.formatReportedUser(entry)} — ${result.label} модератором ${interaction.user}.`,
                     'Наказание применено'
                 )
             )
@@ -709,7 +712,14 @@ async function handleCreateModal(interaction) {
 
     const fullDescription = extra ? `${description}\n\n**${reason.extraFieldLabel}:** ${extra}` : description;
 
-    const result = await model.createTicket(interaction, reason, fullDescription, { reportedUserId: targetId ?? null });
+    // Тег снимаем один раз здесь (не <@id> в самой карточке — см.
+    // model.formatReportedUser), чтобы дальше показывать нарушителя без
+    // упоминания и без лишних фетчей из чистых билдеров.
+    const reportedMember = targetId ? await interaction.guild.members.fetch(targetId).catch(() => null) : null;
+    const result = await model.createTicket(interaction, reason, fullDescription, {
+        reportedUserId: targetId ?? null,
+        reportedUserTag: reportedMember?.user.tag ?? null,
+    });
     if (result.error) {
         await interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
         return;
