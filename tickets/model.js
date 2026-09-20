@@ -643,12 +643,34 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // Упоминания внутри TextDisplay всё равно доставляют уведомление.
     const pingLine = `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`;
 
+    // Карточка — единственное, без чего тикет вообще не имеет смысла (в
+    // ней кнопки "Взять в работу"/"Закрыть"/"Наказать" и т.д. — без неё
+    // тред выглядит пустым и для автора, и для staff, при этом закрыть
+    // его или отреагировать нечем). Если отправка не удалась (на проде
+    // уже бывали кратковременные сетевые сбои при обращении к Discord
+    // API — см. деплой 3.9.9), не оставляем висеть тикет-призрак: тред и
+    // запись в сторе удаляются, наверх уходит обычная ошибка. Иначе
+    // findOpenTicketByOwner считал бы, что у автора уже есть открытый
+    // тикет (запись-то в сторе уже была сделана строкой выше), и он
+    // навсегда упирался бы в "У тебя уже открыт тикет" на пустой, ничем
+    // не управляемый тред — именно это и произошло на проде.
+    let rootMessage;
+    try {
+        rootMessage = await thread.send(
+            toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
+        );
+    } catch (err) {
+        console.error('tickets: не удалось отправить карточку тикета, откатываю создание:', err);
+        await update(cfg => {
+            delete cfg.tickets[thread.id];
+        });
+        await thread.delete('Не удалось создать тикет — сбой при отправке карточки').catch(() => {});
+        return { error: 'Не получилось создать тикет — попробуй ещё раз через минуту.' };
+    }
+
     // rootMessageId запоминаем, чтобы claim/reopen/смена статуса могли
     // обновить именно это сообщение в месте, а не только слать новое —
     // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
-    const rootMessage = await thread.send(
-        toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
-    );
     await update(cfg => {
         const e = cfg.tickets[thread.id];
         if (e) e.rootMessageId = rootMessage.id;

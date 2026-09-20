@@ -35,6 +35,11 @@ module.exports = {
                 .setName('reopen')
                 .setDescription('Переоткрыть закрытый тикет по номеру')
                 .addIntegerOption(opt => opt.setName('number').setDescription('Номер тикета').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub
+                .setName('close')
+                .setDescription('Закрыть текущий тикет — запасной путь, если карточка с кнопками не отправилась')
         ),
 
     async execute(interaction) {
@@ -119,6 +124,46 @@ module.exports = {
                 return interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
             }
             return interaction.reply({ embeds: [successEmbed('Ответ отправлен.', 'Готово')], ephemeral: true });
+        }
+
+        if (sub === 'close') {
+            // Запасной путь на случай, если карточка тикета (кнопка
+            // "Закрыть") по какой-то причине не отправилась (например,
+            // сбой сети Discord при создании — см. фикс 3.9.9, теперь
+            // такой тикет откатывается сам, но у уже существующих
+            // "тикетов-призраков" без единой кнопки раньше не было
+            // способа закрыться вообще) — команда ищет тикет не по
+            // номеру, а по текущему каналу, как /ticket reply и note.
+            const entry = config.tickets[interaction.channelId];
+            if (!entry) {
+                return interaction.reply({
+                    embeds: [errorEmbed('Эту команду нужно использовать внутри тикета.')],
+                    ephemeral: true,
+                });
+            }
+            if (entry.status === tickets.STATUS.RESOLVED) {
+                return interaction.reply({ embeds: [errorEmbed('Тикет уже закрыт.')], ephemeral: true });
+            }
+            // Та же логика, что и у кнопки "Закрыть": стажёр не закрывает
+            // сразу, а запрашивает подтверждение старшего состава.
+            if (tickets.isTrialStaff(config, interaction.member)) {
+                await interaction.deferReply({ ephemeral: true });
+                const result = await tickets.requestTicketClosure(
+                    interaction.guild,
+                    interaction.channel,
+                    entry,
+                    interaction.user.id
+                );
+                return interaction.editReply(
+                    result.reviewChannel
+                        ? 'Запрос на закрытие отправлен старшему составу на подтверждение.'
+                        : 'Запрос сохранён, но канал подтверждения не настроен — сообщите администратору.'
+                );
+            }
+            await interaction.deferReply({ ephemeral: true });
+            await tickets.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
+            await tickets.sendRatingRequest(interaction.client, entry, interaction.channelId).catch(() => {});
+            return interaction.editReply({ embeds: [successEmbed('Тикет закрыт.', 'Готово')] });
         }
 
         const number = interaction.options.getInteger('number');
