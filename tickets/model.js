@@ -577,19 +577,19 @@ async function createTicket(interaction, reason, description, extra = {}) {
         invitable: false,
         reason: `Тикет #${number} от ${member.user.tag}`,
     });
+    // Доступ владельца к треду даёт само членство (thread.members.add
+    // ниже) — у ThreadChannel в discord.js вообще нет API
+    // permissionOverwrites (в отличие от обычных GuildChannel), треды не
+    // поддерживают персональные оверрайты. Раньше здесь был вызов
+    // thread.permissionOverwrites.edit(...) как "подстраховка" для
+    // кастомного мута — он не просто не работал, а гарантированно падал
+    // на КАЖДОМ создании тикета (TypeError: Cannot read properties of
+    // undefined (reading 'edit')), что и ломало создание тикетов после
+    // 3.9.9+: тред успевал создаться, но обработчик падал раньше отправки
+    // карточки. Подстраховка и не была нужна — членство в приватном
+    // треде само по себе даёт полный доступ независимо от ролевых
+    // запретов на сервере (в т.ч. от роли "Muted", см. moderation/).
     await thread.members.add(member.id).catch(() => {});
-    // Явный per-участнику allow-оверрайт на самом треде — подстраховка
-    // для кастомного мута (moderation/model.js: роль "Muted" запрещает
-    // писать почти везде на сервере через категорийный deny-оверрайт).
-    // У member-оверрайтов на канале/треде наивысший приоритет в
-    // разрешении прав Discord — выше любого ролевого запрета, поэтому
-    // автор тикета сможет писать в своём же треде, даже будучи
-    // замученным везде на сервере. Безвредно и для обычных (не
-    // замученных) авторов — просто явно подтверждает то, что у них и так
-    // есть через членство в приватном треде.
-    await thread.permissionOverwrites
-        .edit(member.id, { ViewChannel: true, SendMessagesInThreads: true })
-        .catch(() => {});
 
     const now = Date.now();
     const entry = {
