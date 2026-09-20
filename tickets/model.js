@@ -13,6 +13,7 @@ const {
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { sendPunishmentDm } = require('../utils/punishmentNotice');
+const { sendSelfDeletingDm } = require('../utils/dm');
 const moderation = require('../moderation');
 const {
     baseContainer,
@@ -22,6 +23,7 @@ const {
     warningContainer,
     errorContainer,
     toMessage,
+    toEphemeralMessage,
 } = require('../utils/components');
 const voice = require('../voice');
 
@@ -449,6 +451,22 @@ function buildTicketControlRow(entry = null) {
     if (entry?.reportedUserId) {
         secondRow.addComponents(
             new ButtonBuilder().setCustomId('ticket_punish').setLabel('Наказать').setStyle(ButtonStyle.Secondary)
+        );
+    }
+    // "Снять наказание" — только у тем обжалования: там нет reportedUserId
+    // (это не другой человек, а сам автор тикета), апеллировать можно
+    // только мут (см. utils/punishmentNotice.js — DM-кнопка апелляции
+    // добавляется только к уведомлению о муте, не о бане), так что кнопка
+    // всегда снимает мут именно с entry.ownerId. Раньше сделать это можно
+    // было только командой /timeout — ждали, пока staff вспомнит и наберёт
+    // её руками, хотя вся суть тикета обжалования — принять решение прямо
+    // здесь.
+    if (entry?.reasonValue === 'appeal') {
+        secondRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId('ticket_unpunish')
+                .setLabel('Снять наказание')
+                .setStyle(ButtonStyle.Secondary)
         );
     }
     return [primaryRow, secondRow];
@@ -902,6 +920,17 @@ async function punishReportedUser(interaction, entry, action) {
     return { label: `замучен на ${formatDuration(seconds * 1000)}` };
 }
 
+// Снять мут с автора тикета обжалования — кнопка "Снять наказание"
+// (buildTicketControlRow, только у reasonValue "appeal"). В отличие от
+// punishReportedUser, нарушитель здесь — сам entry.ownerId, не отдельный
+// reportedUserId (обжаловать можно только собственное наказание). Доступ
+// уже проверен вызывающим кодом (handlers.js — isStaff), moderation
+// сама разбирается, был ли участник вообще замучен (wasMuted в ответе).
+async function unpunishTicketOwner(interaction, entry) {
+    const result = await moderation.unmuteMember(interaction.guild, entry.ownerId);
+    return result;
+}
+
 // Голосовая комната для обсуждения тикета — создаётся как обычный voice-
 // канал, но регистрируется в системе временных комнат (voice.trackRoom),
 // чтобы её удаление при опустении обрабатывал уже существующий механизм
@@ -1058,7 +1087,15 @@ ${rows || '<p class="empty">Сообщений нет.</p>'}
 // (closedBy тогда — тот, кто ЗАПРОСИЛ закрытие, обычно стажёр, чтобы
 // статистика/лог отражали, кто реально вёл тикет, а не кто нажал
 // последнюю кнопку) — добавляет отдельную строку в лог, кто подтвердил.
-async function closeTicket(guild, channel, entry, closedBy, approvedBy = null) {
+// interaction — опционально: когда закрытие запустил живой человек
+// (кнопка "Закрыть"/подтверждение стажёра), карточка "Тикет закрывается"
+// уходит ему одному эфемерным followUp, а не всему треду — по просьбе
+// администратора не засорять тред служебными подтверждениями (тред и так
+// архивируется через 5 секунд, подробности уже есть в приватном логе
+// выше). Для автозакрытия по неактивности (tickets/sweep.js, интеракции
+// нет вообще) карточка по-прежнему уходит в сам тред — иначе ни автор,
+// ни staff не узнают, почему тред вдруг заблокировался.
+async function closeTicket(guild, channel, entry, closedBy, approvedBy = null, interaction = null) {
     const config = await load();
 
     // owner нужен и для заголовка HTML-транскрипта, и для строки лога —
@@ -1147,7 +1184,11 @@ async function closeTicket(guild, channel, entry, closedBy, approvedBy = null) {
                 ].join('\n')
             )
         );
-    await channel.send(toMessage(closeCard)).catch(() => {});
+    if (interaction) {
+        await interaction.followUp(toEphemeralMessage(closeCard)).catch(() => {});
+    } else {
+        await channel.send(toMessage(closeCard)).catch(() => {});
+    }
 
     setTimeout(async () => {
         if (channel.isThread()) {
@@ -1435,6 +1476,11 @@ async function recordActivity(threadId, authorIsOwner) {
 // сторона напоминания staff о неактивности — см. findTicketsToWarn) —
 // чтобы тикет не затих просто потому, что автор не заметил уведомление
 // в самом Discord. Молча ничего не делает, если DM закрыты.
+// Само удаляется через сутки — это просто разовый пинок "не забудь
+// ответить", а не что-то, что должно навсегда оставаться в личке (по
+// просьбе администратора: DM не должны копиться).
+const OWNER_REMINDER_TTL_MS = 24 * 60 * 60 * 1000;
+
 async function sendOwnerReminder(client, entry, threadId) {
     const user = await client.users.fetch(entry.ownerId).catch(() => null);
     if (!user) return;
@@ -1445,7 +1491,7 @@ async function sendOwnerReminder(client, entry, threadId) {
             (link ? ` [Перейти в тикет](${link})` : ''),
         'Тикет ждёт твоего ответа'
     );
-    await user.send(toMessage(card)).catch(() => {});
+    await sendSelfDeletingDm(user, toMessage(card), OWNER_REMINDER_TTL_MS);
 }
 
 async function markOwnerNotified(threadId) {
@@ -1504,6 +1550,7 @@ module.exports = {
     toggleTicketPriority,
     addTicketMember,
     punishReportedUser,
+    unpunishTicketOwner,
     createDiscussionVoiceChannel,
     getOrCreateDiscussionVoiceChannel,
     getOrCreateNotesThread,

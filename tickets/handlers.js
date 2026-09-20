@@ -440,7 +440,7 @@ const handleCloseButton = withTicketEntry(async (interaction, config, entry) => 
 
     await interaction.deferUpdate();
     const threadId = interaction.channelId;
-    await model.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
+    await model.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id, null, interaction);
     await model.sendRatingRequest(interaction.client, entry, threadId).catch(() => {});
 });
 
@@ -643,21 +643,45 @@ const handlePunishSelect = withTicketEntry(async (interaction, config, entry) =>
         await interaction.update({ content: null, embeds: [errorEmbed(result.error)], components: [] });
         return;
     }
+    // Только эфемерное подтверждение исполнителю — не постим отдельным
+    // сообщением в тред (по просьбе администратора не засорять тред
+    // служебными подтверждениями; само наказание всё равно попадает в
+    // нативный audit log Discord через auditReason, см.
+    // model.punishReportedUser).
     await interaction.update({
         content: null,
         embeds: [successEmbed(`${model.formatReportedUser(entry)} — ${result.label}.`, 'Наказание применено')],
         components: [],
     });
-    await interaction.channel
-        .send(
-            toMessage(
-                infoContainer(
-                    `${model.formatReportedUser(entry)} — ${result.label} модератором ${interaction.user}.`,
-                    'Наказание применено'
-                )
-            )
-        )
-        .catch(() => {});
+});
+
+const handleUnpunishButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может снимать наказания.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    if (entry.reasonValue !== 'appeal') {
+        await interaction.reply({
+            embeds: [errorEmbed('Эта кнопка доступна только в тикетах обжалования.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const result = await model.unpunishTicketOwner(interaction, entry);
+    if (!result.wasMuted) {
+        await interaction.reply({
+            embeds: [errorEmbed(`<@${entry.ownerId}> сейчас не замучен — снимать нечего.`)],
+            ephemeral: true,
+        });
+        return;
+    }
+    await interaction.reply({
+        embeds: [successEmbed(`Мут снят с <@${entry.ownerId}>.`, 'Наказание снято')],
+        ephemeral: true,
+    });
 });
 
 const BUTTON_HANDLERS = {
@@ -671,6 +695,7 @@ const BUTTON_HANDLERS = {
     ticket_priority: handlePriorityButton,
     ticket_quickreply: handleQuickReplyButton,
     ticket_punish: handlePunishButton,
+    ticket_unpunish: handleUnpunishButton,
     [APPEAL_BUTTON_CUSTOM_ID]: handleAppealDmButton,
 };
 
