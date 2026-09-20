@@ -74,6 +74,13 @@ async function getMutedRole(guild) {
 // настройки (см. index.js register() ниже) — иначе новый канал остался
 // бы без ограничения, пока кто-то не перезапустит скрипт вручную.
 async function applyMuteOverwrite(channel, mutedRoleId) {
+    // Треды (ThreadChannel) не поддерживают permissionOverwrites вообще —
+    // ни как API, ни концептуально (доступ к ним регулируется только
+    // членством). guild.channels.cache — вопреки ожиданию — включает и
+    // их, не только "настоящие" каналы, поэтому без этой проверки цикл
+    // по всем каналам (scripts/setup-roles.js) падал на первом же треде
+    // и обрывался, даже не дойдя до большинства реальных каналов.
+    if (!channel.permissionOverwrites) return;
     await channel.permissionOverwrites.edit(mutedRoleId, MUTE_DENY_OVERWRITE).catch(() => {});
 }
 
