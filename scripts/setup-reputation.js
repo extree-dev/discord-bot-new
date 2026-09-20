@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const reputation = require('../reputation');
-const { findOrCreateChannel, findOrCreateRole } = require('./lib/idempotent');
+const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 

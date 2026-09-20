@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { findOrCreateChannel, findOrCreateRole } = require('../scripts/lib/idempotent');
+const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 function makeGuild({ channels = [], roles = [] } = {}) {
     const createdChannels = [];
