@@ -132,6 +132,21 @@ client.once('clientReady', async () => {
             );
         }
 
+        // Отдельная (более прицельная, чем просто "многовато admin-ролей")
+        // проверка: Administrator-роль без единого участника — почти всегда
+        // забытый дубликат (например, ровно так на сервере повторно появлялась
+        // "Admin" из-за бага в /backup restore, см. 3.9.4), даже если Administrator-
+        // ролей всего две и порог adminRoles.length > 2 выше не сработал.
+        const emptyAdminRoles = adminRoles.filter(r => r.members.size === 0);
+        if (emptyAdminRoles.length) {
+            issues++;
+            console.log(
+                `  ⚠ Есть роль(и) с правом Administrator, в которых нет ни одного участника — похоже на неиспользуемый дубликат: ` +
+                    emptyAdminRoles.map(r => `${r.name} (${r.id})`).join(', ') +
+                    '. Если это действительно дубль, а не заготовка для будущей роли — удалите вручную.'
+            );
+        }
+
         const me = await guild.members.fetchMe();
         const botPosition = me.roles.highest.position;
         const aboveBot = roles.filter(r => r.position >= botPosition && r.id !== guild.roles.everyone.id && !r.managed);
