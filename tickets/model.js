@@ -12,6 +12,7 @@ const {
 } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
+const { sendPunishmentDm } = require('../utils/punishmentNotice');
 const {
     baseContainer,
     textDisplay,
@@ -498,9 +499,25 @@ function buildTicketCard(entry) {
 // extra.reportedUserId — заполняется только для тем с requiresTargetUser
 // (сейчас это "Жалоба на игрока"): ID выбирается через UserSelectMenu в
 // handlers.js, а не вписывается вручную в текстовое поле модалки.
+//
+// interaction.guild/interaction.member отсутствуют, если тикет открывают
+// не с сервера, а из личных сообщений с ботом — единственный сейчас такой
+// путь — кнопка "Подать апелляцию" в DM-уведомлении о наказании (см.
+// utils/punishmentNotice.js, handlers.js handleAppealDmButton): участник в
+// таймауте не может нажать вообще ни одну кнопку/слэш-команду на самом
+// сервере (ограничение платформы Discord, не бота), а DM-взаимодействия
+// этим ограничением не связаны. Поэтому здесь резолвим guild/member сами,
+// если interaction их не даёт.
 async function createTicket(interaction, reason, description, extra = {}) {
-    const guild = interaction.guild;
-    const member = interaction.member;
+    const guild =
+        interaction.guild ??
+        interaction.client.guilds.cache.get(process.env.GUILD_ID) ??
+        interaction.client.guilds.cache.first();
+    const member =
+        interaction.member ?? (guild ? await guild.members.fetch(interaction.user.id).catch(() => null) : null);
+    if (!guild || !member) {
+        return { error: 'Не удалось определить сервер или участника — попробуй ещё раз чуть позже.' };
+    }
 
     // Проверка "тикет уже есть" и резервирование номера должны быть
     // одной атомарной операцией — иначе два клика (или два разных
@@ -518,6 +535,8 @@ async function createTicket(interaction, reason, description, extra = {}) {
             panelChannelId:
                 reason.standalone && config.bugPanelChannelId ? config.bugPanelChannelId : config.panelChannelId,
             supportRoleId: config.supportRoleId,
+            betaSupportRoleId: config.betaSupportRoleId,
+            betaModeratorRoleId: config.betaModeratorRoleId,
             reasonRoleId: config.reasonRoleIds[reason.value] ?? null,
             // Снимок на момент создания — сколько жалоб на этого же
             // игрока уже было, чтобы показать в самой карточке тикета
@@ -532,7 +551,15 @@ async function createTicket(interaction, reason, description, extra = {}) {
 
     if (reservation.error) return { error: reservation.error };
 
-    const { number, panelChannelId, supportRoleId, reasonRoleId, reportHistoryCount } = reservation;
+    const {
+        number,
+        panelChannelId,
+        supportRoleId,
+        betaSupportRoleId,
+        betaModeratorRoleId,
+        reasonRoleId,
+        reportHistoryCount,
+    } = reservation;
     const panelChannel = panelChannelId ? guild.channels.cache.get(panelChannelId) : null;
     if (!panelChannel) {
         return { error: 'Система тикетов не настроена (нет канала для тредов). Обратись к администратору.' };
@@ -587,8 +614,14 @@ async function createTicket(interaction, reason, description, extra = {}) {
 
     // standalone-темы (сейчас — bug) не дёргают Support вообще, это же
     // разделение и было целью отдельной панели — Support не должен видеть
-    // пинг по каждому баг-репорту, только своя специалист-роль.
-    const pings = reason.standalone ? [reasonRoleId].filter(Boolean) : [supportRoleId, reasonRoleId].filter(Boolean);
+    // пинг по каждому баг-репорту, только своя специалист-роль. Обычные
+    // темы раньше пинговали только Support — Beta-Support/Beta-Moderator
+    // (испытательный срок) тоже полноправный staff для этих тикетов
+    // (см. isStaff), но узнавали о новом тикете только случайно, не по
+    // пингу; теперь пингуются наравне с Support.
+    const pings = reason.standalone
+        ? [reasonRoleId].filter(Boolean)
+        : [supportRoleId, betaSupportRoleId, betaModeratorRoleId, reasonRoleId].filter(Boolean);
     const uniquePings = [...new Set(pings)].map(id => `<@&${id}>`);
 
     // Пинг автора и ролей — как текстовый блок компонента, а не через
@@ -762,15 +795,28 @@ async function addTicketMember(interaction, targetId) {
 
 // Наказание нарушителя прямо из тикета «Жалоба на игрока» — без выхода
 // в /ban или /timeout руками. action — 'ban' или 'mute:<секунды>'.
-// Право на конкретное действие проверяем по настоящим Discord-правам
-// исполнителя (BanMembers/ModerateMembers), а не по isStaff() — роль
-// Support сама по себе не должна давать возможность банить/мутить,
-// если у неё нет соответствующего права на сервере.
+//
+// Бан — только по-настоящему собственному праву исполнителя (BanMembers),
+// не просто ticket-доступу (isStaff): Support/Beta-Support/Beta-Moderator
+// намеренно не держат опасных Discord-прав (см. scripts/setup-roles.js,
+// scripts/setup-tickets.js) — кнопка не должна давать банить в обход
+// этого решения.
+//
+// Мут — другое дело: это рутинное действие уровня Support (замутить
+// нарушителя по итогам разобранной жалобы — их прямая задача), а
+// Support/Beta-Support НЕ держат ModerateMembers по дизайну (см. выше),
+// поэтому раньше кнопка "Наказать → Мут" была для них всегда
+// недоступна, хотя сам тикет им вести можно. Доступ к тикету
+// (isStaff) уже проверен вызывающим кодом (handlers.js
+// handlePunishSelect) — этого достаточно, мутит от своего имени бот,
+// у которого право ModerateMembers есть всегда (см. README, "Права
+// бота и intents").
 async function punishReportedUser(interaction, entry, action) {
     if (!entry.reportedUserId) return { error: 'В этом тикете не указан нарушитель.' };
     const targetId = entry.reportedUserId;
     const guild = interaction.guild;
     const auditReason = `Тикет #${entry.number}, модератор ${interaction.user.tag}`;
+    const dmReason = `По итогам рассмотрения жалобы (тикет #${entry.number}): ${entry.description}`;
 
     if (action === 'ban') {
         if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
@@ -780,19 +826,25 @@ async function punishReportedUser(interaction, entry, action) {
         if (member && !member.bannable) {
             return { error: 'Не могу забанить этого участника (недостаточно прав или роль выше моей).' };
         }
+        const targetUser = member?.user ?? (await interaction.client.users.fetch(targetId).catch(() => null));
+        // DM до самого бана — после бана участник и бот перестают делить
+        // сервер, и открыть с ним личку становится ненадёжнее.
+        if (targetUser) await sendPunishmentDm(targetUser, guild, { kind: 'ban', reason: dmReason });
         await guild.members.ban(targetId, { reason: auditReason });
         return { label: 'забанен' };
     }
 
     const seconds = Number(action.split(':')[1]);
-    if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-        return { error: 'У тебя нет права мутить участников.' };
-    }
     const member = await guild.members.fetch(targetId).catch(() => null);
     if (!member) return { error: 'Участник не найден на сервере.' };
     if (!member.moderatable) {
         return { error: 'Не могу замутить этого участника (недостаточно прав или роль выше моей).' };
     }
+    await sendPunishmentDm(member.user, guild, {
+        kind: 'timeout',
+        reason: dmReason,
+        durationLabel: formatDuration(seconds * 1000),
+    });
     await member.timeout(seconds * 1000, auditReason);
     return { label: `замучен на ${formatDuration(seconds * 1000)}` };
 }
