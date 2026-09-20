@@ -643,38 +643,46 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // Упоминания внутри TextDisplay всё равно доставляют уведомление.
     const pingLine = `${member}${uniquePings.length ? ' ' + uniquePings.join(' ') : ''}`;
 
-    // Карточка — единственное, без чего тикет вообще не имеет смысла (в
-    // ней кнопки "Взять в работу"/"Закрыть"/"Наказать" и т.д. — без неё
-    // тред выглядит пустым и для автора, и для staff, при этом закрыть
-    // его или отреагировать нечем). Если отправка не удалась (на проде
-    // уже бывали кратковременные сетевые сбои при обращении к Discord
-    // API — см. деплой 3.9.9), не оставляем висеть тикет-призрак: тред и
-    // запись в сторе удаляются, наверх уходит обычная ошибка. Иначе
-    // findOpenTicketByOwner считал бы, что у автора уже есть открытый
-    // тикет (запись-то в сторе уже была сделана строкой выше), и он
-    // навсегда упирался бы в "У тебя уже открыт тикет" на пустой, ничем
-    // не управляемый тред — именно это и произошло на проде.
-    let rootMessage;
-    try {
-        rootMessage = await thread.send(
-            toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
-        );
-    } catch (err) {
-        console.error('tickets: не удалось отправить карточку тикета, откатываю создание:', err);
-        await update(cfg => {
-            delete cfg.tickets[thread.id];
-        });
-        await thread.delete('Не удалось создать тикет — сбой при отправке карточки').catch(() => {});
-        return { error: 'Не получилось создать тикет — попробуй ещё раз через минуту.' };
+    // Карточка — единственное, без чего тикет неудобен (в ней кнопки
+    // "Взять в работу"/"Закрыть"/"Наказать" и т.д.). Отправка уже падала
+    // на проде из-за нестабильной сети до Discord API — один повтор
+    // через секунду покрывает единичный сбой. ВАЖНО: если не помогло и
+    // после повтора, тред и запись в сторе НЕ откатываются — удаление
+    // самого треда было бы ещё одним вызовом того же нестабильного API,
+    // который вполне может провалиться точно так же и оставить
+    // беспризорный тред вообще без записи о нём (ровно так уже
+    // случилось на проде: /ticket close потом не находил такой тред —
+    // "Эту команду нужно использовать внутри тикета" — при том, что сам
+    // тред продолжал висеть в списке каналов). Вместо этого тикет
+    // остаётся как есть — без карточки, но с полноценной записью в
+    // сторе — и в любой момент закрывается через /ticket close
+    // (commands/moderation/tickets.js), которая не зависит от карточки.
+    let rootMessage = null;
+    let cardFailed = false;
+    for (let attempt = 0; attempt < 2 && !rootMessage; attempt++) {
+        try {
+            rootMessage = await thread.send(
+                toMessage(textDisplay(pingLine), buildTicketCard(entry), ...buildTicketControlRow(entry))
+            );
+        } catch (err) {
+            cardFailed = true;
+            console.error(`tickets: не удалось отправить карточку тикета (попытка ${attempt + 1} из 2):`, err);
+            if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
 
     // rootMessageId запоминаем, чтобы claim/reopen/смена статуса могли
     // обновить именно это сообщение в месте, а не только слать новое —
     // иначе "Взял в работу: никто" навсегда остаётся в начале треда.
-    await update(cfg => {
-        const e = cfg.tickets[thread.id];
-        if (e) e.rootMessageId = rootMessage.id;
-    });
+    // Если карточка так и не отправилась — просто нечего запоминать,
+    // updateTicketRootMessage() у такого тикета молча не сработает (у
+    // неё уже есть проверка entry?.rootMessageId), ничего страшного.
+    if (rootMessage) {
+        await update(cfg => {
+            const e = cfg.tickets[thread.id];
+            if (e) e.rootMessageId = rootMessage.id;
+        });
+    }
 
     // Короткая приветственная подсказка под конкретную тему — сразу
     // намекает, что уточнить/приложить, а не только фиксирует факт
@@ -713,7 +721,7 @@ async function createTicket(interaction, reason, description, extra = {}) {
         }
     }
 
-    return { thread };
+    return { thread, cardFailed };
 }
 
 // Перерисовывает карточку стартового сообщения тикета (тема/статус/кто
