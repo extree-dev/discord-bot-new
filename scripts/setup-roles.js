@@ -27,6 +27,25 @@ const ROLES = [
             PermissionsBitField.Flags.ViewAuditLog,
         ],
     },
+    // Испытательный срок перед полным Moderator — те же повседневные
+    // права (мут/варн/чистка сообщений), но без Kick/Ban: необратимые
+    // решения стажёр сам не принимает. Отдельно от Discord-прав, действия
+    // стажёра (сейчас — закрытие тикета, см. tickets/model.js
+    // requestTicketClosure) ещё и уходят на подтверждение старшему
+    // составу — членство в этой роли модель тикетов проверяет явно
+    // (isTrialStaff), не полагаясь только на набор permissions.
+    {
+        name: 'Beta-Moderator',
+        color: 0x85c1e9,
+        hoist: true,
+        mentionable: false,
+        permissions: [
+            PermissionsBitField.Flags.ModerateMembers,
+            PermissionsBitField.Flags.ManageMessages,
+            PermissionsBitField.Flags.ManageNicknames,
+            PermissionsBitField.Flags.ViewAuditLog,
+        ],
+    },
     {
         name: 'Trusted',
         color: 0xf1c40f,

@@ -18,6 +18,7 @@ const {
     separator,
     infoContainer,
     warningContainer,
+    errorContainer,
     toMessage,
 } = require('../utils/components');
 const voice = require('../voice');
@@ -167,6 +168,28 @@ function isStaff(config, member) {
         member.permissions.has(PermissionFlagsBits.Administrator) ||
         member.permissions.has(PermissionFlagsBits.ModerateMembers)
     );
+}
+
+// "Стажёр" — Beta-Moderator/Beta-Support (испытательный срок): isStaff()
+// для них тоже true (видят и ведут тикеты как обычный staff), но
+// closeTicket() по их запросу не выполняется сразу — уходит на
+// подтверждение через requestTicketClosure(), см. handlers.js
+// handleCloseButton. Проверка по роли, а не по правам — у Beta-Moderator
+// вполне может быть ModerateMembers (см. scripts/setup-roles.js), и
+// одного этого недостаточно, чтобы отличить стажёра от полноценного
+// Moderator.
+function isTrialStaff(config, member) {
+    return Boolean(
+        (config.betaModeratorRoleId && member.roles.cache.has(config.betaModeratorRoleId)) ||
+        (config.betaSupportRoleId && member.roles.cache.has(config.betaSupportRoleId))
+    );
+}
+
+// "Старший состав" — staff, который сам не на испытательном сроке.
+// Только такие могут подтверждать/отклонять закрытие тикета стажёром
+// (handlers.js handleCloseApproveButton/handleCloseRejectButton).
+function isSeniorStaff(config, member) {
+    return isStaff(config, member) && !isTrialStaff(config, member);
 }
 
 // Только незакрытые тикеты считаются "уже открытым обращением" — решённые
@@ -710,7 +733,11 @@ async function getOrCreateNotesThread(interaction, entry) {
     return createNotesThread(parent, interaction.channelId, entry.number);
 }
 
-async function closeTicket(guild, channel, entry, closedBy) {
+// approvedBy — только когда закрытие прошло через requestTicketClosure()
+// (closedBy тогда — тот, кто ЗАПРОСИЛ закрытие, обычно стажёр, чтобы
+// статистика/лог отражали, кто реально вёл тикет, а не кто нажал
+// последнюю кнопку) — добавляет отдельную строку в лог, кто подтвердил.
+async function closeTicket(guild, channel, entry, closedBy, approvedBy = null) {
     const config = await load();
 
     const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
@@ -732,6 +759,7 @@ async function closeTicket(guild, channel, entry, closedBy) {
             `**Взял в работу:** ${entry.claimedBy ? `<@${entry.claimedBy}>` : 'никто'}`,
             `**Время решения:** ${formatDuration(now - entry.createdAt)}`,
         ];
+        if (approvedBy) logLines.push(`**Подтвердил:** <@${approvedBy}>`);
         if (entry.reportedUserId) logLines.push(`**Жалоба на:** <@${entry.reportedUserId}>`);
         const logCard = baseContainer(COLORS.primary)
             .addTextDisplayComponents(textDisplay(formatBody(`Тикет #${entry.number} закрыт`)))
@@ -752,6 +780,9 @@ async function closeTicket(guild, channel, entry, closedBy) {
         e.status = STATUS.RESOLVED;
         e.closedAt = now;
         e.closedBy = closedBy;
+        delete e.closeRequestedBy;
+        delete e.closeRequestedAt;
+        delete e.closeReviewMessageId;
         pruneOldResolved(cfg);
     });
 
@@ -786,6 +817,7 @@ async function closeTicket(guild, channel, entry, closedBy) {
                 [
                     `**Тема:** ${entry.reason}`,
                     `**Закрыл:** ${closedBy ? `<@${closedBy}>` : 'автоматически (неактивность)'}`,
+                    ...(approvedBy ? [`**Подтвердил:** <@${approvedBy}>`] : []),
                     `**Время решения:** ${formatDuration(now - entry.createdAt)}`,
                 ].join('\n')
             )
@@ -802,6 +834,111 @@ async function closeTicket(guild, channel, entry, closedBy) {
     }, 5000);
 
     return { closedAt: now };
+}
+
+// Вызывается вместо closeTicket(), когда закрыть тикет пытается стажёр
+// (isTrialStaff, см. handlers.js handleCloseButton) — тикет остаётся
+// открытым, в reviewChannelId падает карточка с кнопками
+// "Подтвердить"/"Отклонить" (handleCloseApproveButton/handleCloseRejectButton),
+// а в самом треде — короткое уведомление, чтобы автор тикета не терялся
+// в ожидании неизвестно чего.
+async function requestTicketClosure(guild, channel, entry, requestedBy) {
+    const config = await load();
+    const reviewChannel = config.reviewChannelId ? guild.channels.cache.get(config.reviewChannelId) : null;
+
+    await update(cfg => {
+        const e = cfg.tickets[channel.id];
+        if (!e) return;
+        e.closeRequestedBy = requestedBy;
+        e.closeRequestedAt = Date.now();
+    });
+
+    const requester = await guild.members.fetch(requestedBy).catch(() => null);
+    const owner = await guild.members.fetch(entry.ownerId).catch(() => null);
+
+    const card = baseContainer(COLORS.warning)
+        .addTextDisplayComponents(
+            textDisplay(
+                formatBody(
+                    `Запрос на закрытие тикета #${entry.number}`,
+                    'Стажёр запросил закрытие — нужно подтверждение'
+                )
+            )
+        )
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(
+            textDisplay(
+                [
+                    `**Тред:** ${channel}`,
+                    `**Тема:** ${entry.reason}`,
+                    `**Автор тикета:** ${owner ? `${owner}` : entry.ownerId}`,
+                    `**Запросил закрытие:** ${requester ? `${requester}` : requestedBy}`,
+                ].join('\n')
+            )
+        );
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`ticket_close_approve:${channel.id}`)
+            .setLabel('Подтвердить закрытие')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`ticket_close_reject:${channel.id}`)
+            .setLabel('Отклонить')
+            .setStyle(ButtonStyle.Secondary)
+    );
+
+    let reviewMessageId = null;
+    if (reviewChannel) {
+        const sent = await reviewChannel.send(toMessage(card, row)).catch(() => null);
+        reviewMessageId = sent?.id ?? null;
+    }
+    if (reviewMessageId) {
+        await update(cfg => {
+            const e = cfg.tickets[channel.id];
+            if (e) e.closeReviewMessageId = reviewMessageId;
+        });
+    }
+
+    await channel
+        .send(
+            toMessage(
+                warningContainer(
+                    'Запрос на закрытие отправлен старшему составу на подтверждение — тикет пока остаётся открытым.',
+                    'Ожидает подтверждения'
+                )
+            )
+        )
+        .catch(() => {});
+
+    return { reviewChannel: Boolean(reviewChannel) };
+}
+
+// Отклонение — тикет остаётся открытым как есть (closeRequestedBy и
+// остальные поля запроса снимаются, чтобы кнопка "Закрыть" в треде
+// снова вела на обычный путь, а не считалась ещё не отвеченным
+// запросом), reason уходит и в тред, и (через handlers.js, у которого
+// есть доступ к interaction) в отредактированную карточку канала
+// подтверждения.
+async function rejectTicketClosure(guild, channel, entry, rejectedBy, reason) {
+    await update(cfg => {
+        const e = cfg.tickets[channel.id];
+        if (!e) return;
+        delete e.closeRequestedBy;
+        delete e.closeRequestedAt;
+        delete e.closeReviewMessageId;
+    });
+
+    const rejector = await guild.members.fetch(rejectedBy).catch(() => null);
+    await channel
+        .send(
+            toMessage(
+                errorContainer(
+                    `Запрос на закрытие отклонён ${rejector ? `${rejector}` : rejectedBy}: ${reason}`,
+                    'Закрытие отклонено'
+                )
+            )
+        )
+        .catch(() => {});
 }
 
 // Хранить резолвнутые тикеты вечно — не лучшая идея (БД будет только
@@ -1010,6 +1147,8 @@ module.exports = {
     OPEN_REASON_PREFIX,
     CANNED_RESPONSES,
     isStaff,
+    isTrialStaff,
+    isSeniorStaff,
     findOpenTicketByOwner,
     findRecentlyClosedTicketByOwner,
     canCloseTicket,
@@ -1036,6 +1175,8 @@ module.exports = {
     getOrCreateDiscussionVoiceChannel,
     getOrCreateNotesThread,
     closeTicket,
+    requestTicketClosure,
+    rejectTicketClosure,
     reopenTicket,
     sendRatingRequest,
     recordActivity,
