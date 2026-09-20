@@ -175,7 +175,6 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
         toEphemeralMessage(successContainer(`<@${interaction.user.id}> взял тикет в работу.`, 'Тикет взят в работу'))
     );
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
-    await model.syncThreadStatusName(interaction.channel, claim.entry, { force: true });
 });
 
 // Возврат тикета в очередь — доступен тому, кто его ведёт, или старшему
@@ -197,7 +196,6 @@ const handleUnclaimButton = withTicketEntry(async (interaction, config, entry) =
     const updatedEntry = await model.unclaimTicket(interaction.channelId);
     await interaction.reply(toEphemeralMessage(successContainer('Тикет возвращён в очередь.', 'Тикет отпущен')));
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
-    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
 });
 
 // Прямая передача тикета другому staff — тот же круг прав, что и на
@@ -258,15 +256,17 @@ const handleReassignSelect = withTicketEntry(async (interaction, config, entry) 
         components: [],
     });
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
-    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
 });
 
-// Ручной приоритет — доступен любому staff тикета (в отличие от
-// unclaim/reassign не меняет "кто ведёт", ниже риск случайного вреда).
+// Ручной приоритет — доступен staff тикета или автору тикета (по
+// просьбе администратора: автор лучше всех знает, насколько срочно ему
+// нужна помощь, а это не меняет "кто ведёт" и не сужает доступ к
+// тикету — ниже риск случайного вреда, чем у unclaim/reassign).
 const handlePriorityButton = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member, entry)) {
+    const isOwner = interaction.user.id === entry.ownerId;
+    if (!isOwner && !model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
-            embeds: [errorEmbed('Только поддержка или модератор может менять приоритет.')],
+            embeds: [errorEmbed('Менять приоритет может автор тикета, поддержка или модератор.')],
             ephemeral: true,
         });
         return;
@@ -280,7 +280,6 @@ const handlePriorityButton = withTicketEntry(async (interaction, config, entry) 
         )
     );
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
-    await model.syncThreadStatusName(interaction.channel, updatedEntry, { force: true });
 });
 
 const QUICK_REPLY_SELECT_ID = 'ticket_quickreply_select';
@@ -767,11 +766,8 @@ async function handleMessageCreate(msg) {
     if (!entry) return;
 
     const authorIsOwner = msg.author.id === entry.ownerId;
-    const result = await model.recordActivity(msg.channelId, authorIsOwner);
-    if (result) {
-        await model.updateTicketRootMessage(msg.client, msg.channelId, result.entry);
-        await model.syncThreadStatusName(msg.channel, result.entry, { force: result.statusChanged });
-    }
+    const updatedEntry = await model.recordActivity(msg.channelId, authorIsOwner);
+    if (updatedEntry) await model.updateTicketRootMessage(msg.client, msg.channelId, updatedEntry);
 }
 
 function register(client) {

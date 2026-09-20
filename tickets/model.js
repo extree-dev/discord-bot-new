@@ -437,46 +437,6 @@ function buildTicketControlRow(entry = null) {
     return [primaryRow, secondRow];
 }
 
-// Живой статус треда виден прямо в списке тредов канала, без клика внутрь:
-// 🔴 никто не взял (нужно внимание) / 🟡 ждём ответа автора / 🟢 взят и
-// открыт. Приоритет здесь НЕ отмечается — раньше был отдельный 🔥, но по
-// фидбэку администратора эмодзи-маркер приоритета в имени треда неудобен;
-// приоритет теперь виден в самой карточке тикета (см. buildTicketCard) и
-// обновляется там же при каждом переключении кнопкой "Приоритет". 🔥
-// остаётся в THREAD_EMOJI_PREFIX_RE — только чтобы можно было вычистить
-// его из имени треда, если тред переименовали ещё до этого фикса.
-// force обходит троттлинг — используется для редких осознанных действий
-// staff (claim/unclaim/reassign/reopen/смена приоритета), которые должны
-// отразиться сразу; без force (вызывается из recordActivity — потенциально
-// на каждое сообщение в треде) не чаще раза в THREAD_RENAME_THROTTLE_MS,
-// чтобы быстрая переписка не упёрлась в рейт-лимит Discord на
-// переименование канала.
-const THREAD_STATUS_EMOJI = { attention: '🔴', waiting: '🟡', active: '🟢' };
-const THREAD_EMOJI_PREFIX_RE = /^[🔴🟡🟢🔥]+/u;
-const THREAD_RENAME_THROTTLE_MS = 5 * 60 * 1000;
-
-function threadStatusPrefix(entry) {
-    return entry.status === STATUS.WAITING_ON_USER
-        ? THREAD_STATUS_EMOJI.waiting
-        : entry.claimedBy
-          ? THREAD_STATUS_EMOJI.active
-          : THREAD_STATUS_EMOJI.attention;
-}
-
-async function syncThreadStatusName(thread, entry, { force = false } = {}) {
-    if (!thread?.isThread?.() || !entry) return;
-    const now = Date.now();
-    if (!force && entry.lastThreadRenameAt && now - entry.lastThreadRenameAt < THREAD_RENAME_THROTTLE_MS) return;
-    const bareName = thread.name.replace(THREAD_EMOJI_PREFIX_RE, '');
-    const nextName = `${threadStatusPrefix(entry)}${bareName}`.slice(0, 100);
-    if (nextName === thread.name) return;
-    await thread.setName(nextName).catch(() => {});
-    await update(cfg => {
-        const e = cfg.tickets[thread.id];
-        if (e) e.lastThreadRenameAt = now;
-    });
-}
-
 // Текстовый степпер статуса вместо цветного поля embed'а: три стадии
 // жизненного цикла тикета (Открыт → В работе → Решён), текущая — жирным.
 // WAITING_ON_USER не отдельная стадия степпера (она возможна только
@@ -563,15 +523,13 @@ async function createTicket(interaction, reason, description, extra = {}) {
         return { error: 'Система тикетов не настроена (нет канала для тредов). Обратись к администратору.' };
     }
 
-    // 🔴 в начале имени — статус "никто не взял" сразу после создания
-    // (см. syncThreadStatusName); приоритет в имя треда не идёт, он виден
-    // в самой карточке тикета (buildTicketCard).
+    // Без эмодзи-статуса в начале имени — по фидбэку администратора
+    // цветные кружки-статусы в имени треда тоже были лишними. Статус и
+    // приоритет видны в самой карточке тикета (buildTicketCard).
     const thread = await panelChannel.threads.create({
         // Тема обращения в имени треда (не только номер и ник) — чтобы
         // staff видел, о чём тикет, прямо в списке тредов, без клика.
-        name: `${THREAD_STATUS_EMOJI.attention}тикет-${number}-${reason.value}-${member.user.username}`
-            .slice(0, 95)
-            .toLowerCase(),
+        name: `тикет-${number}-${reason.value}-${member.user.username}`.slice(0, 95).toLowerCase(),
         type: ChannelType.PrivateThread,
         invitable: false,
         reason: `Тикет #${number} от ${member.user.tag}`,
@@ -606,7 +564,6 @@ async function createTicket(interaction, reason, description, extra = {}) {
         ownerNotifiedAt: null,
         rootMessageId: null,
         firstStaffReplyAt: null,
-        lastThreadRenameAt: null,
     };
     await update(cfg => {
         cfg.tickets[thread.id] = entry;
@@ -1246,11 +1203,8 @@ async function postCannedResponse(interaction, key) {
     const canned = CANNED_RESPONSES[key];
     if (!canned) return { error: 'Неизвестный шаблон ответа.' };
     await interaction.channel.send(toMessage(infoContainer(canned.text, canned.label)));
-    const result = await recordActivity(interaction.channelId, false);
-    if (result) {
-        await updateTicketRootMessage(interaction.client, interaction.channelId, result.entry);
-        await syncThreadStatusName(interaction.channel, result.entry, { force: result.statusChanged });
-    }
+    const updatedEntry = await recordActivity(interaction.channelId, false);
+    if (updatedEntry) await updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
     return {};
 }
 
@@ -1301,7 +1255,6 @@ async function reopenTicket(guild, number) {
     if (updatedEntry) {
         await thread.send(toMessage(buildTicketCard(updatedEntry))).catch(() => {});
         await updateTicketRootMessage(guild.client, threadId, updatedEntry);
-        await syncThreadStatusName(thread, updatedEntry, { force: true });
     }
 
     return { thread };
@@ -1331,20 +1284,13 @@ async function sendRatingRequest(client, entry, threadId) {
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
 // ответ автора снимает эту пометку. Любая активность сбрасывает
 // warnedAt, чтобы не автозакрыть тикет сразу после того, как в нём
-// наконец что-то произошло. Возвращает { entry, statusChanged } вместо
-// голого entry — statusChanged нужен вызывающему коду (handlers.js,
-// postCannedResponse), чтобы решить, звать ли syncThreadStatusName с
-// force: true (на смену статуса — сразу) или без (на каждое сообщение
-// подряд в рамках одного статуса — не чаще троттлинга, иначе быстрая
-// переписка упрётся в рейт-лимит Discord на переименование).
+// наконец что-то произошло.
 async function recordActivity(threadId, authorIsOwner) {
     const now = Date.now();
     let updatedEntry = null;
-    let statusChanged = false;
     await update(cfg => {
         const e = cfg.tickets[threadId];
         if (!e || e.status === STATUS.RESOLVED) return;
-        const prevStatus = e.status;
         e.lastActivityAt = now;
         e.warnedAt = null;
         if (authorIsOwner) {
@@ -1359,11 +1305,9 @@ async function recordActivity(threadId, authorIsOwner) {
             // (averageFirstResponseMs), дальше не перезаписывается.
             if (!e.firstStaffReplyAt) e.firstStaffReplyAt = now;
         }
-        statusChanged = e.status !== prevStatus;
         updatedEntry = e;
     });
-    if (!updatedEntry) return null;
-    return { entry: updatedEntry, statusChanged };
+    return updatedEntry;
 }
 
 // DM автору, если staff ответил, а от автора давно нет ответа (обратная
@@ -1436,7 +1380,6 @@ module.exports = {
     unclaimTicket,
     reassignTicket,
     toggleTicketPriority,
-    syncThreadStatusName,
     addTicketMember,
     punishReportedUser,
     createDiscussionVoiceChannel,

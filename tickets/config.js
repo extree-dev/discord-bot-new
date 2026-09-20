@@ -19,14 +19,14 @@ const STORE_NAME = 'tickets';
 //   reportedUserId,              // для темы "Жалоба на игрока" — ID выбранный через UserSelectMenu
 //   reportHistoryCount,          // сколько жалоб на этого же игрока было за последние 30 дней
 //   urgent,                      // true у тем с REASONS[].urgent, либо переключается вручную кнопкой
-//                                // "Приоритет" — эскалируется быстрее (urgentClaimTimeoutMs), видно в
-//                                // /ticket list (сортировка) и отдельной строкой в карточке тикета
-//                                // (buildTicketCard) — не в имени треда, там только статус
+//                                // "Приоритет" (доступна автору тикета и staff) — эскалируется быстрее
+//                                // (urgentClaimTimeoutMs), видно в /ticket list (сортировка) и отдельной
+//                                // строкой в карточке тикета (buildTicketCard); в имени треда не
+//                                // отображается вообще — как и статус, по фидбэку администратора
+//                                // эмодзи-маркеры в имени треда убрали полностью
 //   ownerNotifiedAt,             // когда автору последний раз слали DM-напоминание ответить
 //   firstStaffReplyAt,           // когда staff первый раз ответил в тикете — для /ticket stats
 //                                // (averageFirstResponseMs), не перезаписывается повторно
-//   lastThreadRenameAt,          // когда имя треда последний раз меняли из-за смены статуса —
-//                                // троттлинг переименования (см. tickets/model.js syncThreadStatusName)
 // }
 const DEFAULTS = {
     categoryId: null,
