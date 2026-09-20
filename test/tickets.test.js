@@ -21,6 +21,9 @@ const {
     OPEN_REASON_PREFIX,
     buildPanelMessage,
     buildBugPanelMessage,
+    buildTicketControlRow,
+    escapeHtml,
+    buildHtmlTranscript,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -338,6 +341,90 @@ test('aggregateStats относит оценку к claimedBy, а не к closed
     assert.equal(perStaff['staff-1'].closed, 0);
     assert.equal(perStaff['owner-1'].closed, 1);
     assert.equal(perStaff['owner-1'].ratedCount, 0);
+});
+
+test('aggregateStats: averageFirstResponseMs считает только тикеты с firstStaffReplyAt', () => {
+    const config = {
+        tickets: {
+            t1: { status: STATUS.RESOLVED, createdAt: 0, firstStaffReplyAt: 1000 },
+            t2: { status: STATUS.RESOLVED, createdAt: 0, firstStaffReplyAt: 3000 },
+            t3: { status: STATUS.RESOLVED, createdAt: 0, firstStaffReplyAt: null },
+            t4: { status: STATUS.OPEN, createdAt: 0, firstStaffReplyAt: 500 },
+        },
+    };
+    const { averageFirstResponseMs } = aggregateStats(config);
+    assert.equal(averageFirstResponseMs, 2000);
+});
+
+test('aggregateStats: без единого firstStaffReplyAt — averageFirstResponseMs равен null', () => {
+    const config = { tickets: { t1: { status: STATUS.RESOLVED, createdAt: 0, firstStaffReplyAt: null } } };
+    assert.equal(aggregateStats(config).averageFirstResponseMs, null);
+});
+
+test('buildTicketControlRow: без claimedBy показывает "Взять в работу", с claimedBy — "Отпустить"/"Переназначить"', () => {
+    const idsOf = rows => rows.flatMap(row => row.components.map(b => b.toJSON().custom_id));
+
+    const unclaimedIds = idsOf(buildTicketControlRow(null));
+    assert.ok(unclaimedIds.includes('ticket_claim'));
+    assert.ok(!unclaimedIds.includes('ticket_unclaim'));
+    assert.ok(!unclaimedIds.includes('ticket_reassign'));
+
+    const claimedIds = idsOf(buildTicketControlRow({ claimedBy: 'staff-1' }));
+    assert.ok(claimedIds.includes('ticket_unclaim'));
+    assert.ok(claimedIds.includes('ticket_reassign'));
+    assert.ok(!claimedIds.includes('ticket_claim'));
+});
+
+test('buildTicketControlRow: приоритет и быстрый ответ есть всегда, наказание — только при reportedUserId', () => {
+    const idsOf = rows => rows.flatMap(row => row.components.map(b => b.toJSON().custom_id));
+
+    const withoutReport = idsOf(buildTicketControlRow({ claimedBy: 'staff-1' }));
+    assert.ok(withoutReport.includes('ticket_priority'));
+    assert.ok(withoutReport.includes('ticket_quickreply'));
+    assert.ok(!withoutReport.includes('ticket_punish'));
+
+    const withReport = idsOf(buildTicketControlRow({ claimedBy: 'staff-1', reportedUserId: 'user-1' }));
+    assert.ok(withReport.includes('ticket_punish'));
+});
+
+test('buildTicketControlRow: подпись кнопки приоритета зависит от entry.urgent', () => {
+    const labelOf = rows =>
+        rows
+            .flatMap(row => row.components)
+            .find(b => b.toJSON().custom_id === 'ticket_priority')
+            .toJSON().label;
+    assert.equal(labelOf(buildTicketControlRow({ urgent: false })), 'Приоритет');
+    assert.equal(labelOf(buildTicketControlRow({ urgent: true })), 'Снять приоритет');
+});
+
+test('escapeHtml: экранирует спецсимволы, не трогает обычный текст', () => {
+    assert.equal(escapeHtml('<script>alert("x")</script>'), '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
+    assert.equal(escapeHtml("O'Brien & Co"), 'O&#39;Brien &amp; Co');
+    assert.equal(escapeHtml('обычный текст'), 'обычный текст');
+    assert.equal(escapeHtml(null), '');
+    assert.equal(escapeHtml(undefined), '');
+});
+
+test('buildHtmlTranscript: экранирует содержимое сообщений — вредоносная разметка не остаётся исполняемой', () => {
+    const entry = { number: 1, reason: 'Баг' };
+    const messages = [
+        {
+            createdAt: new Date(0),
+            author: { tag: '<img src=x onerror=alert(1)>', displayAvatarURL: () => 'https://example.com/a.png' },
+            content: '<script>alert(1)</script>',
+            attachments: new Map(),
+        },
+    ];
+    const html = buildHtmlTranscript(entry, messages, '<b>owner</b>');
+    assert.ok(!html.includes('<script>alert(1)</script>'), 'сырой script-тег не должен попасть в разметку как есть');
+    assert.ok(!html.includes('<img src=x onerror=alert(1)>'), 'ник с HTML-инъекцией должен быть экранирован');
+    assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+    assert.ok(html.includes('Тикет #1'));
+});
+
+test('buildHtmlTranscript: пустой список сообщений — валидная страница с заглушкой', () => {
+    const html = buildHtmlTranscript({ number: 2, reason: 'Общий' }, [], 'owner#0001');
+    assert.ok(html.includes('Сообщений нет.'));
 });
 
 test('findTicketsToEscalate: только тред-тикеты без claim, старше claimTimeoutMs и ещё не эскалированные', () => {

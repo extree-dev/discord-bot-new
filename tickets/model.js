@@ -281,12 +281,15 @@ function formatDuration(ms) {
     return parts.join(' ') || '<1 мин';
 }
 
-// Сколько тикетов закрыл каждый staff и средняя оценка — по всем записям
-// в сторе (закрытые тикеты не удаляются, только помечаются RESOLVED).
+// Сколько тикетов закрыл каждый staff, средняя оценка и среднее время
+// первого ответа — по всем записям в сторе (закрытые тикеты не удаляются,
+// только помечаются RESOLVED).
 function aggregateStats(config) {
     const perStaff = {};
     let ratingSum = 0;
     let ratedCount = 0;
+    let firstResponseSum = 0;
+    let firstResponseCount = 0;
 
     function getStats(staffId) {
         if (!perStaff[staffId]) {
@@ -309,6 +312,10 @@ function aggregateStats(config) {
                 stats.ratedCount += 1;
             }
         }
+        if (typeof entry.firstStaffReplyAt === 'number' && typeof entry.createdAt === 'number') {
+            firstResponseSum += entry.firstStaffReplyAt - entry.createdAt;
+            firstResponseCount += 1;
+        }
         if (!entry.closedBy) continue;
         const stats = getStats(entry.closedBy);
         stats.closed += 1;
@@ -317,7 +324,12 @@ function aggregateStats(config) {
         }
     }
 
-    return { perStaff, averageRating: ratedCount ? ratingSum / ratedCount : null, ratedCount };
+    return {
+        perStaff,
+        averageRating: ratedCount ? ratingSum / ratedCount : null,
+        ratedCount,
+        averageFirstResponseMs: firstResponseCount ? firstResponseSum / firstResponseCount : null,
+    };
 }
 
 // Короткая подпись на кнопке — полный REASONS[].label ("Баг / техническая
@@ -382,31 +394,85 @@ function buildBugPanelMessage() {
     );
 }
 
-// entry — опционально: кнопка "Наказать" появляется только у тикетов
-// с указанным нарушителем (reportedUserId), остальные её не видят. Все
-// кнопки одного (серого) цвета — разноцветные "Закрыть"/"Наказать" на
-// общем сером фоне рябили в глазах, не давая настоящего сигнала важности.
+// entry — опционально: набор кнопок зависит от состояния тикета — "Взять
+// в работу" видна, только пока никто не взял, "Отпустить"/"Переназначить"
+// — только после того, как кто-то взял (нет смысла отпускать то, что и
+// так свободно), "Наказать" — только если есть reportedUserId. Все кнопки
+// одного (серого) цвета — разноцветные на общем сером фоне рябили в
+// глазах, не давая настоящего сигнала важности.
 function buildTicketControlRow(entry = null) {
+    const primaryRow = new ActionRowBuilder();
+    if (entry?.claimedBy) {
+        primaryRow.addComponents(
+            new ButtonBuilder().setCustomId('ticket_unclaim').setLabel('Отпустить').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('ticket_reassign').setLabel('Переназначить').setStyle(ButtonStyle.Secondary)
+        );
+    } else {
+        primaryRow.addComponents(
+            new ButtonBuilder().setCustomId('ticket_claim').setLabel('Взять в работу').setStyle(ButtonStyle.Secondary)
+        );
+    }
+    primaryRow.addComponents(
+        new ButtonBuilder()
+            .setCustomId('ticket_adduser')
+            .setLabel('Добавить участника')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
+    );
+
     const secondRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_voice').setLabel('Обсудить голосом').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ticket_note').setLabel('Заметка (staff)').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('ticket_note').setLabel('Заметка (staff)').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId('ticket_priority')
+            .setLabel(entry?.urgent ? 'Снять приоритет' : 'Приоритет')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ticket_quickreply').setLabel('Быстрый ответ').setStyle(ButtonStyle.Secondary)
     );
     if (entry?.reportedUserId) {
         secondRow.addComponents(
             new ButtonBuilder().setCustomId('ticket_punish').setLabel('Наказать').setStyle(ButtonStyle.Secondary)
         );
     }
-    return [
-        new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_claim').setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId('ticket_adduser')
-                .setLabel('Добавить участника')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('ticket_close').setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
-        ),
-        secondRow,
-    ];
+    return [primaryRow, secondRow];
+}
+
+// Живой статус треда виден прямо в списке тредов канала, без клика внутрь:
+// 🔴 никто не взял (нужно внимание) / 🟡 ждём ответа автора / 🟢 взят и
+// открыт, плюс 🔥, если отмечен приоритетным. force обходит троттлинг —
+// используется для редких осознанных действий staff (claim/unclaim/
+// reassign/reopen/смена приоритета), которые должны отразиться сразу;
+// без force (вызывается из recordActivity — потенциально на каждое
+// сообщение в треде) не чаще раза в THREAD_RENAME_THROTTLE_MS, чтобы
+// быстрая переписка не упёрлась в рейт-лимит Discord на переименование
+// канала.
+const THREAD_STATUS_EMOJI = { attention: '🔴', waiting: '🟡', active: '🟢' };
+const THREAD_PRIORITY_EMOJI = '🔥';
+const THREAD_EMOJI_PREFIX_RE = /^[🔴🟡🟢🔥]+/u;
+const THREAD_RENAME_THROTTLE_MS = 5 * 60 * 1000;
+
+function threadStatusPrefix(entry) {
+    const status =
+        entry.status === STATUS.WAITING_ON_USER
+            ? THREAD_STATUS_EMOJI.waiting
+            : entry.claimedBy
+              ? THREAD_STATUS_EMOJI.active
+              : THREAD_STATUS_EMOJI.attention;
+    return `${status}${entry.urgent ? THREAD_PRIORITY_EMOJI : ''}`;
+}
+
+async function syncThreadStatusName(thread, entry, { force = false } = {}) {
+    if (!thread?.isThread?.() || !entry) return;
+    const now = Date.now();
+    if (!force && entry.lastThreadRenameAt && now - entry.lastThreadRenameAt < THREAD_RENAME_THROTTLE_MS) return;
+    const bareName = thread.name.replace(THREAD_EMOJI_PREFIX_RE, '');
+    const nextName = `${threadStatusPrefix(entry)}${bareName}`.slice(0, 100);
+    if (nextName === thread.name) return;
+    await thread.setName(nextName).catch(() => {});
+    await update(cfg => {
+        const e = cfg.tickets[thread.id];
+        if (e) e.lastThreadRenameAt = now;
+    });
 }
 
 // Текстовый степпер статуса вместо цветного поля embed'а: три стадии
@@ -492,10 +558,13 @@ async function createTicket(interaction, reason, description, extra = {}) {
         return { error: 'Система тикетов не настроена (нет канала для тредов). Обратись к администратору.' };
     }
 
+    // 🔴 в начале имени — статус "никто не взял" сразу после создания
+    // (см. syncThreadStatusName), плюс 🔥, если тема сама помечена urgent.
+    const initialPrefix = `${THREAD_STATUS_EMOJI.attention}${reason.urgent ? THREAD_PRIORITY_EMOJI : ''}`;
     const thread = await panelChannel.threads.create({
         // Тема обращения в имени треда (не только номер и ник) — чтобы
         // staff видел, о чём тикет, прямо в списке тредов, без клика.
-        name: `тикет-${number}-${reason.value}-${member.user.username}`.slice(0, 95).toLowerCase(),
+        name: `${initialPrefix}тикет-${number}-${reason.value}-${member.user.username}`.slice(0, 95).toLowerCase(),
         type: ChannelType.PrivateThread,
         invitable: false,
         reason: `Тикет #${number} от ${member.user.tag}`,
@@ -529,6 +598,8 @@ async function createTicket(interaction, reason, description, extra = {}) {
         urgent: Boolean(reason.urgent),
         ownerNotifiedAt: null,
         rootMessageId: null,
+        firstStaffReplyAt: null,
+        lastThreadRenameAt: null,
     };
     await update(cfg => {
         cfg.tickets[thread.id] = entry;
@@ -641,6 +712,57 @@ async function claimTicket(interaction) {
     }
 
     return claim;
+}
+
+// Возвращает тикет в очередь (кнопка "Отпустить") — например, если
+// взявший не может продолжить. В отличие от claim, не нужно заново
+// проверять "не забрал ли кто-то другой" — отпустить можно только то,
+// что уже взято тем, кто вызывает (проверка прав — в handlers.js).
+async function unclaimTicket(threadId) {
+    let updatedEntry = null;
+    await update(cfg => {
+        const e = cfg.tickets[threadId];
+        if (!e) return;
+        e.claimedBy = null;
+        e.claimedAt = null;
+        updatedEntry = e;
+    });
+    return updatedEntry;
+}
+
+// Прямая передача другому staff (кнопка "Переназначить") — без
+// промежуточного "отпустить, пусть другой возьмёт" (за это время тикет
+// мог бы перехватить кто-то третий). targetId уже должен быть проверен
+// как staff именно для этого тикета — забота вызывающего кода
+// (handlers.js), не модели.
+async function reassignTicket(threadId, targetId) {
+    let updatedEntry = null;
+    await update(cfg => {
+        const e = cfg.tickets[threadId];
+        if (!e) return;
+        e.claimedBy = targetId;
+        e.claimedAt = Date.now();
+        updatedEntry = e;
+    });
+    return updatedEntry;
+}
+
+// Ручной приоритет — раньше entry.urgent выставлялся только темой
+// REASONS (сейчас ни одна так не отмечена, "security" убрали), теперь
+// ещё и staff может отметить/снять его прямо в тикете кнопкой
+// "Приоритет". Влияет на /ticket list (сортировка), карточку тикета
+// (заголовок "— срочно") и эскалацию (findTicketsToEscalate ждёт вдвое
+// меньше для urgent-тикетов) — используется та же самая логика, что уже
+// была рассчитана на REASONS[].urgent.
+async function toggleTicketPriority(threadId) {
+    let updatedEntry = null;
+    await update(cfg => {
+        const e = cfg.tickets[threadId];
+        if (!e) return;
+        e.urgent = !e.urgent;
+        updatedEntry = e;
+    });
+    return updatedEntry;
 }
 
 // Даёт участнику доступ к тикету и возвращает его User (для сообщения-
@@ -786,6 +908,66 @@ async function getOrCreateNotesThread(interaction, entry) {
     return createNotesThread(parent, interaction.channelId, entry.number);
 }
 
+function escapeHtml(str) {
+    return String(str ?? '').replace(
+        /[&<>"']/g,
+        ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]
+    );
+}
+
+// HTML-транскрипт вместо плоского .txt — открывается в браузере и внешне
+// похож на сам Discord (тёмная тема, аватарки). Все пользовательские данные
+// (ник, текст сообщения, имена вложений) идут через escapeHtml — это чужой
+// ввод, который иначе можно было бы использовать для инъекции произвольного
+// HTML в файл, который staff потом открывает в браузере.
+function buildHtmlTranscript(entry, messages, ownerLabel) {
+    const rows = messages
+        .map(m => {
+            const time = escapeHtml(
+                new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'medium' }).format(m.createdAt)
+            );
+            const author = escapeHtml(m.author.tag);
+            const avatar = escapeHtml(m.author.displayAvatarURL({ extension: 'png', size: 64 }));
+            const body = m.content
+                ? escapeHtml(m.content).replace(/\n/g, '<br>')
+                : '<span class="empty">(вложение/embed)</span>';
+            const attachments = m.attachments?.size
+                ? `<div class="attachments">${[...m.attachments.values()]
+                      .map(a => `📎 <a href="${escapeHtml(a.url)}">${escapeHtml(a.name)}</a>`)
+                      .join('<br>')}</div>`
+                : '';
+            return `<div class="msg"><img class="avatar" src="${avatar}" alt=""><div class="body"><div class="meta"><span class="author">${author}</span><span class="time">${time}</span></div><div class="text">${body}</div>${attachments}</div></div>`;
+        })
+        .join('\n');
+
+    return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Тикет #${entry.number}</title>
+<style>
+  body { margin: 0; padding: 24px; background: #313338; color: #dbdee1; font-family: "gg sans", "Helvetica Neue", Arial, sans-serif; }
+  h1 { color: #f2f3f5; font-size: 20px; margin: 0 0 4px; }
+  .meta-header { color: #949ba4; font-size: 14px; margin-bottom: 20px; }
+  .msg { display: flex; gap: 12px; padding: 6px 0; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+  .meta { display: flex; align-items: baseline; gap: 8px; }
+  .author { color: #f2f3f5; font-weight: 600; }
+  .time { color: #949ba4; font-size: 12px; }
+  .text { white-space: pre-wrap; word-break: break-word; }
+  .empty { color: #6d6f78; font-style: italic; }
+  .attachments { margin-top: 4px; font-size: 13px; }
+  .attachments a { color: #00a8fc; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>Тикет #${entry.number} — ${escapeHtml(entry.reason)}</h1>
+<div class="meta-header">Автор: ${escapeHtml(ownerLabel)}</div>
+${rows || '<p class="empty">Сообщений нет.</p>'}
+</body>
+</html>`;
+}
+
 // approvedBy — только когда закрытие прошло через requestTicketClosure()
 // (closedBy тогда — тот, кто ЗАПРОСИЛ закрытие, обычно стажёр, чтобы
 // статистика/лог отражали, кто реально вёл тикет, а не кто нажал
@@ -793,18 +975,22 @@ async function getOrCreateNotesThread(interaction, entry) {
 async function closeTicket(guild, channel, entry, closedBy, approvedBy = null) {
     const config = await load();
 
+    // owner нужен и для заголовка HTML-транскрипта, и для строки лога —
+    // фетчим один раз, а не дважды (раньше фетчился только внутри
+    // if (logChannel)).
+    const owner = await guild.members.fetch(entry.ownerId).catch(() => null);
+    const ownerLabel = owner ? owner.user.tag : entry.ownerId;
+
     const messages = await channel.messages.fetch({ limit: 100 }).catch(() => null);
     const sorted = messages ? [...messages.values()].reverse() : [];
-    const lines = sorted.map(m => `[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.content || '(вложение/embed)'}`);
-    const transcriptText = lines.length ? lines.join('\n') : 'Сообщений нет.';
-    const transcript = new AttachmentBuilder(Buffer.from(transcriptText, 'utf8'), {
-        name: `ticket-${entry.number}.txt`,
+    const transcriptHtml = buildHtmlTranscript(entry, sorted, ownerLabel);
+    const transcript = new AttachmentBuilder(Buffer.from(transcriptHtml, 'utf8'), {
+        name: `ticket-${entry.number}.html`,
     });
 
     const now = Date.now();
     const logChannel = config.logChannelId ? guild.channels.cache.get(config.logChannelId) : null;
     if (logChannel) {
-        const owner = await guild.members.fetch(entry.ownerId).catch(() => null);
         const logLines = [
             `**Открыл:** ${owner ? `${owner}` : entry.ownerId}`,
             `**Тема:** ${entry.reason}`,
@@ -1052,8 +1238,11 @@ async function postCannedResponse(interaction, key) {
     const canned = CANNED_RESPONSES[key];
     if (!canned) return { error: 'Неизвестный шаблон ответа.' };
     await interaction.channel.send(toMessage(infoContainer(canned.text, canned.label)));
-    const updatedEntry = await recordActivity(interaction.channelId, false);
-    if (updatedEntry) await updateTicketRootMessage(interaction.client, interaction.channelId, updatedEntry);
+    const result = await recordActivity(interaction.channelId, false);
+    if (result) {
+        await updateTicketRootMessage(interaction.client, interaction.channelId, result.entry);
+        await syncThreadStatusName(interaction.channel, result.entry, { force: result.statusChanged });
+    }
     return {};
 }
 
@@ -1104,6 +1293,7 @@ async function reopenTicket(guild, number) {
     if (updatedEntry) {
         await thread.send(toMessage(buildTicketCard(updatedEntry))).catch(() => {});
         await updateTicketRootMessage(guild.client, threadId, updatedEntry);
+        await syncThreadStatusName(thread, updatedEntry, { force: true });
     }
 
     return { thread };
@@ -1133,13 +1323,20 @@ async function sendRatingRequest(client, entry, threadId) {
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
 // ответ автора снимает эту пометку. Любая активность сбрасывает
 // warnedAt, чтобы не автозакрыть тикет сразу после того, как в нём
-// наконец что-то произошло.
+// наконец что-то произошло. Возвращает { entry, statusChanged } вместо
+// голого entry — statusChanged нужен вызывающему коду (handlers.js,
+// postCannedResponse), чтобы решить, звать ли syncThreadStatusName с
+// force: true (на смену статуса — сразу) или без (на каждое сообщение
+// подряд в рамках одного статуса — не чаще троттлинга, иначе быстрая
+// переписка упрётся в рейт-лимит Discord на переименование).
 async function recordActivity(threadId, authorIsOwner) {
     const now = Date.now();
     let updatedEntry = null;
+    let statusChanged = false;
     await update(cfg => {
         const e = cfg.tickets[threadId];
         if (!e || e.status === STATUS.RESOLVED) return;
+        const prevStatus = e.status;
         e.lastActivityAt = now;
         e.warnedAt = null;
         if (authorIsOwner) {
@@ -1150,10 +1347,15 @@ async function recordActivity(threadId, authorIsOwner) {
             e.ownerNotifiedAt = null;
         } else {
             e.status = STATUS.WAITING_ON_USER;
+            // Первый ответ staff — метка для /ticket stats
+            // (averageFirstResponseMs), дальше не перезаписывается.
+            if (!e.firstStaffReplyAt) e.firstStaffReplyAt = now;
         }
+        statusChanged = e.status !== prevStatus;
         updatedEntry = e;
     });
-    return updatedEntry;
+    if (!updatedEntry) return null;
+    return { entry: updatedEntry, statusChanged };
 }
 
 // DM автору, если staff ответил, а от автора давно нет ответа (обратная
@@ -1223,11 +1425,17 @@ module.exports = {
     createTicket,
     updateTicketRootMessage,
     claimTicket,
+    unclaimTicket,
+    reassignTicket,
+    toggleTicketPriority,
+    syncThreadStatusName,
     addTicketMember,
     punishReportedUser,
     createDiscussionVoiceChannel,
     getOrCreateDiscussionVoiceChannel,
     getOrCreateNotesThread,
+    escapeHtml,
+    buildHtmlTranscript,
     closeTicket,
     requestTicketClosure,
     rejectTicketClosure,

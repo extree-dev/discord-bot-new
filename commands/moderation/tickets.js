@@ -71,7 +71,7 @@ module.exports = {
         }
 
         if (sub === 'stats') {
-            const { perStaff, averageRating, ratedCount } = tickets.aggregateStats(config);
+            const { perStaff, averageRating, ratedCount, averageFirstResponseMs } = tickets.aggregateStats(config);
             const staffEntries = Object.entries(perStaff);
             if (!staffEntries.length) {
                 return interaction.reply({
@@ -97,6 +97,10 @@ module.exports = {
                     {
                         name: 'Средняя оценка',
                         value: averageRating ? `${averageRating.toFixed(1)} / 5 (${ratedCount} оценок)` : 'нет оценок',
+                    },
+                    {
+                        name: 'Среднее время первого ответа',
+                        value: averageFirstResponseMs ? tickets.formatDuration(averageFirstResponseMs) : 'нет данных',
                     }
                 );
             return interaction.reply({ embeds: [embed], ephemeral: true });
