@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
+const { sendPunishmentDm } = require('../../utils/punishmentNotice');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -28,6 +29,10 @@ module.exports = {
                 ephemeral: true,
             });
         }
+
+        // DM до самого бана — после бана участник и бот перестают делить
+        // сервер, и открыть с ним личку становится ненадёжнее.
+        await sendPunishmentDm(target, interaction.guild, { kind: 'ban', reason });
 
         await interaction.guild.members.ban(target.id, {
             deleteMessageSeconds: deleteDays * 24 * 60 * 60,

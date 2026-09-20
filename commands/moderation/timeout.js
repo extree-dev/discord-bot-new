@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
+const { sendPunishmentDm } = require('../../utils/punishmentNotice');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -47,6 +48,16 @@ module.exports = {
                 );
             return interaction.reply({ embeds: [unmuteEmbed], ephemeral: true });
         }
+
+        // DM до самого таймаута — как только он начнёт действовать, участник
+        // не сможет нажать вообще ничего на сервере, но кнопка апелляции в
+        // самом DM-сообщении этим ограничением не связана (см.
+        // utils/punishmentNotice.js).
+        await sendPunishmentDm(target, interaction.guild, {
+            kind: 'timeout',
+            reason,
+            durationLabel: `${minutes} мин.`,
+        });
 
         await member.timeout(minutes * 60 * 1000, reason);
 
