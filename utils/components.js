@@ -54,6 +54,14 @@ function toMessage(...components) {
     return { flags: MessageFlags.IsComponentsV2, components };
 }
 
+// Та же сборка, но с флагом Ephemeral — видно только тому, кто вызвал
+// команду/нажал кнопку. Оба флага — просто биты одного числа, поэтому
+// побитовое ИЛИ, а не отдельное поле `ephemeral` (которое в reply()
+// иначе пришлось бы смешивать с уже занятым под Components V2 `flags`).
+function toEphemeralMessage(...components) {
+    return { flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral, components };
+}
+
 module.exports = {
     baseContainer,
     textDisplay,
@@ -64,4 +72,5 @@ module.exports = {
     infoContainer,
     warningContainer,
     toMessage,
+    toEphemeralMessage,
 };
