@@ -782,29 +782,42 @@ async function handleCreateModal(interaction) {
     // см. commands/general/rep.js).
     await interaction.deferReply({ ephemeral: true });
 
-    const [reasonValue, targetId] = interaction.customId.slice(CREATE_MODAL_PREFIX.length).split(':');
-    const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
-    const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
-    const hasExtra = interaction.fields.fields.has(EXTRA_INPUT_ID);
-    const extra = hasExtra ? interaction.fields.getTextInputValue(EXTRA_INPUT_ID).trim() : null;
+    // Всё тело — в try/catch: без него любой непойманный сбой после
+    // deferReply (например, сетевая ошибка при обращении к Discord API)
+    // оставляет interaction в состоянии "думает..." навсегда — на проде
+    // это уже случалось (см. 3.9.9: createTicket теперь сам откатывает
+    // тред при сбое отправки карточки и возвращает { error }, но эта
+    // страховка нужна и на случай сбоя где угодно ещё в этой функции).
+    try {
+        const [reasonValue, targetId] = interaction.customId.slice(CREATE_MODAL_PREFIX.length).split(':');
+        const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
+        const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
+        const hasExtra = interaction.fields.fields.has(EXTRA_INPUT_ID);
+        const extra = hasExtra ? interaction.fields.getTextInputValue(EXTRA_INPUT_ID).trim() : null;
 
-    const fullDescription = extra ? `${description}\n\n**${reason.extraFieldLabel}:** ${extra}` : description;
+        const fullDescription = extra ? `${description}\n\n**${reason.extraFieldLabel}:** ${extra}` : description;
 
-    // Тег снимаем один раз здесь (не <@id> в самой карточке — см.
-    // model.formatReportedUser), чтобы дальше показывать нарушителя без
-    // упоминания и без лишних фетчей из чистых билдеров.
-    const reportedMember = targetId ? await interaction.guild.members.fetch(targetId).catch(() => null) : null;
-    const result = await model.createTicket(interaction, reason, fullDescription, {
-        reportedUserId: targetId ?? null,
-        reportedUserTag: reportedMember?.user.tag ?? null,
-    });
-    if (result.error) {
-        await interaction.editReply({ embeds: [errorEmbed(result.error)] });
-        return;
+        // Тег снимаем один раз здесь (не <@id> в самой карточке — см.
+        // model.formatReportedUser), чтобы дальше показывать нарушителя
+        // без упоминания и без лишних фетчей из чистых билдеров.
+        const reportedMember = targetId ? await interaction.guild.members.fetch(targetId).catch(() => null) : null;
+        const result = await model.createTicket(interaction, reason, fullDescription, {
+            reportedUserId: targetId ?? null,
+            reportedUserTag: reportedMember?.user.tag ?? null,
+        });
+        if (result.error) {
+            await interaction.editReply({ embeds: [errorEmbed(result.error)] });
+            return;
+        }
+        await interaction.editReply({
+            embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан')],
+        });
+    } catch (err) {
+        console.error('tickets: не удалось обработать создание тикета:', err);
+        await interaction
+            .editReply({ embeds: [errorEmbed('Не получилось создать тикет — попробуй ещё раз чуть позже.')] })
+            .catch(() => {});
     }
-    await interaction.editReply({
-        embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан')],
-    });
 }
 
 const handleNoteModal = withTicketEntry(async (interaction, config, entry) => {
