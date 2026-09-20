@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sendPunishmentDm, APPEAL_BUTTON_CUSTOM_ID } = require('../utils/punishmentNotice');
+const { CLEAR_HISTORY_BUTTON_CUSTOM_ID } = require('../utils/dm');
 
 function makeUser() {
     const calls = [];
@@ -18,7 +19,11 @@ test('sendPunishmentDm: бан — без кнопки апелляции (по�
 
     assert.equal(user.calls.length, 1);
     const payload = user.calls[0];
-    assert.equal(payload.components.length, 0);
+    // Без кнопки апелляции (после бана участник уже не на сервере), но с
+    // кнопкой "Очистить историю" — она есть на любом DM-уведомлении.
+    assert.equal(payload.components.length, 1);
+    const clearButton = payload.components[0].components[0].toJSON();
+    assert.equal(clearButton.custom_id, CLEAR_HISTORY_BUTTON_CUSTOM_ID);
 
     const embedJson = payload.embeds[0].toJSON();
     assert.ok(embedJson.description.includes('Тестовый сервер'));
@@ -35,9 +40,12 @@ test('sendPunishmentDm: таймаут — с кнопкой апелляции 
     );
 
     const payload = user.calls[0];
-    assert.equal(payload.components.length, 1);
+    // Кнопка апелляции + кнопка "Очистить историю" — два отдельных ряда.
+    assert.equal(payload.components.length, 2);
     const button = payload.components[0].components[0].toJSON();
     assert.equal(button.custom_id, APPEAL_BUTTON_CUSTOM_ID);
+    const clearButton = payload.components[1].components[0].toJSON();
+    assert.equal(clearButton.custom_id, CLEAR_HISTORY_BUTTON_CUSTOM_ID);
 
     const embedJson = payload.embeds[0].toJSON();
     assert.ok(embedJson.fields.some(f => f.name === 'Наказание' && f.value === 'Мут (1 ч)'));

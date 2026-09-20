@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { addWarning } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
+const { buildClearHistoryButtonRow } = require('../../utils/dm');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,6 +37,6 @@ module.exports = {
                 { name: 'Причина', value: reason }
             );
 
-        await target.send({ embeds: [dmEmbed] }).catch(() => {});
+        await target.send({ embeds: [dmEmbed], components: [buildClearHistoryButtonRow()] }).catch(() => {});
     },
 };

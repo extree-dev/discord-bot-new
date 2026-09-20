@@ -4,6 +4,7 @@ const { errorEmbed } = require('./utils/embeds');
 const { ensureSchema, closePool } = require('./utils/db');
 const { loadCommands } = require('./utils/loadCommands');
 const { getVersion } = require('./utils/version');
+const { handleClearHistoryButton } = require('./utils/dm');
 const commandsChannel = require('./commandsChannel');
 
 const client = new Client({
@@ -47,6 +48,17 @@ client.once('ready', () => {
 
 client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
+        // Кнопка живёт в личных сообщениях бота (напоминания, уведомления
+        // о наказании, запрос оценки) — проверяем первой и отдельно от
+        // остальных, тем не место в DM-контексте (они завязаны на
+        // interaction.channelId/interaction.guild, которых в DM либо нет,
+        // либо это не тот канал).
+        if (
+            await handleClearHistoryButton(interaction).catch(
+                err => (console.error('Ошибка кнопки очистки DM-истории:', err), false)
+            )
+        )
+            return;
         if (
             await security
                 .handleVerifyButton(interaction)

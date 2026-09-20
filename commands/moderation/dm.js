@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
+const { buildClearHistoryButtonRow } = require('../../utils/dm');
 const security = require('../../security');
 
 module.exports = {
@@ -17,7 +18,7 @@ module.exports = {
         const text = interaction.options.getString('text');
 
         try {
-            await target.send({ content: text });
+            await target.send({ content: text, components: [buildClearHistoryButtonRow()] });
         } catch (err) {
             return interaction.reply({
                 embeds: [

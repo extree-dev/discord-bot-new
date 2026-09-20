@@ -13,7 +13,7 @@ const {
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { sendPunishmentDm } = require('../utils/punishmentNotice');
-const { sendSelfDeletingDm } = require('../utils/dm');
+const { sendSelfDeletingDm, buildClearHistoryButtonRow } = require('../utils/dm');
 const moderation = require('../moderation');
 const {
     baseContainer,
@@ -1440,7 +1440,7 @@ async function sendRatingRequest(client, entry, threadId) {
                 .setStyle(ButtonStyle.Secondary)
         )
     );
-    await user.send(toMessage(card, row)).catch(() => {});
+    await user.send(toMessage(card, row, buildClearHistoryButtonRow())).catch(() => {});
 }
 
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
@@ -1491,7 +1491,7 @@ async function sendOwnerReminder(client, entry, threadId) {
             (link ? ` [Перейти в тикет](${link})` : ''),
         'Тикет ждёт твоего ответа'
     );
-    await sendSelfDeletingDm(user, toMessage(card), OWNER_REMINDER_TTL_MS);
+    await sendSelfDeletingDm(user, toMessage(card, buildClearHistoryButtonRow()), OWNER_REMINDER_TTL_MS);
 }
 
 async function markOwnerNotified(threadId) {

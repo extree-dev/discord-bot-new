@@ -17,6 +17,7 @@
 // handleAppealDmButton.
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { COLORS, baseEmbed, formatBody } = require('./embeds');
+const { buildClearHistoryButtonRow } = require('./dm');
 
 const APPEAL_BUTTON_CUSTOM_ID = 'ticket_appeal_dm';
 
@@ -63,6 +64,10 @@ async function sendPunishmentDm(user, guild, { kind, reason, durationLabel }) {
         });
         components.push(buildAppealButtonRow());
     }
+    // Кнопка "Очистить историю" — чтобы не засорять переписку с ботом
+    // навсегда (по просьбе администратора); удаляет только сообщения
+    // самого бота, см. utils/dm.js.
+    components.push(buildClearHistoryButtonRow());
     const embed = baseEmbed(COLORS.danger)
         .setDescription(formatBody(`Вы наказаны на сервере ${guild.name}`))
         .addFields(fields);
