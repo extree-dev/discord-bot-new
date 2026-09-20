@@ -139,8 +139,13 @@ client.once('clientReady', async () => {
         // значения. Новые каналы/категории, созданные после этого
         // запуска, подхватывает moderation/index.js (событие
         // channelCreate).
+        // isThread() — guild.channels.cache внутри discord.js неожиданно
+        // включает и треды, не только "настоящие" каналы; applyMuteOverwrite
+        // теперь и сама на них не падает (см. её комментарий), но фильтр
+        // здесь ещё и избавляет от бессмысленных вызовов на объектах, для
+        // которых оверрайт технически невозможен.
         await guild.channels.fetch();
-        const muteTargets = guild.channels.cache;
+        const muteTargets = guild.channels.cache.filter(c => !c.isThread());
         for (const channel of muteTargets.values()) {
             await moderation.applyMuteOverwrite(channel, created['Muted'].id);
         }
