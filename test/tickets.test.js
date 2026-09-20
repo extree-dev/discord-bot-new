@@ -91,6 +91,21 @@ test('isStaff: обычный участник без роли и прав — �
     assert.equal(isStaff(config, makeMember({})), false);
 });
 
+test('isStaff: пропускает Beta-Support и Beta-Moderator по одному только членству в роли, без Discord-прав', () => {
+    // Регрессия: Beta-Support (как и Support) не держит никаких Discord-прав
+    // — до фикса isStaff() не знал про betaSupportRoleId и такой участник
+    // проваливал проверку целиком, хотя ролью формально был на испытательном
+    // сроке в поддержке (баг, из-за которого стажёры не могли работать с
+    // тикетами вообще).
+    const config = {
+        supportRoleId: 'support-role',
+        betaSupportRoleId: 'beta-support-role',
+        betaModeratorRoleId: 'beta-mod-role',
+    };
+    assert.equal(isStaff(config, makeMember({ roleIds: ['beta-support-role'] })), true);
+    assert.equal(isStaff(config, makeMember({ roleIds: ['beta-mod-role'] })), true);
+});
+
 test('isTrialStaff: пропускает Beta-Moderator и Beta-Support, но не полноценный Moderator/Support', () => {
     const config = {
         supportRoleId: 'support-role',

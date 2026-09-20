@@ -164,6 +164,16 @@ const CANNED_RESPONSES = {
 
 function isStaff(config, member) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
+    // Beta-Support (испытательный срок) не держит ModerateMembers и вообще
+    // никаких Discord-прав (как и полноценный Support — доступ к тикетам у
+    // обеих ролей даёт не permission, а членство), поэтому без явной
+    // проверки роли isStaff() для него всегда возвращал бы false — баг,
+    // из-за которого стажёры на испытательном сроке физически не могли
+    // работать с тикетами. Beta-Moderator сюда тоже добавлен — формально
+    // уже проходит через ModerateMembers ниже, но явная проверка не
+    // зависит от того, какие права ему выданы в scripts/setup-roles.js.
+    if (config.betaSupportRoleId && member.roles.cache.has(config.betaSupportRoleId)) return true;
+    if (config.betaModeratorRoleId && member.roles.cache.has(config.betaModeratorRoleId)) return true;
     return (
         member.permissions.has(PermissionFlagsBits.Administrator) ||
         member.permissions.has(PermissionFlagsBits.ModerateMembers)
