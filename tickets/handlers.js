@@ -11,7 +11,7 @@ const {
     UserSelectMenuBuilder,
 } = require('discord.js');
 const { load } = require('./config');
-const { errorEmbed, successEmbed } = require('../utils/embeds');
+const { errorEmbed, successEmbed, warningEmbed } = require('../utils/embeds');
 const {
     successContainer,
     infoContainer,
@@ -809,8 +809,21 @@ async function handleCreateModal(interaction) {
             await interaction.editReply({ embeds: [errorEmbed(result.error)] });
             return;
         }
+        // cardFailed — тред и запись о тикете уже созданы, но карточка с
+        // кнопками не отправилась даже после повтора (см. createTicket).
+        // Тикет всё равно существует и его можно закрыть через
+        // /ticket close — важно сказать об этом явно, а не просто
+        // показать успех, как будто всё в порядке.
         await interaction.editReply({
-            embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан')],
+            embeds: [
+                result.cardFailed
+                    ? warningEmbed(
+                          `Тикет создан (${result.thread}), но карточка с кнопками не отправилась из-за сбоя связи с Discord. ` +
+                              'Тред уже рабочий — просто пиши туда как обычно; если нужно закрыть тикет, попроси staff выполнить там команду /ticket close.',
+                          'Тикет создан с ошибкой'
+                      )
+                    : successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан'),
+            ],
         });
     } catch (err) {
         console.error('tickets: не удалось обработать создание тикета:', err);
