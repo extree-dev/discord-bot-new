@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 const { sendPunishmentDm } = require('../../utils/punishmentNotice');
+const moderation = require('../../moderation');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,15 +31,9 @@ module.exports = {
                 ephemeral: true,
             });
         }
-        if (!member.moderatable) {
-            return interaction.reply({
-                embeds: [errorEmbed('Я не могу замутить этого участника (недостаточно прав или роль выше моей).')],
-                ephemeral: true,
-            });
-        }
 
         if (minutes === 0) {
-            await member.timeout(null, reason);
+            await moderation.unmuteMember(interaction.guild, target.id);
             const unmuteEmbed = baseEmbed(COLORS.success)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
                 .setDescription(formatBody('Мут снят'))
@@ -49,17 +44,28 @@ module.exports = {
             return interaction.reply({ embeds: [unmuteEmbed], ephemeral: true });
         }
 
-        // DM до самого таймаута — как только он начнёт действовать, участник
-        // не сможет нажать вообще ничего на сервере, но кнопка апелляции в
-        // самом DM-сообщении этим ограничением не связана (см.
-        // utils/punishmentNotice.js).
+        // Не нативный Discord-таймаут, а собственная роль "Muted" (см.
+        // moderation/model.js) — таймаут блокирует вообще все кнопки и
+        // слэш-команды на сервере, из-за чего участник не мог даже подать
+        // апелляцию на само наказание. Роль ограничивает только
+        // писать/реагировать/подключаться к голосу, кнопки и команды
+        // остаются доступны.
+        const muteResult = await moderation.muteMember(
+            interaction.guild,
+            member,
+            minutes * 60 * 1000,
+            reason,
+            interaction.user.id
+        );
+        if (muteResult.error) {
+            return interaction.reply({ embeds: [errorEmbed(muteResult.error)], ephemeral: true });
+        }
+
         await sendPunishmentDm(target, interaction.guild, {
             kind: 'timeout',
             reason,
             durationLabel: `${minutes} мин.`,
         });
-
-        await member.timeout(minutes * 60 * 1000, reason);
 
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })

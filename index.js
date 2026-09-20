@@ -31,12 +31,14 @@ const suggestions = require('./suggestions');
 const presence = require('./presence');
 const changelog = require('./changelog');
 const reputation = require('./reputation');
+const moderation = require('./moderation');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
     security.register(client);
     voice.register(client);
     tickets.register(client);
+    moderation.register(client);
     suggestions.register(client);
     presence.register(client);
     changelog.register(client);

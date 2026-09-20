@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const tickets = require('../../tickets');
 const security = require('../../security');
 const voice = require('../../voice');
+const moderation = require('../../moderation');
 const warnings = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
@@ -12,12 +13,14 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
-        const [ticketsConfig, securityConfig, voiceConfig, warningStats] = await Promise.all([
+        const [ticketsConfig, securityConfig, voiceConfig, warningStats, mutes] = await Promise.all([
             tickets.getConfig(),
             security.getConfig(),
             voice.getConfig(),
             warnings.getWarningStats(),
+            moderation.getConfig(),
         ]);
+        const activeMutes = Object.keys(mutes).length;
 
         const ticketEntries = Object.values(ticketsConfig.tickets);
         const open = ticketEntries.filter(t => t.status !== tickets.STATUS.RESOLVED);
@@ -46,6 +49,11 @@ module.exports = {
                 {
                     name: '⚠️ Предупреждения',
                     value: `Участников с варнами: ${warningStats.warnedUsers}\nВсего выдано: ${warningStats.totalWarnings}`,
+                    inline: true,
+                },
+                {
+                    name: '🔇 Муты',
+                    value: `Активных сейчас: ${activeMutes}`,
                     inline: true,
                 },
                 {
