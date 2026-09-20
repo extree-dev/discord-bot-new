@@ -4,7 +4,7 @@ const STORE_NAME = 'tickets';
 
 // Форма записи в tickets (для справки, схема не валидируется):
 // {
-//   number, ownerId, reason, description,
+//   number, ownerId, reason, reasonValue, description,
 //   claimedBy, status: 'open' | 'waiting_on_user' | 'resolved',
 //   isThread,                    // true — новые тикеты (тред), false/undefined — старые (канал)
 //   createdAt, lastActivityAt, claimedAt, closedAt, closedBy,
@@ -13,6 +13,9 @@ const STORE_NAME = 'tickets';
 //   notesThreadId,               // приватный тред с внутренними заметками staff (создаётся лениво,
 //                                // либо сразу при создании — если у темы есть staffChecklist)
 //   voiceChannelId, rootMessageId,
+//   reasonValue,                 // REASONS[].value ("bug"/"report"/...) — reason сам по себе только
+//                                // отображаемая метка (REASONS[].label), по ней не найти обратно
+//                                // тему, чтобы проверить специалист-роль (isStaff) или standalone-панель
 //   reportedUserId,              // для темы "Жалоба на игрока" — ID выбранный через UserSelectMenu
 //   reportHistoryCount,          // сколько жалоб на этого же игрока было за последние 30 дней
 //   urgent,                      // true у тем с REASONS[].urgent — эскалируется быстрее (urgentClaimTimeoutMs)
@@ -21,6 +24,7 @@ const STORE_NAME = 'tickets';
 const DEFAULTS = {
     categoryId: null,
     panelChannelId: null,
+    bugPanelChannelId: null,
     logChannelId: null,
     supportRoleId: null,
     betaSupportRoleId: null,

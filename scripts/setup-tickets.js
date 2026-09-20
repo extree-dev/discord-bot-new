@@ -2,7 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, save } = require('../tickets/config');
 const security = require('../security');
-const { buildPanelMessage } = require('../tickets');
+const { buildPanelMessage, buildBugPanelMessage } = require('../tickets');
 const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -84,6 +84,10 @@ client.once('clientReady', async () => {
             if (config.reasonRoleIds[reasonValue]) reasonRoleIds[reasonValue] = config.reasonRoleIds[reasonValue];
         }
         const specialistRoles = [];
+        // Роль-владелец отдельной системы багов (standalone-тема, см.
+        // tickets/model.js REASONS) — захватываем из того же цикла, что
+        // создаёт все роли-специалисты, вместо отдельного findOrCreateRole.
+        let developerRole = null;
         for (const [reasonValue, spec] of Object.entries(SPECIALIST_ROLES)) {
             // existingId найден — используем как есть, не переименовываем и не
             // перекрашиваем: администратор мог осознанно изменить имя/цвет
@@ -101,6 +105,7 @@ client.once('clientReady', async () => {
             console.log(created ? `Создана роль: ${spec.name}` : `Роль уже настроена: ${role.name}`);
             reasonRoleIds[reasonValue] = role.id;
             specialistRoles.push(role);
+            if (reasonValue === 'bug') developerRole = role;
         }
 
         // По умолчанию Discord создаёт новую роль в самом низу иерархии
@@ -166,10 +171,12 @@ client.once('clientReady', async () => {
             }
         }
 
-        // Специалисты по темам получают тот же доступ, что и supportRole —
-        // без ManageThreads на этом канале роль не увидит приватный тред,
-        // в который её только пингнули.
-        for (const roleId of Object.values(reasonRoleIds)) {
+        // Специалисты по темам (кроме bug — у неё своя отдельная панель
+        // ниже, ей нечего делать на общей) получают тот же доступ, что и
+        // supportRole — без ManageThreads на этом канале роль не увидит
+        // приватный тред, в который её только пингнули.
+        for (const [reasonValue, roleId] of Object.entries(reasonRoleIds)) {
+            if (reasonValue === 'bug') continue;
             await panelChannel.permissionOverwrites
                 .edit(roleId, { ViewChannel: true, ManageThreads: true })
                 .catch(() => {});
@@ -187,6 +194,50 @@ client.once('clientReady', async () => {
         } else {
             await panelChannel.send(buildPanelMessage());
             console.log('Панель тикетов отправлена.');
+        }
+
+        // Отдельная панель багов (standalone-тема "bug" в REASONS) — свой
+        // канал в той же категории "Поддержка", видят Support/Moderator
+        // (+beta) как и общую панель, плюс сама роль разработчика (у неё
+        // на общей панели доступа больше нет, см. цикл выше). Support на
+        // новые баг-тикеты не пингуется (tickets/model.js createTicket) —
+        // это и была цель разделения, отдельная очередь для разработчика.
+        const bugPanelStaffRoles = [...panelStaffRoles, developerRole].filter(Boolean);
+        const { channel: bugPanelChannel, created: bugPanelChannelCreated } = await findOrCreateChannel({
+            guild,
+            existingId: config.bugPanelChannelId,
+            name: 'сообщить-о-баге',
+            type: ChannelType.GuildText,
+            parentId: category.id,
+            createOptions: {
+                permissionOverwrites: [
+                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] },
+                    ...bugPanelStaffRoles.map(role => ({
+                        id: role.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
+                    })),
+                ],
+            },
+        });
+        if (bugPanelChannelCreated) {
+            console.log('Создан канал: сообщить-о-баге');
+        } else {
+            console.log('Канал сообщить-о-баге уже настроен');
+            for (const role of bugPanelStaffRoles) {
+                await bugPanelChannel.permissionOverwrites
+                    .edit(role.id, { ViewChannel: true, ManageThreads: true })
+                    .catch(() => {});
+            }
+        }
+
+        const bugMessages = await bugPanelChannel.messages.fetch({ limit: 10 });
+        const existingBugPanel = bugMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
+        if (existingBugPanel) {
+            await existingBugPanel.edit({ ...buildBugPanelMessage(), embeds: [] });
+            console.log('Панель багов обновлена.');
+        } else {
+            await bugPanelChannel.send(buildBugPanelMessage());
+            console.log('Панель багов отправлена.');
         }
 
         // лог-канал для транскриптов, в уже существующей стафф-категории 🔐 Модерация
@@ -243,6 +294,7 @@ client.once('clientReady', async () => {
 
         config.categoryId = category.id;
         config.panelChannelId = panelChannel.id;
+        config.bugPanelChannelId = bugPanelChannel.id;
         config.logChannelId = logChannel.id;
         config.reviewChannelId = reviewChannel.id;
         config.supportRoleId = supportRole.id;

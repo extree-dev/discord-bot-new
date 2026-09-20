@@ -132,7 +132,7 @@ function withTicketEntry(handler) {
 }
 
 const handleClaimButton = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member)) {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может взять тикет в работу.')],
             ephemeral: true,
@@ -177,8 +177,8 @@ const handleClaimButton = withTicketEntry(async (interaction, config, entry) => 
     await model.updateTicketRootMessage(interaction.client, interaction.channelId, claim.entry);
 });
 
-const handleAddUserButton = withTicketEntry(async (interaction, config) => {
-    if (!model.isStaff(config, interaction.member)) {
+const handleAddUserButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может добавлять участников.')],
             ephemeral: true,
@@ -350,7 +350,7 @@ const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => 
     // куда-то позвать посторонних без контроля поддержки); доступ в уже
     // созданную комнату у него при этом остаётся (см. overwrites в
     // createDiscussionVoiceChannel).
-    if (!model.isStaff(config, interaction.member)) {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка может открыть голосовое обсуждение.')],
             ephemeral: true,
@@ -369,8 +369,8 @@ const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => 
     });
 });
 
-const handleNoteButton = withTicketEntry(async (interaction, config) => {
-    if (!model.isStaff(config, interaction.member)) {
+const handleNoteButton = withTicketEntry(async (interaction, config, entry) => {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
             ephemeral: true,
@@ -391,7 +391,7 @@ const handleNoteButton = withTicketEntry(async (interaction, config) => {
 const PUNISH_SELECT_ID = 'ticket_punish_select';
 
 const handlePunishButton = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member)) {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может применять наказания.')],
             ephemeral: true,
@@ -420,7 +420,7 @@ const handlePunishButton = withTicketEntry(async (interaction, config, entry) =>
 });
 
 const handlePunishSelect = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member)) {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
         return;
     }
@@ -520,7 +520,7 @@ async function handleTargetUserSelect(interaction) {
 async function handleAddUserSelect(interaction) {
     const config = await load();
     const entry = config.tickets[interaction.channelId];
-    if (!entry || !model.isStaff(config, interaction.member)) {
+    if (!entry || !model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({ embeds: [errorEmbed('Нет доступа к управлению этим тикетом.')], ephemeral: true });
         return;
     }
@@ -569,7 +569,7 @@ async function handleCreateModal(interaction) {
 }
 
 const handleNoteModal = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member)) {
+    if (!model.isStaff(config, interaction.member, entry)) {
         await interaction.reply({
             embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
             ephemeral: true,
