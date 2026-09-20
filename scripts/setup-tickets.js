@@ -240,6 +240,23 @@ client.once('clientReady', async () => {
             console.log('Панель багов отправлена.');
         }
 
+        // Роль Muted (moderation/model.js) запрещает SendMessagesInThreads
+        // категорийным deny-оверрайтом почти везде на сервере — правильно
+        // для обычных каналов, но ломает единственный смысл апелляции:
+        // замученный автор не смог бы написать, что и как, в своём же
+        // треде. Канальный allow всегда сильнее категорийного deny той же
+        // роли (первенство Discord), поэтому явно возвращаем его здесь —
+        // на обеих панелях тикетов, не только основной (баг-репорты через
+        // Muted-роль тоже не должны быть заблокированы).
+        const mutedRoleId = securityConfig.baseRoleIds?.Muted;
+        if (mutedRoleId) {
+            await panelChannel.permissionOverwrites.edit(mutedRoleId, { SendMessagesInThreads: true }).catch(() => {});
+            await bugPanelChannel.permissionOverwrites
+                .edit(mutedRoleId, { SendMessagesInThreads: true })
+                .catch(() => {});
+            console.log('Роль Muted может писать в тредах тикетов (для апелляций).');
+        }
+
         // лог-канал для транскриптов, в уже существующей стафф-категории 🔐 Модерация
         const staffCategory = guild.channels.cache.find(
             c => c.type === ChannelType.GuildCategory && c.name === '🔐 Модерация'

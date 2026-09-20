@@ -1,15 +1,19 @@
-const { ChannelType } = require('discord.js');
 const model = require('./model');
 const sweep = require('./sweep');
 
 // Держит deny-оверрайт роли Muted актуальным и на каналах/категориях,
 // созданных уже после первичного провижининга (scripts/setup-roles.js) —
-// иначе новая категория осталась бы без ограничения, пока кто-то не
-// перезапустит скрипт вручную. Каналы ВНУТРИ категории игнорируем — они
-// наследуют оверрайт от родителя, если у них нет своего собственного.
+// иначе новый канал остался бы без ограничения, пока кто-то не
+// перезапустит скрипт вручную. Оверрайт ставится на КАЖДЫЙ канал, не
+// только категории — канал с собственным оверрайтом какой-то другой
+// роли иначе может перебить категорийный запрет Muted (у Discord
+// канальные оверрайты всегда приоритетнее категорийных для одной и той
+// же роли, см. moderation/model.js). channelCreate не срабатывает на
+// треды (у них отдельное событие threadCreate, и ThreadChannel вообще не
+// поддерживает permissionOverwrites), так что дополнительная проверка
+// типа канала здесь не нужна.
 function registerChannelProvisioning(client) {
     client.on('channelCreate', channel => {
-        if (channel.type !== ChannelType.GuildCategory && channel.parentId) return;
         model
             .getMutedRole(channel.guild)
             .then(role => role && model.applyMuteOverwrite(channel, role.id))

@@ -1,5 +1,5 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const security = require('../security');
 const moderation = require('../moderation');
 const { findOrCreateRole } = require('../utils/idempotent');
@@ -128,18 +128,23 @@ client.once('clientReady', async () => {
         });
         console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
 
-        // Deny-оверрайт роли Muted — на каждую категорию и на каждый
-        // канал без категории (каналы внутри категории наследуют оверрайт
-        // от родителя, отдельно их трогать не нужно). Идемпотентно:
-        // повторный запуск просто переустанавливает те же значения.
-        // Новые категории/каналы, созданные после этого запуска,
-        // подхватывает moderation/index.js (событие channelCreate).
+        // Deny-оверрайт роли Muted — на КАЖДЫЙ канал и категорию, не
+        // только на категории: канал с собственным оверрайтом какой-то
+        // другой роли иначе может перебить категорийный запрет Muted (у
+        // Discord канальные оверрайты всегда приоритетнее категорийных
+        // для одной и той же роли — именно так замученные участники
+        // могли, например, по-прежнему подключаться к голосовым каналам
+        // с собственными оверрайтами, несмотря на категорийный запрет).
+        // Идемпотентно: повторный запуск просто переустанавливает те же
+        // значения. Новые каналы/категории, созданные после этого
+        // запуска, подхватывает moderation/index.js (событие
+        // channelCreate).
         await guild.channels.fetch();
-        const muteTargets = guild.channels.cache.filter(c => c.type === ChannelType.GuildCategory || !c.parentId);
+        const muteTargets = guild.channels.cache;
         for (const channel of muteTargets.values()) {
             await moderation.applyMuteOverwrite(channel, created['Muted'].id);
         }
-        console.log(`Роль Muted настроена на ${muteTargets.size} категориях/каналах без категории.`);
+        console.log(`Роль Muted настроена на ${muteTargets.size} каналах/категориях.`);
 
         console.log('Готово.');
         process.exit(0);
