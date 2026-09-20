@@ -22,6 +22,7 @@ const {
     buildPanelMessage,
     buildBugPanelMessage,
     buildTicketControlRow,
+    buildTicketCard,
     escapeHtml,
     buildHtmlTranscript,
 } = require('../tickets/model');
@@ -395,6 +396,28 @@ test('buildTicketControlRow: подпись кнопки приоритета з
             .toJSON().label;
     assert.equal(labelOf(buildTicketControlRow({ urgent: false })), 'Приоритет');
     assert.equal(labelOf(buildTicketControlRow({ urgent: true })), 'Снять приоритет');
+});
+
+test('buildTicketCard: приоритет — отдельная строка "Приоритет: Срочно/Обычный", без эмодзи и без суффикса в заголовке', () => {
+    // Регрессия: раньше приоритет был суффиксом в заголовке ("— срочно") и
+    // эмодзи-маркером в имени треда — по фидбэку администратора эмодзи в
+    // имени треда убрали, приоритет теперь виден только здесь, отдельной
+    // строкой карточки, которая перерисовывается при каждом toggle.
+    const textOf = container =>
+        container
+            .toJSON()
+            .components.map(c => c.content)
+            .join('\n');
+
+    const normal = textOf(buildTicketCard({ number: 1, reason: 'Общий вопрос', status: STATUS.OPEN, urgent: false }));
+    assert.ok(normal.includes('Приоритет:** Обычный'));
+    assert.ok(!normal.includes('— срочно'));
+    assert.ok(!normal.includes('🔥'));
+
+    const urgent = textOf(buildTicketCard({ number: 2, reason: 'Общий вопрос', status: STATUS.OPEN, urgent: true }));
+    assert.ok(urgent.includes('Приоритет:** Срочно'));
+    assert.ok(!urgent.includes('— срочно'));
+    assert.ok(!urgent.includes('🔥'));
 });
 
 test('escapeHtml: экранирует спецсимволы, не трогает обычный текст', () => {
