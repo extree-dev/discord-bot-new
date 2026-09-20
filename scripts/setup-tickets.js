@@ -29,7 +29,11 @@ client.once('clientReady', async () => {
         await guild.channels.fetch();
 
         const config = await load();
+        const securityConfig = await security.getConfig();
         const moderatorRole = guild.roles.cache.find(r => r.name === 'Moderator');
+        const betaModeratorRoleId =
+            securityConfig.baseRoleIds?.['Beta-Moderator'] ?? config.betaModeratorRoleId ?? null;
+        const betaModeratorRole = betaModeratorRoleId ? guild.roles.cache.get(betaModeratorRoleId) : null;
 
         // роль поддержки
         const { role: supportRole, created: supportCreated } = await findOrCreateRole({
@@ -115,7 +119,6 @@ client.once('clientReady', async () => {
         });
         console.log(categoryCreated ? 'Создана категория: Поддержка' : 'Категория Поддержка уже настроена');
 
-        const securityConfig = await security.getConfig();
         if (securityConfig.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
             if (unverifiedRole) {
@@ -126,10 +129,16 @@ client.once('clientReady', async () => {
 
         // Панель открытия тикета — этот же канал теперь родитель для
         // приватных тредов-тикетов (createTicket создаёт тред прямо в
-        // нём). supportRole получает ManageThreads, чтобы видеть и
+        // нём). Все 4 staff-роли получают ManageThreads, чтобы видеть и
         // открывать любой приватный тред канала без ручного добавления
         // в каждый — иначе пришлось бы add()'ить каждого сотрудника в
-        // каждый новый тикет по отдельности.
+        // каждый новый тикет по отдельности. Раньше сюда попадал только
+        // supportRole/betaSupportRole — Moderator и Beta-Moderator технически
+        // проходили isStaff() (см. tickets/model.js, право ModerateMembers),
+        // но физически не видели приватные треды без этого overwrite'а —
+        // отдельная модерация (кик/бан/мут) не то же самое, что видимость
+        // тикетов, Discord их не связывает.
+        const panelStaffRoles = [supportRole, betaSupportRole, moderatorRole, betaModeratorRole].filter(Boolean);
         const { channel: panelChannel, created: panelChannelCreated } = await findOrCreateChannel({
             guild,
             existingId: config.panelChannelId,
@@ -139,14 +148,10 @@ client.once('clientReady', async () => {
             createOptions: {
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] },
-                    {
-                        id: supportRole.id,
+                    ...panelStaffRoles.map(role => ({
+                        id: role.id,
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
-                    },
-                    {
-                        id: betaSupportRole.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
-                    },
+                    })),
                 ],
             },
         });
@@ -154,12 +159,11 @@ client.once('clientReady', async () => {
             console.log('Создан канал: открыть-тикет');
         } else {
             console.log('Канал открыть-тикет уже настроен');
-            await panelChannel.permissionOverwrites
-                .edit(supportRole.id, { ViewChannel: true, ManageThreads: true })
-                .catch(() => {});
-            await panelChannel.permissionOverwrites
-                .edit(betaSupportRole.id, { ViewChannel: true, ManageThreads: true })
-                .catch(() => {});
+            for (const role of panelStaffRoles) {
+                await panelChannel.permissionOverwrites
+                    .edit(role.id, { ViewChannel: true, ManageThreads: true })
+                    .catch(() => {});
+            }
         }
 
         // Специалисты по темам получают тот же доступ, что и supportRole —
@@ -243,7 +247,7 @@ client.once('clientReady', async () => {
         config.reviewChannelId = reviewChannel.id;
         config.supportRoleId = supportRole.id;
         config.betaSupportRoleId = betaSupportRole.id;
-        config.betaModeratorRoleId = securityConfig.baseRoleIds?.['Beta-Moderator'] ?? config.betaModeratorRoleId;
+        config.betaModeratorRoleId = betaModeratorRoleId;
         config.reasonRoleIds = reasonRoleIds;
         await save(config);
 
