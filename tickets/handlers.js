@@ -769,6 +769,19 @@ async function handleSelectMenu(interaction) {
 }
 
 async function handleCreateModal(interaction) {
+    // deferReply сразу, до любой асинхронной работы: создание тикета —
+    // это фетч участника (для report), резервирование номера (лок в БД),
+    // создание треда, отправка карточки, ещё один DB-update на
+    // rootMessageId, а для тем со staffChecklist (report/bug/appeal) —
+    // ещё и создание + заполнение отдельного треда заметок. У report
+    // тикетов (весь этот путь плюс фетч нарушителя) это особенно легко
+    // не укладывается в 3 секунды, которые Discord даёт на обычный
+    // reply — тогда interaction протухает ("interaction failed" у
+    // пользователя), хотя тред и так успешно создаётся в фоне. deferReply
+    // даёт 15 минут вместо 3 секунд (та же причина, что и в /rep profile,
+    // см. commands/general/rep.js).
+    await interaction.deferReply({ ephemeral: true });
+
     const [reasonValue, targetId] = interaction.customId.slice(CREATE_MODAL_PREFIX.length).split(':');
     const reason = model.REASONS.find(r => r.value === reasonValue) ?? model.REASONS[model.REASONS.length - 1];
     const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
@@ -786,12 +799,11 @@ async function handleCreateModal(interaction) {
         reportedUserTag: reportedMember?.user.tag ?? null,
     });
     if (result.error) {
-        await interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
+        await interaction.editReply({ embeds: [errorEmbed(result.error)] });
         return;
     }
-    await interaction.reply({
+    await interaction.editReply({
         embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Тикет создан')],
-        ephemeral: true,
     });
 }
 

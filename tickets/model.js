@@ -664,19 +664,31 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // Мини-чеклист для staff под конкретную тему — сразу в тред заметок
     // (создаём его сейчас же, а не лениво при первом /ticket note, только
     // если у темы есть готовый чеклист: без него пустой тред заметок
-    // никому не нужен).
+    // никому не нужен). Сам тред заметок — необязательная надстройка над
+    // уже созданным и полностью рабочим тикетом: если Discord откажет
+    // (лимит активных тредов в канале, временная ошибка API и т.п.), это
+    // не должно ронять createTicket() целиком — тикет уже существует,
+    // владелец уже добавлен, корневая карточка уже отправлена, значит
+    // ошибку тут просто логируем и продолжаем без чеклиста, а не бросаем
+    // наверх (иначе interaction, вызвавший createTicket, тоже упал бы,
+    // хотя с точки зрения пользователя тикет открылся нормально).
     if (reason.staffChecklist?.length) {
-        const notesThread = await createNotesThread(panelChannel, thread.id, number);
-        await notesThread
-            .send(
-                toMessage(
-                    infoContainer(
-                        reason.staffChecklist.map((step, i) => `${i + 1}. ${step}`).join('\n'),
-                        'Чек-лист для staff'
+        const notesThread = await createNotesThread(panelChannel, thread.id, number).catch(err => {
+            console.error('tickets: не удалось создать тред заметок:', err);
+            return null;
+        });
+        if (notesThread) {
+            await notesThread
+                .send(
+                    toMessage(
+                        infoContainer(
+                            reason.staffChecklist.map((step, i) => `${i + 1}. ${step}`).join('\n'),
+                            'Чек-лист для staff'
+                        )
                     )
                 )
-            )
-            .catch(() => {});
+                .catch(() => {});
+        }
     }
 
     return { thread };
