@@ -28,7 +28,25 @@ const DEFAULTS = {
     },
     automod: { enabled: true, maxMentions: 5, maxMessagesPerWindow: 6, messageWindowMs: 5000 },
     auditLog: { enabled: true },
-    verification: { enabled: false, unverifiedRoleId: null, verifiedRoleId: null, channelId: null, categoryId: null },
+    verification: {
+        enabled: false,
+        unverifiedRoleId: null,
+        verifiedRoleId: null,
+        channelId: null,
+        categoryId: null,
+        // Минимальный возраст Discord-аккаунта для прохождения верификации —
+        // самый дешёвый фильтр от рейд-ботов: их аккаунты почти всегда
+        // созданы за минуты/часы до захода. Не блокирует навсегда: как
+        // только аккаунт "дозреет", кнопка сама заработает (см.
+        // verification.js).
+        minAccountAgeMs: 24 * 60 * 60 * 1000,
+        // Сколько неверных кодов капчи подряд (в течение captchaLockoutMs)
+        // считается подозрительным поведением, а не обычной опечаткой —
+        // после этого попытки временно блокируются и модерация получает
+        // алерт в security-log.
+        maxCaptchaAttempts: 3,
+        captchaLockoutMs: 10 * 60 * 1000,
+    },
     manualLockdown: { active: false, channelIds: [] },
 };
 
