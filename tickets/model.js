@@ -1,15 +1,9 @@
-// Доменный слой тикетов: правила (кто staff), список тем обращения,
-// построение панели/карточки, отправка формы и точечные модераторские
-// действия по итогам жалобы/апелляции (наказать/снять наказание).
-// Роутинг по customId — в tickets/handlers.js.
-//
-// Раньше здесь был полноценный жизненный цикл тикета (приватный тред,
-// claim/отпустить/переназначить, эскалация, приоритет, рейтинги,
-// HTML-транскрипты, испытательный срок для стажёров) — по решению
-// администратора вся эта надстройка убрана: она не была нужна, вместо
-// неё — простая форма, как на референс-сервере (кнопка → модалка →
-// карточка падает в канал стафу, без дальнейшего движения). См.
-// CHANGELOG за подробностями и историей.
+// Доменный слой тикетов: сужен до одной формы — жалоба на игрока (по
+// прямому референсу администратора). Кнопка → модалка с двумя текстовыми
+// полями (тег/ID, описание) → карточка падает в канал стафу, без треда и
+// без дальнейшего движения. Общие вопросы, апелляции, баги и весь
+// жизненный цикл (claim/close/эскалация/рейтинги/транскрипты) убраны —
+// см. CHANGELOG. Роутинг по customId — в tickets/handlers.js.
 const { PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
@@ -17,63 +11,13 @@ const { notifyPunishment } = require('../utils/punishmentNotice');
 const moderation = require('../moderation');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
-// customId-префикс кнопки конкретной темы на панели поддержки — общий с
-// tickets/handlers.js, поэтому экспортируется, а не только используется
-// локально в buildPanelMessage.
-const OPEN_REASON_PREFIX = 'ticket_open_reason:';
+const OPEN_BUTTON_ID = 'ticket_open';
 
-// descriptionLabel/descriptionPlaceholder — чтобы модалка формы явно
-// объясняла, что писать, а не показывала одну и ту же общую подпись для
-// всех тем (жалоба на баг ждёт совсем не то, что общий вопрос).
-// requiresTargetUser — вместо текстового поля с ником/ID нарушителя,
-// который автор жалобы не всегда знает как достать, tickets/handlers.js
-// сначала показывает UserSelectMenu и передаёт выбранный ID в модалку.
-const REASONS = [
-    {
-        value: 'general',
-        label: 'Общий вопрос',
-        descriptionLabel: 'Опиши свой вопрос',
-        descriptionPlaceholder: 'Например: как получить роль за уровень?',
-    },
-    {
-        value: 'bug',
-        label: 'Баг / техническая проблема',
-        // Отдельная очередь, а не общая: своя кнопка живёт в своём канале
-        // (config.bugPanelChannelId, см. scripts/setup-tickets.js), не
-        // показывается на общей панели (buildPanelMessage её фильтрует),
-        // карточка падает в отдельный канал и пингуется только роль
-        // разработчика — Support не дёргаем на баги в самом боте.
-        standalone: true,
-        descriptionLabel: 'Что не работает? Опиши шаги по порядку',
-        descriptionPlaceholder: '1) Что делал 2) Что ожидал 3) Что произошло. Приложи ссылку на скрин/видео.',
-    },
-    {
-        value: 'report',
-        label: 'Жалоба на игрока',
-        requiresTargetUser: true,
-        descriptionLabel: 'Что нарушил игрок?',
-        descriptionPlaceholder: 'Приложи ссылку на сообщение или скрин-доказательство.',
-    },
-    {
-        value: 'appeal',
-        label: 'Обжалование наказания',
-        descriptionLabel: 'За что наказание и почему оно ошибочно?',
-        descriptionPlaceholder: 'Укажи тип наказания (бан/мут/варн) и свою версию произошедшего.',
-    },
-    {
-        value: 'other',
-        label: 'Другое',
-        descriptionLabel: 'Опиши свой вопрос подробно',
-    },
-];
-
-// support/ModerateMembers/Administrator — обычный штат; reasonRoleIds —
-// специалист по конкретной теме (например, роль разработчика для багов)
-// тоже считается staff — иначе роль была бы чисто пинг-уведомлением без
-// реальной возможности нажать "Наказать"/"Снять наказание" на карточке.
+// support/ModerateMembers/Administrator — обычный штат. Раньше здесь ещё
+// проверялись специалист-роли по темам (бага, апелляции) — вместе с
+// самими темами их убрали, осталась только жалоба на игрока.
 function isStaff(config, member) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
-    if (Object.values(config.reasonRoleIds).some(id => id && member.roles.cache.has(id))) return true;
     return (
         member.permissions.has(PermissionFlagsBits.Administrator) ||
         member.permissions.has(PermissionFlagsBits.ModerateMembers)
@@ -104,135 +48,99 @@ function formatDuration(ms) {
     return parts.join(' ') || '<1 мин';
 }
 
+// Поле "тег/ID" — свободный текст (как на референс-сервере), не
+// UserSelectMenu: участник мог ввести чистый ID (снежинку, 17-20 цифр)
+// или тег вида "Имя#1234". Резолвим только чистый ID — искать участника
+// по тегу без полного кэша участников гильдии ненадёжно, а лезть за
+// каждым тегом в Discord API при каждой жалобе того не стоит. Если ID не
+// вытащить — карточка просто показывает введённый текст как есть, без
+// кнопки "Наказать" (честнее нерабочей кнопки, которая не найдёт, кого
+// наказывать).
+const SNOWFLAKE_RE = /^\d{17,20}$/;
+function extractTargetId(rawTarget) {
+    const trimmed = rawTarget.trim();
+    return SNOWFLAKE_RE.test(trimmed) ? trimmed : null;
+}
+
 // НЕ <@id> — упоминание нарушителя в карточке запинговало бы его самого
-// уведомлением о жалобе на себя. targetTag — снимок tag'а на момент
-// отправки формы (сохраняется в extra, не дёргаем Discord API из чистого
-// билдера); может быть null, если фетч не удался — тогда просто ID.
+// уведомлением о жалобе на себя. targetTag — тег на момент отправки формы
+// (может быть null, если фетч не удался — тогда просто ID).
 function formatReportedUser(targetId, targetTag) {
     return targetTag ? `${targetTag} (\`${targetId}\`)` : `\`${targetId}\``;
 }
 
-// Короткая подпись на кнопке — полный REASONS[].label слишком длинный и
-// разъезжается в сетке кнопок; на кнопке достаточно одного слова, полное
-// название и так есть в тексте панели выше.
-const REASON_BUTTON_LABELS = {
-    general: 'Общий',
-    bug: 'Баг',
-    report: 'Жалоба',
-    appeal: 'Апелляция',
-    other: 'Другое',
-};
-
-// Общий сборщик — заголовок с описанием, список тем текстом и ряды кнопок
-// под ним (до 4 в ряд — ограничение Discord). Без картинок и повторяющихся
-// подписей — короткое имя темы на кнопке, все кнопки одного (серого)
-// цвета. Переиспользуется и основной панелью, и отдельной панелью багов
-// (buildBugPanelMessage) — разница только в наборе тем и заголовке.
-function buildReasonPanelMessage(reasons, title, description) {
-    const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(textDisplay(formatBody(title, description)))
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(
-            textDisplay(reasons.map(r => `**${r.label}** — ${r.descriptionLabel ?? ''}`).join('\n'))
-        );
-
-    const buttons = reasons.map(r =>
-        new ButtonBuilder()
-            .setCustomId(`${OPEN_REASON_PREFIX}${r.value}`)
-            .setLabel(REASON_BUTTON_LABELS[r.value] ?? r.label)
-            .setStyle(ButtonStyle.Secondary)
-    );
-    const rows = [];
-    for (let i = 0; i < buttons.length; i += 4) {
-        rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 4)));
-    }
-
-    return toMessage(container, ...rows);
-}
-
-// Основная панель — все темы, кроме отмеченных standalone (см. REASONS
-// "bug": у неё своя отдельная панель/канал, buildBugPanelMessage ниже).
+// Публичная панель — один кнопка вместо сетки тем (раньше их было пять:
+// общий вопрос/баг/жалоба/апелляция/другое — по решению администратора
+// осталась только жалоба на игрока, сетка кнопок для одной темы не нужна).
 function buildPanelMessage() {
-    return buildReasonPanelMessage(
-        REASONS.filter(r => !r.standalone),
-        'Поддержка сервера',
-        'Выбери тему обращения кнопкой ниже — откроется короткая форма, заполненная форма сразу уходит команде поддержки.'
+    const container = baseContainer(COLORS.primary).addTextDisplayComponents(
+        textDisplay(
+            formatBody(
+                'Жалоба на игрока',
+                'Нажми кнопку ниже, укажи тег/ID нарушителя и опиши ситуацию — форма сразу уйдёт команде поддержки.'
+            )
+        )
     );
-}
-
-// Отдельная панель для тем со standalone: true — сейчас это только "bug".
-function buildBugPanelMessage() {
-    return buildReasonPanelMessage(
-        REASONS.filter(r => r.standalone),
-        'Баг-репорты',
-        'Нашёл баг в работе бота? Опиши его кнопкой ниже — форма уйдёт прямо разработчику.'
-    );
+    const button = new ButtonBuilder().setCustomId(OPEN_BUTTON_ID).setLabel('Тикет').setStyle(ButtonStyle.Secondary);
+    return toMessage(container, new ActionRowBuilder().addComponents(button));
 }
 
 // Карточка, которая падает в канал стафу по итогам отправленной формы —
-// плоское сообщение без кнопок жизненного цикла (не нужны, у формы нет
-// стадий). "Наказать" — только если есть targetId (жалоба на игрока),
-// "Снять наказание" — только у обжалования (снимает мут с самого автора,
-// апеллировать можно только мут, см. utils/punishmentNotice.js).
-function buildSubmissionCard(reason, authorId, description, { targetId, targetTag, reportHistoryCount } = {}) {
+// плоское сообщение без кнопок жизненного цикла. "Наказать" — только
+// если targetId удалось вытащить из введённого текста (см. extractTargetId).
+function buildReportCard(authorId, rawTarget, targetId, targetTag, description, reportHistoryCount) {
     const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(textDisplay(formatBody(reason.label, description)))
+        .addTextDisplayComponents(textDisplay(formatBody('Жалоба на игрока', description)))
         .addSeparatorComponents(separator());
 
-    const infoLines = [`**От:** <@${authorId}>`];
-    if (targetId) {
-        infoLines.push(`**Жалоба на:** ${formatReportedUser(targetId, targetTag)}`);
-        if (reportHistoryCount > 1) {
-            infoLines.push(`**История:** ${reportHistoryCount} жалоб(ы) за 30 дней`);
-        }
+    const infoLines = [
+        `**От:** <@${authorId}>`,
+        `**Указано:** ${targetId ? formatReportedUser(targetId, targetTag) : `\`${rawTarget}\``}`,
+    ];
+    if (reportHistoryCount > 1) {
+        infoLines.push(`**История:** ${reportHistoryCount} жалоб(ы) за 30 дней`);
     }
     container.addTextDisplayComponents(textDisplay(infoLines.join('\n')));
 
-    const row = new ActionRowBuilder();
-    if (targetId) {
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ticket_punish:${targetId}`)
-                .setLabel('Наказать')
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-    if (reason.value === 'appeal') {
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ticket_unpunish:${authorId}`)
-                .setLabel('Снять наказание')
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-
-    return row.components.length ? [container, row] : [container];
+    if (!targetId) return [container];
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`ticket_punish:${targetId}`)
+            .setLabel('Наказать')
+            .setStyle(ButtonStyle.Secondary)
+    );
+    return [container, row];
 }
 
-// Отправляет заполненную форму — определяет канал по теме (bug — свой,
-// остальные — общий submissionsChannelId), для жалоб на игрока считает и
-// сохраняет историю (countRecentReportsOn/config.reports), собирает и
-// отправляет карточку с пингом автора и профильных ролей. Никакого
-// треда/записи о "тикете" не заводится — само сообщение и есть форма.
-async function submitForm(interaction, reason, description, extra = {}) {
+// Отправляет заполненную форму — резолвит targetId (если получится),
+// считает и сохраняет историю жалоб на него (countRecentReportsOn/
+// config.reports), собирает и отправляет карточку в submissionsChannelId
+// с пингом Support. Никакого треда/записи о "тикете" не заводится — само
+// сообщение и есть форма.
+async function submitReport(interaction, rawTarget, description) {
     const guild = interaction.guild;
     const now = Date.now();
+    const targetId = extractTargetId(rawTarget);
+    let targetTag = null;
+    if (targetId) {
+        const member = await guild.members.fetch(targetId).catch(() => null);
+        targetTag = member?.user.tag ?? null;
+    }
 
     // Подсчёт истории и запись новой жалобы — одной атомарной операцией
     // (лок update()), иначе два почти одновременных клика могли бы оба
-    // прочитать историю до того, как друг друга запишут, и оба увидеть
-    // число на единицу меньше настоящего.
+    // прочитать историю до того, как друг друга запишут.
     let reportHistoryCount = 0;
-    if (extra.targetId) {
+    if (targetId) {
         reportHistoryCount = await update(c => {
-            const count = countRecentReportsOn(c.reports, extra.targetId, now, REPORT_HISTORY_WINDOW_MS);
-            c.reports.push({ targetUserId: extra.targetId, createdAt: now });
+            const count = countRecentReportsOn(c.reports, targetId, now, REPORT_HISTORY_WINDOW_MS);
+            c.reports.push({ targetUserId: targetId, createdAt: now });
             return count;
         });
     }
 
     const config = await load();
-    const channelId = reason.standalone ? config.bugChannelId : config.submissionsChannelId;
+    const channelId = config.submissionsChannelId;
     const channel = channelId
         ? (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)))
         : null;
@@ -240,33 +148,32 @@ async function submitForm(interaction, reason, description, extra = {}) {
         return { error: 'Система обращений не настроена (нет канала для формы). Обратись к администратору.' };
     }
 
-    const pings = reason.standalone
-        ? [config.reasonRoleIds[reason.value]].filter(Boolean)
-        : [config.supportRoleId, config.reasonRoleIds[reason.value]].filter(Boolean);
-    const uniquePings = [...new Set(pings)].map(id => `<@&${id}>`);
-    const cardComponents = buildSubmissionCard(reason, interaction.user.id, description, {
-        targetId: extra.targetId ?? null,
-        targetTag: extra.targetTag ?? null,
-        reportHistoryCount,
-    });
+    const cardComponents = buildReportCard(
+        interaction.user.id,
+        rawTarget,
+        targetId,
+        targetTag,
+        description,
+        reportHistoryCount
+    );
     // Пинг — отдельным TextDisplay первым компонентом, а не через content:
     // сообщение с флагом IsComponentsV2 не может содержать content/embeds
     // (см. utils/components.js). Упоминания внутри TextDisplay всё равно
     // доставляют уведомление.
-    const payload = uniquePings.length
-        ? toMessage(textDisplay(uniquePings.join(' ')), ...cardComponents)
+    const payload = config.supportRoleId
+        ? toMessage(textDisplay(`<@&${config.supportRoleId}>`), ...cardComponents)
         : toMessage(...cardComponents);
 
     // Отправка — единственное, без чего форма не доходит до стафа; один
     // повтор через секунду покрывает единичный сбой нестабильной сети до
-    // Discord API (тот же приём, что был у createTicket раньше).
+    // Discord API.
     let sent = false;
     for (let attempt = 0; attempt < 2 && !sent; attempt++) {
         try {
             await channel.send(payload);
             sent = true;
         } catch (err) {
-            console.error(`tickets: не удалось отправить карточку формы (попытка ${attempt + 1} из 2):`, err);
+            console.error(`tickets: не удалось отправить карточку жалобы (попытка ${attempt + 1} из 2):`, err);
             if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
@@ -277,10 +184,8 @@ async function submitForm(interaction, reason, description, extra = {}) {
     return { ok: true };
 }
 
-// Наказание по кнопке "Наказать" на карточке жалобы — targetId зашит в
-// customId самой кнопки (нет отдельной записи "тикета", откуда его можно
-// было бы прочитать). contextLabel — ссылка на карточку-сообщение, идёт в
-// audit-лог и в уведомление наказанному вместо номера тикета.
+// "Наказать" на карточке жалобы — targetId зашит в customId самой кнопки
+// (нет отдельной записи "тикета", откуда его можно было бы прочитать).
 async function punishReportedUser(interaction, targetId, action, contextLabel) {
     const guild = interaction.guild;
     const auditReason = `Жалоба (${contextLabel}), модератор ${interaction.user.tag}`;
@@ -315,27 +220,16 @@ async function punishReportedUser(interaction, targetId, action, contextLabel) {
     return { label: `замучен на ${formatDuration(seconds * 1000)}` };
 }
 
-// Снять мут с автора обжалования — кнопка "Снять наказание"
-// (buildSubmissionCard, только у reasonValue "appeal"). Доступ уже
-// проверен вызывающим кодом (handlers.js — isStaff), moderation сама
-// разбирается, был ли участник вообще замучен (wasMuted в ответе).
-async function unpunishTicketOwner(interaction, ownerId) {
-    return moderation.unmuteMember(interaction.guild, ownerId);
-}
-
 module.exports = {
-    REASONS,
-    REASON_BUTTON_LABELS,
-    OPEN_REASON_PREFIX,
+    OPEN_BUTTON_ID,
     REPORT_HISTORY_WINDOW_MS,
     isStaff,
     countRecentReportsOn,
     formatDuration,
     formatReportedUser,
+    extractTargetId,
     buildPanelMessage,
-    buildBugPanelMessage,
-    buildSubmissionCard,
-    submitForm,
+    buildReportCard,
+    submitReport,
     punishReportedUser,
-    unpunishTicketOwner,
 };

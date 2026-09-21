@@ -2,22 +2,10 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const { load, save } = require('../tickets/config');
 const security = require('../security');
-const { buildPanelMessage, buildBugPanelMessage } = require('../tickets');
+const { buildPanelMessage } = require('../tickets');
 const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-// Роли-специалисты по темам — не каждый модератор из общего Support
-// понимает, например, апелляции наказаний, поэтому submitForm()
-// (tickets/model.js) дополнительно пингует нужную роль под темой
-// (config.reasonRoleIds). Баг в самом боте — не вопрос модерации, а
-// вопрос того, кто его написал, поэтому у темы "bug" не роль поддержки,
-// а роль разработчика.
-const SPECIALIST_ROLES = {
-    bug: { name: 'Разработчик бота', color: 0xe67e22 },
-    report: { name: 'Reports', color: 0xe74c3c },
-    appeal: { name: 'Appeals', color: 0x9b59b6 },
-};
 
 client.once('clientReady', async () => {
     try {
@@ -50,45 +38,6 @@ client.once('clientReady', async () => {
             console.log(`Роль Support уже настроена: ${supportRole.name}`);
         }
 
-        // роли-специалисты по темам — убранные темы просто перестают
-        // отслеживаться и получать пинги; сами роли на сервере скрипт не
-        // трогает и не удаляет, это на усмотрение администратора.
-        const reasonRoleIds = {};
-        for (const reasonValue of Object.keys(SPECIALIST_ROLES)) {
-            if (config.reasonRoleIds[reasonValue]) reasonRoleIds[reasonValue] = config.reasonRoleIds[reasonValue];
-        }
-        const specialistRoles = [];
-        // Роль-владелец отдельной очереди багов (standalone-тема, см.
-        // tickets/model.js REASONS) — захватываем из того же цикла, что
-        // создаёт все роли-специалисты, вместо отдельного findOrCreateRole.
-        let developerRole = null;
-        for (const [reasonValue, spec] of Object.entries(SPECIALIST_ROLES)) {
-            // existingId найден — используем как есть, не переименовываем и не
-            // перекрашиваем: администратор мог осознанно изменить имя/цвет
-            // после создания, и это не повод откатывать их на дефолт при
-            // каждом деплое.
-            const { role, created } = await findOrCreateRole({
-                guild,
-                existingId: reasonRoleIds[reasonValue],
-                name: spec.name,
-                color: spec.color,
-                hoist: true,
-                mentionable: false,
-                permissions: [],
-            });
-            console.log(created ? `Создана роль: ${spec.name}` : `Роль уже настроена: ${role.name}`);
-            reasonRoleIds[reasonValue] = role.id;
-            specialistRoles.push(role);
-            if (reasonValue === 'bug') developerRole = role;
-        }
-
-        // По умолчанию Discord создаёт новую роль в самом низу иерархии
-        // (сразу над @everyone) — поднимаем роли-специалистов на уровень
-        // Support, чтобы они были на виду, а не терялись внизу списка.
-        await guild.roles
-            .setPositions(specialistRoles.map(role => ({ role, position: supportRole.position })))
-            .catch(err => console.error('Не удалось поднять роли-специалистов в иерархии:', err.message));
-
         // категория
         const { channel: category, created: categoryCreated } = await findOrCreateChannel({
             guild,
@@ -106,11 +55,10 @@ client.once('clientReady', async () => {
             }
         }
 
-        // Панель открытия обращения — публичный канал, виден всем, писать
-        // нельзя (только жать кнопки — Discord не блокирует кнопки/модалки
-        // по отсутствию SendMessages). Никаких особых прав staff тут больше
-        // не нужно — обращение больше не создаёт тред в этом канале, оно
-        // сразу падает карточкой в submissionsChannel/bugChannel ниже.
+        // Панель — публичный канал, виден всем, писать нельзя (только
+        // жать кнопку — Discord не блокирует кнопки/модалки по отсутствию
+        // SendMessages). Обращение не создаёт тред в этом канале, оно
+        // сразу падает карточкой в submissionsChannel ниже.
         const { channel: panelChannel, created: panelChannelCreated } = await findOrCreateChannel({
             guild,
             existingId: config.panelChannelId,
@@ -141,46 +89,13 @@ client.once('clientReady', async () => {
             console.log('Панель обращений отправлена.');
         }
 
-        // Отдельная публичная панель багов (standalone-тема "bug") — та же
-        // логика: только кнопка, писать нельзя.
-        const { channel: bugPanelChannel, created: bugPanelChannelCreated } = await findOrCreateChannel({
-            guild,
-            existingId: config.bugPanelChannelId,
-            name: 'сообщить-о-баге',
-            type: ChannelType.GuildText,
-            parentId: category.id,
-            createOptions: {
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            },
-        });
-        if (bugPanelChannelCreated) {
-            console.log('Создан канал: сообщить-о-баге');
-        } else {
-            console.log('Канал сообщить-о-баге уже настроен');
-        }
-
-        const bugMessages = await bugPanelChannel.messages.fetch({ limit: 10 });
-        const existingBugPanel = bugMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
-        if (existingBugPanel) {
-            await existingBugPanel.edit({ ...buildBugPanelMessage(), embeds: [] });
-            console.log('Панель багов обновлена.');
-        } else {
-            await bugPanelChannel.send(buildBugPanelMessage());
-            console.log('Панель багов отправлена.');
-        }
-
-        // Приватный канал, куда падают карточки жалоб/апелляций/вопросов/
-        // "другого" — видят только Support/Moderator(+Beta) и профильные
-        // роли-специалисты (кроме bug, у неё свой канал ниже).
+        // Приватный канал, куда падают карточки жалоб — видят только
+        // Support/Moderator(+Beta).
         const submissionsStaffRoles = [supportRole, moderatorRole, betaModeratorRole].filter(Boolean);
         const submissionsOverwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
             ...submissionsStaffRoles.map(role => ({ id: role.id, allow: [PermissionFlagsBits.ViewChannel] })),
         ];
-        for (const [reasonValue, roleId] of Object.entries(reasonRoleIds)) {
-            if (reasonValue === 'bug') continue;
-            submissionsOverwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel] });
-        }
         const { channel: submissionsChannel, created: submissionsChannelCreated } = await findOrCreateChannel({
             guild,
             existingId: config.submissionsChannelId,
@@ -199,46 +114,32 @@ client.once('clientReady', async () => {
             for (const role of submissionsStaffRoles) {
                 await submissionsChannel.permissionOverwrites.edit(role.id, { ViewChannel: true }).catch(() => {});
             }
-            for (const [reasonValue, roleId] of Object.entries(reasonRoleIds)) {
-                if (reasonValue === 'bug') continue;
-                await submissionsChannel.permissionOverwrites.edit(roleId, { ViewChannel: true }).catch(() => {});
-            }
         }
 
-        // Приватный канал багов — видит роль разработчика и общий staff
-        // (как и раньше), но пингуется на новые карточки только
-        // разработчик (submitForm в tickets/model.js) — Support на баги в
-        // самом боте не дёргаем.
-        const bugStaffRoles = [...submissionsStaffRoles, developerRole].filter(Boolean);
-        const { channel: bugChannel, created: bugChannelCreated } = await findOrCreateChannel({
-            guild,
-            existingId: config.bugChannelId,
-            name: 'баг-репорты',
-            type: ChannelType.GuildText,
-            parentId: category.id,
-            createOptions: {
-                permissionOverwrites: [
-                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    ...bugStaffRoles.map(role => ({ id: role.id, allow: [PermissionFlagsBits.ViewChannel] })),
-                ],
-            },
-        });
-        if (bugChannelCreated) {
-            console.log('Создан канал: баг-репорты');
-        } else {
-            console.log('Канал баг-репорты уже настроен');
-            for (const role of bugStaffRoles) {
-                await bugChannel.permissionOverwrites.edit(role.id, { ViewChannel: true }).catch(() => {});
-            }
+        // Разовая самоисцеляющаяся очистка: по решению администратора
+        // система тикетов сужена до одной темы (жалоба на игрока) — тема
+        // "баг" со своей отдельной публичной панелью и приватным каналом
+        // результатов убрана целиком. Если они уже созданы прошлым
+        // деплоем — удаляем их с сервера; на свежем сервере (существующих
+        // ID нет) блок ничего не делает.
+        const staleBugChannelIds = [config.bugPanelChannelId, config.bugChannelId].filter(Boolean);
+        for (const id of staleBugChannelIds) {
+            const staleChannel = guild.channels.cache.get(id) ?? (await guild.channels.fetch(id).catch(() => null));
+            if (!staleChannel) continue;
+            const staleName = staleChannel.name;
+            await staleChannel
+                .delete('Тема "баг" убрана из системы тикетов')
+                .then(() => console.log(`Удалён канал баг-репортов: ${staleName}`))
+                .catch(err => console.error(`Не удалось удалить канал ${staleName}:`, err.message));
         }
 
         config.categoryId = category.id;
         config.panelChannelId = panelChannel.id;
-        config.bugPanelChannelId = bugPanelChannel.id;
         config.submissionsChannelId = submissionsChannel.id;
-        config.bugChannelId = bugChannel.id;
         config.supportRoleId = supportRole.id;
-        config.reasonRoleIds = reasonRoleIds;
+        config.bugPanelChannelId = null;
+        config.bugChannelId = null;
+        config.reasonRoleIds = undefined;
         await save(config);
 
         console.log('Готово. Система обращений настроена.');
