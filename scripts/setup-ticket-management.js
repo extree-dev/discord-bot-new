@@ -14,7 +14,7 @@ const { findOrCreateChannel } = require('../utils/idempotent');
 // см. utils/idempotent.js) скрипт работает по уже сохранённому ID, а не
 // по этой константе, так что переезд панели в другую категорию вручную
 // администратором не будет каждый раз откатываться назад.
-const MANAGEMENT_CATEGORY_ID = '1551531425864482879';
+const MANAGEMENT_CATEGORY_ID = '1551543086671335494';
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -36,6 +36,13 @@ client.once('clientReady', async () => {
             guild.channels.cache.get(categoryId) ?? (await guild.channels.fetch(categoryId).catch(() => null));
         if (!category) {
             console.error(`Категория ${categoryId} не найдена на сервере — панель управления не настроена.`);
+            process.exit(1);
+        }
+        if (category.type !== ChannelType.GuildCategory) {
+            console.error(
+                `${categoryId} — не категория (тип ${category.type}, "${category.name}"). ` +
+                    'Скопируй ID именно категории (правой кнопкой по заголовку категории → Копировать ID), не канала внутри неё.'
+            );
             process.exit(1);
         }
 
