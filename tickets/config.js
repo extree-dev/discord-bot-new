@@ -22,7 +22,9 @@ const STORE_NAME = 'tickets';
 // managementCategoryId/managementChannelId — отдельный канал с панелью
 // управления (кнопки "Активные тикеты"/"Статистика", staff-only) — см.
 // scripts/setup-ticket-management.js.
-// supportRoleId — пинг в новом треде.
+// supportRoleId/betaSupportRoleId — Support и Beta-Support; обе роли
+// считаются staff (см. tickets/model.js isStaff), но только Support
+// (наравне с полным Moderator) — "старший" состав, см. isSeniorStaff.
 // counter — сквозной номер тикета для имени треда ("ticket-<N>").
 // reports — [{ targetUserId, createdAt }], плоский лог жалоб на игроков
 // для подсчёта "N жалоб за 30 дней" (см. model.js countRecentReportsOn)
@@ -40,6 +42,7 @@ const DEFAULTS = {
     managementCategoryId: null,
     managementChannelId: null,
     supportRoleId: null,
+    betaSupportRoleId: null,
     counter: 0,
     reports: [],
     ticketsById: {},

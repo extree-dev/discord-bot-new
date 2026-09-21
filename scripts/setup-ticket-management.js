@@ -30,6 +30,7 @@ client.once('clientReady', async () => {
         const betaModeratorRoleId = securityConfig.baseRoleIds?.['Beta-Moderator'] ?? null;
         const betaModeratorRole = betaModeratorRoleId ? guild.roles.cache.get(betaModeratorRoleId) : null;
         const supportRole = config.supportRoleId ? guild.roles.cache.get(config.supportRoleId) : null;
+        const betaSupportRole = config.betaSupportRoleId ? guild.roles.cache.get(config.betaSupportRoleId) : null;
 
         const categoryId = config.managementCategoryId ?? MANAGEMENT_CATEGORY_ID;
         const category =
@@ -48,7 +49,7 @@ client.once('clientReady', async () => {
 
         // Видят только staff — тот же список ролей и та же логика явного
         // оверрайта на самого бота, что submissionsChannel в setup-tickets.js.
-        const staffRoles = [supportRole, moderatorRole, betaModeratorRole].filter(Boolean);
+        const staffRoles = [supportRole, betaSupportRole, moderatorRole, betaModeratorRole].filter(Boolean);
         const overwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
             { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel] },
