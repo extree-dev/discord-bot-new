@@ -108,7 +108,11 @@ async function drawRow(ctx, entry, y) {
 
     ctx.font = '12px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText(`${entry.level?.title ?? ''} · Сообщений: ${entry.messageCount ?? 0}`, textX + 14, dotY);
+    ctx.fillText(
+        `${entry.level?.title ?? ''} (ур. ${entry.level?.number ?? 0}) · Сообщений: ${entry.messageCount ?? 0}`,
+        textX + 14,
+        dotY
+    );
 
     drawProgressBar(ctx, textX, y + 54, BAR_WIDTH, BAR_HEIGHT, entry.level?.progress, accent);
 

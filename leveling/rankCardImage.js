@@ -120,29 +120,33 @@ async function renderRankCard({
     ctx.fillStyle = '#c9cdfb';
     ctx.fillText(level.title, TEXT_X, 112);
 
+    // "Уровень N" — число растёт непрерывно (score / POINTS_PER_LEVEL,
+    // см. leveling/model.js), не привязано к потолку текущего яруса, в
+    // отличие от титула — участник на максимальном ярусе "Хранитель"
+    // продолжает набирать уровни и дальше, просто без новой роли/бонуса.
     ctx.font = '20px NotoSansCyrillic';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
-    const scoreLabel = level.next ? `${score} / ${level.next.min}` : `${score} (максимум)`;
-    ctx.fillText(scoreLabel, WIDTH - 60, 112);
+    ctx.fillText(`Уровень ${level.number}`, WIDTH - 60, 112);
     ctx.textAlign = 'left';
 
     drawProgressBar(ctx, TEXT_X, 148, WIDTH - TEXT_X - 60, 26, level.progress, accentHex);
 
-    // Вторая строка статистики под полосой: слева — сколько очков осталось
-    // до следующего уровня (на максимуме — что расти уже некуда), справа —
-    // из чего набран счёт (сообщения + голос) — активность, а не только
-    // итоговое число.
+    // Вторая строка статистики под полосой: слева — сколько уровней
+    // осталось до следующего яруса/роли (на максимальном ярусе — что
+    // расти по ролям уже некуда, хотя сам уровень продолжает расти),
+    // справа — из чего набран счёт (сообщения + голос + сам счёт) —
+    // активность, а не только итоговое число.
     ctx.font = '16px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
     ctx.textAlign = 'left';
     const remainingLabel = level.next
-        ? `Осталось: ${Math.max(0, level.next.min - score)} очков`
-        : 'Максимальный уровень';
+        ? `Осталось: ${Math.max(0, level.next.min - level.number)} ур. до «${level.next.title}»`
+        : 'Максимальный ярус';
     ctx.fillText(remainingLabel, TEXT_X, 200);
     ctx.textAlign = 'right';
     ctx.fillText(
-        `Сообщений: ${messageCount ?? 0} · В голосовых: ${formatVoiceMinutes(voiceMinutes ?? 0)}`,
+        `Сообщений: ${messageCount ?? 0} · В голосовых: ${formatVoiceMinutes(voiceMinutes ?? 0)} · Очков: ${score}`,
         WIDTH - 60,
         200
     );
