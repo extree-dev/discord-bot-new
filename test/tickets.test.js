@@ -7,11 +7,10 @@ const {
     countRecentReportsOn,
     formatDuration,
     formatReportedUser,
-    REASONS,
-    OPEN_REASON_PREFIX,
+    extractTargetId,
+    OPEN_BUTTON_ID,
     buildPanelMessage,
-    buildBugPanelMessage,
-    buildSubmissionCard,
+    buildReportCard,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -35,69 +34,40 @@ function makeMember({ roleIds = [], isAdmin = false, isModerator = false }) {
     };
 }
 
-// message — payload от toMessage(): components[0] — Container (заголовок/
-// текст), остальные — ActionRowBuilder с кнопками тем.
+// message — payload от toMessage(): components[0] — Container, [1] —
+// ActionRowBuilder с кнопкой.
 function extractButtonCustomIds(message) {
     return message.components.slice(1).flatMap(row => row.components.map(btn => btn.toJSON().custom_id));
 }
 
-test('REASONS: значения уникальны, и только "report" требует выбора пользователя', () => {
-    const values = REASONS.map(r => r.value);
-    assert.equal(values.length, new Set(values).size);
-    const withTargetUser = REASONS.filter(r => r.requiresTargetUser).map(r => r.value);
-    assert.deepEqual(withTargetUser, ['report']);
-    for (const r of REASONS) {
-        assert.equal(typeof r.label, 'string');
-        assert.ok(r.label.length > 0);
-    }
-});
-
-test('REASONS: только "bug" — отдельная (standalone) система', () => {
-    const standalone = REASONS.filter(r => r.standalone).map(r => r.value);
-    assert.deepEqual(standalone, ['bug']);
-});
-
-test('buildPanelMessage: не включает standalone-темы; buildBugPanelMessage — только их', () => {
-    const mainIds = extractButtonCustomIds(buildPanelMessage());
-    assert.ok(
-        !mainIds.includes(`${OPEN_REASON_PREFIX}bug`),
-        'основная панель не должна показывать кнопку бага — у него своя'
-    );
-    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}general`));
-    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}report`));
-    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}appeal`));
-    assert.ok(mainIds.includes(`${OPEN_REASON_PREFIX}other`));
-
-    const bugIds = extractButtonCustomIds(buildBugPanelMessage());
-    assert.deepEqual(bugIds, [`${OPEN_REASON_PREFIX}bug`]);
+test('buildPanelMessage: одна кнопка открытия жалобы', () => {
+    const ids = extractButtonCustomIds(buildPanelMessage());
+    assert.deepEqual(ids, [OPEN_BUTTON_ID]);
 });
 
 test('isStaff: пропускает участника с ролью поддержки', () => {
-    const config = { supportRoleId: 'support-role', reasonRoleIds: {} };
+    const config = { supportRoleId: 'support-role' };
     const member = makeMember({ roleIds: ['support-role'] });
     assert.equal(isStaff(config, member), true);
 });
 
 test('isStaff: пропускает администратора и модератора даже без роли поддержки', () => {
-    const config = { supportRoleId: 'support-role', reasonRoleIds: {} };
+    const config = { supportRoleId: 'support-role' };
     assert.equal(isStaff(config, makeMember({ isAdmin: true })), true);
     assert.equal(isStaff(config, makeMember({ isModerator: true })), true);
 });
 
 test('isStaff: обычный участник без роли и прав — не staff', () => {
-    const config = { supportRoleId: 'support-role', reasonRoleIds: {} };
+    const config = { supportRoleId: 'support-role' };
     assert.equal(isStaff(config, makeMember({})), false);
 });
 
-test('isStaff: специалист-роль темы считается staff глобально (нет больше отдельных "тикетов" со своей темой)', () => {
-    const config = {
-        supportRoleId: 'support-role',
-        reasonRoleIds: { bug: 'dev-role', report: 'reports-role' },
-    };
-    const devMember = makeMember({ roleIds: ['dev-role'] });
-    assert.equal(isStaff(config, devMember), true);
-    const outsider = makeMember({ roleIds: ['some-other-role'] });
-    assert.equal(isStaff(config, outsider), false);
+test('extractTargetId: находит чистый ID (снежинку), не находит тег или мусор', () => {
+    assert.equal(extractTargetId('354261484395560961'), '354261484395560961');
+    assert.equal(extractTargetId('  354261484395560961  '), '354261484395560961');
+    assert.equal(extractTargetId('Jerry Smith#6666'), null);
+    assert.equal(extractTargetId('123'), null); // слишком коротко для снежинки
+    assert.equal(extractTargetId(''), null);
 });
 
 test('countRecentReportsOn: считает только жалобы на того же игрока в пределах окна', () => {
@@ -128,27 +98,16 @@ test('formatReportedUser: НЕ <@id>-упоминание — только tag (
     assert.ok(!formatReportedUser('123', 'Тег').includes('<@'));
 });
 
-test('buildSubmissionCard: "Наказать" — только при targetId, "Снять наказание" — только у обжалования', () => {
-    const reportReason = REASONS.find(r => r.value === 'report');
-    const appealReason = REASONS.find(r => r.value === 'appeal');
-    const generalReason = REASONS.find(r => r.value === 'general');
-
-    const withTarget = buildSubmissionCard(reportReason, 'author1', 'текст', { targetId: 'target1' });
-    const row = withTarget[1];
-    assert.ok(row, 'при targetId должен быть ряд с кнопками');
+test('buildReportCard: кнопка "Наказать" — только когда targetId резолвится', () => {
+    const withTarget = buildReportCard('author1', '354261484395560961', '354261484395560961', 'Tag#0001', 'текст', 0);
+    assert.equal(withTarget.length, 2, 'с targetId должен быть второй компонент — ряд с кнопкой');
     assert.deepEqual(
-        row.components.map(c => c.toJSON().custom_id),
-        ['ticket_punish:target1']
+        withTarget[1].components.map(c => c.toJSON().custom_id),
+        ['ticket_punish:354261484395560961']
     );
 
-    const appeal = buildSubmissionCard(appealReason, 'author2', 'текст');
-    assert.deepEqual(
-        appeal[1].components.map(c => c.toJSON().custom_id),
-        ['ticket_unpunish:author2']
-    );
-
-    const general = buildSubmissionCard(generalReason, 'author3', 'текст');
-    assert.equal(general.length, 1, 'без targetId и не-appeal — вообще без ряда кнопок');
+    const withoutTarget = buildReportCard('author2', 'Jerry Smith#6666', null, null, 'текст', 0);
+    assert.equal(withoutTarget.length, 1, 'без резолвленного targetId — вообще без кнопок');
 });
 
 test('tickets/config load() подставляет дефолты и не путает вложенный reports между вызовами', async () => {
