@@ -89,16 +89,53 @@ function formatDuration(ms) {
 
 // Поле "тег/ID" — свободный текст (как на референс-сервере), не
 // UserSelectMenu: участник мог ввести чистый ID (снежинку, 17-20 цифр)
-// или тег вида "Имя#1234". Резолвим только чистый ID — искать участника
-// по тегу без полного кэша участников гильдии ненадёжно, а лезть за
-// каждым тегом в Discord API при каждой жалобе того не стоит. Если ID не
-// вытащить — сообщение в треде просто показывает введённый текст как
-// есть, без кнопки "Наказать" (честнее нерабочей кнопки, которая не
-// найдёт, кого наказывать).
+// или настоящее упоминание вида <@id>/<@!id> (если скопировал пинг из
+// чата — тут ID зашит гарантированно верно, разбор без единого обращения
+// к Discord). Более "живые" форматы (@ник, .ник, Тег#1234) чистая функция
+// не ловит принципиально — они требуют похода в Discord API, см.
+// resolveTargetByUsername ниже. Если ничего не вытащить — сообщение в
+// треде просто показывает введённый текст как есть, без кнопки
+// "Наказать" (честнее нерабочей кнопки, которая не найдёт, кого наказывать).
 const SNOWFLAKE_RE = /^\d{17,20}$/;
+const MENTION_RE = /^<@!?(\d{17,20})>$/;
 function extractTargetId(rawTarget) {
     const trimmed = rawTarget.trim();
-    return SNOWFLAKE_RE.test(trimmed) ? trimmed : null;
+    if (SNOWFLAKE_RE.test(trimmed)) return trimmed;
+    const mentionMatch = trimmed.match(MENTION_RE);
+    return mentionMatch ? mentionMatch[1] : null;
+}
+
+// Живой ввод вместо чистого ID/упоминания — участник часто пишет тег
+// привычным способом ("@ник", ".ник" — как обращение в чате, где Discord
+// сам подставляет @ при наборе, но в текстовом поле формы это просто
+// буквы) или старым форматом "Тег#1234". Чистим привычный мусор (ведущие
+// @, ведущую точку, "#цифры" в конце) и ищем участника через поиск по
+// гильдии (Discord Search Guild Members — по префиксу username/nickname,
+// не требует привилегированного интента). Резолвим, только если после
+// чистки нашлось РОВНО ОДНО точное совпадение (без учёта регистра) по
+// username/nickname/отображаемому имени — если 0 или больше одного, не
+// гадаем и возвращаем null (то же поведение, что и для нерезолвящегося
+// ID: сырой текст в карточке, без кнопки "Наказать").
+async function resolveTargetByUsername(guild, rawTarget) {
+    const cleaned = rawTarget
+        .trim()
+        .replace(/^@+/, '')
+        .replace(/^\.+/, '')
+        .replace(/#\d{4}$/, '')
+        .trim();
+    if (!cleaned) return null;
+
+    const results = await guild.members.fetch({ query: cleaned, limit: 5 }).catch(() => null);
+    if (!results || results.size === 0) return null;
+
+    const cleanedLower = cleaned.toLowerCase();
+    const exactMatches = [...results.values()].filter(
+        m =>
+            m.user.username.toLowerCase() === cleanedLower ||
+            (m.nickname && m.nickname.toLowerCase() === cleanedLower) ||
+            (m.user.globalName && m.user.globalName.toLowerCase() === cleanedLower)
+    );
+    return exactMatches.length === 1 ? exactMatches[0] : null;
 }
 
 // НЕ <@id> — упоминание нарушителя запинговало бы его самого уведомлением
@@ -381,11 +418,22 @@ async function rejectCloseRequest(threadId) {
 async function submitReport(interaction, rawTarget, description) {
     const guild = interaction.guild;
     const now = Date.now();
-    const targetId = extractTargetId(rawTarget);
+    let targetId = extractTargetId(rawTarget);
     let targetTag = null;
     if (targetId) {
         const member = await guild.members.fetch(targetId).catch(() => null);
         targetTag = member?.user.tag ?? null;
+    } else {
+        // Чистый ID/упоминание не нашли — пробуем разобрать "живой" ввод
+        // (@ник, .ник, Тег#1234) через поиск участников гильдии. Резолвим,
+        // только если resolveTargetByUsername нашла ровно одно точное
+        // совпадение — иначе targetId/targetTag остаются null, как и
+        // раньше (сырой текст в карточке, без кнопки "Наказать").
+        const member = await resolveTargetByUsername(guild, rawTarget);
+        if (member) {
+            targetId = member.id;
+            targetTag = member.user.tag;
+        }
     }
 
     // Номер тикета и история жалоб — одной атомарной операцией (лок
@@ -579,6 +627,7 @@ module.exports = {
     formatDuration,
     formatReportedUser,
     extractTargetId,
+    resolveTargetByUsername,
     buildPanelMessage,
     buildThreadWelcomeMessage,
     buildManagementPanelMessage,
