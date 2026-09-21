@@ -80,11 +80,6 @@ const REASONS = [
         descriptionPlaceholder: '1) Что делал 2) Что ожидал 3) Что произошло. Приложи ссылку на скрин/видео.',
         welcomeMessage:
             'Спасибо за репорт! Если ещё не приложил — пришли скриншот или видео и укажи платформу (ПК/моб.) — это сильно ускорит разбор.',
-        staffChecklist: [
-            'Проверь, воспроизводится ли баг у тебя',
-            'Уточни платформу и версию клиента, если автор не указал',
-            'Если баг подтверждён — передай разработчику бота и отметь тикет шаблоном «Баг подтверждён»',
-        ],
     },
     {
         value: 'report',
@@ -94,11 +89,6 @@ const REASONS = [
         descriptionPlaceholder: 'Приложи ссылку на сообщение или скрин-доказательство.',
         welcomeMessage:
             'Жалоба принята в обработку. Если есть ещё скриншоты или ссылки на сообщения с нарушением — прикрепи их сюда, это поможет модератору быстрее принять решение.',
-        staffChecklist: [
-            'Проверь приложенные доказательства',
-            'Посмотри историю сообщений нарушителя в канале, если нужно больше контекста',
-            'Прими решение: наказать кнопкой «Наказать» или отклонить шаблоном ответа',
-        ],
     },
     {
         value: 'appeal',
@@ -107,11 +97,6 @@ const REASONS = [
         descriptionPlaceholder: 'Укажи тип наказания (бан/мут/варн) и свою версию произошедшего.',
         welcomeMessage:
             'Апелляция принята и передана модерации. Дождись решения здесь — повторные обращения по тому же наказанию не ускорят рассмотрение.',
-        staffChecklist: [
-            'Проверь причину и срок наказания в журнале модерации',
-            'Оцени, есть ли основания для смягчения',
-            'Прими решение и сообщи автору шаблоном «Апелляция на рассмотрении/отклонена»',
-        ],
     },
     {
         value: 'other',
@@ -237,11 +222,27 @@ function findOpenTicketByOwner(config, userId) {
 // момента закрытия предыдущего тикета этого автора — новый не открыть.
 // Не мешает findOpenTicketByOwner (тот уже блокирует, если тикет вообще
 // не закрыт) — это отдельная проверка именно на скорость повторного
-// открытия после закрытия.
+// открытия после закрытия. config.ticketCooldownResets[userId] — ручной
+// сброс через /ticket cooldown-reset: если он выставлен позже closedAt
+// найденного тикета, кулдаун для этого автора считается снятым.
 function findRecentlyClosedTicketByOwner(config, userId, now, cooldownMs) {
-    return Object.entries(config.tickets).find(
-        ([, t]) => t.ownerId === userId && t.status === STATUS.RESOLVED && t.closedAt && now - t.closedAt < cooldownMs
-    );
+    return Object.entries(config.tickets).find(([, t]) => {
+        if (t.ownerId !== userId || t.status !== STATUS.RESOLVED || !t.closedAt) return false;
+        if (now - t.closedAt >= cooldownMs) return false;
+        const resetAt = config.ticketCooldownResets?.[userId];
+        return !(resetAt && resetAt >= t.closedAt);
+    });
+}
+
+// /ticket cooldown-reset <user> — снимает антиспам-кулдаун вручную,
+// не трогая записи самих тикетов (closedAt должен остаться точным для
+// /ticket stats, поэтому сброс — отдельная отметка времени, а не
+// правка старого тикета).
+async function resetTicketCooldown(userId) {
+    await update(cfg => {
+        cfg.ticketCooldownResets = cfg.ticketCooldownResets ?? {};
+        cfg.ticketCooldownResets[userId] = Date.now();
+    });
 }
 
 // Сколько жалоб на того же игрока (reportedUserId) уже было за последние
@@ -299,37 +300,23 @@ function formatReportedUser(entry) {
         : `\`${entry.reportedUserId}\``;
 }
 
-// Сколько тикетов закрыл каждый staff, средняя оценка и среднее время
-// первого ответа — по всем записям в сторе (закрытые тикеты не удаляются,
-// только помечаются RESOLVED).
+// Сколько тикетов закрыл каждый staff и среднее время первого ответа —
+// по всем записям в сторе (закрытые тикеты не удаляются, только
+// помечаются RESOLVED).
 function aggregateStats(config) {
     const perStaff = {};
-    let ratingSum = 0;
-    let ratedCount = 0;
     let firstResponseSum = 0;
     let firstResponseCount = 0;
 
     function getStats(staffId) {
         if (!perStaff[staffId]) {
-            perStaff[staffId] = { closed: 0, totalResolveMs: 0, ratingSum: 0, ratedCount: 0 };
+            perStaff[staffId] = { closed: 0, totalResolveMs: 0 };
         }
         return perStaff[staffId];
     }
 
     for (const entry of Object.values(config.tickets)) {
         if (entry.status !== STATUS.RESOLVED) continue;
-        if (typeof entry.rating === 'number') {
-            ratingSum += entry.rating;
-            ratedCount += 1;
-            // Оценка относится к тому, кто вёл тикет (claimedBy), а не к
-            // тому, кто его закрыл (closedBy) — закрыть может и сам автор
-            // обращения, и он не "модератор" для целей рейтинга.
-            if (entry.claimedBy) {
-                const stats = getStats(entry.claimedBy);
-                stats.ratingSum += entry.rating;
-                stats.ratedCount += 1;
-            }
-        }
         if (typeof entry.firstStaffReplyAt === 'number' && typeof entry.createdAt === 'number') {
             firstResponseSum += entry.firstStaffReplyAt - entry.createdAt;
             firstResponseCount += 1;
@@ -344,8 +331,6 @@ function aggregateStats(config) {
 
     return {
         perStaff,
-        averageRating: ratedCount ? ratingSum / ratedCount : null,
-        ratedCount,
         averageFirstResponseMs: firstResponseCount ? firstResponseSum / firstResponseCount : null,
     };
 }
@@ -440,7 +425,6 @@ function buildTicketControlRow(entry = null) {
 
     const secondRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('ticket_voice').setLabel('Обсудить голосом').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ticket_note').setLabel('Заметка (staff)').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId('ticket_priority')
             .setLabel(entry?.urgent ? 'Снять приоритет' : 'Приоритет')
@@ -626,9 +610,6 @@ async function createTicket(interaction, reason, description, extra = {}) {
         closedBy: null,
         escalatedAt: null,
         warnedAt: null,
-        rating: null,
-        ratedAt: null,
-        notesThreadId: null,
         voiceChannelId: null,
         reportedUserId: extra.reportedUserId ?? null,
         reportedUserTag: extra.reportedUserTag ?? null,
@@ -706,36 +687,6 @@ async function createTicket(interaction, reason, description, extra = {}) {
     // создания тикета (это уже показывает rootMessage выше).
     if (reason.welcomeMessage) {
         await thread.send(toMessage(infoContainer(reason.welcomeMessage, 'Пока ждёшь ответа'))).catch(() => {});
-    }
-
-    // Мини-чеклист для staff под конкретную тему — сразу в тред заметок
-    // (создаём его сейчас же, а не лениво при первом /ticket note, только
-    // если у темы есть готовый чеклист: без него пустой тред заметок
-    // никому не нужен). Сам тред заметок — необязательная надстройка над
-    // уже созданным и полностью рабочим тикетом: если Discord откажет
-    // (лимит активных тредов в канале, временная ошибка API и т.п.), это
-    // не должно ронять createTicket() целиком — тикет уже существует,
-    // владелец уже добавлен, корневая карточка уже отправлена, значит
-    // ошибку тут просто логируем и продолжаем без чеклиста, а не бросаем
-    // наверх (иначе interaction, вызвавший createTicket, тоже упал бы,
-    // хотя с точки зрения пользователя тикет открылся нормально).
-    if (reason.staffChecklist?.length) {
-        const notesThread = await createNotesThread(panelChannel, thread.id, number).catch(err => {
-            console.error('tickets: не удалось создать тред заметок:', err);
-            return null;
-        });
-        if (notesThread) {
-            await notesThread
-                .send(
-                    toMessage(
-                        infoContainer(
-                            reason.staffChecklist.map((step, i) => `${i + 1}. ${step}`).join('\n'),
-                            'Чек-лист для staff'
-                        )
-                    )
-                )
-                .catch(() => {});
-        }
     }
 
     return { thread, cardFailed };
@@ -985,43 +936,6 @@ async function getOrCreateDiscussionVoiceChannel(interaction, entry) {
     return { channel, created: true };
 }
 
-// Общая часть создания треда заметок — вынесена, чтобы createTicket
-// (нет никакого interaction внутри уже созданного треда, только сам
-// panelChannel) мог завести notes-тред сразу под staffChecklist, не
-// подставляя туда чужой interaction.channelId по ошибке.
-async function createNotesThread(parentChannel, threadId, number) {
-    const notesThread = await parentChannel.threads.create({
-        name: `тикет-${number}-заметки`.slice(0, 95).toLowerCase(),
-        type: ChannelType.PrivateThread,
-        invitable: false,
-        reason: `Заметки staff по тикету #${number}`,
-    });
-    await update(cfg => {
-        const e = cfg.tickets[threadId];
-        if (e) e.notesThreadId = notesThread.id;
-    });
-    return notesThread;
-}
-
-// Приватный тред с внутренними заметками staff, отдельный от основного
-// тикета (чтобы автор обращения их не видел) — создаётся лениво при
-// первом /ticket note и переиспользуется дальше (либо сразу при
-// createTicket, если у темы есть staffChecklist — см. createNotesThread
-// выше). Участники добавляются по одному по мере использования команды,
-// а не массово по роли — Discord не даёт добавить в тред "всех с ролью
-// X" одним вызовом API.
-async function getOrCreateNotesThread(interaction, entry) {
-    if (entry.notesThreadId) {
-        const existing =
-            interaction.guild.channels.cache.get(entry.notesThreadId) ??
-            (await interaction.guild.channels.fetch(entry.notesThreadId).catch(() => null));
-        if (existing) return existing;
-    }
-
-    const parent = interaction.channel.isThread() ? interaction.channel.parent : interaction.channel;
-    return createNotesThread(parent, interaction.channelId, entry.number);
-}
-
 function escapeHtml(str) {
     return String(str ?? '').replace(
         /[&<>"']/g,
@@ -1191,40 +1105,14 @@ async function closeTicket(guild, channel, entry, closedBy, approvedBy = null, i
         await channel.send(toMessage(closeCard)).catch(() => {});
     }
 
-    // Запрос на оценку — прямо в треде тикета, видимым сообщением (не
-    // в личку — ЛС бот больше не пишет, см. utils/punishmentNotice.js,
-    // и не эфемерно тому, кто закрыл — тикет мог закрыть staff, а не
-    // автор, и тогда эфемерное сообщение до автора вообще бы не
-    // дошло). Отправляется всегда, независимо от того, кто и как
-    // закрыл тикет, — автор мог давно выйти из треда, но т.к. кнопки
-    // оценки проверяют interaction.user.id === entry.ownerId (см.
-    // handleRatingButton), никто кроме автора нажать их всё равно не
-    // сможет.
-    const ratingRow = new ActionRowBuilder().addComponents(
-        [1, 2, 3, 4, 5].map(n =>
-            new ButtonBuilder()
-                .setCustomId(`ticket_rate:${channel.id}:${n}`)
-                .setLabel(String(n))
-                .setStyle(ButtonStyle.Secondary)
-        )
-    );
-    const ratingCard = baseContainer(COLORS.primary).addTextDisplayComponents(
-        textDisplay(
-            formatBody(
-                'Оцените работу поддержки',
-                `${owner ? `${owner}, оцените` : 'Оцените'}, насколько вы довольны решением вопроса — от 1 до 5.`
-            )
-        )
-    );
-    await channel.send(toMessage(ratingCard, ratingRow)).catch(() => {});
-
+    // Тред тикета удаляется с сервера целиком (не архивируется) — по
+    // решению администратора: переписка и так уже сохранена в
+    // HTML-транскрипте выше (logChannel), держать сам тред и дальше
+    // смысла нет. Задержка та же, что была у архивации — чтобы
+    // "Тикет закрывается" успело дойти до клиентов, прежде чем канал
+    // исчезнет.
     setTimeout(async () => {
-        if (channel.isThread()) {
-            await channel.setLocked(true, 'Тикет закрыт').catch(() => {});
-            await channel.setArchived(true, 'Тикет закрыт').catch(() => {});
-        } else {
-            await channel.delete('Тикет закрыт').catch(() => {});
-        }
+        await channel.delete('Тикет закрыт').catch(() => {});
     }, 5000);
 
     return { closedAt: now };
@@ -1419,9 +1307,17 @@ async function reopenTicket(guild, number) {
     const [threadId, entry] = found;
     if (entry.status !== STATUS.RESOLVED) return { error: `Тикет #${number} не закрыт.` };
 
+    // После закрытия тред тикета удаляется с сервера целиком (см.
+    // closeTicket) — переоткрыть в норме нечего, если только удаление
+    // почему-то не сработало (например, тред уже был удалён вручную, или
+    // setTimeout не успел выполниться до перезапуска бота). В этом
+    // случае честно говорим, что треда больше нет, а не притворяемся,
+    // что переоткрытие возможно.
     const thread = guild.channels.cache.get(threadId) ?? (await guild.channels.fetch(threadId).catch(() => null));
     if (!thread) {
-        return { error: `Тред тикета #${number} не найден (возможно, был создан по старой схеме и уже удалён).` };
+        return {
+            error: `Тред тикета #${number} уже удалён с сервера (после закрытия треды удаляются) — переоткрыть нечего, предложи автору открыть новый тикет.`,
+        };
     }
 
     if (thread.isThread()) {
@@ -1492,18 +1388,6 @@ async function markOwnerNotified(threadId) {
     });
 }
 
-async function recordRating(threadId, rating) {
-    let entry = null;
-    await update(cfg => {
-        const e = cfg.tickets[threadId];
-        if (!e) return;
-        e.rating = rating;
-        e.ratedAt = Date.now();
-        entry = e;
-    });
-    return entry;
-}
-
 module.exports = {
     STATUS,
     STATUS_LABELS,
@@ -1516,6 +1400,7 @@ module.exports = {
     isSeniorStaff,
     findOpenTicketByOwner,
     findRecentlyClosedTicketByOwner,
+    resetTicketCooldown,
     canCloseTicket,
     formatDuration,
     formatReportedUser,
@@ -1544,7 +1429,6 @@ module.exports = {
     unpunishTicketOwner,
     createDiscussionVoiceChannel,
     getOrCreateDiscussionVoiceChannel,
-    getOrCreateNotesThread,
     escapeHtml,
     buildHtmlTranscript,
     closeTicket,
@@ -1552,6 +1436,5 @@ module.exports = {
     rejectTicketClosure,
     reopenTicket,
     recordActivity,
-    recordRating,
     postCannedResponse,
 };

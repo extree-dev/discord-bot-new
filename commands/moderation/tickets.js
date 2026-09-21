@@ -40,6 +40,12 @@ module.exports = {
             sub
                 .setName('close')
                 .setDescription('Закрыть текущий тикет — запасной путь, если карточка с кнопками не отправилась')
+        )
+        .addSubcommand(sub =>
+            sub
+                .setName('cooldown-reset')
+                .setDescription('Снять антиспам-кулдаун на открытие тикета для участника')
+                .addUserOption(opt => opt.setName('user').setDescription('Участник').setRequired(true))
         ),
 
     async execute(interaction) {
@@ -76,7 +82,7 @@ module.exports = {
         }
 
         if (sub === 'stats') {
-            const { perStaff, averageRating, ratedCount, averageFirstResponseMs } = tickets.aggregateStats(config);
+            const { perStaff, averageFirstResponseMs } = tickets.aggregateStats(config);
             const staffEntries = Object.entries(perStaff);
             if (!staffEntries.length) {
                 return interaction.reply({
@@ -90,19 +96,12 @@ module.exports = {
                     const resolveTime = s.closed
                         ? `, среднее время решения: ${tickets.formatDuration(s.totalResolveMs / s.closed)}`
                         : '';
-                    const rating = s.ratedCount
-                        ? `, оценка: ${(s.ratingSum / s.ratedCount).toFixed(1)}/5 (${s.ratedCount})`
-                        : '';
-                    return `<@${staffId}> — закрыл: ${s.closed}${resolveTime}${rating}`;
+                    return `<@${staffId}> — закрыл: ${s.closed}${resolveTime}`;
                 });
             const embed = baseEmbed(COLORS.primary)
                 .setDescription(formatBody('Статистика поддержки'))
                 .addFields(
                     { name: 'По сотрудникам', value: lines.join('\n').slice(0, 1024) },
-                    {
-                        name: 'Средняя оценка',
-                        value: averageRating ? `${averageRating.toFixed(1)} / 5 (${ratedCount} оценок)` : 'нет оценок',
-                    },
                     {
                         name: 'Среднее время первого ответа',
                         value: averageFirstResponseMs ? tickets.formatDuration(averageFirstResponseMs) : 'нет данных',
@@ -187,6 +186,15 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
             await tickets.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
             return interaction.editReply({ embeds: [successEmbed('Тикет закрыт.', 'Готово')] });
+        }
+
+        if (sub === 'cooldown-reset') {
+            const target = interaction.options.getUser('user');
+            await tickets.resetTicketCooldown(target.id);
+            return interaction.reply({
+                embeds: [successEmbed(`Кулдаун на открытие тикета снят для ${target}.`, 'Готово')],
+                ephemeral: true,
+            });
         }
 
         const number = interaction.options.getInteger('number');

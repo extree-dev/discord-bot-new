@@ -65,13 +65,6 @@ test('REASONS: значения уникальны, и только "report" т�
         assert.ok(r.label.length > 0);
         assert.equal(typeof r.welcomeMessage, 'string');
         assert.ok(r.welcomeMessage.length > 0, `у темы "${r.value}" нет приветственного сообщения`);
-        if (r.staffChecklist) {
-            assert.ok(
-                Array.isArray(r.staffChecklist) && r.staffChecklist.length > 0,
-                `staffChecklist у "${r.value}" пуст`
-            );
-            for (const step of r.staffChecklist) assert.ok(typeof step === 'string' && step.length > 0);
-        }
     }
     const urgent = REASONS.filter(r => r.urgent).map(r => r.value);
     assert.deepEqual(urgent, []);
@@ -253,6 +246,25 @@ test('findRecentlyClosedTicketByOwner находит тикет, закрыты�
     assert.equal(findRecentlyClosedTicketByOwner(config, 'no-such-user', now, cooldownMs), undefined);
 });
 
+test('findRecentlyClosedTicketByOwner: ticketCooldownResets снимает кулдаун, если сброс новее closedAt', () => {
+    const now = 1_000_000;
+    const config = {
+        tickets: {
+            justClosed: { ownerId: 'user-1', status: STATUS.RESOLVED, closedAt: now - 1_000 },
+        },
+        ticketCooldownResets: {
+            'user-1': now - 500, // сброшено ПОСЛЕ закрытия — кулдаун снят
+        },
+    };
+    const cooldownMs = 5_000;
+    assert.equal(findRecentlyClosedTicketByOwner(config, 'user-1', now, cooldownMs), undefined);
+
+    config.ticketCooldownResets['user-1'] = now - 2_000; // сброшено ДО закрытия — не считается
+    const found = findRecentlyClosedTicketByOwner(config, 'user-1', now, cooldownMs);
+    assert.ok(found);
+    assert.equal(found[0], 'justClosed');
+});
+
 test('canCloseTicket: незанятый тикет закрывает автор или любой staff', () => {
     const config = { supportRoleId: 'support-role' };
     const entry = { ownerId: 'owner-1', claimedBy: null };
@@ -290,7 +302,7 @@ test('formatDuration форматирует миллисекунды в чело
     assert.equal(formatDuration(null), '—');
 });
 
-test('aggregateStats считает закрытые тикеты по staff и среднюю оценку', () => {
+test('aggregateStats считает закрытые тикеты по staff', () => {
     const config = {
         tickets: {
             t1: {
@@ -299,7 +311,6 @@ test('aggregateStats считает закрытые тикеты по staff и 
                 claimedBy: 'staff-1',
                 createdAt: 0,
                 closedAt: 1000,
-                rating: 5,
             },
             t2: {
                 status: STATUS.RESOLVED,
@@ -307,42 +318,15 @@ test('aggregateStats считает закрытые тикеты по staff и 
                 claimedBy: 'staff-1',
                 createdAt: 0,
                 closedAt: 3000,
-                rating: 3,
             },
             t3: { status: STATUS.RESOLVED, closedBy: 'staff-2', claimedBy: 'staff-2', createdAt: 0, closedAt: 2000 },
             t4: { status: STATUS.OPEN, closedBy: null, createdAt: 0 },
         },
     };
-    const { perStaff, averageRating, ratedCount } = aggregateStats(config);
+    const { perStaff } = aggregateStats(config);
     assert.equal(perStaff['staff-1'].closed, 2);
     assert.equal(perStaff['staff-1'].totalResolveMs, 4000);
-    assert.equal(perStaff['staff-1'].ratedCount, 2);
-    assert.equal(perStaff['staff-1'].ratingSum, 8);
     assert.equal(perStaff['staff-2'].closed, 1);
-    assert.equal(perStaff['staff-2'].ratedCount, 0);
-    assert.equal(ratedCount, 2);
-    assert.equal(averageRating, 4);
-});
-
-test('aggregateStats относит оценку к claimedBy, а не к closedBy (автор мог закрыть тикет сам)', () => {
-    const config = {
-        tickets: {
-            t1: {
-                status: STATUS.RESOLVED,
-                closedBy: 'owner-1',
-                claimedBy: 'staff-1',
-                createdAt: 0,
-                closedAt: 1000,
-                rating: 4,
-            },
-        },
-    };
-    const { perStaff } = aggregateStats(config);
-    assert.equal(perStaff['staff-1'].ratedCount, 1);
-    assert.equal(perStaff['staff-1'].ratingSum, 4);
-    assert.equal(perStaff['staff-1'].closed, 0);
-    assert.equal(perStaff['owner-1'].closed, 1);
-    assert.equal(perStaff['owner-1'].ratedCount, 0);
 });
 
 test('aggregateStats: averageFirstResponseMs считает только тикеты с firstStaffReplyAt', () => {
