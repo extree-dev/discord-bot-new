@@ -1,12 +1,9 @@
 const handlers = require('./handlers');
 const model = require('./model');
-const sweep = require('./sweep');
 const config = require('./config');
 
-function register(client) {
-    handlers.register(client);
-    sweep.start(client);
-    console.log('Система тикетов активирована.');
+function register() {
+    console.log('Система обращений (тикеты) активирована.');
 }
 
 // Публичный API фичи tickets/. Команды и скрипты настройки должны идти
@@ -21,16 +18,6 @@ module.exports = {
     buildBugPanelMessage: model.buildBugPanelMessage,
     getConfig: config.load,
     isStaff: model.isStaff,
-    isTrialStaff: model.isTrialStaff,
-    canCloseTicket: model.canCloseTicket,
-    formatDuration: model.formatDuration,
-    aggregateStats: model.aggregateStats,
-    reopenTicket: model.reopenTicket,
-    closeTicket: model.closeTicket,
-    requestTicketClosure: model.requestTicketClosure,
-    postCannedResponse: model.postCannedResponse,
-    resetTicketCooldown: model.resetTicketCooldown,
-    CANNED_RESPONSES: model.CANNED_RESPONSES,
-    STATUS: model.STATUS,
-    STATUS_LABELS: model.STATUS_LABELS,
+    countRecentReportsOn: model.countRecentReportsOn,
+    REPORT_HISTORY_WINDOW_MS: model.REPORT_HISTORY_WINDOW_MS,
 };
