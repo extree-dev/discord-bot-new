@@ -1,10 +1,12 @@
-// Доменный слой тикетов: сужен до одной формы — жалоба на игрока (по
-// прямому референсу администратора). Кнопка → модалка с двумя текстовыми
-// полями (тег/ID, описание) → карточка падает в канал стафу, без треда и
-// без дальнейшего движения. Общие вопросы, апелляции, баги и весь
-// жизненный цикл (claim/close/эскалация/рейтинги/транскрипты) убраны —
-// см. CHANGELOG. Роутинг по customId — в tickets/handlers.js.
-const { PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+// Доменный слой тикетов: одна форма — жалоба на игрока (по прямому
+// референсу администратора). Кнопка → модалка с двумя текстовыми полями
+// (тег/ID, описание) → бот заводит приватный тред "ticket-<N>" в
+// submissionsChannel и добавляет туда автора — дальше переписка идёт
+// прямо в треде, без claim/close/эскалации/приоритета/рейтингов и
+// прочего жизненного цикла старой системы. Общие вопросы, апелляции,
+// баги убраны целиком — см. CHANGELOG. Роутинг по customId — в
+// tickets/handlers.js.
+const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { notifyPunishment } = require('../utils/punishmentNotice');
@@ -26,7 +28,7 @@ function isStaff(config, member) {
 
 // Сколько жалоб на того же игрока уже было за последние windowMs —
 // снимок в момент отправки формы, чтобы модератор сразу видел повторного
-// нарушителя прямо в карточке, а не искал историю руками.
+// нарушителя прямо в треде, а не искал историю руками.
 const REPORT_HISTORY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 function countRecentReportsOn(reports, targetUserId, now, windowMs) {
     return reports.filter(r => r.targetUserId === targetUserId && now - r.createdAt <= windowMs).length;
@@ -53,23 +55,23 @@ function formatDuration(ms) {
 // или тег вида "Имя#1234". Резолвим только чистый ID — искать участника
 // по тегу без полного кэша участников гильдии ненадёжно, а лезть за
 // каждым тегом в Discord API при каждой жалобе того не стоит. Если ID не
-// вытащить — карточка просто показывает введённый текст как есть, без
-// кнопки "Наказать" (честнее нерабочей кнопки, которая не найдёт, кого
-// наказывать).
+// вытащить — сообщение в треде просто показывает введённый текст как
+// есть, без кнопки "Наказать" (честнее нерабочей кнопки, которая не
+// найдёт, кого наказывать).
 const SNOWFLAKE_RE = /^\d{17,20}$/;
 function extractTargetId(rawTarget) {
     const trimmed = rawTarget.trim();
     return SNOWFLAKE_RE.test(trimmed) ? trimmed : null;
 }
 
-// НЕ <@id> — упоминание нарушителя в карточке запинговало бы его самого
-// уведомлением о жалобе на себя. targetTag — тег на момент отправки формы
-// (может быть null, если фетч не удался — тогда просто ID).
+// НЕ <@id> — упоминание нарушителя запинговало бы его самого уведомлением
+// о жалобе на себя. targetTag — тег на момент отправки формы (может быть
+// null, если фетч не удался — тогда просто ID).
 function formatReportedUser(targetId, targetTag) {
     return targetTag ? `${targetTag} (\`${targetId}\`)` : `\`${targetId}\``;
 }
 
-// Публичная панель — один кнопка вместо сетки тем (раньше их было пять:
+// Публичная панель — одна кнопка вместо сетки тем (раньше их было пять:
 // общий вопрос/баг/жалоба/апелляция/другое — по решению администратора
 // осталась только жалоба на игрока, сетка кнопок для одной темы не нужна).
 function buildPanelMessage() {
@@ -77,25 +79,31 @@ function buildPanelMessage() {
         textDisplay(
             formatBody(
                 'Жалоба на игрока',
-                'Нажми кнопку ниже, укажи тег/ID нарушителя и опиши ситуацию — форма сразу уйдёт команде поддержки.'
+                'Нажми кнопку ниже, укажи тег/ID нарушителя и опиши ситуацию — откроется тикет с командой поддержки.'
             )
         )
     );
-    const button = new ButtonBuilder().setCustomId(OPEN_BUTTON_ID).setLabel('Тикет').setStyle(ButtonStyle.Secondary);
+    const button = new ButtonBuilder()
+        .setCustomId(OPEN_BUTTON_ID)
+        .setLabel('Открыть тикет')
+        .setStyle(ButtonStyle.Secondary);
     return toMessage(container, new ActionRowBuilder().addComponents(button));
 }
 
-// Карточка, которая падает в канал стафу по итогам отправленной формы —
-// плоское сообщение без кнопок жизненного цикла. "Наказать" — только
-// если targetId удалось вытащить из введённого текста (см. extractTargetId).
-function buildReportCard(authorId, rawTarget, targetId, targetTag, description, reportHistoryCount) {
+// Первое сообщение в новом треде — плоское, без кнопок жизненного цикла
+// (claim/close и т.п. не нужны, весь дальнейший разговор — обычная
+// переписка в треде). "Наказать" — только если targetId удалось вытащить
+// из введённого текста (см. extractTargetId).
+function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount) {
     const container = baseContainer(COLORS.primary)
-        .addTextDisplayComponents(textDisplay(formatBody('Жалоба на игрока', description)))
+        .addTextDisplayComponents(
+            textDisplay(formatBody('Тикет открыт', 'Ожидайте, скоро мы присоединимся к вашему тикету.'))
+        )
         .addSeparatorComponents(separator());
 
     const infoLines = [
-        `**От:** <@${authorId}>`,
-        `**Указано:** ${targetId ? formatReportedUser(targetId, targetTag) : `\`${rawTarget}\``}`,
+        `**Тег/ID:** ${targetId ? formatReportedUser(targetId, targetTag) : `\`${rawTarget}\``}`,
+        `**Описание:** ${description}`,
     ];
     if (reportHistoryCount > 1) {
         infoLines.push(`**История:** ${reportHistoryCount} жалоб(ы) за 30 дней`);
@@ -112,11 +120,12 @@ function buildReportCard(authorId, rawTarget, targetId, targetTag, description, 
     return [container, row];
 }
 
-// Отправляет заполненную форму — резолвит targetId (если получится),
-// считает и сохраняет историю жалоб на него (countRecentReportsOn/
-// config.reports), собирает и отправляет карточку в submissionsChannelId
-// с пингом Support. Никакого треда/записи о "тикете" не заводится — само
-// сообщение и есть форма.
+// Обрабатывает заполненную форму — резервирует номер тикета (лок
+// update(), тот же приём, что раньше был у createTicket), резолвит
+// targetId (если получится), считает и сохраняет историю жалоб на него
+// (countRecentReportsOn/config.reports), заводит приватный тред
+// "ticket-<N>" в submissionsChannel, добавляет автора участником и
+// отправляет туда стартовое сообщение с пингом Support.
 async function submitReport(interaction, rawTarget, description) {
     const guild = interaction.guild;
     const now = Date.now();
@@ -127,17 +136,16 @@ async function submitReport(interaction, rawTarget, description) {
         targetTag = member?.user.tag ?? null;
     }
 
-    // Подсчёт истории и запись новой жалобы — одной атомарной операцией
-    // (лок update()), иначе два почти одновременных клика могли бы оба
-    // прочитать историю до того, как друг друга запишут.
-    let reportHistoryCount = 0;
-    if (targetId) {
-        reportHistoryCount = await update(c => {
-            const count = countRecentReportsOn(c.reports, targetId, now, REPORT_HISTORY_WINDOW_MS);
-            c.reports.push({ targetUserId: targetId, createdAt: now });
-            return count;
-        });
-    }
+    // Номер тикета и история жалоб — одной атомарной операцией (лок
+    // update()), иначе два почти одновременных клика могли бы получить
+    // один и тот же номер или прочитать историю до того, как друг друга
+    // запишут.
+    const { number, reportHistoryCount } = await update(c => {
+        c.counter = (c.counter ?? 0) + 1;
+        const count = targetId ? countRecentReportsOn(c.reports, targetId, now, REPORT_HISTORY_WINDOW_MS) : 0;
+        if (targetId) c.reports.push({ targetUserId: targetId, createdAt: now });
+        return { number: c.counter, reportHistoryCount: count };
+    });
 
     const config = await load();
     const channelId = config.submissionsChannelId;
@@ -145,47 +153,44 @@ async function submitReport(interaction, rawTarget, description) {
         ? (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)))
         : null;
     if (!channel) {
-        return { error: 'Система обращений не настроена (нет канала для формы). Обратись к администратору.' };
+        return { error: 'Система обращений не настроена (нет канала для тикетов). Обратись к администратору.' };
     }
 
-    const cardComponents = buildReportCard(
-        interaction.user.id,
-        rawTarget,
-        targetId,
-        targetTag,
-        description,
-        reportHistoryCount
-    );
+    let thread;
+    try {
+        thread = await channel.threads.create({
+            name: `ticket-${number}`.slice(0, 95),
+            type: ChannelType.PrivateThread,
+            invitable: false,
+            reason: `Жалоба #${number} от ${interaction.user.tag}`,
+        });
+    } catch (err) {
+        console.error('tickets: не удалось создать тред жалобы:', err);
+        return { error: 'Не получилось открыть тикет — попробуй ещё раз чуть позже.' };
+    }
+    // Доступ автора к треду даёт само членство — у ThreadChannel в
+    // discord.js нет API permissionOverwrites (треды не поддерживают
+    // персональные оверрайты), а submissionsChannel закрыт от @everyone.
+    await thread.members.add(interaction.user.id).catch(() => {});
+
+    const bodyComponents = buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount);
     // Пинг — отдельным TextDisplay первым компонентом, а не через content:
     // сообщение с флагом IsComponentsV2 не может содержать content/embeds
     // (см. utils/components.js). Упоминания внутри TextDisplay всё равно
-    // доставляют уведомление.
+    // доставляют уведомление; ManageThreads на submissionsChannel (см.
+    // scripts/setup-tickets.js) даёт роли Support видеть тред без явного
+    // добавления в участники.
     const payload = config.supportRoleId
-        ? toMessage(textDisplay(`<@&${config.supportRoleId}>`), ...cardComponents)
-        : toMessage(...cardComponents);
+        ? toMessage(textDisplay(`<@&${config.supportRoleId}>`), ...bodyComponents)
+        : toMessage(...bodyComponents);
+    await thread.send(payload).catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
 
-    // Отправка — единственное, без чего форма не доходит до стафа; один
-    // повтор через секунду покрывает единичный сбой нестабильной сети до
-    // Discord API.
-    let sent = false;
-    for (let attempt = 0; attempt < 2 && !sent; attempt++) {
-        try {
-            await channel.send(payload);
-            sent = true;
-        } catch (err) {
-            console.error(`tickets: не удалось отправить карточку жалобы (попытка ${attempt + 1} из 2):`, err);
-            if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-    }
-    if (!sent) {
-        return { error: 'Не получилось доставить форму стафу — попробуй ещё раз чуть позже.' };
-    }
-
-    return { ok: true };
+    return { ok: true, thread };
 }
 
-// "Наказать" на карточке жалобы — targetId зашит в customId самой кнопки
-// (нет отдельной записи "тикета", откуда его можно было бы прочитать).
+// "Наказать" на сообщении в треде жалобы — targetId зашит в customId
+// самой кнопки (нет отдельной записи "тикета", откуда его можно было бы
+// прочитать).
 async function punishReportedUser(interaction, targetId, action, contextLabel) {
     const guild = interaction.guild;
     const auditReason = `Жалоба (${contextLabel}), модератор ${interaction.user.tag}`;
@@ -229,7 +234,7 @@ module.exports = {
     formatReportedUser,
     extractTargetId,
     buildPanelMessage,
-    buildReportCard,
+    buildThreadWelcomeMessage,
     submitReport,
     punishReportedUser,
 };
