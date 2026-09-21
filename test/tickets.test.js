@@ -9,6 +9,7 @@ const {
     formatDuration,
     formatReportedUser,
     extractTargetId,
+    resolveTargetByUsername,
     OPEN_BUTTON_ID,
     MGMT_SELECT_ID,
     MGMT_CLAIM_PREFIX,
@@ -96,12 +97,80 @@ test('isSeniorStaff: бета-модератор/бета-саппорт (Modera
     assert.equal(isSeniorStaff(config, makeMember({ roleIds: ['beta-support-role'] })), false);
 });
 
-test('extractTargetId: находит чистый ID (снежинку), не находит тег или мусор', () => {
+test('extractTargetId: находит чистый ID (снежинку) и настоящее упоминание <@id>, не находит тег или мусор', () => {
     assert.equal(extractTargetId('354261484395560961'), '354261484395560961');
     assert.equal(extractTargetId('  354261484395560961  '), '354261484395560961');
+    assert.equal(extractTargetId('<@354261484395560961>'), '354261484395560961');
+    assert.equal(extractTargetId('<@!354261484395560961>'), '354261484395560961');
     assert.equal(extractTargetId('Jerry Smith#6666'), null);
+    assert.equal(extractTargetId('@.extree'), null);
     assert.equal(extractTargetId('123'), null); // слишком коротко для снежинки
     assert.equal(extractTargetId(''), null);
+});
+
+function makeGuildWithMembers(members) {
+    return {
+        members: {
+            fetch: async ({ query }) => {
+                const q = query.toLowerCase();
+                // Настоящий Discord Search Guild Members ищет по префиксу
+                // username/nickname, не по отображаемому имени (globalName)
+                // — если оно совпадает точно, это подтверждение уже
+                // найденного по префиксу участника, а не отдельный канал
+                // поиска (см. exactMatches ниже).
+                const matches = members.filter(
+                    m => m.user.username.toLowerCase().startsWith(q) || (m.nickname ?? '').toLowerCase().startsWith(q)
+                );
+                return new Map(matches.map(m => [m.id, m]));
+            },
+        },
+    };
+}
+
+test('resolveTargetByUsername: чистит "@.ник"/"ник#1234" и резолвит по точному совпадению username', async () => {
+    const guild = makeGuildWithMembers([
+        { id: '1', user: { username: 'extree', tag: 'extree', globalName: null }, nickname: null },
+    ]);
+    const byAtDot = await resolveTargetByUsername(guild, '@.extree');
+    assert.equal(byAtDot?.id, '1');
+
+    const byAt = await resolveTargetByUsername(guild, '@extree');
+    assert.equal(byAt?.id, '1');
+
+    const byTag = await resolveTargetByUsername(guild, 'Extree#8223');
+    assert.equal(byTag?.id, '1');
+});
+
+test('resolveTargetByUsername: не гадает при 0 или нескольких точных совпадениях', async () => {
+    const noMatch = makeGuildWithMembers([
+        { id: '1', user: { username: 'someoneelse', tag: 'someoneelse', globalName: null }, nickname: null },
+    ]);
+    assert.equal(await resolveTargetByUsername(noMatch, '@extree'), null);
+
+    const ambiguous = makeGuildWithMembers([
+        { id: '1', user: { username: 'extree', tag: 'extree', globalName: null }, nickname: null },
+        { id: '2', user: { username: 'extreee', tag: 'extreee', globalName: 'extree' }, nickname: null },
+    ]);
+    assert.equal(await resolveTargetByUsername(ambiguous, '@extree'), null);
+});
+
+test('resolveTargetByUsername: точное совпадение по nickname/globalName тоже засчитывается', async () => {
+    const byNickname = makeGuildWithMembers([
+        { id: '1', user: { username: 'randomname123', tag: 'randomname123', globalName: null }, nickname: 'Extree' },
+    ]);
+    assert.equal((await resolveTargetByUsername(byNickname, '@extree'))?.id, '1');
+
+    // username matches только по префиксу ("extree_official" начинается
+    // на "extree", но не равен) — точное совпадение подтверждается через
+    // globalName, а не username.
+    const byGlobalName = makeGuildWithMembers([
+        {
+            id: '1',
+            user: { username: 'extree_official', tag: 'extree_official', globalName: 'Extree' },
+            nickname: null,
+        },
+    ]);
+    assert.equal((await resolveTargetByUsername(byGlobalName, '@extree'))?.id, '1');
 });
 
 test('countRecentReportsOn: считает только жалобы на того же игрока в пределах окна', () => {
