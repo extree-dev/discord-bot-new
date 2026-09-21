@@ -6,14 +6,19 @@ const { findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+// Роль "Администратор" на сервере уже есть — её завёл сам администратор,
+// не бот. Раньше здесь был findOrCreateRole({name: 'Admin', ...}) — по
+// английскому имени он ни разу не находил "Администратор" и на каждом
+// первом запуске заводил рядом бессмысленный дубль с тем же правом
+// Administrator (сейчас уже стоит на сервере — см. baseRoleIds.Admin,
+// удалить вручную в Настройках сервера → Роли, скрипт сам роли не
+// удаляет). Вместо создания второй admin-роли просто пиним ID уже
+// существующей — остальной код (isStaff() и т.п.) всё равно проверяет
+// PermissionFlagsBits.Administrator, а не конкретный ID роли, так что
+// какая именно роль выдаёт это право, ему не важно.
+const ADMIN_ROLE_ID = '1549130312238501888';
+
 const ROLES = [
-    {
-        name: 'Admin',
-        color: 0xe74c3c,
-        hoist: true,
-        mentionable: false,
-        permissions: [PermissionsBitField.Flags.Administrator],
-    },
     {
         name: 'Moderator',
         color: 0x3498db,
@@ -86,6 +91,17 @@ client.once('clientReady', async () => {
 
         const securityConfig = await security.getConfig();
         const baseRoleIds = { ...securityConfig.baseRoleIds };
+
+        const adminRole = guild.roles.cache.get(ADMIN_ROLE_ID);
+        if (adminRole) {
+            baseRoleIds.Admin = adminRole.id;
+            console.log(`Роль "Admin" указывает на существующую роль: ${adminRole.name} (${adminRole.id})`);
+        } else {
+            console.error(
+                `Роль с ID ${ADMIN_ROLE_ID} (ожидалась "Администратор") не найдена на сервере — проверь ADMIN_ROLE_ID в scripts/setup-roles.js.`
+            );
+        }
+
         const created = {};
         for (const r of ROLES) {
             const { role, created: wasCreated } = await findOrCreateRole({
