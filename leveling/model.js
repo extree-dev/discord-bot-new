@@ -65,11 +65,14 @@ const LEVELS = [
         color: 0xe67e22,
         perks: [PermissionFlagsBits.UseExternalEmojis, PermissionFlagsBits.UseExternalStickers],
     },
-    // У "Мастера" и "Хранителя" нет гильдийных прав — их бонусы: приватная
-    // зона для Мастера (канальный доступ, не право роли) и позиция в
-    // списке участников для Хранителя (hoist сам по себе уже даёт это
-    // всем ярусам, тут только цвет/титул).
-    { title: 'Мастер', min: 75, color: 0xe91e63, perks: [] },
+    // Мастер получает приоритет голоса (PrioritySpeaker) — раньше вместо
+    // этого была отдельная приватная зона (клубные текст/войс-каналы),
+    // от неё отказались как от лишней, никем не просимой инфраструктуры
+    // (см. scripts/setup-leveling.js и CHANGELOG). У "Хранителя"
+    // гильдийных прав нет вовсе — его бонус только позиция в списке
+    // участников (hoist сам по себе уже даёт это всем ярусам), тут
+    // только цвет/титул максимального яруса.
+    { title: 'Мастер', min: 75, color: 0xe91e63, perks: [PermissionFlagsBits.PrioritySpeaker] },
     { title: 'Хранитель', min: 100, color: 0xf1c40f, perks: [] },
 ];
 
@@ -429,11 +432,13 @@ async function getGuildConfig(guildId) {
 
 // Вызывается из scripts/setup-leveling.js — сохраняет канал для
 // автопостов топа/level-up, категорию (общую с changelog/ и rules/, но
-// у каждой фичи свой config-store), карту "индекс яруса → роль" и ID
-// клубных каналов уровня (категория + войс Бойца + текст/войс Мастера —
-// см. LEVELS[].perks и scripts/setup-leveling.js). Отдельная функция, а
-// не прямой config.update() из скрипта — scripts/ обращаются к фиче
-// только через её публичный API (см. index.js).
+// у каждой фичи свой config-store) и карту "индекс яруса → роль".
+// clubCategoryId/fighterVoiceChannelId/masterTextChannelId/
+// masterVoiceChannelId — legacy-поля от удалённых клубных каналов
+// ярусов (см. CHANGELOG); setup-leveling.js явно передаёт под них null,
+// чтобы стереть уже сохранённые ID после самоисцеляющейся очистки.
+// Отдельная функция, а не прямой config.update() из скрипта — scripts/
+// обращаются к фиче только через её публичный API (см. index.js).
 async function configureGuild(
     guildId,
     {

@@ -9,9 +9,10 @@ const STORE_NAME = 'leveling';
 // топа и карточек level-up), categoryId, levelRoles (индекс яруса из
 // LEVELS → roleId, выдаётся автоматически при достижении),
 // lastLeaderboardAt/lastSnapshot — состояние для показа изменения
-// позиции в топе, clubCategoryId/fighterVoiceChannelId/
-// masterTextChannelId/masterVoiceChannelId — клубные каналы ярусов
-// "Боец"/"Мастер" (см. scripts/setup-leveling.js).
+// позиции в топе. clubCategoryId/fighterVoiceChannelId/
+// masterTextChannelId/masterVoiceChannelId — legacy-поля от удалённых
+// клубных каналов ярусов "Боец"/"Мастер" (см. CHANGELOG), очищаются
+// (в null) при следующем деплое scripts/setup-leveling.js.
 const DEFAULTS = {
     users: {},
     guilds: {},
