@@ -34,6 +34,7 @@ const changelog = require('./changelog');
 const leveling = require('./leveling');
 const moderation = require('./moderation');
 const modqueue = require('./modqueue');
+const ideaQueue = require('./ideaQueue');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
@@ -46,6 +47,7 @@ client.once('ready', () => {
     changelog.register(client);
     leveling.register(client);
     modqueue.register(client);
+    ideaQueue.register(client);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -85,6 +87,12 @@ client.on('interactionCreate', async interaction => {
             await modqueue
                 .handleButton(interaction)
                 .catch(err => (console.error('Ошибка кнопки очереди модерации:', err), false))
+        )
+            return;
+        if (
+            await ideaQueue
+                .handleButton(interaction)
+                .catch(err => (console.error('Ошибка кнопки очереди предложений:', err), false))
         )
             return;
     }

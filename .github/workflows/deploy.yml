@@ -68,4 +68,5 @@ jobs:
                       run_setup_step scripts/setup-changelog.js
                       run_setup_step scripts/setup-leveling.js
                       run_setup_step scripts/setup-modqueue.js
+                      run_setup_step scripts/setup-idea-queue.js
                       exit $FAILED
