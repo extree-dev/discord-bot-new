@@ -12,7 +12,7 @@ const {
 } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
-const { sendPunishmentDm } = require('../utils/punishmentNotice');
+const { notifyPunishment } = require('../utils/punishmentNotice');
 const moderation = require('../moderation');
 const {
     baseContainer,
@@ -849,10 +849,10 @@ async function punishReportedUser(interaction, entry, action) {
         if (member && !member.bannable) {
             return { error: 'Не могу забанить этого участника (недостаточно прав или роль выше моей).' };
         }
-        const targetUser = member?.user ?? (await interaction.client.users.fetch(targetId).catch(() => null));
-        // DM до самого бана — после бана участник и бот перестают делить
-        // сервер, и открыть с ним личку становится ненадёжнее.
-        if (targetUser) await sendPunishmentDm(targetUser, guild, { kind: 'ban', reason: dmReason });
+        // Уведомление о наказании для банов не отправляется — см.
+        // комментарий в utils/punishmentNotice.js (забаненный теряет
+        // доступ ко всем каналам/тредам гильдии, прочитать всё равно не
+        // сможет).
         await guild.members.ban(targetId, { reason: auditReason });
         return { label: 'забанен' };
     }
@@ -862,7 +862,7 @@ async function punishReportedUser(interaction, entry, action) {
     if (!member) return { error: 'Участник не найден на сервере.' };
     const muteResult = await moderation.muteMember(guild, member, seconds * 1000, auditReason, interaction.user.id);
     if (muteResult.error) return { error: muteResult.error };
-    await sendPunishmentDm(member.user, guild, {
+    await notifyPunishment(member.user, guild, {
         kind: 'timeout',
         reason: dmReason,
         durationLabel: formatDuration(seconds * 1000),

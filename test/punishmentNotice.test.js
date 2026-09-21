@@ -1,25 +1,23 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { sendPunishmentDm } = require('../utils/punishmentNotice');
+const { findExpiredNoticeThreads } = require('../utils/punishmentNotice');
 
-function makeUser() {
-    const calls = [];
-    return {
-        calls,
-        send: async payload => {
-            calls.push(payload);
+test('findExpiredNoticeThreads: находит только треды с истёкшим deleteAt', () => {
+    const now = 1_000_000;
+    const data = {
+        threads: {
+            expired: { guildId: 'guild-1', deleteAt: now - 1_000 },
+            exactlyNow: { guildId: 'guild-1', deleteAt: now },
+            notYet: { guildId: 'guild-2', deleteAt: now + 1_000 },
         },
     };
-}
+    const result = findExpiredNoticeThreads(data, now);
+    assert.equal(result.length, 2);
+    assert.deepEqual(result.map(r => r.threadId).sort(), ['exactlyNow', 'expired']);
+    assert.equal(result.find(r => r.threadId === 'expired').guildId, 'guild-1');
+});
 
-test('sendPunishmentDm: отключена по решению администратора — ничего не отправляет', async () => {
-    const user = makeUser();
-    await sendPunishmentDm(user, { name: 'Тестовый сервер' }, { kind: 'ban', reason: 'Читерство' });
-    await sendPunishmentDm(
-        user,
-        { name: 'Тестовый сервер' },
-        { kind: 'timeout', reason: 'Спам', durationLabel: '1 ч' }
-    );
-
-    assert.equal(user.calls.length, 0);
+test('findExpiredNoticeThreads: пустой стор — пустой результат', () => {
+    assert.deepEqual(findExpiredNoticeThreads({}, Date.now()), []);
+    assert.deepEqual(findExpiredNoticeThreads({ threads: {} }, Date.now()), []);
 });

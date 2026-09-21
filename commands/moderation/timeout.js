@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
-const { sendPunishmentDm } = require('../../utils/punishmentNotice');
+const { notifyPunishment } = require('../../utils/punishmentNotice');
 const moderation = require('../../moderation');
 
 module.exports = {
@@ -61,7 +61,7 @@ module.exports = {
             return interaction.reply({ embeds: [errorEmbed(muteResult.error)], ephemeral: true });
         }
 
-        await sendPunishmentDm(target, interaction.guild, {
+        await notifyPunishment(target, interaction.guild, {
             kind: 'timeout',
             reason,
             durationLabel: `${minutes} мин.`,

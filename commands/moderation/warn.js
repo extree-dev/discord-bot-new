@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { addWarning } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
+const { notifyPunishment } = require('../../utils/punishmentNotice');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -27,9 +28,12 @@ module.exports = {
             )
             .setFooter({ text: `ID: ${target.id}` });
 
-        // Личное сообщение участнику отключено по решению администратора —
-        // бот вообще не должен сам писать участникам в личку, единственный
-        // канал для этого — /dm (администратор вручную).
+        // Личные сообщения бот больше не шлёт вообще (по решению
+        // администратора) — вместо этого приватный тред-уведомление
+        // (utils/punishmentNotice.js), чтобы участник знал, за что
+        // получил предупреждение.
+        await notifyPunishment(target, interaction.guild, { kind: 'warn', reason });
+
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },
 };
