@@ -10,28 +10,22 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     try {
         console.log(`Регистрация ${commands.length} slash-команд...`);
 
-        // Регистрация ОДНОВРЕМЕННО и глобально, и на конкретном сервере
-        // (GUILD_ID) создаёт две отдельные копии одной и той же команды —
-        // Discord не считает их дубликатом одной команды, обе видны в
-        // списке одновременно. Раз бот работает на одном сервере, гильдийная
-        // регистрация — не просто "быстрее видно при разработке" (см.
-        // старый комментарий в README), а единственная нужная: применяется
-        // сразу, а не до часа, как глобальная. Поэтому при заданном
-        // GUILD_ID регистрируем только на сервере и явно очищаем глобальные
-        // команды (пустым телом), чтобы убрать уже накопившиеся дубликаты
-        // от предыдущих деплоев.
+        // Только глобальная регистрация. Раньше при заданном GUILD_ID
+        // команды регистрировались на конкретном сервере (применяется
+        // сразу, а не до часа, как глобальная) — но у гильдийных команд
+        // Discord не показывает значок/аватар бота в списке команд, только
+        // у глобальных. Раз бот всё равно работает на одном сервере,
+        // задержка применения не критична, а значок — заметнее. Если
+        // GUILD_ID всё ещё задан (старая схема), явно очищаем гильдийные
+        // команды, чтобы не остались дубликаты рядом с глобальными.
+        const globalRoute = Routes.applicationCommands(process.env.CLIENT_ID);
+        await rest.put(globalRoute, { body: commands });
+        console.log(`Глобально зарегистрировано: ${commands.length}`);
+
         if (process.env.GUILD_ID) {
             const guildRoute = Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID);
-            await rest.put(guildRoute, { body: commands });
-            console.log(`На сервере зарегистрировано: ${commands.length}`);
-
-            const globalRoute = Routes.applicationCommands(process.env.CLIENT_ID);
-            await rest.put(globalRoute, { body: [] });
-            console.log('Глобальные команды очищены (используется только гильдийная регистрация).');
-        } else {
-            const globalRoute = Routes.applicationCommands(process.env.CLIENT_ID);
-            await rest.put(globalRoute, { body: commands });
-            console.log(`Глобально зарегистрировано: ${commands.length}`);
+            await rest.put(guildRoute, { body: [] });
+            console.log('Гильдийные команды очищены (используется только глобальная регистрация).');
         }
     } catch (error) {
         console.error(error);

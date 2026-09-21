@@ -99,9 +99,9 @@ function formatDuration(ms) {
 // чата — тут ID зашит гарантированно верно, разбор без единого обращения
 // к Discord). Более "живые" форматы (@ник, .ник, Тег#1234) чистая функция
 // не ловит принципиально — они требуют похода в Discord API, см.
-// resolveTargetByUsername ниже. Если ничего не вытащить — сообщение в
-// треде просто показывает введённый текст как есть, без кнопки
-// "Наказать" (честнее нерабочей кнопки, которая не найдёт, кого наказывать).
+// resolveTargetByUsername ниже. Если ни один способ не нашёл участника на
+// сервере — submitReport() отклоняет жалобу целиком, тикет не создаётся
+// (см. проверку targetId там).
 const SNOWFLAKE_RE = /^\d{17,20}$/;
 const MENTION_RE = /^<@!?(\d{17,20})>$/;
 function extractTargetId(rawTarget) {
@@ -454,6 +454,31 @@ async function submitReport(interaction, rawTarget, description) {
     const now = Date.now();
     const authorId = interaction.user.id;
 
+    // Резолвим нарушителя ДО кулдауна и резервации номера — если такого
+    // участника на сервере нет, тикет не создаём вообще (жалоба без
+    // проверяемой цели бесполезна поддержке), а значит не должны и жечь
+    // автору его 30-минутный кулдаун на опечатку/несуществующий тег.
+    let targetId = extractTargetId(rawTarget);
+    let targetTag = null;
+    if (targetId) {
+        const member = await guild.members.fetch(targetId).catch(() => null);
+        if (member) targetTag = member.user.tag;
+        else targetId = null; // валидный ID/упоминание по формату, но такого участника на сервере нет
+    } else {
+        // Чистый ID/упоминание не нашли — пробуем разобрать "живой" ввод
+        // (@ник, .ник, Тег#1234) через поиск участников гильдии. Резолвим,
+        // только если resolveTargetByUsername нашла ровно одно точное
+        // совпадение.
+        const member = await resolveTargetByUsername(guild, rawTarget);
+        if (member) {
+            targetId = member.id;
+            targetTag = member.user.tag;
+        }
+    }
+    if (!targetId) {
+        return { error: `Такого участника нет на сервере: «${rawTarget}». Проверь тег/ID и попробуй снова.` };
+    }
+
     // Кулдаун проверяем и сразу же фиксируем одной атомарной операцией
     // (тот же приём, что у резервации номера ниже) — иначе два почти
     // одновременных сабмита от одного автора оба прошли бы проверку до
@@ -470,24 +495,6 @@ async function submitReport(interaction, rawTarget, description) {
         return {
             error: `Слишком часто — новый тикет можно открыть через ${formatDuration(cooldown.retryAfterMs)}.`,
         };
-    }
-
-    let targetId = extractTargetId(rawTarget);
-    let targetTag = null;
-    if (targetId) {
-        const member = await guild.members.fetch(targetId).catch(() => null);
-        targetTag = member?.user.tag ?? null;
-    } else {
-        // Чистый ID/упоминание не нашли — пробуем разобрать "живой" ввод
-        // (@ник, .ник, Тег#1234) через поиск участников гильдии. Резолвим,
-        // только если resolveTargetByUsername нашла ровно одно точное
-        // совпадение — иначе targetId/targetTag остаются null, как и
-        // раньше (сырой текст в карточке, без кнопки "Наказать").
-        const member = await resolveTargetByUsername(guild, rawTarget);
-        if (member) {
-            targetId = member.id;
-            targetTag = member.user.tag;
-        }
     }
 
     // Номер тикета и история жалоб — одной атомарной операцией (лок
