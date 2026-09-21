@@ -108,19 +108,23 @@ function getLevelIndex(score) {
 }
 
 // {index, title, min, color, next: {title, min} | null, progress: 0..1 до
-// следующего яруса, number: целый уровень} — progress всегда 1 на
-// максимальном ярусе (нет следующего порога, куда расти). progress
-// считается по очкам (не по целым уровням) — иначе полоса не двигалась
-// бы между уровнями внутри одного яруса (ярус может растягиваться на
-// 10-25 уровней).
+// СЛЕДУЮЩЕГО УРОВНЯ, number: целый уровень} — progress всегда 1 на
+// максимальном ярусе (нет следующего порога, куда расти). Раньше progress
+// считался до следующего ЯРУСА, а не уровня — ярус может растягиваться на
+// 10-25 уровней (до 7500 очков), и полоса почти не двигалась от обычной
+// игровой активности, хотя число очков росло: участник об этом сообщил
+// (полоса "стоит на месте"). Уровень и так показан рядом текстом
+// ("Уровень N") — полоса про то же самое: сколько осталось до следующего
+// числа, а не до следующей роли/титула (та дистанция остаётся в тексте
+// "Осталось: N ур. до «Тир»", см. rankCardImage.js — он не завязан на
+// progress).
 function getLevel(score) {
     const levelNumber = getLevelNumber(score);
     const index = getLevelIndex(score);
     const current = LEVELS[index];
     const next = LEVELS[index + 1] ?? null;
-    const currentFloorScore = current.min * POINTS_PER_LEVEL;
-    const nextCeilScore = next ? next.min * POINTS_PER_LEVEL : null;
-    const progress = next ? (score - currentFloorScore) / (nextCeilScore - currentFloorScore) : 1;
+    const levelFloorScore = levelNumber * POINTS_PER_LEVEL;
+    const progress = next ? (score - levelFloorScore) / POINTS_PER_LEVEL : 1;
     return {
         index,
         title: current.title,
