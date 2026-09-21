@@ -380,3 +380,15 @@ test('tickets/config load() подставляет дефолт для ticketsBy
         assert.deepEqual(Object.keys(second.ticketsById), ['t1']);
     });
 });
+
+test('tickets/config load() подставляет дефолт для lastReportAt и не путает его между вызовами', async () => {
+    await withStoreBackup(storeName, async () => {
+        await save({ lastReportAt: { u1: 1000 } });
+        const first = await load();
+        assert.deepEqual(first.lastReportAt, { u1: 1000 });
+
+        first.lastReportAt.u2 = 2000;
+        const second = await load();
+        assert.deepEqual(Object.keys(second.lastReportAt), ['u1']);
+    });
+});

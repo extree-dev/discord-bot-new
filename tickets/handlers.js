@@ -217,7 +217,9 @@ async function handleMgmtClaimButton(interaction) {
         const message =
             result.reason === 'already_claimed'
                 ? `Тикет уже взял в работу ${result.claimedByTag}.`
-                : 'Тикет уже закрыт.';
+                : result.reason === 'staff_busy'
+                  ? `У тебя уже в работе ticket-${result.busyTicketNumber} — сначала закрой его.`
+                  : 'Тикет уже закрыт.';
         await interaction.update({ content: null, embeds: [errorEmbed(message)], components: [] });
         return;
     }
