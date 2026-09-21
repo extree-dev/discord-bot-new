@@ -124,6 +124,58 @@ function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, des
     return [container, row];
 }
 
+// Панель управления (отдельный staff-only канал, см. scripts/setup-
+// ticket-management.js) — по прямому запросу администратора: просто
+// сообщение с парой кнопок, без слэш-команд.
+function buildManagementPanelMessage() {
+    const container = baseContainer(COLORS.primary).addTextDisplayComponents(
+        textDisplay(formatBody('Управление тикетами', 'Кнопки ниже — только для поддержки и модерации.'))
+    );
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('ticket_mgmt_list').setLabel('Активные тикеты').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ticket_mgmt_stats').setLabel('Статистика').setStyle(ButtonStyle.Secondary)
+    );
+    return toMessage(container, row);
+}
+
+// Чистое форматирование — переиспользуется и тестируется отдельно от
+// живого guild.channels.threads.fetchActive() ниже.
+function formatActiveTicketsList(threads) {
+    if (!threads.length) return 'Открытых тикетов нет.';
+    return threads.map(t => `• ${t.name} — ${t.url}`).join('\n');
+}
+
+function formatTicketStats({ activeCount, totalCount, reportsCount }) {
+    return [
+        `**Открыто сейчас:** ${activeCount}`,
+        `**Всего создано за всё время:** ${totalCount}`,
+        `**Жалоб в истории:** ${reportsCount}`,
+    ].join('\n');
+}
+
+// Активные (неархивированные) треды жалоб в submissionsChannel,
+// отсортированные по времени создания — snowflake ID, тот же приём, что
+// pickOldest в utils/idempotent.js.
+async function listActiveTickets(guild, config) {
+    const channelId = config.submissionsChannelId;
+    if (!channelId) return [];
+    const channel = channelId
+        ? (guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null)))
+        : null;
+    if (!channel) return [];
+    const active = await channel.threads.fetchActive().catch(() => null);
+    if (!active) return [];
+    return [...active.threads.values()]
+        .filter(t => t.name.startsWith('ticket-'))
+        .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0))
+        .map(t => ({ name: t.name, url: t.url }));
+}
+
+async function getTicketStats(guild, config) {
+    const active = await listActiveTickets(guild, config);
+    return { activeCount: active.length, totalCount: config.counter ?? 0, reportsCount: config.reports?.length ?? 0 };
+}
+
 // Обрабатывает заполненную форму — резервирует номер тикета (лок
 // update(), тот же приём, что раньше был у createTicket), резолвит
 // targetId (если получится), считает и сохраняет историю жалоб на него
@@ -181,9 +233,21 @@ async function submitReport(interaction, rawTarget, description) {
     // Доступ автора к треду даёт само членство — у ThreadChannel в
     // discord.js нет API permissionOverwrites (треды не поддерживают
     // персональные оверрайты), а submissionsChannel закрыт от @everyone.
-    await thread.members
-        .add(interaction.user.id)
-        .catch(err => console.error('tickets: не удалось добавить автора в тред жалобы:', err));
+    // Одна повторная попытка — на случай гонки сразу после создания
+    // треда (Discord не всегда успевает полностью применить состояние
+    // приватного треда к моменту первого вызова); если не помогло —
+    // явное предупреждение прямо в треде, чтобы staff (видит все треды
+    // через ManageThreads) заметил и добавил автора вручную, а не узнал
+    // об этом от разъярённого пользователя днями позже.
+    let authorAdded = false;
+    for (let attempt = 1; attempt <= 2 && !authorAdded; attempt++) {
+        try {
+            await thread.members.add(interaction.user.id);
+            authorAdded = true;
+        } catch (err) {
+            console.error(`tickets: не удалось добавить автора в тред жалобы (попытка ${attempt}):`, err);
+        }
+    }
 
     // Без пинга роли — как на референс-сервере: ManageThreads на
     // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
@@ -200,6 +264,12 @@ async function submitReport(interaction, rawTarget, description) {
     await thread
         .send(toMessage(...bodyComponents))
         .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
+
+    if (!authorAdded) {
+        await thread
+            .send('⚠️ Не удалось автоматически добавить автора в тред — добавь вручную через список участников треда.')
+            .catch(() => {});
+    }
 
     return { ok: true, thread };
 }
@@ -268,6 +338,11 @@ module.exports = {
     extractTargetId,
     buildPanelMessage,
     buildThreadWelcomeMessage,
+    buildManagementPanelMessage,
+    formatActiveTicketsList,
+    formatTicketStats,
+    listActiveTickets,
+    getTicketStats,
     submitReport,
     punishReportedUser,
     closeReport,

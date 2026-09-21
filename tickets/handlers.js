@@ -18,6 +18,8 @@ const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const PUNISH_BUTTON_PREFIX = 'ticket_punish:';
 const PUNISH_SELECT_PREFIX = 'ticket_punish_select:';
 const CLOSE_BUTTON_PREFIX = 'ticket_close:';
+const MGMT_LIST_BUTTON_ID = 'ticket_mgmt_list';
+const MGMT_STATS_BUTTON_ID = 'ticket_mgmt_stats';
 
 // Два текстовых поля, как на референс-сервере — тег/ID нарушителя
 // вводится текстом (не UserSelectMenu), сразу после кнопки, без
@@ -149,6 +151,37 @@ async function handleCloseButton(interaction) {
     await interaction.editReply({ embeds: [successEmbed('Тикет закрыт, автор убран из треда.', 'Готово')] });
 }
 
+// Кнопки панели управления (отдельный staff-only канал, см.
+// scripts/setup-ticket-management.js) — только чтение, никаких действий
+// над конкретным тикетом.
+async function handleManagementListButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может это смотреть.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    await interaction.deferReply({ ephemeral: true });
+    const threads = await model.listActiveTickets(interaction.guild, config);
+    await interaction.editReply({ embeds: [successEmbed(model.formatActiveTicketsList(threads), 'Активные тикеты')] });
+}
+
+async function handleManagementStatsButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может это смотреть.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    await interaction.deferReply({ ephemeral: true });
+    const stats = await model.getTicketStats(interaction.guild, config);
+    await interaction.editReply({ embeds: [successEmbed(model.formatTicketStats(stats), 'Статистика тикетов')] });
+}
+
 async function handleButton(interaction) {
     if (interaction.customId === model.OPEN_BUTTON_ID) {
         await handleOpenButton(interaction);
@@ -160,6 +193,14 @@ async function handleButton(interaction) {
     }
     if (interaction.customId.startsWith(CLOSE_BUTTON_PREFIX)) {
         await handleCloseButton(interaction);
+        return true;
+    }
+    if (interaction.customId === MGMT_LIST_BUTTON_ID) {
+        await handleManagementListButton(interaction);
+        return true;
+    }
+    if (interaction.customId === MGMT_STATS_BUTTON_ID) {
+        await handleManagementStatsButton(interaction);
         return true;
     }
     return false;

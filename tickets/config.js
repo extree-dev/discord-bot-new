@@ -16,6 +16,9 @@ const STORE_NAME = 'tickets';
 // submissionsChannelId — родитель для тредов жалоб (сам канал видит
 // только staff; ManageThreads на нём даёт видеть и приватные треды
 // внутри без явного добавления в каждый).
+// managementCategoryId/managementChannelId — отдельный канал с панелью
+// управления (кнопки "Активные тикеты"/"Статистика", staff-only) — см.
+// scripts/setup-ticket-management.js.
 // supportRoleId — пинг в новом треде.
 // counter — сквозной номер тикета для имени треда ("ticket-<N>").
 // reports — [{ targetUserId, createdAt }], плоский лог жалоб на игроков
@@ -25,6 +28,8 @@ const DEFAULTS = {
     categoryId: null,
     panelChannelId: null,
     submissionsChannelId: null,
+    managementCategoryId: null,
+    managementChannelId: null,
     supportRoleId: null,
     counter: 0,
     reports: [],
