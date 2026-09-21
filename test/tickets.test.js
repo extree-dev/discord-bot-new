@@ -9,6 +9,7 @@ const {
     formatReportedUser,
     extractTargetId,
     OPEN_BUTTON_ID,
+    CLAIM_BUTTON_ID,
     buildPanelMessage,
     buildThreadWelcomeMessage,
     buildManagementPanelMessage,
@@ -101,7 +102,7 @@ test('formatReportedUser: НЕ <@id>-упоминание — только tag (
     assert.ok(!formatReportedUser('123', 'Тег').includes('<@'));
 });
 
-test('buildThreadWelcomeMessage: "Закрыть" есть всегда, "Наказать" — только когда targetId резолвится', () => {
+test('buildThreadWelcomeMessage: "Взять в работу" и "Закрыть" есть всегда, "Наказать" — только когда targetId резолвится', () => {
     const withTarget = buildThreadWelcomeMessage(
         'author1',
         '354261484395560961',
@@ -112,13 +113,13 @@ test('buildThreadWelcomeMessage: "Закрыть" есть всегда, "Нак
     );
     assert.deepEqual(
         withTarget[1].components.map(c => c.toJSON().custom_id),
-        ['ticket_close:author1', 'ticket_punish:354261484395560961']
+        [CLAIM_BUTTON_ID, 'ticket_close:author1', 'ticket_punish:354261484395560961']
     );
 
     const withoutTarget = buildThreadWelcomeMessage('author2', 'Jerry Smith#6666', null, null, 'текст', 0);
     assert.deepEqual(
         withoutTarget[1].components.map(c => c.toJSON().custom_id),
-        ['ticket_close:author2']
+        [CLAIM_BUTTON_ID, 'ticket_close:author2']
     );
 });
 
@@ -127,20 +128,22 @@ test('buildManagementPanelMessage: кнопки "Активные тикеты" 
     assert.deepEqual(ids, ['ticket_mgmt_list', 'ticket_mgmt_stats']);
 });
 
-test('formatActiveTicketsList: список тредов или заглушка, если пусто', () => {
+test('formatActiveTicketsList: список тредов с claim-статусом или заглушка, если пусто', () => {
     assert.equal(formatActiveTicketsList([]), 'Открытых тикетов нет.');
     assert.equal(
         formatActiveTicketsList([
-            { name: 'ticket-1', url: 'https://discord.com/channels/1/2/3' },
-            { name: 'ticket-2', url: 'https://discord.com/channels/1/2/4' },
+            { name: 'ticket-1', url: 'https://discord.com/channels/1/2/3', claimedByTag: null },
+            { name: 'ticket-2', url: 'https://discord.com/channels/1/2/4', claimedByTag: 'Mod#0001' },
         ]),
-        '• ticket-1 — https://discord.com/channels/1/2/3\n• ticket-2 — https://discord.com/channels/1/2/4'
+        '• ticket-1 — https://discord.com/channels/1/2/3 — не взят\n' +
+            '• ticket-2 — https://discord.com/channels/1/2/4 — взял Mod#0001'
     );
 });
 
-test('formatTicketStats: три строки с числами как есть', () => {
-    const text = formatTicketStats({ activeCount: 3, totalCount: 88, reportsCount: 12 });
+test('formatTicketStats: четыре строки с числами как есть', () => {
+    const text = formatTicketStats({ activeCount: 3, unclaimedCount: 2, totalCount: 88, reportsCount: 12 });
     assert.match(text, /Открыто сейчас:\*\* 3/);
+    assert.match(text, /Не взято в работу:\*\* 2/);
     assert.match(text, /Всего создано за всё время:\*\* 88/);
     assert.match(text, /Жалоб в истории:\*\* 12/);
 });
@@ -157,5 +160,17 @@ test('tickets/config load() подставляет дефолты и не пут
         first.reports.push({ targetUserId: 'u2', createdAt: 2 });
         const second = await load();
         assert.equal(second.reports.length, 1);
+    });
+});
+
+test('tickets/config load() подставляет дефолт для ticketsById и не путает его между вызовами', async () => {
+    await withStoreBackup(storeName, async () => {
+        await save({ ticketsById: { t1: { number: 1, authorId: 'u1', claimedBy: null } } });
+        const first = await load();
+        assert.deepEqual(first.ticketsById, { t1: { number: 1, authorId: 'u1', claimedBy: null } });
+
+        first.ticketsById.t2 = { number: 2, authorId: 'u2', claimedBy: null };
+        const second = await load();
+        assert.deepEqual(Object.keys(second.ticketsById), ['t1']);
     });
 });

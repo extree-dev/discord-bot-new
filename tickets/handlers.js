@@ -47,6 +47,26 @@ function buildCreateModal() {
     return modal;
 }
 
+// "Взять в работу" на сообщении в треде жалобы — тред читается прямо из
+// interaction.channelId (кнопка живёт только внутри своего треда, никаких
+// данных в customId зашивать не нужно).
+async function handleClaimButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может брать тикеты в работу.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const record = await model.claimTicket(interaction.channelId, interaction.user.id, interaction.user.tag);
+    if (!record) {
+        await interaction.reply({ embeds: [errorEmbed('Тикет не найден (уже закрыт?).')], ephemeral: true });
+        return;
+    }
+    await interaction.reply({ embeds: [successEmbed(`${interaction.user.tag} взял тикет в работу.`, 'Готово')] });
+}
+
 async function handleOpenButton(interaction) {
     await interaction.showModal(buildCreateModal());
 }
@@ -185,6 +205,10 @@ async function handleManagementStatsButton(interaction) {
 async function handleButton(interaction) {
     if (interaction.customId === model.OPEN_BUTTON_ID) {
         await handleOpenButton(interaction);
+        return true;
+    }
+    if (interaction.customId === model.CLAIM_BUTTON_ID) {
+        await handleClaimButton(interaction);
         return true;
     }
     if (interaction.customId.startsWith(PUNISH_BUTTON_PREFIX)) {
