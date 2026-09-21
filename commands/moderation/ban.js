@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
-const { sendPunishmentDm } = require('../../utils/punishmentNotice');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,10 +29,11 @@ module.exports = {
             });
         }
 
-        // DM до самого бана — после бана участник и бот перестают делить
-        // сервер, и открыть с ним личку становится ненадёжнее.
-        await sendPunishmentDm(target, interaction.guild, { kind: 'ban', reason });
-
+        // Уведомление о наказании (utils/punishmentNotice.js) для банов
+        // намеренно не отправляется — оно теперь работает через приватный
+        // тред, а не ЛС, а забаненный участник теряет доступ вообще ко
+        // всем каналам/тредам гильдии, включая тот, куда его успели бы
+        // добавить до бана. Прочитать он его всё равно не сможет.
         await interaction.guild.members.ban(target.id, {
             deleteMessageSeconds: deleteDays * 24 * 60 * 60,
             reason,
