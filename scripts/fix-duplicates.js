@@ -39,6 +39,7 @@ const APPLY = process.argv.includes('--apply');
 const CONFIG_MODULES = [
     { label: 'changelog', mod: require('../changelog/config') },
     { label: 'commandsChannel', mod: require('../commandsChannel/config') },
+    { label: 'ideaQueue', mod: require('../ideaQueue/config') },
     { label: 'leveling', mod: require('../leveling/config') },
     { label: 'modqueue', mod: require('../modqueue/config') },
     { label: 'presence', mod: require('../presence/config') },
