@@ -95,8 +95,13 @@ client.once('clientReady', async () => {
         // куда пинг её только зовёт, а не добавляет в участники (та же
         // причина, что была у прежней thread-based системы тикетов).
         const submissionsStaffRoles = [supportRole, moderatorRole, betaModeratorRole].filter(Boolean);
+        // Явный оверрайт на самого бота — иначе он видит канал только
+        // если его собственная роль как-то попала в allow (не гарантия),
+        // а thread.members.add() в tickets/model.js без ManageThreads
+        // здесь бы падал (см. коммент там же про invitable).
         const submissionsOverwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+            { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads] },
             ...submissionsStaffRoles.map(role => ({
                 id: role.id,
                 allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
@@ -116,6 +121,9 @@ client.once('clientReady', async () => {
             console.log('Канал обращения-в-поддержку уже настроен');
             await submissionsChannel.permissionOverwrites
                 .edit(guild.roles.everyone.id, { ViewChannel: false })
+                .catch(() => {});
+            await submissionsChannel.permissionOverwrites
+                .edit(client.user.id, { ViewChannel: true, ManageThreads: true })
                 .catch(() => {});
             for (const role of submissionsStaffRoles) {
                 await submissionsChannel.permissionOverwrites
