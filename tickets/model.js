@@ -2,13 +2,24 @@
 // референсу администратора). Кнопка → модалка с двумя текстовыми полями
 // (тег/ID, описание) → бот заводит приватный тред "ticket-<N>" в
 // submissionsChannel и добавляет туда автора — дальше переписка идёт
-// прямо в треде. Из старого жизненного цикла оставлены только claim
-// ("Взять в работу") и close — нужны, когда несколько модераторов
-// разбирают общую очередь жалоб; эскалация/приоритет/рейтинги/HTML-
-// транскрипты/аппрувал для стажёров по-прежнему не возвращались. Общие
-// вопросы, апелляции, баги убраны целиком — см. CHANGELOG. Роутинг по
-// customId — в tickets/handlers.js.
-const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+// прямо в треде. Сам тред — только информационное сообщение бота, без
+// единой кнопки: по прямому требованию администратора весь claim/close/
+// punish живёт исключительно в отдельном staff-only канале управления
+// (см. buildTicketSelectRow/buildTicketActionRow ниже и scripts/setup-
+// ticket-management.js) — автор тикета не должен видеть ничего, кроме
+// подтверждения, что жалобу приняли в работу. Эскалация/приоритет/
+// рейтинги/HTML-транскрипты/аппрувал для стажёров по-прежнему не
+// возвращались. Общие вопросы, апелляции, баги убраны целиком — см.
+// CHANGELOG. Роутинг по customId — в tickets/handlers.js.
+const {
+    ChannelType,
+    PermissionFlagsBits,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder,
+} = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { notifyPunishment } = require('../utils/punishmentNotice');
@@ -16,11 +27,13 @@ const moderation = require('../moderation');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
 const OPEN_BUTTON_ID = 'ticket_open';
-// Без embedded-ID в customId, в отличие от ticket_close:<authorId>/
-// ticket_punish:<targetId> — обработчик всегда читает нужный тред прямо
-// из interaction.channelId (кнопка живёт только на сообщении внутри
-// самого треда), поэтому дополнительных данных в customId не нужно.
-const CLAIM_BUTTON_ID = 'ticket_claim';
+// Кнопки-действия над конкретным тикетом теперь живут в канале
+// управления, а не в самом треде — customId обязан нести threadId явно
+// (interaction.channelId там указывает на канал управления, а не на
+// тред жалобы).
+const MGMT_SELECT_ID = 'ticket_mgmt_select';
+const MGMT_CLAIM_PREFIX = 'ticket_mgmt_claim:';
+const MGMT_CLOSE_PREFIX = 'ticket_mgmt_close:';
 
 // support/ModerateMembers/Administrator — обычный штат. Раньше здесь ещё
 // проверялись специалист-роли по темам (бага, апелляции) — вместе с
@@ -92,16 +105,16 @@ function buildPanelMessage() {
     );
     const button = new ButtonBuilder()
         .setCustomId(OPEN_BUTTON_ID)
-        .setLabel('Открыть тикет')
+        .setLabel('Жалоба на игрока')
         .setStyle(ButtonStyle.Secondary);
     return toMessage(container, new ActionRowBuilder().addComponents(button));
 }
 
-// Первое сообщение в новом треде — "Взять в работу" (claim, см.
-// claimTicket) всегда первой, дальше "Закрыть" (снимает доступ автора и
-// архивирует тред, см. closeReport) и, если targetId удалось вытащить
-// из введённого текста (см. extractTargetId), "Наказать".
-function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, description, reportHistoryCount) {
+// Первое (и единственное) сообщение в новом треде — чисто информационное,
+// без единой кнопки: claim/close/punish управляются только из канала
+// управления (см. buildTicketActionRow), чтобы автор жалобы не видел
+// ничего, кроме факта, что тикет принят.
+function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount) {
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(
             textDisplay(formatBody('Тикет открыт', 'Ожидайте, скоро мы присоединимся к вашему тикету.'))
@@ -117,24 +130,14 @@ function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, des
     }
     container.addTextDisplayComponents(textDisplay(infoLines.join('\n')));
 
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(CLAIM_BUTTON_ID).setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`ticket_close:${authorId}`).setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
-    );
-    if (targetId) {
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`ticket_punish:${targetId}`)
-                .setLabel('Наказать')
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-    return [container, row];
+    return [container];
 }
 
 // Панель управления (отдельный staff-only канал, см. scripts/setup-
 // ticket-management.js) — по прямому запросу администратора: просто
-// сообщение с парой кнопок, без слэш-команд.
+// сообщение с парой кнопок, без слэш-команд. «Активные тикеты» ведёт к
+// select-меню (см. buildTicketSelectRow) — оттуда уже идут все действия
+// над конкретным тикетом.
 function buildManagementPanelMessage() {
     const container = baseContainer(COLORS.primary).addTextDisplayComponents(
         textDisplay(formatBody('Управление тикетами', 'Кнопки ниже — только для поддержки и модерации.'))
@@ -144,6 +147,60 @@ function buildManagementPanelMessage() {
         new ButtonBuilder().setCustomId('ticket_mgmt_stats').setLabel('Статистика').setStyle(ButtonStyle.Secondary)
     );
     return toMessage(container, row);
+}
+
+// Select-меню под списком активных тикетов в канале управления — выбор
+// открывает карточку с действиями (buildTicketActionRow) для конкретного
+// тикета. Discord ограничивает select-меню 25 опциями — при большем
+// числе активных тикетов показываем самые старые (первые в очереди).
+function buildTicketSelectRow(tickets) {
+    const options = tickets.slice(0, 25).map(t =>
+        new StringSelectMenuOptionBuilder()
+            .setLabel(t.name)
+            .setDescription((t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят').slice(0, 100))
+            .setValue(t.id)
+    );
+    const select = new StringSelectMenuBuilder()
+        .setCustomId(MGMT_SELECT_ID)
+        .setPlaceholder('Выбери тикет для действия')
+        .addOptions(options);
+    return new ActionRowBuilder().addComponents(select);
+}
+
+// Карточка конкретного тикета после выбора в select-меню — показывается
+// ephemeral в канале управления.
+function formatTicketDetail(record) {
+    return [
+        `**Тикет:** ticket-${record.number}`,
+        `**Автор:** \`${record.authorId}\``,
+        `**Тег/ID нарушителя:** ${record.targetId ? formatReportedUser(record.targetId, record.targetTag) : '—'}`,
+        `**Взял в работу:** ${record.claimedByTag ?? 'никто'}`,
+    ].join('\n');
+}
+
+// "Наказать" переиспользует существующий ticket_punish:<targetId> —
+// сама кнопка не привязана к месту показа, ей всё равно, из какого
+// канала пришло взаимодействие (см. handlePunishButton).
+function buildTicketActionRow(threadId, record) {
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`${MGMT_CLAIM_PREFIX}${threadId}`)
+            .setLabel('Взять в работу')
+            .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+            .setCustomId(`${MGMT_CLOSE_PREFIX}${threadId}`)
+            .setLabel('Закрыть')
+            .setStyle(ButtonStyle.Secondary)
+    );
+    if (record.targetId) {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ticket_punish:${record.targetId}`)
+                .setLabel('Наказать')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
+    return row;
 }
 
 // Чистое форматирование — переиспользуется и тестируется отдельно от
@@ -180,7 +237,12 @@ async function listActiveTickets(guild, config) {
     return [...active.threads.values()]
         .filter(t => t.name.startsWith('ticket-'))
         .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0))
-        .map(t => ({ name: t.name, url: t.url, claimedByTag: config.ticketsById?.[t.id]?.claimedByTag ?? null }));
+        .map(t => ({
+            id: t.id,
+            name: t.name,
+            url: t.url,
+            claimedByTag: config.ticketsById?.[t.id]?.claimedByTag ?? null,
+        }));
 }
 
 async function getTicketStats(guild, config) {
@@ -291,14 +353,7 @@ async function submitReport(interaction, rawTarget, description) {
     // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
     // Support видеть каждый новый приватный тред без явного добавления
     // в участники и без отдельного уведомления через упоминание.
-    const bodyComponents = buildThreadWelcomeMessage(
-        interaction.user.id,
-        rawTarget,
-        targetId,
-        targetTag,
-        description,
-        reportHistoryCount
-    );
+    const bodyComponents = buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount);
     await thread
         .send(toMessage(...bodyComponents))
         .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
@@ -392,7 +447,9 @@ async function closeReport(thread, authorId) {
 
 module.exports = {
     OPEN_BUTTON_ID,
-    CLAIM_BUTTON_ID,
+    MGMT_SELECT_ID,
+    MGMT_CLAIM_PREFIX,
+    MGMT_CLOSE_PREFIX,
     REPORT_HISTORY_WINDOW_MS,
     isStaff,
     countRecentReportsOn,
@@ -402,6 +459,9 @@ module.exports = {
     buildPanelMessage,
     buildThreadWelcomeMessage,
     buildManagementPanelMessage,
+    buildTicketSelectRow,
+    formatTicketDetail,
+    buildTicketActionRow,
     formatActiveTicketsList,
     formatTicketStats,
     listActiveTickets,

@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const security = require('../security');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -18,16 +18,23 @@ client.once('clientReady', async () => {
         // нужен: скрыт от @everyone. Членство в конкретном треде даёт
         // доступ к нему независимо от видимости родительского канала —
         // так же, как уже работают треды тикетов под скрытыми категориями.
-        const { channel, created } = await findOrCreateChannel({
+        // По прямому запросу администратора — канал больше не создаётся
+        // автоматически, только поиск по уже сохранённому ID/имени (см.
+        // utils/idempotent.js findChannel).
+        const channel = await findChannel({
             guild,
             existingId: config.punishmentNoticeChannelId,
             name: 'уведомления-о-наказаниях',
             type: ChannelType.GuildText,
-            createOptions: {
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
-            },
         });
-        console.log(created ? 'Создан канал: уведомления-о-наказаниях' : 'Канал уведомления-о-наказаниях уже настроен');
+        if (!channel) {
+            console.warn(
+                'Канал "уведомления-о-наказаниях" не найден — автосоздание отключено администратором. Создай канал вручную, конфиг подхватит его по имени на следующем деплое.'
+            );
+            process.exit(0);
+        }
+        console.log('Канал уведомления-о-наказаниях уже настроен');
+        await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
 
         await security.updateConfig(cfg => {
             cfg.punishmentNoticeChannelId = channel.id;

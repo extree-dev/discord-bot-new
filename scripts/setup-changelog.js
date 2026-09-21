@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const changelog = require('../changelog');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel, findOrCreateChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -27,26 +27,28 @@ client.once('clientReady', async () => {
         });
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
-        const { channel, created } = await findOrCreateChannel({
+        // По прямому запросу администратора — канал больше не создаётся
+        // автоматически, только поиск по уже сохранённому ID/имени (см.
+        // utils/idempotent.js findChannel).
+        const channel = await findChannel({
             guild,
             existingId: existing.channelId,
             name: CHANNEL_NAME,
             type: ChannelType.GuildText,
             parentId: category.id,
-            createOptions: {
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            },
         });
-        if (created) {
-            console.log(`Создан канал: ${CHANNEL_NAME}`);
-        } else {
+        if (channel) {
             console.log(`Канал обновлений уже настроен: ${channel.name}`);
             await channel.permissionOverwrites
                 .edit(guild.roles.everyone.id, { SendMessages: false })
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
+        } else {
+            console.warn(
+                `Канал "${CHANNEL_NAME}" не найден — автосоздание отключено администратором. Создай канал вручную, конфиг подхватит его по имени на следующем деплое.`
+            );
         }
 
-        if (existing.channelId !== channel.id || existing.categoryId !== category.id) {
+        if (channel && (existing.channelId !== channel.id || existing.categoryId !== category.id)) {
             await changelog.saveChannel(channel.id, category.id);
             console.log('Канал обновлений сохранён в конфиге.');
         }

@@ -33,7 +33,12 @@ function warnAboutDuplicates(kind, name, matches, canonical) {
     );
 }
 
-async function findOrCreateChannel({ guild, existingId, name, type, parentId, createOptions = {} }) {
+// Только поиск, без создания — для каналов, автосоздание которых
+// администратор явно отключил (см. scripts/setup-*.js, где вызывается
+// вместо findOrCreateChannel). Тот же приём "по ID, иначе по имени/типу/
+// родителю", что и в findOrCreateChannel — вынесен сюда, чтобы не
+// дублировать логику поиска между двумя функциями.
+async function findChannel({ guild, existingId, name, type, parentId }) {
     let channel = existingId ? guild.channels.cache.get(existingId) : null;
     if (!channel) {
         const matches = [
@@ -48,10 +53,15 @@ async function findOrCreateChannel({ guild, existingId, name, type, parentId, cr
             channel = matches[0] ?? null;
         }
     }
+    return channel;
+}
+
+async function findOrCreateChannel({ guild, existingId, name, type, parentId, createOptions = {} }) {
+    const channel = await findChannel({ guild, existingId, name, type, parentId });
     if (channel) return { channel, created: false };
 
-    channel = await guild.channels.create({ name, type, parent: parentId ?? null, ...createOptions });
-    return { channel, created: true };
+    const created = await guild.channels.create({ name, type, parent: parentId ?? null, ...createOptions });
+    return { channel: created, created: true };
 }
 
 async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
@@ -71,4 +81,4 @@ async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
     return { role, created: true };
 }
 
-module.exports = { findOrCreateChannel, findOrCreateRole, pickOldest };
+module.exports = { findChannel, findOrCreateChannel, findOrCreateRole, pickOldest };

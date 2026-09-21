@@ -9,10 +9,15 @@ const {
     formatReportedUser,
     extractTargetId,
     OPEN_BUTTON_ID,
-    CLAIM_BUTTON_ID,
+    MGMT_SELECT_ID,
+    MGMT_CLAIM_PREFIX,
+    MGMT_CLOSE_PREFIX,
     buildPanelMessage,
     buildThreadWelcomeMessage,
     buildManagementPanelMessage,
+    buildTicketSelectRow,
+    formatTicketDetail,
+    buildTicketActionRow,
     formatActiveTicketsList,
     formatTicketStats,
 } = require('../tickets/model');
@@ -44,9 +49,11 @@ function extractButtonCustomIds(message) {
     return message.components.slice(1).flatMap(row => row.components.map(btn => btn.toJSON().custom_id));
 }
 
-test('buildPanelMessage: одна кнопка открытия жалобы', () => {
-    const ids = extractButtonCustomIds(buildPanelMessage());
-    assert.deepEqual(ids, [OPEN_BUTTON_ID]);
+test('buildPanelMessage: одна кнопка "Жалоба на игрока"', () => {
+    const message = buildPanelMessage();
+    assert.deepEqual(extractButtonCustomIds(message), [OPEN_BUTTON_ID]);
+    const button = message.components[1].components[0].toJSON();
+    assert.equal(button.label, 'Жалоба на игрока');
 });
 
 test('isStaff: пропускает участника с ролью поддержки', () => {
@@ -102,30 +109,65 @@ test('formatReportedUser: НЕ <@id>-упоминание — только tag (
     assert.ok(!formatReportedUser('123', 'Тег').includes('<@'));
 });
 
-test('buildThreadWelcomeMessage: "Взять в работу" и "Закрыть" есть всегда, "Наказать" — только когда targetId резолвится', () => {
-    const withTarget = buildThreadWelcomeMessage(
-        'author1',
-        '354261484395560961',
-        '354261484395560961',
-        'Tag#0001',
-        'текст',
-        0
-    );
-    assert.deepEqual(
-        withTarget[1].components.map(c => c.toJSON().custom_id),
-        [CLAIM_BUTTON_ID, 'ticket_close:author1', 'ticket_punish:354261484395560961']
-    );
+test('buildThreadWelcomeMessage: только информационный контейнер, без единой кнопки', () => {
+    const withTarget = buildThreadWelcomeMessage('354261484395560961', '354261484395560961', 'Tag#0001', 'текст', 0);
+    assert.equal(withTarget.length, 1);
 
-    const withoutTarget = buildThreadWelcomeMessage('author2', 'Jerry Smith#6666', null, null, 'текст', 0);
-    assert.deepEqual(
-        withoutTarget[1].components.map(c => c.toJSON().custom_id),
-        [CLAIM_BUTTON_ID, 'ticket_close:author2']
-    );
+    const withoutTarget = buildThreadWelcomeMessage('Jerry Smith#6666', null, null, 'текст', 0);
+    assert.equal(withoutTarget.length, 1);
 });
 
 test('buildManagementPanelMessage: кнопки "Активные тикеты" и "Статистика"', () => {
     const ids = extractButtonCustomIds(buildManagementPanelMessage());
     assert.deepEqual(ids, ['ticket_mgmt_list', 'ticket_mgmt_stats']);
+});
+
+test('buildTicketSelectRow: опции по активным тикетам, не больше 25', () => {
+    const tickets = [
+        { id: 't1', name: 'ticket-1', claimedByTag: null },
+        { id: 't2', name: 'ticket-2', claimedByTag: 'Mod#0001' },
+    ];
+    const row = buildTicketSelectRow(tickets);
+    const select = row.components[0].toJSON();
+    assert.equal(select.custom_id, MGMT_SELECT_ID);
+    assert.deepEqual(
+        select.options.map(o => [o.value, o.description]),
+        [
+            ['t1', 'не взят'],
+            ['t2', 'взял Mod#0001'],
+        ]
+    );
+
+    const many = Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, name: `ticket-${i}`, claimedByTag: null }));
+    assert.equal(buildTicketSelectRow(many).components[0].toJSON().options.length, 25);
+});
+
+test('formatTicketDetail: показывает автора/цель/claim-статус', () => {
+    const text = formatTicketDetail({
+        number: 5,
+        authorId: 'u1',
+        targetId: '354261484395560961',
+        targetTag: 'Tag#0001',
+        claimedByTag: null,
+    });
+    assert.match(text, /ticket-5/);
+    assert.match(text, /`u1`/);
+    assert.match(text, /Tag#0001/);
+    assert.match(text, /никто/);
+});
+
+test('buildTicketActionRow: "Взять в работу"/"Закрыть" всегда, "Наказать" — только если есть targetId', () => {
+    const withTarget = buildTicketActionRow('thread1', { targetId: '354261484395560961' });
+    assert.deepEqual(
+        withTarget.components.map(c => c.toJSON().custom_id),
+        [`${MGMT_CLAIM_PREFIX}thread1`, `${MGMT_CLOSE_PREFIX}thread1`, 'ticket_punish:354261484395560961']
+    );
+
+    const withoutTarget = buildTicketActionRow('thread2', { targetId: null });
+    assert.deepEqual(
+        withoutTarget.components.map(c => c.toJSON().custom_id),
+        [`${MGMT_CLAIM_PREFIX}thread2`, `${MGMT_CLOSE_PREFIX}thread2`]
+    );
 });
 
 test('formatActiveTicketsList: список тредов с claim-статусом или заглушка, если пусто', () => {

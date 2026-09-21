@@ -9,7 +9,7 @@ const {
     StringSelectMenuBuilder,
 } = require('discord.js');
 const { load } = require('./config');
-const { errorEmbed, successEmbed } = require('../utils/embeds');
+const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
 const model = require('./model');
 
 const CREATE_MODAL_ID = 'ticket_modal_create';
@@ -17,7 +17,6 @@ const TARGET_INPUT_ID = 'ticket_target_input';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const PUNISH_BUTTON_PREFIX = 'ticket_punish:';
 const PUNISH_SELECT_PREFIX = 'ticket_punish_select:';
-const CLOSE_BUTTON_PREFIX = 'ticket_close:';
 const MGMT_LIST_BUTTON_ID = 'ticket_mgmt_list';
 const MGMT_STATS_BUTTON_ID = 'ticket_mgmt_stats';
 
@@ -45,26 +44,6 @@ function buildCreateModal() {
         new ActionRowBuilder().addComponents(descriptionInput)
     );
     return modal;
-}
-
-// "Взять в работу" на сообщении в треде жалобы — тред читается прямо из
-// interaction.channelId (кнопка живёт только внутри своего треда, никаких
-// данных в customId зашивать не нужно).
-async function handleClaimButton(interaction) {
-    const config = await load();
-    if (!model.isStaff(config, interaction.member)) {
-        await interaction.reply({
-            embeds: [errorEmbed('Только поддержка или модератор может брать тикеты в работу.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const record = await model.claimTicket(interaction.channelId, interaction.user.id, interaction.user.tag);
-    if (!record) {
-        await interaction.reply({ embeds: [errorEmbed('Тикет не найден (уже закрыт?).')], ephemeral: true });
-        return;
-    }
-    await interaction.reply({ embeds: [successEmbed(`${interaction.user.tag} взял тикет в работу.`, 'Готово')] });
 }
 
 async function handleOpenButton(interaction) {
@@ -152,28 +131,12 @@ async function handlePunishSelect(interaction) {
     });
 }
 
-// "Закрыть" на сообщении в треде жалобы — authorId зашит в customId
-// самой кнопки. Снимает доступ автора и архивирует тред как готовую
-// запись (model.closeReport), без права переоткрыть — команды на этот
-// случай нет, тема сужена до одной формы без жизненного цикла.
-async function handleCloseButton(interaction) {
-    const config = await load();
-    if (!model.isStaff(config, interaction.member)) {
-        await interaction.reply({
-            embeds: [errorEmbed('Только поддержка или модератор может закрывать тикеты.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const authorId = interaction.customId.slice(CLOSE_BUTTON_PREFIX.length);
-    await interaction.deferReply({ ephemeral: true });
-    await model.closeReport(interaction.channel, authorId);
-    await interaction.editReply({ embeds: [successEmbed('Тикет закрыт, автор убран из треда.', 'Готово')] });
-}
-
 // Кнопки панели управления (отдельный staff-only канал, см.
-// scripts/setup-ticket-management.js) — только чтение, никаких действий
-// над конкретным тикетом.
+// scripts/setup-ticket-management.js). "Активные тикеты" — список плюс
+// select-меню; выбор в нём (handleManagementSelect) открывает карточку с
+// действиями. Ни claim, ни close, ни punish больше не живут в самом
+// треде жалобы — по прямому требованию администратора автор тикета не
+// должен видеть ничего интерактивного.
 async function handleManagementListButton(interaction) {
     const config = await load();
     if (!model.isStaff(config, interaction.member)) {
@@ -185,7 +148,10 @@ async function handleManagementListButton(interaction) {
     }
     await interaction.deferReply({ ephemeral: true });
     const threads = await model.listActiveTickets(interaction.guild, config);
-    await interaction.editReply({ embeds: [successEmbed(model.formatActiveTicketsList(threads), 'Активные тикеты')] });
+    await interaction.editReply({
+        embeds: [successEmbed(model.formatActiveTicketsList(threads), 'Активные тикеты')],
+        components: threads.length ? [model.buildTicketSelectRow(threads)] : [],
+    });
 }
 
 async function handleManagementStatsButton(interaction) {
@@ -202,21 +168,94 @@ async function handleManagementStatsButton(interaction) {
     await interaction.editReply({ embeds: [successEmbed(model.formatTicketStats(stats), 'Статистика тикетов')] });
 }
 
+// Выбор тикета в select-меню из "Активные тикеты" — показывает карточку
+// с действиями (Взять в работу/Закрыть/Наказать) вместо списка, на том
+// же ephemeral-сообщении.
+async function handleManagementSelect(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Нет доступа.')], components: [] });
+        return;
+    }
+    const threadId = interaction.values[0];
+    const record = config.ticketsById[threadId];
+    if (!record) {
+        await interaction.update({
+            content: null,
+            embeds: [errorEmbed('Тикет уже закрыт или не найден.')],
+            components: [],
+        });
+        return;
+    }
+    await interaction.update({
+        content: null,
+        embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
+        components: [model.buildTicketActionRow(threadId, record)],
+    });
+}
+
+// "Взять в работу" из карточки тикета в канале управления — threadId
+// зашит в customId (кнопка живёт вне самого треда, контекста
+// interaction.channelId тут недостаточно). Подтверждение публикуется
+// прямо в тред жалобы, чтобы автор и остальной staff видели, кто взял.
+async function handleMgmtClaimButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может брать тикеты в работу.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const threadId = interaction.customId.slice(model.MGMT_CLAIM_PREFIX.length);
+    const record = await model.claimTicket(threadId, interaction.user.id, interaction.user.tag);
+    if (!record) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+        return;
+    }
+    const thread =
+        interaction.guild.channels.cache.get(threadId) ??
+        (await interaction.guild.channels.fetch(threadId).catch(() => null));
+    await thread?.send(`🧑‍💼 **Взял в работу:** ${interaction.user.tag}`).catch(() => {});
+    await interaction.update({
+        content: null,
+        embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
+        components: [model.buildTicketActionRow(threadId, record)],
+    });
+}
+
+// "Закрыть" из карточки тикета в канале управления — authorId берём из
+// сохранённой записи (customId несёт только threadId), model.closeReport
+// сама удаляет запись из ticketsById.
+async function handleMgmtCloseButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может закрывать тикеты.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const threadId = interaction.customId.slice(model.MGMT_CLOSE_PREFIX.length);
+    const record = config.ticketsById[threadId];
+    if (!record) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+        return;
+    }
+    const thread =
+        interaction.guild.channels.cache.get(threadId) ??
+        (await interaction.guild.channels.fetch(threadId).catch(() => null));
+    if (thread) await model.closeReport(thread, record.authorId);
+    await interaction.update({ content: null, embeds: [successEmbed('Тикет закрыт.', 'Готово')], components: [] });
+}
+
 async function handleButton(interaction) {
     if (interaction.customId === model.OPEN_BUTTON_ID) {
         await handleOpenButton(interaction);
         return true;
     }
-    if (interaction.customId === model.CLAIM_BUTTON_ID) {
-        await handleClaimButton(interaction);
-        return true;
-    }
     if (interaction.customId.startsWith(PUNISH_BUTTON_PREFIX)) {
         await handlePunishButton(interaction);
-        return true;
-    }
-    if (interaction.customId.startsWith(CLOSE_BUTTON_PREFIX)) {
-        await handleCloseButton(interaction);
         return true;
     }
     if (interaction.customId === MGMT_LIST_BUTTON_ID) {
@@ -227,12 +266,24 @@ async function handleButton(interaction) {
         await handleManagementStatsButton(interaction);
         return true;
     }
+    if (interaction.customId.startsWith(model.MGMT_CLAIM_PREFIX)) {
+        await handleMgmtClaimButton(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(model.MGMT_CLOSE_PREFIX)) {
+        await handleMgmtCloseButton(interaction);
+        return true;
+    }
     return false;
 }
 
 async function handleSelectMenu(interaction) {
     if (interaction.customId.startsWith(PUNISH_SELECT_PREFIX)) {
         await handlePunishSelect(interaction);
+        return true;
+    }
+    if (interaction.customId === model.MGMT_SELECT_ID) {
+        await handleManagementSelect(interaction);
         return true;
     }
     return false;
