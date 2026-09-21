@@ -195,9 +195,10 @@ async function handleManagementSelect(interaction) {
 }
 
 // "Взять в работу" из карточки тикета в канале управления — threadId
-// зашит в customId (кнопка живёт вне самого треда, контекста
-// interaction.channelId тут недостаточно). Подтверждение публикуется
-// прямо в тред жалобы, чтобы автор и остальной staff видели, кто взял.
+// зашит в customId (кнопка живёт вне самого треда). Никакого сообщения в
+// сам тред не шлём — по прямому требованию администратора тред жалобы
+// остаётся чисто информационным, claim-статус виден только здесь же, в
+// канале управления (карточка тикета и список "Активные тикеты").
 async function handleMgmtClaimButton(interaction) {
     const config = await load();
     if (!model.isStaff(config, interaction.member)) {
@@ -213,10 +214,6 @@ async function handleMgmtClaimButton(interaction) {
         await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
         return;
     }
-    const thread =
-        interaction.guild.channels.cache.get(threadId) ??
-        (await interaction.guild.channels.fetch(threadId).catch(() => null));
-    await thread?.send(`🧑‍💼 **Взял в работу:** ${interaction.user.tag}`).catch(() => {});
     await interaction.update({
         content: null,
         embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
