@@ -71,6 +71,12 @@ function countRecentReportsOn(reports, targetUserId, now, windowMs) {
     return reports.filter(r => r.targetUserId === targetUserId && now - r.createdAt <= windowMs).length;
 }
 
+// Антиспам-кулдаун на открытие тикета: один автор не может открыть новый
+// тикет чаще, чем раз в 30 минут — отсчитывается от момента открытия
+// (config.lastReportAt), а не от закрытия/активности тикета, поэтому не
+// обходится досрочным закрытием.
+const TICKET_COOLDOWN_MS = 30 * 60 * 1000;
+
 // "2 д 3 ч", "45 мин", "<1 мин" — используется в подписи к результату
 // наказания. Чистая функция — без обращений к Discord.
 function formatDuration(ms) {
@@ -387,16 +393,25 @@ async function getTicketStats(guild, config) {
 // и чтобы "Активные тикеты" показывал, что ещё никто не подхватил. Тикет
 // закреплён за одним сотрудником: как только его кто-то взял, повторный
 // claim (в том числе другим сотрудником) отклоняется — над тикетом должен
-// работать один человек (item 3). Возвращает дискриминированный результат
-// вместо голого record/null, чтобы вызывающий код (handlers.js) мог
-// отличить "тикет уже закрыт" от "уже взят другим" и показать разные
-// сообщения.
+// работать один человек (item 3). Кроме того, один сотрудник не может
+// вести два тикета одновременно — пока не закрыл текущий (в том числе
+// пока не дождался подтверждения закрытия от старшего состава), claim
+// любого другого тикета отклоняется. Возвращает дискриминированный
+// результат вместо голого record/null, чтобы вызывающий код (handlers.js)
+// мог отличить "тикет уже закрыт"/"уже взят другим"/"у тебя уже есть
+// тикет в работе" и показать разные сообщения.
 async function claimTicket(threadId, staffId, staffTag) {
     return update(c => {
         const record = c.ticketsById[threadId];
         if (!record) return { ok: false, reason: 'not_found' };
         if (record.claimedBy && record.claimedBy !== staffId) {
             return { ok: false, reason: 'already_claimed', claimedByTag: record.claimedByTag };
+        }
+        if (!record.claimedBy) {
+            const busyTicket = Object.values(c.ticketsById).find(r => r.claimedBy === staffId);
+            if (busyTicket) {
+                return { ok: false, reason: 'staff_busy', busyTicketNumber: busyTicket.number };
+            }
         }
         record.claimedBy = staffId;
         record.claimedByTag = staffTag;
@@ -437,6 +452,26 @@ async function rejectCloseRequest(threadId) {
 async function submitReport(interaction, rawTarget, description) {
     const guild = interaction.guild;
     const now = Date.now();
+    const authorId = interaction.user.id;
+
+    // Кулдаун проверяем и сразу же фиксируем одной атомарной операцией
+    // (тот же приём, что у резервации номера ниже) — иначе два почти
+    // одновременных сабмита от одного автора оба прошли бы проверку до
+    // того, как друг друга запишут.
+    const cooldown = await update(c => {
+        const lastAt = c.lastReportAt[authorId];
+        if (lastAt && now - lastAt < TICKET_COOLDOWN_MS) {
+            return { onCooldown: true, retryAfterMs: TICKET_COOLDOWN_MS - (now - lastAt) };
+        }
+        c.lastReportAt[authorId] = now;
+        return { onCooldown: false };
+    });
+    if (cooldown.onCooldown) {
+        return {
+            error: `Слишком часто — новый тикет можно открыть через ${formatDuration(cooldown.retryAfterMs)}.`,
+        };
+    }
+
     let targetId = extractTargetId(rawTarget);
     let targetTag = null;
     if (targetId) {
@@ -549,7 +584,7 @@ async function submitReport(interaction, rawTarget, description) {
     await update(c => {
         c.ticketsById[thread.id] = {
             number,
-            authorId: interaction.user.id,
+            authorId,
             rawTarget,
             targetId,
             targetTag,
@@ -640,6 +675,7 @@ module.exports = {
     MGMT_APPROVE_CLOSE_PREFIX,
     MGMT_DENY_CLOSE_PREFIX,
     REPORT_HISTORY_WINDOW_MS,
+    TICKET_COOLDOWN_MS,
     isStaff,
     isSeniorStaff,
     countRecentReportsOn,

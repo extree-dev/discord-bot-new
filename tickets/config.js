@@ -35,6 +35,12 @@ const STORE_NAME = 'tickets';
 // нужна после закрытия — список активных и так берётся напрямую из
 // Discord через fetchActive(), см. listActiveTickets), поэтому карта не
 // растёт бесконечно, в отличие от reports.
+// lastReportAt — { [authorId]: timestampMs } — когда автор последний раз
+// открыл тикет, для антиспам-кулдауна на создание (см. model.js
+// TICKET_COOLDOWN_MS/submitReport). В отличие от ticketsById запись не
+// удаляется при закрытии тикета — кулдаун отсчитывается от момента
+// открытия, а не от активности тикета; карта ограничена числом разных
+// авторов, а не числом тикетов, так что тоже не растёт бесконечно.
 const DEFAULTS = {
     categoryId: null,
     panelChannelId: null,
@@ -46,6 +52,7 @@ const DEFAULTS = {
     counter: 0,
     reports: [],
     ticketsById: {},
+    lastReportAt: {},
 };
 
 function normalize(data) {
@@ -54,6 +61,7 @@ function normalize(data) {
         ...data,
         reports: [...(data.reports ?? [])],
         ticketsById: { ...(data.ticketsById ?? {}) },
+        lastReportAt: { ...(data.lastReportAt ?? {}) },
     };
 }
 
