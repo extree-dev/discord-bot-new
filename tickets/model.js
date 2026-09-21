@@ -2,10 +2,12 @@
 // референсу администратора). Кнопка → модалка с двумя текстовыми полями
 // (тег/ID, описание) → бот заводит приватный тред "ticket-<N>" в
 // submissionsChannel и добавляет туда автора — дальше переписка идёт
-// прямо в треде, без claim/close/эскалации/приоритета/рейтингов и
-// прочего жизненного цикла старой системы. Общие вопросы, апелляции,
-// баги убраны целиком — см. CHANGELOG. Роутинг по customId — в
-// tickets/handlers.js.
+// прямо в треде. Из старого жизненного цикла оставлены только claim
+// ("Взять в работу") и close — нужны, когда несколько модераторов
+// разбирают общую очередь жалоб; эскалация/приоритет/рейтинги/HTML-
+// транскрипты/аппрувал для стажёров по-прежнему не возвращались. Общие
+// вопросы, апелляции, баги убраны целиком — см. CHANGELOG. Роутинг по
+// customId — в tickets/handlers.js.
 const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
@@ -14,6 +16,11 @@ const moderation = require('../moderation');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
 const OPEN_BUTTON_ID = 'ticket_open';
+// Без embedded-ID в customId, в отличие от ticket_close:<authorId>/
+// ticket_punish:<targetId> — обработчик всегда читает нужный тред прямо
+// из interaction.channelId (кнопка живёт только на сообщении внутри
+// самого треда), поэтому дополнительных данных в customId не нужно.
+const CLAIM_BUTTON_ID = 'ticket_claim';
 
 // support/ModerateMembers/Administrator — обычный штат. Раньше здесь ещё
 // проверялись специалист-роли по темам (бага, апелляции) — вместе с
@@ -90,10 +97,10 @@ function buildPanelMessage() {
     return toMessage(container, new ActionRowBuilder().addComponents(button));
 }
 
-// Первое сообщение в новом треде — плоское, без кнопок жизненного цикла
-// вроде claim/приоритета/статуса — только "Закрыть" (снимает доступ
-// автора и архивирует тред, см. closeReport) и, если targetId удалось
-// вытащить из введённого текста (см. extractTargetId), "Наказать".
+// Первое сообщение в новом треде — "Взять в работу" (claim, см.
+// claimTicket) всегда первой, дальше "Закрыть" (снимает доступ автора и
+// архивирует тред, см. closeReport) и, если targetId удалось вытащить
+// из введённого текста (см. extractTargetId), "Наказать".
 function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, description, reportHistoryCount) {
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(
@@ -111,6 +118,7 @@ function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, des
     container.addTextDisplayComponents(textDisplay(infoLines.join('\n')));
 
     const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(CLAIM_BUTTON_ID).setLabel('Взять в работу').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`ticket_close:${authorId}`).setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
     );
     if (targetId) {
@@ -142,12 +150,15 @@ function buildManagementPanelMessage() {
 // живого guild.channels.threads.fetchActive() ниже.
 function formatActiveTicketsList(threads) {
     if (!threads.length) return 'Открытых тикетов нет.';
-    return threads.map(t => `• ${t.name} — ${t.url}`).join('\n');
+    return threads
+        .map(t => `• ${t.name} — ${t.url} — ${t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят'}`)
+        .join('\n');
 }
 
-function formatTicketStats({ activeCount, totalCount, reportsCount }) {
+function formatTicketStats({ activeCount, unclaimedCount, totalCount, reportsCount }) {
     return [
         `**Открыто сейчас:** ${activeCount}`,
+        `**Не взято в работу:** ${unclaimedCount}`,
         `**Всего создано за всё время:** ${totalCount}`,
         `**Жалоб в истории:** ${reportsCount}`,
     ].join('\n');
@@ -155,7 +166,8 @@ function formatTicketStats({ activeCount, totalCount, reportsCount }) {
 
 // Активные (неархивированные) треды жалоб в submissionsChannel,
 // отсортированные по времени создания — snowflake ID, тот же приём, что
-// pickOldest в utils/idempotent.js.
+// pickOldest в utils/idempotent.js. claimedByTag — из config.ticketsById
+// (см. claimTicket), не из самого Discord-треда — там этого не хранится.
 async function listActiveTickets(guild, config) {
     const channelId = config.submissionsChannelId;
     if (!channelId) return [];
@@ -168,12 +180,33 @@ async function listActiveTickets(guild, config) {
     return [...active.threads.values()]
         .filter(t => t.name.startsWith('ticket-'))
         .sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0))
-        .map(t => ({ name: t.name, url: t.url }));
+        .map(t => ({ name: t.name, url: t.url, claimedByTag: config.ticketsById?.[t.id]?.claimedByTag ?? null }));
 }
 
 async function getTicketStats(guild, config) {
     const active = await listActiveTickets(guild, config);
-    return { activeCount: active.length, totalCount: config.counter ?? 0, reportsCount: config.reports?.length ?? 0 };
+    return {
+        activeCount: active.length,
+        unclaimedCount: active.filter(t => !t.claimedByTag).length,
+        totalCount: config.counter ?? 0,
+        reportsCount: config.reports?.length ?? 0,
+    };
+}
+
+// "Взять в работу" — фиксирует, кто из стафа разбирает тикет, чтобы
+// несколько модераторов не отвечали одному и тому же участнику вразнобой
+// и чтобы "Активные тикеты" показывал, что ещё никто не подхватил.
+// Повторное нажатие (в том числе другим модератором) просто переставляет
+// claimedBy — отдельного "открепить" не делаем, тема не про полноценный
+// жизненный цикл с правами на переназначение.
+async function claimTicket(threadId, staffId, staffTag) {
+    return update(c => {
+        const record = c.ticketsById[threadId];
+        if (!record) return null;
+        record.claimedBy = staffId;
+        record.claimedByTag = staffTag;
+        return record;
+    });
 }
 
 // Обрабатывает заполненную форму — резервирует номер тикета (лок
@@ -233,19 +266,24 @@ async function submitReport(interaction, rawTarget, description) {
     // Доступ автора к треду даёт само членство — у ThreadChannel в
     // discord.js нет API permissionOverwrites (треды не поддерживают
     // персональные оверрайты), а submissionsChannel закрыт от @everyone.
-    // Одна повторная попытка — на случай гонки сразу после создания
-    // треда (Discord не всегда успевает полностью применить состояние
-    // приватного треда к моменту первого вызова); если не помогло —
-    // явное предупреждение прямо в треде, чтобы staff (видит все треды
-    // через ManageThreads) заметил и добавил автора вручную, а не узнал
-    // об этом от разъярённого пользователя днями позже.
+    // Повторная попытка с паузой (не сразу — если причина в задержке
+    // применения состояния приватного треда на стороне Discord сразу
+    // после создания, мгновенный повтор её не переживёт); если не
+    // помогло — явное предупреждение прямо в треде с текстом реальной
+    // ошибки Discord (а не просто "не получилось"), чтобы staff (видит
+    // все треды через ManageThreads) сразу добавил автора вручную и
+    // чтобы при повторении был виден настоящий код/текст ошибки, а не
+    // только запись в консоли контейнера, которая никому не видна.
     let authorAdded = false;
+    let lastError = null;
     for (let attempt = 1; attempt <= 2 && !authorAdded; attempt++) {
         try {
             await thread.members.add(interaction.user.id);
             authorAdded = true;
         } catch (err) {
+            lastError = err;
             console.error(`tickets: не удалось добавить автора в тред жалобы (попытка ${attempt}):`, err);
+            if (attempt === 1) await new Promise(resolve => setTimeout(resolve, 1500));
         }
     }
 
@@ -266,10 +304,27 @@ async function submitReport(interaction, rawTarget, description) {
         .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
 
     if (!authorAdded) {
+        const detail = lastError?.message ? ` (${lastError.message})` : '';
         await thread
-            .send('⚠️ Не удалось автоматически добавить автора в тред — добавь вручную через список участников треда.')
+            .send(
+                `⚠️ Не удалось автоматически добавить автора в тред${detail} — добавь вручную через список участников треда.`
+            )
             .catch(() => {});
     }
+
+    // Для claim-статуса в "Активные тикеты" (см. listActiveTickets) —
+    // запись живёт, пока тикет открыт, и удаляется в closeReport.
+    await update(c => {
+        c.ticketsById[thread.id] = {
+            number,
+            authorId: interaction.user.id,
+            targetId,
+            targetTag,
+            claimedBy: null,
+            claimedByTag: null,
+            createdAt: now,
+        };
+    });
 
     return { ok: true, thread };
 }
@@ -326,10 +381,18 @@ async function closeReport(thread, authorId) {
     await thread
         .setArchived(true, 'Тикет закрыт')
         .catch(err => console.error('tickets: не удалось заархивировать тред:', err));
+    // Закрытый тикет больше не входит в fetchActive() сам по себе — запись
+    // в ticketsById нужна была только для claim-статуса живых тикетов,
+    // дальше она бы просто копилась без дела (в отличие от reports, эта
+    // карта не нужна для истории/статистики после закрытия).
+    await update(c => {
+        delete c.ticketsById[thread.id];
+    });
 }
 
 module.exports = {
     OPEN_BUTTON_ID,
+    CLAIM_BUTTON_ID,
     REPORT_HISTORY_WINDOW_MS,
     isStaff,
     countRecentReportsOn,
@@ -346,4 +409,5 @@ module.exports = {
     submitReport,
     punishReportedUser,
     closeReport,
+    claimTicket,
 };
