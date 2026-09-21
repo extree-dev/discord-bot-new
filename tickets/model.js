@@ -13,7 +13,6 @@ const {
 const { load, update } = require('./config');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { sendPunishmentDm } = require('../utils/punishmentNotice');
-const { sendSelfDeletingDm, buildClearHistoryButtonRow } = require('../utils/dm');
 const moderation = require('../moderation');
 const {
     baseContainer,
@@ -1422,26 +1421,12 @@ async function reopenTicket(guild, number) {
     return { thread };
 }
 
-// DM автору с просьбой оценить работу поддержки — отправляется после
-// закрытия тикета. Молча ничего не делает, если DM закрыты (catch).
-async function sendRatingRequest(client, entry, threadId) {
-    const user = await client.users.fetch(entry.ownerId).catch(() => null);
-    if (!user) return;
-
-    const card = infoContainer(
-        `Как тебе помогли с тикетом #${entry.number}? Выбери оценку от 1 до 5.`,
-        'Оцени поддержку'
-    );
-    const row = new ActionRowBuilder().addComponents(
-        [1, 2, 3, 4, 5].map(n =>
-            new ButtonBuilder()
-                .setCustomId(`ticket_rate:${threadId}:${n}`)
-                .setLabel(`${n}`)
-                .setStyle(ButtonStyle.Secondary)
-        )
-    );
-    await user.send(toMessage(card, row, buildClearHistoryButtonRow())).catch(() => {});
-}
+// Отключено по решению администратора — бот вообще не должен сам писать
+// участникам в личные сообщения (единственный канал теперь только /dm,
+// вручную администратором). Сигнатура и вызывающие места (handlers.js,
+// sweep.js, commands/moderation/tickets.js) оставлены как есть — просто
+// ничего не делают.
+async function sendRatingRequest() {}
 
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
 // ответ автора снимает эту пометку. Любая активность сбрасывает
@@ -1472,27 +1457,9 @@ async function recordActivity(threadId, authorIsOwner) {
     return updatedEntry;
 }
 
-// DM автору, если staff ответил, а от автора давно нет ответа (обратная
-// сторона напоминания staff о неактивности — см. findTicketsToWarn) —
-// чтобы тикет не затих просто потому, что автор не заметил уведомление
-// в самом Discord. Молча ничего не делает, если DM закрыты.
-// Само удаляется через сутки — это просто разовый пинок "не забудь
-// ответить", а не что-то, что должно навсегда оставаться в личке (по
-// просьбе администратора: DM не должны копиться).
-const OWNER_REMINDER_TTL_MS = 24 * 60 * 60 * 1000;
-
-async function sendOwnerReminder(client, entry, threadId) {
-    const user = await client.users.fetch(entry.ownerId).catch(() => null);
-    if (!user) return;
-
-    const link = entry.guildId ? `https://discord.com/channels/${entry.guildId}/${threadId}` : null;
-    const card = warningContainer(
-        `Поддержка ответила в тикете #${entry.number}, но мы давно не видели ответа от тебя.` +
-            (link ? ` [Перейти в тикет](${link})` : ''),
-        'Тикет ждёт твоего ответа'
-    );
-    await sendSelfDeletingDm(user, toMessage(card, buildClearHistoryButtonRow()), OWNER_REMINDER_TTL_MS);
-}
+// Отключено по решению администратора — тот же случай, что и
+// sendRatingRequest выше: бот больше не пишет участникам в личку сам.
+async function sendOwnerReminder() {}
 
 async function markOwnerNotified(threadId) {
     await update(cfg => {
