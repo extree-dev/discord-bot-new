@@ -141,6 +141,18 @@ test('resolveTargetByUsername: чистит "@.ник"/"ник#1234" и резо
     assert.equal(byTag?.id, '1');
 });
 
+test('resolveTargetByUsername: настоящий username с ведущей точкой (".ник") резолвится напрямую, точка — не мусор', async () => {
+    // Discord разрешает username начинаться с точки — ".extree" здесь
+    // настоящий ник, не "точка + extree". Первая попытка (с точкой как
+    // есть) должна найти его сразу, без обращения ко второй попытке
+    // (без точки), которая нашла бы другого пользователя.
+    const guild = makeGuildWithMembers([
+        { id: '1', user: { username: '.extree', tag: '.extree', globalName: null }, nickname: null },
+        { id: '2', user: { username: 'extree', tag: 'extree', globalName: null }, nickname: null },
+    ]);
+    assert.equal((await resolveTargetByUsername(guild, '@.extree'))?.id, '1');
+});
+
 test('resolveTargetByUsername: не гадает при 0 или нескольких точных совпадениях', async () => {
     const noMatch = makeGuildWithMembers([
         { id: '1', user: { username: 'someoneelse', tag: 'someoneelse', globalName: null }, nickname: null },

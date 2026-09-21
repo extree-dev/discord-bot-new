@@ -105,37 +105,56 @@ function extractTargetId(rawTarget) {
     return mentionMatch ? mentionMatch[1] : null;
 }
 
-// Живой ввод вместо чистого ID/упоминания — участник часто пишет тег
-// привычным способом ("@ник", ".ник" — как обращение в чате, где Discord
-// сам подставляет @ при наборе, но в текстовом поле формы это просто
-// буквы) или старым форматом "Тег#1234". Чистим привычный мусор (ведущие
-// @, ведущую точку, "#цифры" в конце) и ищем участника через поиск по
-// гильдии (Discord Search Guild Members — по префиксу username/nickname,
-// не требует привилегированного интента). Резолвим, только если после
-// чистки нашлось РОВНО ОДНО точное совпадение (без учёта регистра) по
-// username/nickname/отображаемому имени — если 0 или больше одного, не
-// гадаем и возвращаем null (то же поведение, что и для нерезолвящегося
-// ID: сырой текст в карточке, без кнопки "Наказать").
-async function resolveTargetByUsername(guild, rawTarget) {
-    const cleaned = rawTarget
-        .trim()
-        .replace(/^@+/, '')
-        .replace(/^\.+/, '')
-        .replace(/#\d{4}$/, '')
-        .trim();
-    if (!cleaned) return null;
-
-    const results = await guild.members.fetch({ query: cleaned, limit: 5 }).catch(() => null);
+// Один запрос поиска участников по имени (Discord Search Guild Members —
+// по префиксу username/nickname, не требует привилегированного интента) с
+// последующей проверкой на РОВНО ОДНО точное совпадение (без учёта
+// регистра) по username/nickname/отображаемому имени — если 0 или больше
+// одного, не гадаем и возвращаем null.
+async function lookupExactMember(guild, candidate) {
+    if (!candidate) return null;
+    const results = await guild.members.fetch({ query: candidate, limit: 5 }).catch(() => null);
     if (!results || results.size === 0) return null;
 
-    const cleanedLower = cleaned.toLowerCase();
+    const candidateLower = candidate.toLowerCase();
     const exactMatches = [...results.values()].filter(
         m =>
-            m.user.username.toLowerCase() === cleanedLower ||
-            (m.nickname && m.nickname.toLowerCase() === cleanedLower) ||
-            (m.user.globalName && m.user.globalName.toLowerCase() === cleanedLower)
+            m.user.username.toLowerCase() === candidateLower ||
+            (m.nickname && m.nickname.toLowerCase() === candidateLower) ||
+            (m.user.globalName && m.user.globalName.toLowerCase() === candidateLower)
     );
     return exactMatches.length === 1 ? exactMatches[0] : null;
+}
+
+// Живой ввод вместо чистого ID/упоминания — участник часто пишет тег
+// привычным способом ("@ник" — как обращение в чате, где Discord сам
+// подставляет @ при наборе, но в текстовом поле формы это просто буквы)
+// или старым форматом "Тег#1234". "@" в начале — всегда мусор (адресация,
+// не часть имени), поэтому снимаем его безусловно. А вот ведущую точку
+// снимать нельзя так же смело: Discord разрешает username начинаться с
+// точки (на этом сервере есть реальный ник ".extree" — см. пример из
+// уведомлений о клейме), так что "@.ник" может означать как раз этот
+// ник целиком, а не "точка как разделитель + ник". Поэтому сначала
+// пробуем разрешить имя как есть (с точкой, если она была), и только если
+// не нашли — второй попыткой без ведущей точки (на случай, если точка и
+// правда была просто мусором). Первая же удачная попытка побеждает.
+async function resolveTargetByUsername(guild, rawTarget) {
+    const withoutAt = rawTarget.trim().replace(/^@+/, '').trim();
+    if (!withoutAt) return null;
+
+    const candidates = [withoutAt.replace(/#\d{4}$/, '').trim()];
+    if (withoutAt.startsWith('.')) {
+        const withoutLeadingDot = withoutAt
+            .replace(/^\.+/, '')
+            .replace(/#\d{4}$/, '')
+            .trim();
+        if (withoutLeadingDot) candidates.push(withoutLeadingDot);
+    }
+
+    for (const candidate of candidates) {
+        const member = await lookupExactMember(guild, candidate);
+        if (member) return member;
+    }
+    return null;
 }
 
 // НЕ <@id> — упоминание нарушителя запинговало бы его самого уведомлением
