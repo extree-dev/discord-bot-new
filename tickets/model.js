@@ -161,7 +161,13 @@ async function submitReport(interaction, rawTarget, description) {
         thread = await channel.threads.create({
             name: `ticket-${number}`.slice(0, 95),
             type: ChannelType.PrivateThread,
-            invitable: false,
+            // invitable: true — иначе добавлять участников в приватный
+            // тред может только тот, у кого ManageThreads явным
+            // оверрайтом именно на этом канале (см. scripts/setup-
+            // tickets.js) — у самого бота такого оверрайта нет, только у
+            // ролей стафа, поэтому thread.members.add() ниже молча падал
+            // с "Missing Permissions", даже для бота-создателя треда.
+            invitable: true,
             reason: `Жалоба #${number} от ${interaction.user.tag}`,
         });
     } catch (err) {
@@ -171,7 +177,9 @@ async function submitReport(interaction, rawTarget, description) {
     // Доступ автора к треду даёт само членство — у ThreadChannel в
     // discord.js нет API permissionOverwrites (треды не поддерживают
     // персональные оверрайты), а submissionsChannel закрыт от @everyone.
-    await thread.members.add(interaction.user.id).catch(() => {});
+    await thread.members
+        .add(interaction.user.id)
+        .catch(err => console.error('tickets: не удалось добавить автора в тред жалобы:', err));
 
     // Без пинга роли — как на референс-сервере: ManageThreads на
     // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
