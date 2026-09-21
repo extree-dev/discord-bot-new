@@ -1,7 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { addWarning } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
-const { buildClearHistoryButtonRow } = require('../../utils/dm');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -28,15 +27,9 @@ module.exports = {
             )
             .setFooter({ text: `ID: ${target.id}` });
 
+        // Личное сообщение участнику отключено по решению администратора —
+        // бот вообще не должен сам писать участникам в личку, единственный
+        // канал для этого — /dm (администратор вручную).
         await interaction.reply({ embeds: [embed], ephemeral: true });
-
-        const dmEmbed = baseEmbed(COLORS.warning)
-            .setDescription(formatBody('Вы получили предупреждение'))
-            .addFields(
-                { name: 'Сервер', value: interaction.guild.name, inline: true },
-                { name: 'Причина', value: reason }
-            );
-
-        await target.send({ embeds: [dmEmbed], components: [buildClearHistoryButtonRow()] }).catch(() => {});
     },
 };

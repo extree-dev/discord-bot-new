@@ -19,7 +19,6 @@ const {
     toMessage,
     toEphemeralMessage,
 } = require('../utils/components');
-const { APPEAL_BUTTON_CUSTOM_ID } = require('../utils/punishmentNotice');
 const model = require('./model');
 
 const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
@@ -109,69 +108,6 @@ async function handleOpenReasonButton(interaction) {
         await interaction.reply({
             content: 'Выбери игрока, на которого жалуешься:',
             components: [new ActionRowBuilder().addComponents(select)],
-            ephemeral: true,
-        });
-        return;
-    }
-
-    await interaction.showModal(buildCreateModal(reason));
-}
-
-// Кнопка "Подать апелляцию" в личном DM-уведомлении о муте (см.
-// utils/punishmentNotice.js) — короткий путь к тикету апелляции прямо
-// из личных сообщений, не нужно искать панель тикетов на сервере. Мут —
-// не нативный Discord-таймаут (moderation/model.js вместо него
-// использует роль "Muted", которая НЕ блокирует кнопки/слэш-команды —
-// именно поэтому и не таймаут, см. её комментарии), так что участник
-// может подать апелляцию и напрямую через обычную панель на сервере;
-// эта кнопка не единственный способ, просто удобнее. interaction.guild
-// здесь всегда null (кнопка живёт в личке), поэтому гильдию и участника
-// резолвим сами — так же, как это делает tickets/model.js createTicket()
-// для этого же случая.
-async function handleAppealDmButton(interaction) {
-    const reason = model.REASONS.find(r => r.value === 'appeal');
-    if (!reason) return;
-
-    const guild = interaction.client.guilds.cache.get(process.env.GUILD_ID) ?? interaction.client.guilds.cache.first();
-    if (!guild) {
-        await interaction.reply({
-            embeds: [errorEmbed('Сервер сейчас недоступен, попробуй чуть позже.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const member = await guild.members.fetch(interaction.user.id).catch(() => null);
-    if (!member) {
-        await interaction.reply({
-            embeds: [
-                errorEmbed(
-                    'Похоже, ты сейчас не участник сервера — подать апелляцию отсюда можно, только оставаясь на сервере (например, во время мута). Если тебя забанили, обратись к администрации другим способом.'
-                ),
-            ],
-            ephemeral: true,
-        });
-        return;
-    }
-
-    const config = await load();
-    const existing = model.findOpenTicketByOwner(config, interaction.user.id);
-    if (existing) {
-        await interaction.reply({
-            embeds: [errorEmbed('У тебя уже открыт тикет — проверь тред на сервере.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const recentlyClosed = model.findRecentlyClosedTicketByOwner(
-        config,
-        interaction.user.id,
-        Date.now(),
-        config.ticketCooldownMs
-    );
-    if (recentlyClosed) {
-        const waitMs = config.ticketCooldownMs - (Date.now() - recentlyClosed[1].closedAt);
-        await interaction.reply({
-            embeds: [errorEmbed(`Подожди ещё ${model.formatDuration(waitMs)} перед созданием нового тикета.`)],
             ephemeral: true,
         });
         return;
@@ -696,7 +632,6 @@ const BUTTON_HANDLERS = {
     ticket_quickreply: handleQuickReplyButton,
     ticket_punish: handlePunishButton,
     ticket_unpunish: handleUnpunishButton,
-    [APPEAL_BUTTON_CUSTOM_ID]: handleAppealDmButton,
 };
 
 async function handleRatingButton(interaction) {
