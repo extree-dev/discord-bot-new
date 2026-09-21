@@ -1,7 +1,7 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const leveling = require('../leveling');
-const { findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
+const { findChannel, findOrCreateChannel, findOrCreateRole } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -30,23 +30,27 @@ client.once('clientReady', async () => {
         });
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
-        const { channel, created: channelCreated } = await findOrCreateChannel({
+        // По прямому запросу администратора — канал больше не создаётся
+        // автоматически, только поиск по уже сохранённому ID/имени (см.
+        // utils/idempotent.js findChannel). Если не найден — просто
+        // оставляем прежний announceChannelId как есть (см. configureGuild
+        // ниже), остальная настройка ролей/бустера не страдает.
+        const channel = await findChannel({
             guild,
             existingId: existingGuildConfig.announceChannelId,
             name: CHANNEL_NAME,
             type: ChannelType.GuildText,
             parentId: category.id,
-            createOptions: {
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            },
         });
-        if (channelCreated) {
-            console.log(`Создан канал: ${CHANNEL_NAME}`);
-        } else {
+        if (channel) {
             console.log(`Канал топа активности уже настроен: ${channel.name}`);
             await channel.permissionOverwrites
                 .edit(guild.roles.everyone.id, { SendMessages: false })
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
+        } else {
+            console.warn(
+                `Канал "${CHANNEL_NAME}" не найден — автосоздание отключено администратором. Создай канал вручную, конфиг подхватит его по имени на следующем деплое.`
+            );
         }
 
         // Роль на каждый ярус, включая стартовый "Новичок" (LEVELS[0]) —
@@ -134,7 +138,7 @@ client.once('clientReady', async () => {
         }
 
         await leveling.configureGuild(guild.id, {
-            channelId: channel.id,
+            channelId: channel?.id ?? existingGuildConfig.announceChannelId,
             categoryId: category.id,
             levelRoles,
             clubCategoryId: null,

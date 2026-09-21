@@ -1,9 +1,9 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const modqueue = require('../modqueue');
 const security = require('../security');
 const tickets = require('../tickets');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -29,21 +29,26 @@ client.once('clientReady', async () => {
             ticketsConfig.supportRoleId,
         ].filter(Boolean);
 
-        const { channel, created } = await findOrCreateChannel({
+        // По прямому запросу администратора — канал больше не создаётся
+        // автоматически, только поиск по уже сохранённому ID/имени (см.
+        // utils/idempotent.js findChannel).
+        const channel = await findChannel({
             guild,
             existingId: config.reviewChannelId,
             name: CHANNEL_NAME,
             type: ChannelType.GuildText,
-            createOptions: {
-                permissionOverwrites: [
-                    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    ...staffRoleIds.map(id => ({ id, allow: [PermissionFlagsBits.ViewChannel] })),
-                ],
-            },
         });
-        console.log(
-            created ? `Создан канал: ${CHANNEL_NAME}` : `Канал очереди модерации уже настроен: ${channel.name}`
-        );
+        if (!channel) {
+            console.warn(
+                `Канал "${CHANNEL_NAME}" не найден — автосоздание отключено администратором. Создай канал вручную, конфиг подхватит его по имени на следующем деплое.`
+            );
+            process.exit(0);
+        }
+        console.log(`Канал очереди модерации уже настроен: ${channel.name}`);
+        await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
+        for (const id of staffRoleIds) {
+            await channel.permissionOverwrites.edit(id, { ViewChannel: true }).catch(() => {});
+        }
 
         await modqueue.updateConfig(cfg => {
             cfg.reviewChannelId = channel.id;

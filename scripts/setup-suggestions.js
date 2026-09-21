@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require(
 const { load, save } = require('../suggestions/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../suggestions');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel, findOrCreateChannel } = require('../utils/idempotent');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -15,17 +15,23 @@ client.once('clientReady', async () => {
 
         const config = await load();
 
-        // канал с панелью — сюда пишет только бот, участники жмут кнопку
-        const { channel: panelChannel, created: panelCreated } = await findOrCreateChannel({
+        // По прямому запросу администратора — канал больше не создаётся
+        // автоматически (только поиск по уже сохранённому ID/имени), чтобы
+        // случайное расхождение с сервером (удалённый канал, потерянный ID)
+        // не плодило рядом дубликат: раньше это уже приводило к путанице
+        // при деплое. Если канал не найден — панель просто не обновляется
+        // в этом запуске, остальная настройка (канал вывода ниже) не страдает.
+        const panelChannel = await findChannel({
             guild,
             existingId: config.panelChannelId,
             name: 'предложить-идею',
             type: ChannelType.GuildText,
-            createOptions: {
-                permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
-            },
         });
-        console.log(panelCreated ? 'Создан канал: предложить-идею' : 'Канал предложить-идею уже настроен');
+        if (!panelChannel) {
+            console.warn(
+                'Канал "предложить-идею" не найден — автосоздание отключено администратором. Создай канал вручную (или верни прежний), панель обновится на следующем деплое.'
+            );
+        }
 
         // канал вывода предложений — тоже read-only для участников, туда публикует бот
         const { channel: outputChannel, created: outputCreated } = await findOrCreateChannel({
@@ -43,27 +49,34 @@ client.once('clientReady', async () => {
         if (securityConfig.verification.unverifiedRoleId) {
             const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
             if (unverifiedRole) {
-                await panelChannel.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
+                if (panelChannel)
+                    await panelChannel.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
                 await outputChannel.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
                 console.log(`Каналы закрыты от роли ${unverifiedRole.name}`);
             }
         }
 
-        const messages = await panelChannel.messages.fetch({ limit: 10 });
-        const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
-        if (existingPanel) {
-            // embeds: [] — та же причина, что и у панели тикетов/голосовых
-            // комнат: без явной очистки Discord отвергает PATCH, который
-            // одновременно оставляет старый embed и включает флаг
-            // IS_COMPONENTS_V2.
-            await existingPanel.edit({ ...buildPanelMessage(), embeds: [] });
-            console.log('Панель предложений обновлена.');
-        } else {
-            await panelChannel.send(buildPanelMessage());
-            console.log('Панель предложений отправлена.');
+        if (panelChannel) {
+            const messages = await panelChannel.messages.fetch({ limit: 10 });
+            const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
+            if (existingPanel) {
+                // embeds: [] — та же причина, что и у панели тикетов/голосовых
+                // комнат: без явной очистки Discord отвергает PATCH, который
+                // одновременно оставляет старый embed и включает флаг
+                // IS_COMPONENTS_V2.
+                await existingPanel.edit({ ...buildPanelMessage(), embeds: [] });
+                console.log('Панель предложений обновлена.');
+            } else {
+                await panelChannel.send(buildPanelMessage());
+                console.log('Панель предложений отправлена.');
+            }
         }
 
-        await save({ ...config, panelChannelId: panelChannel.id, outputChannelId: outputChannel.id });
+        await save({
+            ...config,
+            panelChannelId: panelChannel?.id ?? config.panelChannelId,
+            outputChannelId: outputChannel.id,
+        });
 
         console.log('Готово. Система предложений настроена.');
         process.exit(0);
