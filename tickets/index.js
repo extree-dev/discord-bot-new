@@ -29,7 +29,7 @@ module.exports = {
     closeTicket: model.closeTicket,
     requestTicketClosure: model.requestTicketClosure,
     postCannedResponse: model.postCannedResponse,
-    getOrCreateNotesThread: model.getOrCreateNotesThread,
+    resetTicketCooldown: model.resetTicketCooldown,
     CANNED_RESPONSES: model.CANNED_RESPONSES,
     STATUS: model.STATUS,
     STATUS_LABELS: model.STATUS_LABELS,

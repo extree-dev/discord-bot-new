@@ -9,9 +9,9 @@ const STORE_NAME = 'tickets';
 //   isThread,                    // true — новые тикеты (тред), false/undefined — старые (канал)
 //   createdAt, lastActivityAt, claimedAt, closedAt, closedBy,
 //   escalatedAt, warnedAt,       // метки, чтобы не слать повторные напоминания
-//   rating, ratedAt,             // оценка автора после закрытия
-//   notesThreadId,               // приватный тред с внутренними заметками staff (создаётся лениво,
-//                                // либо сразу при создании — если у темы есть staffChecklist)
+//   notesThreadId,               // legacy-поле у тикетов, созданных до отмены тредов заметок —
+//                                // новые тикеты его больше не заводят, но closeTicket() всё ещё
+//                                // подчищает уже существующие (см. tickets/model.js closeTicket)
 //   voiceChannelId, rootMessageId,
 //   reasonValue,                 // REASONS[].value ("bug"/"report"/...) — reason сам по себе только
 //                                // отображаемая метка (REASONS[].label), по ней не найти обратно
@@ -49,7 +49,13 @@ const DEFAULTS = {
     inactivityWarnMs: 24 * 60 * 60 * 1000,
     inactivityCloseMs: 48 * 60 * 60 * 1000,
     ownerReminderMs: 6 * 60 * 60 * 1000,
-    ticketCooldownMs: 5 * 60 * 1000,
+    // Кулдаун между тикетами — не только "нельзя тут же переоткрыть
+    // закрытый", а общая пауза перед следующим обращением после любого
+    // взаимодействия с системой тикетов (по просьбе администратора,
+    // 2 часа). /ticket cooldown-reset <user> снимает его вручную для
+    // конкретного участника, не трогая остальным.
+    ticketCooldownMs: 2 * 60 * 60 * 1000,
+    ticketCooldownResets: {},
     counter: 0,
     tickets: {},
 };
@@ -59,6 +65,7 @@ function normalize(data) {
         ...DEFAULTS,
         ...data,
         reasonRoleIds: { ...DEFAULTS.reasonRoleIds, ...data.reasonRoleIds },
+        ticketCooldownResets: { ...data.ticketCooldownResets },
         tickets: { ...data.tickets },
     };
 }
