@@ -280,6 +280,29 @@ async function setScore(guildId, userId, score) {
     });
 }
 
+// Полный сброс статистики активности участника (модерация) — не то же
+// самое, что setScore(0, ...): setScore трогает только score, а роли
+// ярусов только СКЛАДЫВАЮТСЯ (см. grantLevelRolesUpTo) и никогда не
+// снимаются, так что участник остался бы, например, с ролью "Боец" при
+// счёте 0. Reset обнуляет всю запись (score/messageCount/voiceMinutes) и
+// снимает роли всех ярусов ВЫШЕ "Новичка" — саму роль "Новичок" не
+// трогаем, она выдаётся при верификации (см. security/verification.js), а
+// не за активность, и сброс статистики не должен разверифицировать
+// участника.
+async function resetStats(guild, userId) {
+    await config.update(cfg => {
+        delete cfg.users[userKey(guild.id, userId)];
+    });
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) return;
+    for (let i = 1; i < LEVELS.length; i++) {
+        const roleId = await getLevelRoleId(guild.id, i);
+        if (roleId && member.roles.cache.has(roleId)) {
+            await member.roles.remove(roleId, 'Сброс статистики активности').catch(() => {});
+        }
+    }
+}
+
 async function fetchImageBuffer(url) {
     if (!url) return null;
     try {
@@ -501,6 +524,7 @@ module.exports = {
     getLeaderboard,
     getProfile,
     setScore,
+    resetStats,
     getLevelRoleId,
     grantLevelRolesUpTo,
     announceLevelUp,
