@@ -1,8 +1,11 @@
 // Периодическая проверка кастомных мутов: снимает роль Muted, у кого
 // истёк срок. Короче интервал, чем у tickets/sweep.js (5 мин) — мут
 // может быть коротким (10 мин, см. ticket punish menu), и 5-минутный
-// разброс там заметнее.
+// разброс там заметнее. Заодно, на том же тике — тредов-уведомлений о
+// наказании (utils/punishmentNotice.js), которым пора самоудалиться:
+// отдельный setInterval под это не нужен.
 const model = require('./model');
+const punishmentNotice = require('../utils/punishmentNotice');
 
 const SWEEP_INTERVAL_MS = 60 * 1000;
 
@@ -15,6 +18,8 @@ async function runOnce(client) {
         if (!guild) continue;
         await model.unmuteMember(guild, userId, { auto: true }).catch(err => console.error('moderation sweep:', err));
     }
+
+    await punishmentNotice.sweepExpiredNoticeThreads(client).catch(err => console.error('moderation sweep:', err));
 }
 
 function start(client) {

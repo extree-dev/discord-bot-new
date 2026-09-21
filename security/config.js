@@ -12,6 +12,10 @@ const DEFAULTS = {
     // скрипта находил уже переименованную администратором роль по ID,
     // а не создавал рядом дубликат с дефолтным именем.
     baseRoleIds: {},
+    // Родительский канал для приватных тредов-уведомлений о наказании
+    // (utils/punishmentNotice.js) — провижинится
+    // scripts/setup-punishment-notices.js.
+    punishmentNoticeChannelId: null,
     bannedWords: [],
     antiNuke: { enabled: true, maxActions: 3, windowMs: 10000 },
     raidShield: {
