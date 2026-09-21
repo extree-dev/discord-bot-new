@@ -14,15 +14,8 @@
 // но ещё не рассмотренные заявки теряются, их карточки после этого
 // отвечают "заявка недоступна" вместо попытки опубликовать пустоту.
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { COLORS, formatBody } = require('../utils/embeds');
-const {
-    baseContainer,
-    textDisplay,
-    separator,
-    toMessage,
-    successContainer,
-    errorContainer,
-} = require('../utils/components');
+const { COLORS, formatBody, baseEmbed } = require('../utils/embeds');
+const { baseContainer, textDisplay, toMessage, successContainer, errorContainer } = require('../utils/components');
 
 const APPROVE_PREFIX = 'idea_approve:';
 const REJECT_PREFIX = 'idea_reject:';
@@ -82,17 +75,19 @@ async function submitForReview(message, reviewChannel) {
 // Публикуется обратно в исходный канал как оформленная карточка-
 // предложение — НЕ пересылает сообщение как есть (в отличие от
 // modqueue.approvePost): это витрина идей по конкретному каналу, а не лог
-// одобренных сообщений. Имя автора — жирным текстом, не <@id> (то же
-// решение, что у modqueue и tickets.formatReportedUser: публикация
-// собственного одобренного предложения не должна слать автору
-// уведомление на ровном месте).
-function buildApprovedCard({ authorDisplayName, content }) {
-    return baseContainer(COLORS.primary)
-        .addTextDisplayComponents(
-            textDisplay(formatBody('Что нового хотите видеть на этом канале?', `Предложил(а) **${authorDisplayName}**`))
-        )
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(textDisplay(content || '*(сообщение без текста)*'));
+// одобренных сообщений. Классический embed (не Components V2, в отличие
+// от остальных карточек этой фичи) — по прямому референсу администратора:
+// "Идея:"/"Прислал:" как подписанные поля + аватар автора миниатюрой в
+// углу. <@id> в description embed'а рендерится кликабельным упоминанием,
+// но НЕ шлёт автору уведомление — пуш/пинг у Discord завязан на content
+// сообщения, а не на текст внутри embed'а, так что публикация собственного
+// одобренного предложения не тревожит автора на ровном месте.
+function buildApprovedEmbed({ authorId, avatarURL, content }) {
+    const embed = baseEmbed(COLORS.primary).setDescription(
+        `**Идея:**\n${content || '*(сообщение без текста)*'}\n\n**Прислал:**\n<@${authorId}>`
+    );
+    if (avatarURL) embed.setThumbnail(avatarURL);
+    return embed;
 }
 
 async function approvePost(client, pendingId) {
@@ -104,7 +99,12 @@ async function approvePost(client, pendingId) {
         client.channels.cache.get(item.channelId) ?? (await client.channels.fetch(item.channelId).catch(() => null));
     if (!channel) return { error: 'channel-gone', item };
 
-    await channel.send(toMessage(buildApprovedCard(item))).catch(() => {});
+    const author = client.users.cache.get(item.authorId) ?? (await client.users.fetch(item.authorId).catch(() => null));
+    const avatarURL = author?.displayAvatarURL({ size: 256 }) ?? null;
+
+    await channel
+        .send({ embeds: [buildApprovedEmbed({ authorId: item.authorId, avatarURL, content: item.content })] })
+        .catch(() => {});
     return { ok: true, item };
 }
 
@@ -133,7 +133,7 @@ module.exports = {
     REJECT_PREFIX,
     buildReviewCard,
     buildReviewButtons,
-    buildApprovedCard,
+    buildApprovedEmbed,
     buildOutcomeCard,
     submitForReview,
     approvePost,
