@@ -28,7 +28,6 @@ module.exports = {
     reopenTicket: model.reopenTicket,
     closeTicket: model.closeTicket,
     requestTicketClosure: model.requestTicketClosure,
-    sendRatingRequest: model.sendRatingRequest,
     postCannedResponse: model.postCannedResponse,
     getOrCreateNotesThread: model.getOrCreateNotesThread,
     CANNED_RESPONSES: model.CANNED_RESPONSES,

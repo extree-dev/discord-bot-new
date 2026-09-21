@@ -186,7 +186,6 @@ module.exports = {
             }
             await interaction.deferReply({ ephemeral: true });
             await tickets.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id);
-            await tickets.sendRatingRequest(interaction.client, entry, interaction.channelId).catch(() => {});
             return interaction.editReply({ embeds: [successEmbed('Тикет закрыт.', 'Готово')] });
         }
 

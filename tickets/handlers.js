@@ -375,9 +375,7 @@ const handleCloseButton = withTicketEntry(async (interaction, config, entry) => 
     }
 
     await interaction.deferUpdate();
-    const threadId = interaction.channelId;
     await model.closeTicket(interaction.guild, interaction.channel, entry, interaction.user.id, null, interaction);
-    await model.sendRatingRequest(interaction.client, entry, threadId).catch(() => {});
 });
 
 // Кнопки живут в канале подтверждения, а не в треде тикета — customId
@@ -409,7 +407,6 @@ const handleCloseApproveButton = async interaction => {
     await interaction.deferUpdate();
     const closedBy = entry.closeRequestedBy ?? interaction.user.id;
     await model.closeTicket(interaction.guild, ticketChannel, entry, closedBy, interaction.user.id);
-    await model.sendRatingRequest(interaction.client, entry, ticketChannelId).catch(() => {});
     // Карточку запроса в канале подтверждения снимаем с кнопок отдельным
     // Message#edit (не interaction-ответом) — она остаётся видна всему
     // старшему составу как запись "кто подтвердил", это не персональный
@@ -636,6 +633,22 @@ const BUTTON_HANDLERS = {
 
 async function handleRatingButton(interaction) {
     const [, threadId, valueStr] = interaction.customId.split(':');
+
+    // Карточка с оценкой теперь видна всему треду (не только автору в
+    // личке, как раньше), а значит и staff, которые тоже состоят в
+    // треде, физически могут нажать эти кнопки — явно проверяем, что
+    // жмёт именно автор тикета, иначе оценку мог бы поставить кто
+    // угодно за него.
+    const config = await load();
+    const ticketEntry = config.tickets[threadId];
+    if (ticketEntry && interaction.user.id !== ticketEntry.ownerId) {
+        await interaction.reply({
+            embeds: [errorEmbed('Оценить работу поддержки может только автор тикета.')],
+            ephemeral: true,
+        });
+        return;
+    }
+
     const entry = await model.recordRating(threadId, Number(valueStr));
     if (!entry) {
         await interaction.reply({
