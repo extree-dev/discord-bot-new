@@ -73,19 +73,16 @@ module.exports = {
         const amount = interaction.options.getInteger('amount');
         const result = await leveling.setScore(guildId, target.id, amount);
 
-        const member = await interaction.guild.members.fetch(target.id).catch(() => null);
-        if (member) {
-            await leveling.getLevelRoleId(guildId, result.level.index).then(async roleId => {
-                if (roleId && !member.roles.cache.has(roleId)) {
-                    await member.roles.add(roleId, 'Счёт активности установлен вручную').catch(() => {});
-                }
-            });
-        }
+        // Роли ярусов складываются (см. leveling/model.js grantLevelRolesUpTo) —
+        // ручная правка счёта может разом перепрыгнуть несколько ярусов,
+        // поэтому выдаём все роли от первого яруса до текущего, а не
+        // только роль последнего.
+        await leveling.grantLevelRolesUpTo(interaction.guild, target.id, result.level.index);
 
         await interaction.reply({
             embeds: [
                 successEmbed(
-                    `Счёт активности ${target} установлен: ${result.newScore} (${result.level.title}).`,
+                    `Счёт активности ${target} установлен: ${result.newScore} (${result.level.title}, уровень ${result.level.number}).`,
                     'Готово'
                 ),
             ],

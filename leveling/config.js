@@ -6,10 +6,12 @@ const STORE_NAME = 'leveling';
 // голос, см. model.js), messageCount/voiceMinutes — сырые счётчики для
 // отображения на карточке профиля отдельно от итогового score.
 // guilds — ключ guildId: announceChannelId (канал для еженедельного
-// топа и карточек level-up), categoryId, levelRoles (индекс уровня из
+// топа и карточек level-up), categoryId, levelRoles (индекс яруса из
 // LEVELS → roleId, выдаётся автоматически при достижении),
 // lastLeaderboardAt/lastSnapshot — состояние для показа изменения
-// позиции в топе.
+// позиции в топе, clubCategoryId/fighterVoiceChannelId/
+// masterTextChannelId/masterVoiceChannelId — клубные каналы ярусов
+// "Боец"/"Мастер" (см. scripts/setup-leveling.js).
 const DEFAULTS = {
     users: {},
     guilds: {},

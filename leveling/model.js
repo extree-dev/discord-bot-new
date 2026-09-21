@@ -11,29 +11,12 @@
 // начисляются автоматически, без команды "дать". Роль стартового уровня
 // теперь выдаётся при верификации (security/verification.js), а не при
 // первом очке — см. LEVELS[0].min === 0.
-const { AttachmentBuilder } = require('discord.js');
+const { AttachmentBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay } = require('../utils/components');
 const { renderRankCard } = require('./rankCardImage');
 const { renderLeaderboardCard } = require('./leaderboardImage');
 const config = require('./config');
-
-// Титулы и цвета унаследованы от прежней системы репутации (те же роли
-// уже существуют на сервере под теми же именами — см.
-// scripts/setup-leveling.js, который их усыновляет по имени вместо
-// создания дублей). Пороги пересчитаны под новую шкалу очков (сообщения
-// + голос вместо "1 очко = 1 чужая репутация") — на порядок выше, чтобы
-// уровень рос не за один вечер активности, а как реальный показатель
-// вовлечённости за недели.
-const LEVELS = [
-    { title: 'Новичок', min: 0, color: 0x99aab5 },
-    { title: 'Участник', min: 100, color: 0x2ecc71 },
-    { title: 'Активный участник', min: 400, color: 0x3498db },
-    { title: 'Уважаемый', min: 1200, color: 0x9b59b6 },
-    { title: 'Авторитет', min: 3000, color: 0xe67e22 },
-    { title: 'Легенда сервера', min: 7000, color: 0xe91e63 },
-    { title: 'Икона сообщества', min: 15000, color: 0xf1c40f },
-];
 
 // Очки за одно засчитанное сообщение и за одну минуту в голосовом канале.
 // Голос стоит дешевле за минуту, чем сообщение за штуку, но нет верхнего
@@ -46,31 +29,104 @@ const POINTS_PER_VOICE_MINUTE = 2;
 // засчитанный текстовый импульс в минуту с пользователя.
 const MESSAGE_COOLDOWN_MS = 60 * 1000;
 
+// "Уровень" — целое число, растущее с очками (score), отдельно от
+// "яруса" (тира) — тира определяет роль/титул/бонусы, уровень — просто
+// счётчик прогресса внутри и между ярусами (см. getLevelNumber), тот же
+// принцип, что у большинства левелинг-ботов ("Уровень 37"), а не только
+// голый счёт очков.
+const POINTS_PER_LEVEL = 300;
+
+// Ярусы — LEVELS[i].min теперь порог не по очкам, а по УРОВНЮ (не по
+// score напрямую, см. getLevelNumber/getLevelIndex) — так его пороги
+// совпадают с тем, что видит участник ("уровень 30"), а не с непрозрачным
+// числом очков. Названия и пороги — по образцу отдельно взятого
+// референс-сервера администратора (общая практика для левелинг-ботов:
+// названия ярусов + разблокировка прав по уровню). perks — права,
+// которые получает РОЛЬ этого яруса гильдийно (не канальный оверрайт) —
+// см. scripts/setup-leveling.js, который их проставляет на роль. Роли
+// ярусов накапливаются (см. grantLevelRolesUpTo) — участник на 50
+// уровне держит роли и Путника, и Рекрута, и Бойца, и Специалиста
+// одновременно, поэтому каждому ярусу достаточно нести только СВОЙ
+// новый бонус, а не бонусы всех предыдущих — они уже есть от более
+// ранних ролей.
+const LEVELS = [
+    { title: 'Новичок', min: 0, color: 0x99aab5, perks: [] },
+    { title: 'Путник', min: 5, color: 0x2ecc71, perks: [PermissionFlagsBits.Stream] },
+    {
+        title: 'Рекрут',
+        min: 15,
+        color: 0x3498db,
+        perks: [PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks],
+    },
+    { title: 'Боец', min: 30, color: 0x9b59b6, perks: [PermissionFlagsBits.AddReactions] },
+    {
+        title: 'Специалист',
+        min: 50,
+        color: 0xe67e22,
+        perks: [PermissionFlagsBits.UseExternalEmojis, PermissionFlagsBits.UseExternalStickers],
+    },
+    // У "Мастера" и "Хранителя" нет гильдийных прав — их бонусы: приватная
+    // зона для Мастера (канальный доступ, не право роли) и позиция в
+    // списке участников для Хранителя (hoist сам по себе уже даёт это
+    // всем ярусам, тут только цвет/титул).
+    { title: 'Мастер', min: 75, color: 0xe91e63, perks: [] },
+    { title: 'Хранитель', min: 100, color: 0xf1c40f, perks: [] },
+];
+
+// Права, которые открывает бустер сервера сразу, без прокачки — те же,
+// что несут роли уровней 5-50 (Путник..Специалист) вместе взятые, минус
+// сами роли (см. scripts/setup-leveling.js — навешивается прямо на
+// нативную роль Discord "Booster", не на одну из LEVELS).
+const BOOSTER_BUNDLE_TIERS = ['Путник', 'Рекрут', 'Боец', 'Специалист'];
+
 const LEADERBOARD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function userKey(guildId, userId) {
     return `${guildId}_${userId}`;
 }
 
-// Индекс уровня в LEVELS для данного счёта — последний порог, который
-// счёт уже прошёл.
+// Целочисленный "уровень" из очков — POINTS_PER_LEVEL очков на один
+// уровень, без ускорения/замедления по мере роста (плоская шкала —
+// проще для участника прикинуть в уме и проще протестировать, чем
+// растущая по кривой).
+function getLevelNumber(score) {
+    return Math.floor(Math.max(0, score) / POINTS_PER_LEVEL);
+}
+
+// Индекс яруса в LEVELS для данного счёта — последний порог УРОВНЯ,
+// который уже пройден (LEVELS[i].min — порог в уровнях, не в очках).
 function getLevelIndex(score) {
+    const levelNumber = getLevelNumber(score);
     let index = 0;
     for (let i = 0; i < LEVELS.length; i++) {
-        if (score >= LEVELS[i].min) index = i;
+        if (levelNumber >= LEVELS[i].min) index = i;
     }
     return index;
 }
 
 // {index, title, min, color, next: {title, min} | null, progress: 0..1 до
-// следующего уровня} — progress всегда 1 на максимальном уровне (нет
-// следующего порога, куда расти).
+// следующего яруса, number: целый уровень} — progress всегда 1 на
+// максимальном ярусе (нет следующего порога, куда расти). progress
+// считается по очкам (не по целым уровням) — иначе полоса не двигалась
+// бы между уровнями внутри одного яруса (ярус может растягиваться на
+// 10-25 уровней).
 function getLevel(score) {
+    const levelNumber = getLevelNumber(score);
     const index = getLevelIndex(score);
     const current = LEVELS[index];
     const next = LEVELS[index + 1] ?? null;
-    const progress = next ? (score - current.min) / (next.min - current.min) : 1;
-    return { index, title: current.title, min: current.min, color: current.color, next, progress };
+    const currentFloorScore = current.min * POINTS_PER_LEVEL;
+    const nextCeilScore = next ? next.min * POINTS_PER_LEVEL : null;
+    const progress = next ? (score - currentFloorScore) / (nextCeilScore - currentFloorScore) : 1;
+    return {
+        index,
+        title: current.title,
+        min: current.min,
+        color: current.color,
+        next,
+        progress,
+        number: levelNumber,
+    };
 }
 
 // Кулдаун на засчитываемое сообщение — в памяти процесса, а не в БД:
@@ -325,18 +381,25 @@ async function getLevelRoleId(guildId, levelIndex) {
     return cfg.guilds[guildId]?.levelRoles?.[levelIndex] ?? null;
 }
 
-// Единая точка выдачи роли уровня — раньше жила прямо в commands/general/
-// rep.js (только на пути /rep give), теперь level-up может прийти с трёх
-// разных сторон (сообщение, голосовой sweep, /level set), поэтому логика
+// Единая точка выдачи ролей уровня — level-up может прийти с трёх разных
+// сторон (сообщение, голосовой sweep, /level set), поэтому логика
 // централизована здесь, а не дублируется в каждом вызывающем месте. Роли
-// уровней складываются (не отбираются при откате /level set) — то же
-// поведение, что было у прежней системы репутации.
-async function grantLevelRoleIfNeeded(guild, userId, levelIndex) {
-    const roleId = await getLevelRoleId(guild.id, levelIndex);
-    if (!roleId) return;
+// СКЛАДЫВАЮТСЯ: выдаём не только роль текущего яруса, а все роли от
+// самого первого до levelIndex включительно — иначе участник, разом
+// перепрыгнувший несколько ярусов (например, крупный /level set), получил
+// бы только роль последнего яруса и никогда не увидел бы промежуточные
+// (а вместе с ними и их гильдийные права — см. LEVELS[].perks). Для
+// обычного постепенного роста (по одному сообщению/минуте) цикл почти
+// всегда добавляет не больше одной новой роли — цена лишних проверок
+// member.roles.cache.has() на уже выданные роли пренебрежимо мала.
+async function grantLevelRolesUpTo(guild, userId, levelIndex) {
     const member = await guild.members.fetch(userId).catch(() => null);
-    if (!member || member.roles.cache.has(roleId)) return;
-    await member.roles.add(roleId, 'Повышение уровня активности').catch(() => {});
+    if (!member) return;
+    for (let i = 0; i <= levelIndex; i++) {
+        const roleId = await getLevelRoleId(guild.id, i);
+        if (!roleId || member.roles.cache.has(roleId)) continue;
+        await member.roles.add(roleId, 'Повышение уровня активности').catch(() => {});
+    }
 }
 
 // Публикует карточку level-up в announceChannelId гильдии (см.
@@ -366,25 +429,53 @@ async function getGuildConfig(guildId) {
 
 // Вызывается из scripts/setup-leveling.js — сохраняет канал для
 // автопостов топа/level-up, категорию (общую с changelog/ и rules/, но
-// у каждой фичи свой config-store) и карту "индекс уровня → роль",
-// созданную скриптом. Отдельная функция, а не прямой config.update() из
-// скрипта — scripts/ обращаются к фиче только через её публичный API
-// (см. index.js).
-async function configureGuild(guildId, { channelId, categoryId, levelRoles }) {
+// у каждой фичи свой config-store), карту "индекс яруса → роль" и ID
+// клубных каналов уровня (категория + войс Бойца + текст/войс Мастера —
+// см. LEVELS[].perks и scripts/setup-leveling.js). Отдельная функция, а
+// не прямой config.update() из скрипта — scripts/ обращаются к фиче
+// только через её публичный API (см. index.js).
+async function configureGuild(
+    guildId,
+    {
+        channelId,
+        categoryId,
+        levelRoles,
+        clubCategoryId,
+        fighterVoiceChannelId,
+        masterTextChannelId,
+        masterVoiceChannelId,
+    }
+) {
     await config.update(cfg => {
         const guildCfg = cfg.guilds[guildId] ?? {};
         if (channelId !== undefined) guildCfg.announceChannelId = channelId;
         if (categoryId !== undefined) guildCfg.categoryId = categoryId;
         if (levelRoles !== undefined) guildCfg.levelRoles = levelRoles;
+        if (clubCategoryId !== undefined) guildCfg.clubCategoryId = clubCategoryId;
+        if (fighterVoiceChannelId !== undefined) guildCfg.fighterVoiceChannelId = fighterVoiceChannelId;
+        if (masterTextChannelId !== undefined) guildCfg.masterTextChannelId = masterTextChannelId;
+        if (masterVoiceChannelId !== undefined) guildCfg.masterVoiceChannelId = masterVoiceChannelId;
         cfg.guilds[guildId] = guildCfg;
     });
+}
+
+// Права, которые бустер сервера получает сразу — объединение perks всех
+// ярусов в BOOSTER_BUNDLE_TIERS (Путник..Специалист), без дублей.
+// Используется scripts/setup-leveling.js для нативной роли Discord
+// "Booster" (guild.roles.premiumSubscriberRole) — она не входит в LEVELS
+// и не выдаётся через findOrCreateRole, Discord управляет ей сам.
+function getBoosterBundlePermissions() {
+    const perks = LEVELS.filter(level => BOOSTER_BUNDLE_TIERS.includes(level.title)).flatMap(level => level.perks);
+    return [...new Set(perks)];
 }
 
 module.exports = {
     LEVELS,
     POINTS_PER_MESSAGE,
     POINTS_PER_VOICE_MINUTE,
+    POINTS_PER_LEVEL,
     MESSAGE_COOLDOWN_MS,
+    getLevelNumber,
     getLevelIndex,
     getLevel,
     canCountMessage,
@@ -395,10 +486,11 @@ module.exports = {
     getProfile,
     setScore,
     getLevelRoleId,
-    grantLevelRoleIfNeeded,
+    grantLevelRolesUpTo,
     announceLevelUp,
     getGuildConfig,
     configureGuild,
+    getBoosterBundlePermissions,
     buildRankCardAttachment,
     buildLevelUpCard,
     buildLeaderboardAttachment,

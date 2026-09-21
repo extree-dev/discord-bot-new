@@ -27,7 +27,7 @@ function isCountableVoiceState(state) {
 // текстовых сообщений, и для голосового sweep.js, чтобы оба пути не
 // дублировали одну и ту же последовательность вызовов.
 async function applyLevelUp(client, guild, userId, levelIndex) {
-    await model.grantLevelRoleIfNeeded(guild, userId, levelIndex);
+    await model.grantLevelRolesUpTo(guild, userId, levelIndex);
     await model.announceLevelUp(client, guild.id, userId, levelIndex);
 }
 

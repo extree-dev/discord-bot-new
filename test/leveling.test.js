@@ -1,11 +1,16 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { PermissionFlagsBits } = require('discord.js');
 const {
+    LEVELS,
+    POINTS_PER_LEVEL,
+    getLevelNumber,
     getLevelIndex,
     getLevel,
     canCountMessage,
     MESSAGE_COOLDOWN_MS,
     buildLeaderboardMovement,
+    getBoosterBundlePermissions,
     buildRankCardAttachment,
     buildLeaderboardAttachment,
 } = require('../leveling/model');
@@ -16,25 +21,38 @@ const {
 // баннер — тот же риск унаследован leveling/ от прежней системы репутации).
 const VALID_CDN_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024, 2048, 4096]);
 
-test('getLevelIndex возвращает индекс последнего пройденного порога', () => {
-    assert.equal(getLevelIndex(0), 0);
-    assert.equal(getLevelIndex(99), 0);
-    assert.equal(getLevelIndex(100), 1);
-    assert.equal(getLevelIndex(399), 1);
-    assert.equal(getLevelIndex(15000), 6);
-    assert.equal(getLevelIndex(99999), 6);
+test('getLevelNumber: floor(score / POINTS_PER_LEVEL), не уходит в минус', () => {
+    assert.equal(getLevelNumber(0), 0);
+    assert.equal(getLevelNumber(POINTS_PER_LEVEL - 1), 0);
+    assert.equal(getLevelNumber(POINTS_PER_LEVEL), 1);
+    assert.equal(getLevelNumber(POINTS_PER_LEVEL * 10), 10);
+    assert.equal(getLevelNumber(-100), 0);
 });
 
-test('getLevel считает прогресс до следующего уровня, на максимуме — 1 и next=null', () => {
-    const mid = getLevel(250); // между "Участник" (100) и "Активный участник" (400)
-    assert.equal(mid.title, 'Участник');
-    assert.equal(mid.next.title, 'Активный участник');
-    assert.equal(mid.progress, 0.5);
+test('getLevelIndex возвращает индекс последнего пройденного яруса (по уровню, не по очкам)', () => {
+    assert.equal(getLevelIndex(0), 0); // Новичок
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 5 - 1), 0); // ещё не 5 уровень
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 5), 1); // Путник
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 15), 2); // Рекрут
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 30), 3); // Боец
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 50), 4); // Специалист
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 75), 5); // Мастер
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 100), 6); // Хранитель
+    assert.equal(getLevelIndex(POINTS_PER_LEVEL * 100 * 10), 6); // выше максимального яруса — тот же индекс
+});
 
-    const max = getLevel(20000);
-    assert.equal(max.title, 'Икона сообщества');
+test('getLevel считает прогресс до следующего яруса по очкам, на максимуме — 1 и next=null', () => {
+    const mid = getLevel(POINTS_PER_LEVEL * 10); // между "Путник" (5) и "Рекрут" (15), ровно посередине
+    assert.equal(mid.title, 'Путник');
+    assert.equal(mid.next.title, 'Рекрут');
+    assert.equal(mid.progress, 0.5);
+    assert.equal(mid.number, 10);
+
+    const max = getLevel(POINTS_PER_LEVEL * 150);
+    assert.equal(max.title, 'Хранитель');
     assert.equal(max.next, null);
     assert.equal(max.progress, 1);
+    assert.equal(max.number, 150); // уровень растёт и после потолка последнего яруса
 });
 
 test('canCountMessage: кулдаун действует только на пару гильдия+пользователь', () => {
@@ -97,17 +115,18 @@ test('buildRankCardAttachment: запрашивает аватар, баннер
         },
     };
     const level = {
-        title: 'Участник',
-        min: 100,
+        title: 'Путник',
+        min: 5,
         color: 0x2ecc71,
-        next: { title: 'Активный участник', min: 400 },
+        next: { title: 'Рекрут', min: 15 },
         progress: 0.5,
+        number: 10,
     };
 
     const attachment = await buildRankCardAttachment(
         fakeClient,
         'user-1',
-        { score: 250, level, rank: 3, messageCount: 40, voiceMinutes: 120 },
+        { score: 3000, level, rank: 3, messageCount: 40, voiceMinutes: 120 },
         fakeGuild
     );
 
@@ -122,7 +141,14 @@ test('buildRankCardAttachment: работает и без гильдии (guild 
         bannerURL: () => null,
     };
     const fakeClient = { users: { fetch: async () => fakeUser } };
-    const level = { title: 'Новичок', min: 0, color: 0x99aab5, next: { title: 'Участник', min: 100 }, progress: 0 };
+    const level = {
+        title: 'Новичок',
+        min: 0,
+        color: 0x99aab5,
+        next: { title: 'Путник', min: 5 },
+        progress: 0,
+        number: 0,
+    };
 
     const attachment = await buildRankCardAttachment(fakeClient, 'user-1', {
         score: 0,
@@ -135,10 +161,33 @@ test('buildRankCardAttachment: работает и без гильдии (guild 
     assert.ok(attachment);
 });
 
-test('getLevel возвращает числовой color для каждого уровня', () => {
-    for (const score of [0, 100, 400, 1200, 3000, 7000, 15000, 99999]) {
-        assert.equal(typeof getLevel(score).color, 'number');
+test('getLevel возвращает числовой color для каждого яруса', () => {
+    for (const level of [0, 5, 15, 30, 50, 75, 100, 500]) {
+        assert.equal(typeof getLevel(level * POINTS_PER_LEVEL).color, 'number');
     }
+});
+
+test('LEVELS: у каждого яруса есть массив perks (пустой или с правами)', () => {
+    for (const level of LEVELS) {
+        assert.ok(Array.isArray(level.perks));
+    }
+});
+
+test('LEVELS: перки нарастают по назначению — Путник даёт Stream, Специалист — внешние эмодзи/стикеры', () => {
+    const путник = LEVELS.find(l => l.title === 'Путник');
+    const специалист = LEVELS.find(l => l.title === 'Специалист');
+    assert.ok(путник.perks.includes(PermissionFlagsBits.Stream));
+    assert.ok(специалист.perks.includes(PermissionFlagsBits.UseExternalEmojis));
+    assert.ok(специалист.perks.includes(PermissionFlagsBits.UseExternalStickers));
+});
+
+test('getBoosterBundlePermissions: объединяет перки ярусов 5-50 без дублей', () => {
+    const perks = getBoosterBundlePermissions();
+    assert.ok(perks.includes(PermissionFlagsBits.Stream)); // от Путника
+    assert.ok(perks.includes(PermissionFlagsBits.AttachFiles)); // от Рекрута
+    assert.ok(perks.includes(PermissionFlagsBits.AddReactions)); // от Бойца
+    assert.ok(perks.includes(PermissionFlagsBits.UseExternalEmojis)); // от Специалиста
+    assert.equal(perks.length, new Set(perks).size); // без дублей
 });
 
 test('buildLeaderboardAttachment: запрашивает аватар каждого участника только валидным размером CDN', async () => {
