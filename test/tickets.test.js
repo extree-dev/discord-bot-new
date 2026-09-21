@@ -11,6 +11,9 @@ const {
     OPEN_BUTTON_ID,
     buildPanelMessage,
     buildThreadWelcomeMessage,
+    buildManagementPanelMessage,
+    formatActiveTicketsList,
+    formatTicketStats,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -117,6 +120,29 @@ test('buildThreadWelcomeMessage: "Закрыть" есть всегда, "Нак
         withoutTarget[1].components.map(c => c.toJSON().custom_id),
         ['ticket_close:author2']
     );
+});
+
+test('buildManagementPanelMessage: кнопки "Активные тикеты" и "Статистика"', () => {
+    const ids = extractButtonCustomIds(buildManagementPanelMessage());
+    assert.deepEqual(ids, ['ticket_mgmt_list', 'ticket_mgmt_stats']);
+});
+
+test('formatActiveTicketsList: список тредов или заглушка, если пусто', () => {
+    assert.equal(formatActiveTicketsList([]), 'Открытых тикетов нет.');
+    assert.equal(
+        formatActiveTicketsList([
+            { name: 'ticket-1', url: 'https://discord.com/channels/1/2/3' },
+            { name: 'ticket-2', url: 'https://discord.com/channels/1/2/4' },
+        ]),
+        '• ticket-1 — https://discord.com/channels/1/2/3\n• ticket-2 — https://discord.com/channels/1/2/4'
+    );
+});
+
+test('formatTicketStats: три строки с числами как есть', () => {
+    const text = formatTicketStats({ activeCount: 3, totalCount: 88, reportsCount: 12 });
+    assert.match(text, /Открыто сейчас:\*\* 3/);
+    assert.match(text, /Всего создано за всё время:\*\* 88/);
+    assert.match(text, /Жалоб в истории:\*\* 12/);
 });
 
 test('tickets/config load() подставляет дефолты и не путает вложенный reports между вызовами', async () => {

@@ -15,6 +15,7 @@ module.exports = {
     handleSelectMenu: handlers.handleSelectMenu,
     handleModalSubmit: handlers.handleModalSubmit,
     buildPanelMessage: model.buildPanelMessage,
+    buildManagementPanelMessage: model.buildManagementPanelMessage,
     getConfig: config.load,
     isStaff: model.isStaff,
     countRecentReportsOn: model.countRecentReportsOn,
