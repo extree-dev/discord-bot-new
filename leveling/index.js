@@ -19,6 +19,7 @@ module.exports = {
     getProfile: model.getProfile,
     getLeaderboard: model.getLeaderboard,
     setScore: model.setScore,
+    resetStats: model.resetStats,
     getLevelRoleId: model.getLevelRoleId,
     grantLevelRolesUpTo: model.grantLevelRolesUpTo,
     getGuildConfig: model.getGuildConfig,
