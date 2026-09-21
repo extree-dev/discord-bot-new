@@ -68,7 +68,6 @@ async function runOnce(client) {
         if (!guild) continue;
 
         await model.closeTicket(guild, thread, entry, null).catch(err => console.error('tickets sweep close:', err));
-        await model.sendRatingRequest(client, entry, threadId).catch(() => {});
     }
 }
 

@@ -1086,14 +1086,16 @@ ${rows || '<p class="empty">Сообщений нет.</p>'}
 // (closedBy тогда — тот, кто ЗАПРОСИЛ закрытие, обычно стажёр, чтобы
 // статистика/лог отражали, кто реально вёл тикет, а не кто нажал
 // последнюю кнопку) — добавляет отдельную строку в лог, кто подтвердил.
-// interaction — опционально: когда закрытие запустил живой человек
-// (кнопка "Закрыть"/подтверждение стажёра), карточка "Тикет закрывается"
-// уходит ему одному эфемерным followUp, а не всему треду — по просьбе
-// администратора не засорять тред служебными подтверждениями (тред и так
-// архивируется через 5 секунд, подробности уже есть в приватном логе
-// выше). Для автозакрытия по неактивности (tickets/sweep.js, интеракции
-// нет вообще) карточка по-прежнему уходит в сам тред — иначе ни автор,
-// ни staff не узнают, почему тред вдруг заблокировался.
+// interaction — опционально: когда закрытие запустил живой человек и
+// закрыл СВОЙ СОБСТВЕННЫЙ тикет (closedBy === entry.ownerId), карточка
+// "Тикет закрывается" уходит ему одному эфемерным followUp, а не всему
+// треду — по просьбе администратора не засорять тред служебными
+// подтверждениями (тред и так архивируется через 5 секунд, подробности
+// уже есть в приватном логе выше). Во всех остальных случаях — автора
+// закрыл staff, или автозакрытие по неактивности (tickets/sweep.js,
+// интеракции нет вообще) — карточка уходит в сам тред видимым
+// сообщением: иначе автор тикета (который здесь ни при чём) никогда её
+// не увидит и не поймёт, почему тред вдруг заблокировался.
 async function closeTicket(guild, channel, entry, closedBy, approvedBy = null, interaction = null) {
     const config = await load();
 
@@ -1183,11 +1185,38 @@ async function closeTicket(guild, channel, entry, closedBy, approvedBy = null, i
                 ].join('\n')
             )
         );
-    if (interaction) {
+    if (interaction && closedBy === entry.ownerId) {
         await interaction.followUp(toEphemeralMessage(closeCard)).catch(() => {});
     } else {
         await channel.send(toMessage(closeCard)).catch(() => {});
     }
+
+    // Запрос на оценку — прямо в треде тикета, видимым сообщением (не
+    // в личку — ЛС бот больше не пишет, см. utils/punishmentNotice.js,
+    // и не эфемерно тому, кто закрыл — тикет мог закрыть staff, а не
+    // автор, и тогда эфемерное сообщение до автора вообще бы не
+    // дошло). Отправляется всегда, независимо от того, кто и как
+    // закрыл тикет, — автор мог давно выйти из треда, но т.к. кнопки
+    // оценки проверяют interaction.user.id === entry.ownerId (см.
+    // handleRatingButton), никто кроме автора нажать их всё равно не
+    // сможет.
+    const ratingRow = new ActionRowBuilder().addComponents(
+        [1, 2, 3, 4, 5].map(n =>
+            new ButtonBuilder()
+                .setCustomId(`ticket_rate:${channel.id}:${n}`)
+                .setLabel(String(n))
+                .setStyle(ButtonStyle.Secondary)
+        )
+    );
+    const ratingCard = baseContainer(COLORS.primary).addTextDisplayComponents(
+        textDisplay(
+            formatBody(
+                'Оцените работу поддержки',
+                `${owner ? `${owner}, оцените` : 'Оцените'}, насколько вы довольны решением вопроса — от 1 до 5.`
+            )
+        )
+    );
+    await channel.send(toMessage(ratingCard, ratingRow)).catch(() => {});
 
     setTimeout(async () => {
         if (channel.isThread()) {
@@ -1421,13 +1450,6 @@ async function reopenTicket(guild, number) {
     return { thread };
 }
 
-// Отключено по решению администратора — бот вообще не должен сам писать
-// участникам в личные сообщения (единственный канал теперь только /dm,
-// вручную администратором). Сигнатура и вызывающие места (handlers.js,
-// sweep.js, commands/moderation/tickets.js) оставлены как есть — просто
-// ничего не делают.
-async function sendRatingRequest() {}
-
 // Автоматический статус: ответ staff помечает тикет "ждём автора",
 // ответ автора снимает эту пометку. Любая активность сбрасывает
 // warnedAt, чтобы не автозакрыть тикет сразу после того, как в нём
@@ -1457,8 +1479,10 @@ async function recordActivity(threadId, authorIsOwner) {
     return updatedEntry;
 }
 
-// Отключено по решению администратора — тот же случай, что и
-// sendRatingRequest выше: бот больше не пишет участникам в личку сам.
+// Отключено по решению администратора — бот вообще не должен сам писать
+// участникам в личные сообщения (единственный канал теперь только /dm,
+// вручную администратором). Сигнатура и вызывающее место (sweep.js)
+// оставлены как есть — просто ничего не делает.
 async function sendOwnerReminder() {}
 
 async function markOwnerNotified(threadId) {
@@ -1527,7 +1551,6 @@ module.exports = {
     requestTicketClosure,
     rejectTicketClosure,
     reopenTicket,
-    sendRatingRequest,
     recordActivity,
     recordRating,
     postCannedResponse,
