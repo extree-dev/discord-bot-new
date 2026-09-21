@@ -1,15 +1,13 @@
-// Карточка топа репутации — одна картинка, не embed/Components V2 с
+// Карточка топа активности — одна картинка, не embed/Components V2 с
 // текстом. Единый визуальный язык с rankCardImage.js: каждая строка —
 // мини-версия карточки профиля (аватар в рамке цвета уровня, полоса
-// прогресса того же цвета), а не отдельная игровая эстетика с подиумом —
-// первая версия так и делала (см. историю этого файла), не зашло по
-// фидбэку: слишком плоско и мало информации; вторая версия — подиум со
-// звездой и свечением — тоже не зашла, оказалась слишком "игровой" для
-// вкуса администратора. Все места — одинаковые строки, топ-3 отмечены
-// только цветом номера места, без пьедесталов и эффектов. Все данные
-// (буферы аватаров, собранные из Discord CDN, level — чистая функция от
-// score) передаются готовыми — сама функция рисования не трогает сеть и
-// не трогает Discord API (см. reputation/model.js buildLeaderboardAttachment()).
+// прогресса того же цвета), без пьедесталов и эффектов — все места
+// одинаковые строки, топ-3 отмечены только цветом номера места (та же
+// договорённость, что была у прежней системы репутации, откуда этот
+// визуальный язык унаследован). Все данные (буферы аватаров, собранные
+// из Discord CDN, level — чистая функция от score) передаются готовыми —
+// сама функция рисования не трогает сеть и не трогает Discord API (см.
+// leveling/model.js buildLeaderboardAttachment()).
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { ensureFonts, roundedRectPath, drawCircleImage, truncate } = require('./canvasUtils');
 
@@ -99,9 +97,9 @@ async function drawRow(ctx, entry, y) {
     ctx.fillText(truncate(entry.displayName, NAME_MAX_CHARS), textX, y + 28);
 
     // Вторая строка — уровень (цветной кружок-индикатор + титул) и сколько
-    // репутации сам выдал. Третья — тонкая полоса прогресса до следующего
+    // сообщений отправлено. Третья — тонкая полоса прогресса до следующего
     // уровня, тем же цветом, что кольцо аватара — тот же визуальный язык,
-    // что у /rep profile, а не отдельная "игровая" эстетика.
+    // что у /level profile.
     const dotY = y + 44;
     ctx.beginPath();
     ctx.arc(textX + 4, dotY - 4, 4, 0, Math.PI * 2);
@@ -110,7 +108,7 @@ async function drawRow(ctx, entry, y) {
 
     ctx.font = '12px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText(`${entry.level?.title ?? ''} · Дал другим: ${entry.givenCount ?? 0}`, textX + 14, dotY);
+    ctx.fillText(`${entry.level?.title ?? ''} · Сообщений: ${entry.messageCount ?? 0}`, textX + 14, dotY);
 
     drawProgressBar(ctx, textX, y + 54, BAR_WIDTH, BAR_HEIGHT, entry.level?.progress, accent);
 
@@ -145,8 +143,8 @@ function pluralSuffix(n) {
     return 'ов';
 }
 
-// entries: [{ rank, userId, displayName, avatarBuffer, score, givenCount,
-// level, movement? }] — movement отсутствует у разового /rep leaderboard
+// entries: [{ rank, userId, displayName, avatarBuffer, score, messageCount,
+// level, movement? }] — movement отсутствует у разового /level leaderboard
 // (нет снимка для сравнения), присутствует у еженедельного автопоста.
 async function renderLeaderboardCard({ title, entries }) {
     ensureFonts();
@@ -185,7 +183,7 @@ async function renderLeaderboardCard({ title, entries }) {
     ctx.fillText(
         entries.length
             ? `${entries.length} участник${pluralSuffix(entries.length)} в топе`
-            : 'Пока никто не получил репутацию.',
+            : 'Пока никто не набрал очков активности.',
         PADDING_X,
         64
     );

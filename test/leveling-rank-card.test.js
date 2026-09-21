@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { renderRankCard, WIDTH, HEIGHT } = require('../reputation/rankCardImage');
+const { renderRankCard, WIDTH, HEIGHT } = require('../leveling/rankCardImage');
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -26,12 +26,12 @@ async function getPixel(png, x, y) {
 
 const midLevel = {
     title: 'Участник',
-    min: 5,
+    min: 100,
     color: 0x2ecc71,
-    next: { title: 'Активный участник', min: 15 },
+    next: { title: 'Активный участник', min: 400 },
     progress: 0.5,
 };
-const maxLevel = { title: 'Икона сообщества', min: 200, color: 0xf1c40f, next: null, progress: 1 };
+const maxLevel = { title: 'Икона сообщества', min: 15000, color: 0xf1c40f, next: null, progress: 1 };
 
 test('renderRankCard: с аватаром и баннером возвращает валидный PNG', async () => {
     const png = await renderRankCard({
@@ -39,8 +39,10 @@ test('renderRankCard: с аватаром и баннером возвращае
         avatarBuffer: fakeImageBuffer(),
         bannerBuffer: fakeImageBuffer(300),
         level: midLevel,
-        score: 10,
+        score: 250,
         rank: 2,
+        messageCount: 30,
+        voiceMinutes: 90,
     });
     assert.ok(Buffer.isBuffer(png));
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
@@ -52,8 +54,10 @@ test('renderRankCard: без баннера (градиент-заглушка) 
         avatarBuffer: fakeImageBuffer(),
         bannerBuffer: null,
         level: midLevel,
-        score: 10,
+        score: 250,
         rank: null,
+        messageCount: 10,
+        voiceMinutes: 0,
     });
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
 });
@@ -66,6 +70,8 @@ test('renderRankCard: без аватара и без ранга не падае
         level: midLevel,
         score: 0,
         rank: null,
+        messageCount: 0,
+        voiceMinutes: 0,
     });
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
 });
@@ -76,8 +82,10 @@ test('renderRankCard: максимальный уровень (next=null) не �
         avatarBuffer: fakeImageBuffer(),
         bannerBuffer: null,
         level: maxLevel,
-        score: 999,
+        score: 99999,
         rank: 1,
+        messageCount: 5000,
+        voiceMinutes: 6000,
     });
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
 });
@@ -88,8 +96,10 @@ test('renderRankCard: акцент (кольцо/полоса прогресса
         avatarBuffer: null,
         bannerBuffer: null,
         level: midLevel, // color: 0x2ecc71 → rgb(46, 204, 113)
-        score: 10,
+        score: 250,
         rank: null,
+        messageCount: 0,
+        voiceMinutes: 0,
     });
     // Точка внутри залитой части полосы (TEXT_X=250, y=148..174,
     // progress=0.5 при ширине бара 590px заливает примерно до x≈545) —
@@ -109,19 +119,22 @@ test('renderRankCard: без level.color (старый вызов) — отка�
         level: legacyLevel,
         score: 5,
         rank: null,
+        messageCount: 1,
+        voiceMinutes: 0,
     });
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
 });
 
-test('renderRankCard: медаль топ-3 и счётчик выданной репутации — не падает', async () => {
+test('renderRankCard: медаль топ-3 и статистика сообщений/голоса — не падает', async () => {
     const png = await renderRankCard({
         displayName: 'Топ игрок',
         avatarBuffer: fakeImageBuffer(),
         bannerBuffer: null,
         level: midLevel,
-        score: 10,
+        score: 250,
         rank: 3,
-        givenCount: 7,
+        messageCount: 120,
+        voiceMinutes: 605, // проверяет форматирование "N ч M мин"
     });
     assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
 });
@@ -134,6 +147,8 @@ test('renderRankCard: брендинг сервера (иконка + длинн
         level: midLevel,
         score: 1,
         rank: null,
+        messageCount: 0,
+        voiceMinutes: 0,
         guildName: 'Очень длинное название сервера, которое стоит обрезать',
         guildIconBuffer: fakeImageBuffer(32),
     });
@@ -148,6 +163,8 @@ test('renderRankCard: имя сервера без иконки — тоже н�
         level: midLevel,
         score: 1,
         rank: null,
+        messageCount: 0,
+        voiceMinutes: 0,
         guildName: 'Сервер',
         guildIconBuffer: null,
     });

@@ -685,7 +685,7 @@ async function handleCreateModal(interaction) {
     // Discord даёт на обычный reply — тогда interaction протухает
     // ("interaction failed" у пользователя), хотя тред и так успешно
     // создаётся в фоне. deferReply даёт 15 минут вместо 3 секунд (та же
-    // причина, что и в /rep profile, см. commands/general/rep.js).
+    // причина, что и в /level profile, см. commands/general/level.js).
     await interaction.deferReply({ ephemeral: true });
 
     // Всё тело — в try/catch: без него любой непойманный сбой после

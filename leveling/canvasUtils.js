@@ -1,4 +1,4 @@
-// Общие примитивы рисования для картинок репутации (rankCardImage.js,
+// Общие примитивы рисования для картинок уровня (rankCardImage.js,
 // leaderboardImage.js) — регистрация шрифтов, скруглённые прямоугольники,
 // круглые изображения, обрезка длинного текста. Вынесено сюда, чтобы обе
 // карточки не дублировали одну и ту же логику по отдельности.
@@ -44,4 +44,16 @@ function truncate(text, maxChars) {
     return `${text.slice(0, maxChars - 1)}…`;
 }
 
-module.exports = { ensureFonts, roundedRectPath, drawCircleImage, truncate };
+// "2 ч 15 мин" / "40 мин" — для отображения накопленного голосового
+// времени на карточке профиля и в топе. Не переиспользую formatDuration
+// из tickets/model.js — та же причина, что и раньше у reputation/ (сейчас
+// уже неактуальная фича): фичи не тянут зависимости друг на друга.
+function formatVoiceMinutes(totalMinutes) {
+    const minutes = Math.max(0, Math.round(totalMinutes));
+    if (minutes < 60) return `${minutes} мин`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
+}
+
+module.exports = { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes };

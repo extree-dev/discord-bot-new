@@ -2,7 +2,7 @@ const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = req
 const { load } = require('./config');
 const { log } = require('./logger');
 const { COLORS, baseEmbed, formatBody, errorEmbed, infoEmbed } = require('../utils/embeds');
-const reputation = require('../reputation');
+const leveling = require('../leveling');
 
 const VERIFY_BUTTON_ID = 'security_verify';
 const VERIFY_MODAL_ID = 'security_verify_modal';
@@ -124,12 +124,13 @@ async function handleModalSubmit(interaction) {
         return true;
     }
 
-    // Стартовая роль уровня репутации ("Новичок") — сразу при верификации,
-    // а не только при первом полученном очке (см. reputation/model.js
-    // firstPoint), чтобы у любого верифицированного участника с самого
-    // начала была хоть какая-то роль уровня. Best-effort: если роль не
-    // настроена или её не удалось выдать, верификацию это не должно ломать.
-    const starterRoleId = await reputation.getLevelRoleId(guild.id, 0).catch(() => null);
+    // Стартовая роль уровня активности ("Новичок") — сразу при верификации,
+    // а не когда участник наберёт первые очки (у leveling/ очки растут
+    // только от собственной активности, см. leveling/model.js), чтобы у
+    // любого верифицированного участника с самого начала была хоть
+    // какая-то роль уровня. Best-effort: если роль не настроена или её
+    // не удалось выдать, верификацию это не должно ломать.
+    const starterRoleId = await leveling.getLevelRoleId(guild.id, 0).catch(() => null);
     if (starterRoleId && !member.roles.cache.has(starterRoleId)) {
         await member.roles.add(starterRoleId, 'Верификация пройдена').catch(() => {});
     }
