@@ -25,8 +25,6 @@ const CREATE_MODAL_PREFIX = 'ticket_modal_create:';
 const TARGET_SELECT_PREFIX = 'ticket_target_select:';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const EXTRA_INPUT_ID = 'ticket_extra_input';
-const NOTE_MODAL_ID = 'ticket_modal_note';
-const NOTE_INPUT_ID = 'ticket_note_input';
 const CLOSE_APPROVE_PREFIX = 'ticket_close_approve:';
 const CLOSE_REJECT_PREFIX = 'ticket_close_reject:';
 const CLOSE_REJECT_MODAL_PREFIX = 'ticket_close_reject_modal:';
@@ -512,25 +510,6 @@ const handleVoiceButton = withTicketEntry(async (interaction, config, entry) => 
     });
 });
 
-const handleNoteButton = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member, entry)) {
-        await interaction.reply({
-            embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const modal = new ModalBuilder().setCustomId(NOTE_MODAL_ID).setTitle('Внутренняя заметка');
-    const input = new TextInputBuilder()
-        .setCustomId(NOTE_INPUT_ID)
-        .setLabel('Текст заметки (видно только staff)')
-        .setStyle(TextInputStyle.Paragraph)
-        .setMaxLength(1000)
-        .setRequired(true);
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    await interaction.showModal(modal);
-});
-
 const PUNISH_SELECT_ID = 'ticket_punish_select';
 
 const handlePunishButton = withTicketEntry(async (interaction, config, entry) => {
@@ -624,57 +603,13 @@ const BUTTON_HANDLERS = {
     ticket_adduser: handleAddUserButton,
     ticket_close: handleCloseButton,
     ticket_voice: handleVoiceButton,
-    ticket_note: handleNoteButton,
     ticket_priority: handlePriorityButton,
     ticket_quickreply: handleQuickReplyButton,
     ticket_punish: handlePunishButton,
     ticket_unpunish: handleUnpunishButton,
 };
 
-async function handleRatingButton(interaction) {
-    const [, threadId, valueStr] = interaction.customId.split(':');
-
-    // Карточка с оценкой теперь видна всему треду (не только автору в
-    // личке, как раньше), а значит и staff, которые тоже состоят в
-    // треде, физически могут нажать эти кнопки — явно проверяем, что
-    // жмёт именно автор тикета, иначе оценку мог бы поставить кто
-    // угодно за него.
-    const config = await load();
-    const ticketEntry = config.tickets[threadId];
-    if (ticketEntry && interaction.user.id !== ticketEntry.ownerId) {
-        await interaction.reply({
-            embeds: [errorEmbed('Оценить работу поддержки может только автор тикета.')],
-            ephemeral: true,
-        });
-        return;
-    }
-
-    const entry = await model.recordRating(threadId, Number(valueStr));
-    if (!entry) {
-        await interaction.reply({
-            embeds: [errorEmbed('Не удалось сохранить оценку — тикет не найден в базе.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    // Карточку с кнопками оценки правим отдельным Message#edit — она видна
-    // всему треду и должна перестать быть кликабельной для всех, а не
-    // только для того, кто уже оценил; персональное "спасибо" — эфемерно.
-    await interaction.deferUpdate();
-    await interaction.message
-        .edit(toMessage(successContainer('Спасибо за оценку!', 'Оценка сохранена')))
-        .catch(() => {});
-    await interaction.followUp({
-        embeds: [successEmbed('Спасибо за оценку!', 'Оценка сохранена')],
-        ephemeral: true,
-    });
-}
-
 async function handleButton(interaction) {
-    if (interaction.customId.startsWith('ticket_rate:')) {
-        await handleRatingButton(interaction);
-        return true;
-    }
     if (interaction.customId.startsWith(model.OPEN_REASON_PREFIX)) {
         await handleOpenReasonButton(interaction);
         return true;
@@ -745,14 +680,12 @@ async function handleCreateModal(interaction) {
     // deferReply сразу, до любой асинхронной работы: создание тикета —
     // это фетч участника (для report), резервирование номера (лок в БД),
     // создание треда, отправка карточки, ещё один DB-update на
-    // rootMessageId, а для тем со staffChecklist (report/bug/appeal) —
-    // ещё и создание + заполнение отдельного треда заметок. У report
-    // тикетов (весь этот путь плюс фетч нарушителя) это особенно легко
-    // не укладывается в 3 секунды, которые Discord даёт на обычный
-    // reply — тогда interaction протухает ("interaction failed" у
-    // пользователя), хотя тред и так успешно создаётся в фоне. deferReply
-    // даёт 15 минут вместо 3 секунд (та же причина, что и в /rep profile,
-    // см. commands/general/rep.js).
+    // rootMessageId. У report тикетов (весь этот путь плюс фетч
+    // нарушителя) это особенно легко не укладывается в 3 секунды, которые
+    // Discord даёт на обычный reply — тогда interaction протухает
+    // ("interaction failed" у пользователя), хотя тред и так успешно
+    // создаётся в фоне. deferReply даёт 15 минут вместо 3 секунд (та же
+    // причина, что и в /rep profile, см. commands/general/rep.js).
     await interaction.deferReply({ ephemeral: true });
 
     // Всё тело — в try/catch: без него любой непойманный сбой после
@@ -806,31 +739,9 @@ async function handleCreateModal(interaction) {
     }
 }
 
-const handleNoteModal = withTicketEntry(async (interaction, config, entry) => {
-    if (!model.isStaff(config, interaction.member, entry)) {
-        await interaction.reply({
-            embeds: [errorEmbed('Заметки может оставлять только поддержка или модератор.')],
-            ephemeral: true,
-        });
-        return;
-    }
-    const text = interaction.fields.getTextInputValue(NOTE_INPUT_ID).trim();
-    const notesThread = await model.getOrCreateNotesThread(interaction, entry);
-    await notesThread.members.add(interaction.user.id).catch(() => {});
-    await notesThread.send(toMessage(infoContainer(text, `Заметка от ${interaction.user.tag}`)));
-    await interaction.reply({
-        embeds: [successEmbed(`Заметка добавлена: ${notesThread}`, 'Сохранено')],
-        ephemeral: true,
-    });
-});
-
 async function handleModalSubmit(interaction) {
     if (interaction.customId.startsWith(CREATE_MODAL_PREFIX)) {
         await handleCreateModal(interaction);
-        return true;
-    }
-    if (interaction.customId === NOTE_MODAL_ID) {
-        await handleNoteModal(interaction);
         return true;
     }
     if (interaction.customId.startsWith(CLOSE_REJECT_MODAL_PREFIX)) {
