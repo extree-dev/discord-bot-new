@@ -41,12 +41,17 @@ test('getLevelIndex возвращает индекс последнего пр�
     assert.equal(getLevelIndex(POINTS_PER_LEVEL * 100 * 10), 6); // выше максимального яруса — тот же индекс
 });
 
-test('getLevel считает прогресс до следующего яруса по очкам, на максимуме — 1 и next=null', () => {
-    const mid = getLevel(POINTS_PER_LEVEL * 10); // между "Путник" (5) и "Рекрут" (15), ровно посередине
-    assert.equal(mid.title, 'Путник');
-    assert.equal(mid.next.title, 'Рекрут');
-    assert.equal(mid.progress, 0.5);
-    assert.equal(mid.number, 10);
+test('getLevel считает прогресс до следующего УРОВНЯ (не яруса) по очкам, на максимуме — 1 и next=null', () => {
+    // Уровень 10 ("Путник"), ровно на середине очков до уровня 11 — не до
+    // границы яруса "Рекрут" (15 уровень), которая была бы куда дальше.
+    const midLevel = getLevel(POINTS_PER_LEVEL * 10 + POINTS_PER_LEVEL / 2);
+    assert.equal(midLevel.title, 'Путник');
+    assert.equal(midLevel.next.title, 'Рекрут');
+    assert.equal(midLevel.progress, 0.5);
+    assert.equal(midLevel.number, 10);
+
+    const justLeveled = getLevel(POINTS_PER_LEVEL * 10); // только что перешёл на уровень 10 — прогресс с нуля
+    assert.equal(justLeveled.progress, 0);
 
     const max = getLevel(POINTS_PER_LEVEL * 150);
     assert.equal(max.title, 'Хранитель');
