@@ -1,20 +1,24 @@
 const model = require('./model');
+const handlers = require('./handlers');
+const sweep = require('./sweep');
 
 const LEADERBOARD_TICK_MS = 60 * 60 * 1000; // проверяем раз в час, публикуем — раз в неделю (см. model.js)
 
-// Публичный API фичи reputation/. Команда /rep и scripts/setup-reputation.js
-// обращаются только сюда, а не к reputation/model.js или reputation/config.js напрямую.
+// Публичный API фичи leveling/. Команда /level и scripts/setup-leveling.js
+// (а также security/verification.js — за стартовой ролью уровня)
+// обращаются только сюда, а не к leveling/model.js напрямую.
 module.exports = {
     register: client => {
+        handlers.register(client);
+        sweep.start(client);
         setInterval(() => {
-            model.checkAndPostLeaderboard(client).catch(err => console.error('reputation leaderboard:', err));
+            model.checkAndPostLeaderboard(client).catch(err => console.error('leveling leaderboard:', err));
         }, LEADERBOARD_TICK_MS);
     },
     LEVELS: model.LEVELS,
-    giveReputation: model.giveReputation,
     getProfile: model.getProfile,
     getLeaderboard: model.getLeaderboard,
-    setReputation: model.setReputation,
+    setScore: model.setScore,
     getLevelRoleId: model.getLevelRoleId,
     getGuildConfig: model.getGuildConfig,
     configureGuild: model.configureGuild,

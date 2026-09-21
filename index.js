@@ -31,7 +31,7 @@ const tickets = require('./tickets');
 const suggestions = require('./suggestions');
 const presence = require('./presence');
 const changelog = require('./changelog');
-const reputation = require('./reputation');
+const leveling = require('./leveling');
 const moderation = require('./moderation');
 
 client.once('ready', () => {
@@ -43,7 +43,7 @@ client.once('ready', () => {
     suggestions.register(client);
     presence.register(client);
     changelog.register(client);
-    reputation.register(client);
+    leveling.register(client);
 });
 
 client.on('interactionCreate', async interaction => {

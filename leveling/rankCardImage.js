@@ -1,13 +1,13 @@
-// Карточка профиля репутации — одна картинка (баннер профиля как фон,
-// круглый аватар, имя/уровень/счёт/полоса прогресса, место в рейтинге),
-// а не embed/Components V2 с текстом. Все данные (буферы аватара/баннера/
-// иконки сервера, собранные из Discord CDN) передаются готовыми — сама
-// функция рисования не трогает сеть и не трогает Discord API, поэтому
-// тестируется отдельно (см. reputation/model.js buildRankCardAttachment(),
-// где буферы собираются).
+// Карточка профиля уровня активности — одна картинка (баннер профиля как
+// фон, круглый аватар, имя/уровень/счёт/полоса прогресса, место в
+// рейтинге), а не embed/Components V2 с текстом. Все данные (буферы
+// аватара/баннера/иконки сервера, собранные из Discord CDN) передаются
+// готовыми — сама функция рисования не трогает сеть и не трогает Discord
+// API, поэтому тестируется отдельно (см. leveling/model.js
+// buildRankCardAttachment(), где буферы собираются).
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { COLORS } = require('../utils/embeds');
-const { ensureFonts, roundedRectPath, drawCircleImage, truncate } = require('./canvasUtils');
+const { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes } = require('./canvasUtils');
 
 const WIDTH = 900;
 const HEIGHT = 270;
@@ -62,7 +62,8 @@ async function renderRankCard({
     level,
     score,
     rank,
-    givenCount,
+    messageCount,
+    voiceMinutes,
     guildName,
     guildIconBuffer,
 }) {
@@ -71,7 +72,7 @@ async function renderRankCard({
     const ctx = canvas.getContext('2d');
 
     // Акцент карточки растёт вместе с уровнем (level.color из
-    // reputation/model.js LEVELS — тот же цвет, что у роли уровня на
+    // leveling/model.js LEVELS — тот же цвет, что у роли уровня на
     // сервере) — кольцо аватара и полоса прогресса красятся им вместо
     // одного статичного PRIMARY_HEX на все уровни. level.color может
     // отсутствовать (старые вызовы/тесты без него) — тогда просто
@@ -130,7 +131,8 @@ async function renderRankCard({
 
     // Вторая строка статистики под полосой: слева — сколько очков осталось
     // до следующего уровня (на максимуме — что расти уже некуда), справа —
-    // сколько репутации сам раздал (активность, не только "сколько получил").
+    // из чего набран счёт (сообщения + голос) — активность, а не только
+    // итоговое число.
     ctx.font = '16px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
     ctx.textAlign = 'left';
@@ -139,7 +141,11 @@ async function renderRankCard({
         : 'Максимальный уровень';
     ctx.fillText(remainingLabel, TEXT_X, 200);
     ctx.textAlign = 'right';
-    ctx.fillText(`Дал репутации другим: ${givenCount ?? 0}`, WIDTH - 60, 200);
+    ctx.fillText(
+        `Сообщений: ${messageCount ?? 0} · В голосовых: ${formatVoiceMinutes(voiceMinutes ?? 0)}`,
+        WIDTH - 60,
+        200
+    );
     ctx.textAlign = 'left';
 
     if (rank) {
