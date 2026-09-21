@@ -17,6 +17,7 @@ const TARGET_INPUT_ID = 'ticket_target_input';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const PUNISH_BUTTON_PREFIX = 'ticket_punish:';
 const PUNISH_SELECT_PREFIX = 'ticket_punish_select:';
+const CLOSE_BUTTON_PREFIX = 'ticket_close:';
 
 // Два текстовых поля, как на референс-сервере — тег/ID нарушителя
 // вводится текстом (не UserSelectMenu), сразу после кнопки, без
@@ -129,6 +130,25 @@ async function handlePunishSelect(interaction) {
     });
 }
 
+// "Закрыть" на сообщении в треде жалобы — authorId зашит в customId
+// самой кнопки. Снимает доступ автора и архивирует тред как готовую
+// запись (model.closeReport), без права переоткрыть — команды на этот
+// случай нет, тема сужена до одной формы без жизненного цикла.
+async function handleCloseButton(interaction) {
+    const config = await load();
+    if (!model.isStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Только поддержка или модератор может закрывать тикеты.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const authorId = interaction.customId.slice(CLOSE_BUTTON_PREFIX.length);
+    await interaction.deferReply({ ephemeral: true });
+    await model.closeReport(interaction.channel, authorId);
+    await interaction.editReply({ embeds: [successEmbed('Тикет закрыт, автор убран из треда.', 'Готово')] });
+}
+
 async function handleButton(interaction) {
     if (interaction.customId === model.OPEN_BUTTON_ID) {
         await handleOpenButton(interaction);
@@ -136,6 +156,10 @@ async function handleButton(interaction) {
     }
     if (interaction.customId.startsWith(PUNISH_BUTTON_PREFIX)) {
         await handlePunishButton(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(CLOSE_BUTTON_PREFIX)) {
+        await handleCloseButton(interaction);
         return true;
     }
     return false;

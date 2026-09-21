@@ -91,10 +91,10 @@ function buildPanelMessage() {
 }
 
 // Первое сообщение в новом треде — плоское, без кнопок жизненного цикла
-// (claim/close и т.п. не нужны, весь дальнейший разговор — обычная
-// переписка в треде). "Наказать" — только если targetId удалось вытащить
-// из введённого текста (см. extractTargetId).
-function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount) {
+// вроде claim/приоритета/статуса — только "Закрыть" (снимает доступ
+// автора и архивирует тред, см. closeReport) и, если targetId удалось
+// вытащить из введённого текста (см. extractTargetId), "Наказать".
+function buildThreadWelcomeMessage(authorId, rawTarget, targetId, targetTag, description, reportHistoryCount) {
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(
             textDisplay(formatBody('Тикет открыт', 'Ожидайте, скоро мы присоединимся к вашему тикету.'))
@@ -110,13 +110,17 @@ function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, 
     }
     container.addTextDisplayComponents(textDisplay(infoLines.join('\n')));
 
-    if (!targetId) return [container];
     const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`ticket_punish:${targetId}`)
-            .setLabel('Наказать')
-            .setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`ticket_close:${authorId}`).setLabel('Закрыть').setStyle(ButtonStyle.Secondary)
     );
+    if (targetId) {
+        row.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`ticket_punish:${targetId}`)
+                .setLabel('Наказать')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
     return [container, row];
 }
 
@@ -185,7 +189,14 @@ async function submitReport(interaction, rawTarget, description) {
     // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
     // Support видеть каждый новый приватный тред без явного добавления
     // в участники и без отдельного уведомления через упоминание.
-    const bodyComponents = buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount);
+    const bodyComponents = buildThreadWelcomeMessage(
+        interaction.user.id,
+        rawTarget,
+        targetId,
+        targetTag,
+        description,
+        reportHistoryCount
+    );
     await thread
         .send(toMessage(...bodyComponents))
         .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
@@ -230,6 +241,23 @@ async function punishReportedUser(interaction, targetId, action, contextLabel) {
     return { label: `замучен на ${formatDuration(seconds * 1000)}` };
 }
 
+// "Закрыть" — снимает доступ автора (только членство в треде, никаких
+// персональных channel-оверрайтов не заводили — см. CHANGELOG про
+// причину) и архивирует+блокирует сам тред как готовую запись, не
+// удаляя её: история жалобы остаётся видна стафу в списке архивных
+// тредов канала, просто больше не активна и не пишется в неё.
+async function closeReport(thread, authorId) {
+    await thread.members
+        .remove(authorId)
+        .catch(err => console.error('tickets: не удалось убрать автора из треда:', err));
+    await thread
+        .setLocked(true, 'Тикет закрыт')
+        .catch(err => console.error('tickets: не удалось заблокировать тред:', err));
+    await thread
+        .setArchived(true, 'Тикет закрыт')
+        .catch(err => console.error('tickets: не удалось заархивировать тред:', err));
+}
+
 module.exports = {
     OPEN_BUTTON_ID,
     REPORT_HISTORY_WINDOW_MS,
@@ -242,4 +270,5 @@ module.exports = {
     buildThreadWelcomeMessage,
     submitReport,
     punishReportedUser,
+    closeReport,
 };

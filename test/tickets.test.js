@@ -98,16 +98,25 @@ test('formatReportedUser: НЕ <@id>-упоминание — только tag (
     assert.ok(!formatReportedUser('123', 'Тег').includes('<@'));
 });
 
-test('buildThreadWelcomeMessage: кнопка "Наказать" — только когда targetId резолвится', () => {
-    const withTarget = buildThreadWelcomeMessage('354261484395560961', '354261484395560961', 'Tag#0001', 'текст', 0);
-    assert.equal(withTarget.length, 2, 'с targetId должен быть второй компонент — ряд с кнопкой');
+test('buildThreadWelcomeMessage: "Закрыть" есть всегда, "Наказать" — только когда targetId резолвится', () => {
+    const withTarget = buildThreadWelcomeMessage(
+        'author1',
+        '354261484395560961',
+        '354261484395560961',
+        'Tag#0001',
+        'текст',
+        0
+    );
     assert.deepEqual(
         withTarget[1].components.map(c => c.toJSON().custom_id),
-        ['ticket_punish:354261484395560961']
+        ['ticket_close:author1', 'ticket_punish:354261484395560961']
     );
 
-    const withoutTarget = buildThreadWelcomeMessage('Jerry Smith#6666', null, null, 'текст', 0);
-    assert.equal(withoutTarget.length, 1, 'без резолвленного targetId — вообще без кнопок');
+    const withoutTarget = buildThreadWelcomeMessage('author2', 'Jerry Smith#6666', null, null, 'текст', 0);
+    assert.deepEqual(
+        withoutTarget[1].components.map(c => c.toJSON().custom_id),
+        ['ticket_close:author2']
+    );
 });
 
 test('tickets/config load() подставляет дефолты и не путает вложенный reports между вызовами', async () => {

@@ -71,4 +71,4 @@ async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
     return { role, created: true };
 }
 
-module.exports = { findOrCreateChannel, findOrCreateRole };
+module.exports = { findOrCreateChannel, findOrCreateRole, pickOldest };
