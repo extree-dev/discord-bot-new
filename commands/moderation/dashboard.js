@@ -22,10 +22,12 @@ module.exports = {
         ]);
         const activeMutes = Object.keys(mutes).length;
 
-        const ticketEntries = Object.values(ticketsConfig.tickets);
-        const open = ticketEntries.filter(t => t.status !== tickets.STATUS.RESOLVED);
-        const unclaimed = open.filter(t => !t.claimedBy);
-        const urgent = open.filter(t => t.urgent);
+        // Система тикетов больше не ведёт жизненный цикл обращений
+        // (только форма → карточка стафу, см. tickets/model.js) — считать
+        // тут нечего, кроме истории жалоб на игроков за 30 дней.
+        const recentReports = ticketsConfig.reports.filter(
+            r => Date.now() - r.createdAt <= tickets.REPORT_HISTORY_WINDOW_MS
+        ).length;
 
         const status = enabled => (enabled ? '🟢 Включено' : '🔴 Выключено');
 
@@ -33,8 +35,8 @@ module.exports = {
             .setDescription(formatBody('Панель модератора'))
             .addFields(
                 {
-                    name: '🎫 Тикеты',
-                    value: `Открыто: ${open.length}\nНе взято: ${unclaimed.length}\n🚨 Срочных: ${urgent.length}`,
+                    name: '🎫 Обращения',
+                    value: `Жалоб на игроков за 30 дней: ${recentReports}`,
                     inline: true,
                 },
                 {
@@ -62,7 +64,7 @@ module.exports = {
                     inline: true,
                 }
             )
-            .setFooter({ text: 'Подробнее: /ticket list, /ticket stats, /security-status, /warnings' });
+            .setFooter({ text: 'Подробнее: /security-status, /warnings' });
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
     },

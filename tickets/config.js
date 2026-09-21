@@ -2,62 +2,34 @@ const { createStore } = require('../utils/pgStore');
 
 const STORE_NAME = 'tickets';
 
-// Форма записи в tickets (для справки, схема не валидируется):
-// {
-//   number, ownerId, reason, reasonValue, description,
-//   claimedBy, status: 'open' | 'waiting_on_user' | 'resolved',
-//   isThread,                    // true — новые тикеты (тред), false/undefined — старые (канал)
-//   createdAt, lastActivityAt, claimedAt, closedAt, closedBy,
-//   escalatedAt, warnedAt,       // метки, чтобы не слать повторные напоминания
-//   notesThreadId,               // legacy-поле у тикетов, созданных до отмены тредов заметок —
-//                                // новые тикеты его больше не заводят, но closeTicket() всё ещё
-//                                // подчищает уже существующие (см. tickets/model.js closeTicket)
-//   voiceChannelId, rootMessageId,
-//   reasonValue,                 // REASONS[].value ("bug"/"report"/...) — reason сам по себе только
-//                                // отображаемая метка (REASONS[].label), по ней не найти обратно
-//                                // тему, чтобы проверить специалист-роль (isStaff) или standalone-панель
-//   reportedUserId,              // для темы "Жалоба на игрока" — ID выбранный через UserSelectMenu
-//   reportedUserTag,             // tag нарушителя на момент создания тикета — для отображения БЕЗ
-//                                // <@id>-упоминания (см. model.formatReportedUser): упоминание
-//                                // нарушителя в сообщении внутри треда добавило бы его самого в
-//                                // участники этого приватного треда — он увидел бы жалобу на себя.
-//                                // Может быть null у тикетов, созданных до этого поля.
-//   reportHistoryCount,          // сколько жалоб на этого же игрока было за последние 30 дней
-//   urgent,                      // true у тем с REASONS[].urgent, либо переключается вручную кнопкой
-//                                // "Приоритет" (доступна автору тикета и staff) — эскалируется быстрее
-//                                // (urgentClaimTimeoutMs), видно в /ticket list (сортировка) и отдельной
-//                                // строкой в карточке тикета (buildTicketCard); в имени треда не
-//                                // отображается вообще — как и статус, по фидбэку администратора
-//                                // эмодзи-маркеры в имени треда убрали полностью
-//   ownerNotifiedAt,             // когда автору последний раз слали DM-напоминание ответить
-//   firstStaffReplyAt,           // когда staff первый раз ответил в тикете — для /ticket stats
-//                                // (averageFirstResponseMs), не перезаписывается повторно
-// }
+// Система тикетов больше не заводит треды/жизненный цикл (claim/close/
+// эскалация/рейтинги/транскрипты, испытательный срок для стажёров) — по
+// решению администратора она заменена на простую форму, как на референс-
+// сервере: кнопка → модалка → карточка сразу падает в канал стафу, без
+// дальнейшего движения. См. CHANGELOG.
+//
+// categoryId — категория, где живут все 4 канала фичи ниже.
+// panelChannelId/bugPanelChannelId — публичные каналы с кнопками (видит
+// любой участник, писать в них нельзя, только жать кнопки).
+// submissionsChannelId — куда падают карточки жалоб/апелляций/вопросов/
+// "другого" (видит только staff).
+// bugChannelId — куда падают карточки багов (видит только роль
+// разработчика + staff) — Support на баги не пингуется, это и была цель
+// разделения раньше, осталась и сейчас.
+// supportRoleId — пинг на обычные обращения (кроме bug).
+// reasonRoleIds — доп. пинг по теме (REASONS[].value → roleId).
+// reports — [{ targetUserId, createdAt }], плоский лог жалоб на игроков
+// для подсчёта "N жалоб за 30 дней" в карточке (см. model.js
+// countRecentReportsOn) — не тикеты, просто список для статистики.
 const DEFAULTS = {
     categoryId: null,
     panelChannelId: null,
     bugPanelChannelId: null,
-    logChannelId: null,
+    submissionsChannelId: null,
+    bugChannelId: null,
     supportRoleId: null,
-    betaSupportRoleId: null,
-    betaModeratorRoleId: null,
-    reviewChannelId: null,
-    escalationRoleId: null,
     reasonRoleIds: {},
-    claimTimeoutMs: 10 * 60 * 1000,
-    urgentClaimTimeoutMs: 5 * 60 * 1000,
-    inactivityWarnMs: 24 * 60 * 60 * 1000,
-    inactivityCloseMs: 48 * 60 * 60 * 1000,
-    ownerReminderMs: 6 * 60 * 60 * 1000,
-    // Кулдаун между тикетами — не только "нельзя тут же переоткрыть
-    // закрытый", а общая пауза перед следующим обращением после любого
-    // взаимодействия с системой тикетов (по просьбе администратора,
-    // 2 часа). /ticket cooldown-reset <user> снимает его вручную для
-    // конкретного участника, не трогая остальным.
-    ticketCooldownMs: 2 * 60 * 60 * 1000,
-    ticketCooldownResets: {},
-    counter: 0,
-    tickets: {},
+    reports: [],
 };
 
 function normalize(data) {
@@ -65,8 +37,7 @@ function normalize(data) {
         ...DEFAULTS,
         ...data,
         reasonRoleIds: { ...DEFAULTS.reasonRoleIds, ...data.reasonRoleIds },
-        ticketCooldownResets: { ...data.ticketCooldownResets },
-        tickets: { ...data.tickets },
+        reports: [...(data.reports ?? [])],
     };
 }
 
