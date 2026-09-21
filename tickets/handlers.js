@@ -50,9 +50,9 @@ async function handleOpenButton(interaction) {
 
 async function handleCreateModal(interaction) {
     // deferReply сразу, до любой асинхронной работы (фетч нарушителя по
-    // ID, отправка карточки в канал стафу) — без него на медленной сети
-    // interaction протухает за 3 секунды, хотя форма всё равно успешно
-    // доходит в фоне.
+    // ID, создание треда, отправка сообщения) — без него на медленной
+    // сети interaction протухает за 3 секунды, хотя тикет всё равно
+    // успешно создаётся в фоне.
     await interaction.deferReply({ ephemeral: true });
 
     try {
@@ -64,18 +64,19 @@ async function handleCreateModal(interaction) {
             return;
         }
         await interaction.editReply({
-            embeds: [successEmbed('Жалоба отправлена команде поддержки — спасибо!', 'Готово')],
+            embeds: [successEmbed(`Тикет создан: ${result.thread}`, 'Готово')],
         });
     } catch (err) {
         console.error('tickets: не удалось обработать отправку жалобы:', err);
         await interaction
-            .editReply({ embeds: [errorEmbed('Не получилось отправить жалобу — попробуй ещё раз чуть позже.')] })
+            .editReply({ embeds: [errorEmbed('Не получилось открыть тикет — попробуй ещё раз чуть позже.')] })
             .catch(() => {});
     }
 }
 
-// "Наказать" на карточке жалобы — targetId зашит в customId самой кнопки
-// (нет отдельной записи "тикета", откуда его можно было бы прочитать).
+// "Наказать" на сообщении в треде жалобы — targetId зашит в customId
+// самой кнопки (нет отдельной записи "тикета", откуда его можно было бы
+// прочитать).
 async function handlePunishButton(interaction) {
     const config = await load();
     if (!model.isStaff(config, interaction.member)) {

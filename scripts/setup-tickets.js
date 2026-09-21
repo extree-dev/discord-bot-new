@@ -57,8 +57,8 @@ client.once('clientReady', async () => {
 
         // Панель — публичный канал, виден всем, писать нельзя (только
         // жать кнопку — Discord не блокирует кнопки/модалки по отсутствию
-        // SendMessages). Обращение не создаёт тред в этом канале, оно
-        // сразу падает карточкой в submissionsChannel ниже.
+        // SendMessages). Сам тикет открывается отдельным приватным тредом
+        // в submissionsChannel ниже, не в этом канале.
         const { channel: panelChannel, created: panelChannelCreated } = await findOrCreateChannel({
             guild,
             existingId: config.panelChannelId,
@@ -89,12 +89,18 @@ client.once('clientReady', async () => {
             console.log('Панель обращений отправлена.');
         }
 
-        // Приватный канал, куда падают карточки жалоб — видят только
-        // Support/Moderator(+Beta).
+        // Приватный канал-родитель для тредов жалоб — видят только
+        // Support/Moderator(+Beta). ManageThreads (не только ViewChannel)
+        // обязателен: без него роль не увидит приватные треды внутри,
+        // куда пинг её только зовёт, а не добавляет в участники (та же
+        // причина, что была у прежней thread-based системы тикетов).
         const submissionsStaffRoles = [supportRole, moderatorRole, betaModeratorRole].filter(Boolean);
         const submissionsOverwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-            ...submissionsStaffRoles.map(role => ({ id: role.id, allow: [PermissionFlagsBits.ViewChannel] })),
+            ...submissionsStaffRoles.map(role => ({
+                id: role.id,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageThreads],
+            })),
         ];
         const { channel: submissionsChannel, created: submissionsChannelCreated } = await findOrCreateChannel({
             guild,
@@ -112,8 +118,23 @@ client.once('clientReady', async () => {
                 .edit(guild.roles.everyone.id, { ViewChannel: false })
                 .catch(() => {});
             for (const role of submissionsStaffRoles) {
-                await submissionsChannel.permissionOverwrites.edit(role.id, { ViewChannel: true }).catch(() => {});
+                await submissionsChannel.permissionOverwrites
+                    .edit(role.id, { ViewChannel: true, ManageThreads: true })
+                    .catch(() => {});
             }
+        }
+
+        // Роль Muted запрещает SendMessagesInThreads категорийным
+        // deny-оверрайтом почти везде на сервере (см. moderation/model.js)
+        // — без явного allow здесь замученный участник не смог бы писать
+        // дальше в собственном же треде жалобы (та же грабля уже была у
+        // прежней thread-based системы тикетов, канальный allow всегда
+        // сильнее категорийного deny той же роли).
+        const mutedRoleId = securityConfig.baseRoleIds?.Muted;
+        if (mutedRoleId) {
+            await submissionsChannel.permissionOverwrites
+                .edit(mutedRoleId, { SendMessagesInThreads: true })
+                .catch(() => {});
         }
 
         // Разовая самоисцеляющаяся очистка: по решению администратора

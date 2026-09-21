@@ -10,7 +10,7 @@ const {
     extractTargetId,
     OPEN_BUTTON_ID,
     buildPanelMessage,
-    buildReportCard,
+    buildThreadWelcomeMessage,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -98,15 +98,15 @@ test('formatReportedUser: НЕ <@id>-упоминание — только tag (
     assert.ok(!formatReportedUser('123', 'Тег').includes('<@'));
 });
 
-test('buildReportCard: кнопка "Наказать" — только когда targetId резолвится', () => {
-    const withTarget = buildReportCard('author1', '354261484395560961', '354261484395560961', 'Tag#0001', 'текст', 0);
+test('buildThreadWelcomeMessage: кнопка "Наказать" — только когда targetId резолвится', () => {
+    const withTarget = buildThreadWelcomeMessage('354261484395560961', '354261484395560961', 'Tag#0001', 'текст', 0);
     assert.equal(withTarget.length, 2, 'с targetId должен быть второй компонент — ряд с кнопкой');
     assert.deepEqual(
         withTarget[1].components.map(c => c.toJSON().custom_id),
         ['ticket_punish:354261484395560961']
     );
 
-    const withoutTarget = buildReportCard('author2', 'Jerry Smith#6666', null, null, 'текст', 0);
+    const withoutTarget = buildThreadWelcomeMessage('Jerry Smith#6666', null, null, 'текст', 0);
     assert.equal(withoutTarget.length, 1, 'без резолвленного targetId — вообще без кнопок');
 });
 
