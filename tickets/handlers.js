@@ -29,7 +29,7 @@ function buildCreateModal() {
         .setCustomId(TARGET_INPUT_ID)
         .setLabel('Тег или ID игрока')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Jerry Smith#6666 или 354261484395560961')
+        .setPlaceholder('Extree#8223 или 340773390518452227')
         .setMaxLength(100)
         .setRequired(true);
     const descriptionInput = new TextInputBuilder()
