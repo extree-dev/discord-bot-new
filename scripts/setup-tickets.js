@@ -38,6 +38,26 @@ client.once('clientReady', async () => {
             console.log(`Роль Support уже настроена: ${supportRole.name}`);
         }
 
+        // Beta-Support — стажёрский состав поддержки: может брать тикеты в
+        // работу наравне с Support/Beta-Moderator, но закрывать их сам не
+        // может — нужно подтверждение старшего состава (см. isSeniorStaff в
+        // tickets/model.js).
+        const { role: betaSupportRole, created: betaSupportCreated } = await findOrCreateRole({
+            guild,
+            existingId: config.betaSupportRoleId,
+            name: 'Beta-Support',
+            color: 0x2ecc71,
+            hoist: true,
+            mentionable: false,
+            permissions: [],
+        });
+        if (betaSupportCreated) {
+            console.log('Создана роль: Beta-Support');
+            await betaSupportRole.setPosition(supportRole.position - 1).catch(() => {});
+        } else {
+            console.log(`Роль Beta-Support уже настроена: ${betaSupportRole.name}`);
+        }
+
         // категория
         const { channel: category, created: categoryCreated } = await findOrCreateChannel({
             guild,
@@ -94,7 +114,7 @@ client.once('clientReady', async () => {
         // обязателен: без него роль не увидит приватные треды внутри,
         // куда пинг её только зовёт, а не добавляет в участники (та же
         // причина, что была у прежней thread-based системы тикетов).
-        const submissionsStaffRoles = [supportRole, moderatorRole, betaModeratorRole].filter(Boolean);
+        const submissionsStaffRoles = [supportRole, betaSupportRole, moderatorRole, betaModeratorRole].filter(Boolean);
         // Явный оверрайт на самого бота — иначе он видит канал только
         // если его собственная роль как-то попала в allow (не гарантия),
         // а thread.members.add() в tickets/model.js без ManageThreads
@@ -166,6 +186,7 @@ client.once('clientReady', async () => {
         config.panelChannelId = panelChannel.id;
         config.submissionsChannelId = submissionsChannel.id;
         config.supportRoleId = supportRole.id;
+        config.betaSupportRoleId = betaSupportRole.id;
         config.bugPanelChannelId = null;
         config.bugChannelId = null;
         config.reasonRoleIds = undefined;

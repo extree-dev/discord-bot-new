@@ -187,10 +187,11 @@ async function handleManagementSelect(interaction) {
         });
         return;
     }
+    const isSenior = model.isSeniorStaff(config, interaction.member);
     await interaction.update({
         content: null,
         embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
-        components: [model.buildTicketActionRow(threadId, record)],
+        components: [model.buildTicketActionRow(threadId, record, isSenior)],
     });
 }
 
@@ -198,7 +199,9 @@ async function handleManagementSelect(interaction) {
 // зашит в customId (кнопка живёт вне самого треда). Никакого сообщения в
 // сам тред не шлём — по прямому требованию администратора тред жалобы
 // остаётся чисто информационным, claim-статус виден только здесь же, в
-// канале управления (карточка тикета и список "Активные тикеты").
+// канале управления (карточка тикета и список "Активные тикеты"). Тикет
+// закреплён за одним сотрудником (item 3) — claimTicket отклоняет попытку,
+// если его уже взял кто-то другой.
 async function handleMgmtClaimButton(interaction) {
     const config = await load();
     if (!model.isStaff(config, interaction.member)) {
@@ -209,21 +212,29 @@ async function handleMgmtClaimButton(interaction) {
         return;
     }
     const threadId = interaction.customId.slice(model.MGMT_CLAIM_PREFIX.length);
-    const record = await model.claimTicket(threadId, interaction.user.id, interaction.user.tag);
-    if (!record) {
-        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+    const result = await model.claimTicket(threadId, interaction.user.id, interaction.user.tag);
+    if (!result.ok) {
+        const message =
+            result.reason === 'already_claimed'
+                ? `Тикет уже взял в работу ${result.claimedByTag}.`
+                : 'Тикет уже закрыт.';
+        await interaction.update({ content: null, embeds: [errorEmbed(message)], components: [] });
         return;
     }
+    const isSenior = model.isSeniorStaff(config, interaction.member);
     await interaction.update({
         content: null,
-        embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
-        components: [model.buildTicketActionRow(threadId, record)],
+        embeds: [infoEmbed(model.formatTicketDetail(result.record), `ticket-${result.record.number}`)],
+        components: [model.buildTicketActionRow(threadId, result.record, isSenior)],
     });
 }
 
-// "Закрыть" из карточки тикета в канале управления — authorId берём из
-// сохранённой записи (customId несёт только threadId), model.closeReport
-// сама удаляет запись из ticketsById.
+// "Закрыть"/"Запросить закрытие" из карточки тикета в канале управления —
+// authorId берём из сохранённой записи (customId несёт только threadId).
+// Старший состав (isSeniorStaff) закрывает тикет сразу, как раньше; стажёр
+// (Beta-Support/Beta-Moderator) только помечает запрос — сам тред закроет
+// уже handleMgmtApproveCloseButton после подтверждения старшим составом
+// (item 2 — без подтверждения стажёр закрыть тикет не может).
 async function handleMgmtCloseButton(interaction) {
     const config = await load();
     if (!model.isStaff(config, interaction.member)) {
@@ -239,11 +250,90 @@ async function handleMgmtCloseButton(interaction) {
         await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
         return;
     }
+    const isSenior = model.isSeniorStaff(config, interaction.member);
+
+    if (isSenior) {
+        const thread =
+            interaction.guild.channels.cache.get(threadId) ??
+            (await interaction.guild.channels.fetch(threadId).catch(() => null));
+        if (thread) await model.closeReport(thread, record.authorId);
+        await interaction.update({
+            content: null,
+            embeds: [successEmbed('Тикет закрыт.', 'Готово')],
+            components: [],
+        });
+        return;
+    }
+
+    if (record.pendingClose) {
+        await interaction.update({
+            content: null,
+            embeds: [infoEmbed(model.formatTicketDetail(record), `ticket-${record.number}`)],
+            components: [model.buildTicketActionRow(threadId, record, isSenior)],
+        });
+        return;
+    }
+
+    const result = await model.requestCloseApproval(threadId, interaction.user.id, interaction.user.tag);
+    if (!result.ok) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+        return;
+    }
+    await interaction.update({
+        content: null,
+        embeds: [infoEmbed(model.formatTicketDetail(result.record), `ticket-${result.record.number}`)],
+        components: [model.buildTicketActionRow(threadId, result.record, isSenior)],
+    });
+}
+
+// "Подтвердить закрытие" — видна только старшему составу, когда есть
+// pendingClose (см. buildTicketActionRow). Закрывает тикет тем же путём,
+// что и прямое "Закрыть" от старшего состава.
+async function handleMgmtApproveCloseButton(interaction) {
+    const config = await load();
+    if (!model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Подтверждать закрытие может только старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const threadId = interaction.customId.slice(model.MGMT_APPROVE_CLOSE_PREFIX.length);
+    const record = config.ticketsById[threadId];
+    if (!record) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+        return;
+    }
     const thread =
         interaction.guild.channels.cache.get(threadId) ??
         (await interaction.guild.channels.fetch(threadId).catch(() => null));
     if (thread) await model.closeReport(thread, record.authorId);
     await interaction.update({ content: null, embeds: [successEmbed('Тикет закрыт.', 'Готово')], components: [] });
+}
+
+// "Отклонить закрытие" — снимает pendingClose, тикет остаётся открытым и
+// закреплённым за тем же сотрудником, который его взял.
+async function handleMgmtDenyCloseButton(interaction) {
+    const config = await load();
+    if (!model.isSeniorStaff(config, interaction.member)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Отклонять закрытие может только старший состав.')],
+            ephemeral: true,
+        });
+        return;
+    }
+    const threadId = interaction.customId.slice(model.MGMT_DENY_CLOSE_PREFIX.length);
+    const result = await model.rejectCloseRequest(threadId);
+    if (!result.ok) {
+        await interaction.update({ content: null, embeds: [errorEmbed('Тикет уже закрыт.')], components: [] });
+        return;
+    }
+    const isSenior = true;
+    await interaction.update({
+        content: null,
+        embeds: [infoEmbed(model.formatTicketDetail(result.record), `ticket-${result.record.number}`)],
+        components: [model.buildTicketActionRow(threadId, result.record, isSenior)],
+    });
 }
 
 async function handleButton(interaction) {
@@ -265,6 +355,14 @@ async function handleButton(interaction) {
     }
     if (interaction.customId.startsWith(model.MGMT_CLAIM_PREFIX)) {
         await handleMgmtClaimButton(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(model.MGMT_APPROVE_CLOSE_PREFIX)) {
+        await handleMgmtApproveCloseButton(interaction);
+        return true;
+    }
+    if (interaction.customId.startsWith(model.MGMT_DENY_CLOSE_PREFIX)) {
+        await handleMgmtDenyCloseButton(interaction);
         return true;
     }
     if (interaction.customId.startsWith(model.MGMT_CLOSE_PREFIX)) {

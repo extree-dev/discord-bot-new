@@ -34,16 +34,33 @@ const OPEN_BUTTON_ID = 'ticket_open';
 const MGMT_SELECT_ID = 'ticket_mgmt_select';
 const MGMT_CLAIM_PREFIX = 'ticket_mgmt_claim:';
 const MGMT_CLOSE_PREFIX = 'ticket_mgmt_close:';
+const MGMT_APPROVE_CLOSE_PREFIX = 'ticket_mgmt_approveclose:';
+const MGMT_DENY_CLOSE_PREFIX = 'ticket_mgmt_denyclose:';
 
-// support/ModerateMembers/Administrator — обычный штат. Раньше здесь ещё
+// support/beta-support/ModerateMembers/Administrator — обычный штат
+// (Beta-Moderator тоже проходит через ModerateMembers). Раньше здесь ещё
 // проверялись специалист-роли по темам (бага, апелляции) — вместе с
 // самими темами их убрали, осталась только жалоба на игрока.
 function isStaff(config, member) {
     if (config.supportRoleId && member.roles.cache.has(config.supportRoleId)) return true;
+    if (config.betaSupportRoleId && member.roles.cache.has(config.betaSupportRoleId)) return true;
     return (
         member.permissions.has(PermissionFlagsBits.Administrator) ||
         member.permissions.has(PermissionFlagsBits.ModerateMembers)
     );
+}
+
+// "Старший" состав — тот, кто закрывает тикеты сразу и подтверждает/
+// отклоняет запросы на закрытие от стажёров (Beta-Support/Beta-Moderator).
+// Support и полный Moderator — старшие; отличаем модератора от
+// бета-модератора не по ID роли (чтобы не тащить в tickets/model.js
+// знание о security/config.js), а по нативному праву BanMembers — оно
+// есть у Moderator, но не у Beta-Moderator, тогда как ModerateMembers есть
+// у обоих и для этого разделения не годится.
+function isSeniorStaff(config, member) {
+    if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+    if (member.permissions.has(PermissionFlagsBits.BanMembers)) return true;
+    return Boolean(config.supportRoleId && member.roles.cache.has(config.supportRoleId));
 }
 
 // Сколько жалоб на того же игрока уже было за последние windowMs —
@@ -170,37 +187,86 @@ function buildTicketSelectRow(tickets) {
 // Карточка конкретного тикета после выбора в select-меню — показывается
 // ephemeral в канале управления.
 function formatTicketDetail(record) {
-    return [
+    const targetLine = record.targetId
+        ? formatReportedUser(record.targetId, record.targetTag)
+        : record.rawTarget
+          ? `\`${record.rawTarget}\` (не резолвится в ID, кнопка "Наказать" недоступна)`
+          : '—';
+    const lines = [
         `**Тикет:** ticket-${record.number}`,
         `**Автор:** \`${record.authorId}\``,
-        `**Тег/ID нарушителя:** ${record.targetId ? formatReportedUser(record.targetId, record.targetTag) : '—'}`,
+        `**Тег/ID нарушителя:** ${targetLine}`,
         `**Взял в работу:** ${record.claimedByTag ?? 'никто'}`,
-    ].join('\n');
+    ];
+    if (record.pendingClose) {
+        lines.push(`**Запрос на закрытие:** ждёт подтверждения (запросил ${record.pendingClose.requestedByTag})`);
+    }
+    return lines.join('\n');
 }
 
 // "Наказать" переиспользует существующий ticket_punish:<targetId> —
 // сама кнопка не привязана к месту показа, ей всё равно, из какого
 // канала пришло взаимодействие (см. handlePunishButton).
-function buildTicketActionRow(threadId, record) {
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(`${MGMT_CLAIM_PREFIX}${threadId}`)
-            .setLabel('Взять в работу')
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId(`${MGMT_CLOSE_PREFIX}${threadId}`)
-            .setLabel('Закрыть')
-            .setStyle(ButtonStyle.Secondary)
-    );
+//
+// isSenior определяет и claim-, и close-поведение:
+// - "Взять в работу" показывается, только пока тикет ещё не взят (item 3 —
+//   после claim'а кнопка пропадает у всех, а не просто перестаёт работать).
+// - Стажёр (isSenior=false) не закрывает тикет сам — жмёт "Запросить
+//   закрытие", после чего кнопка блокируется до решения старшего состава.
+// - Старший состав видит либо обычное "Закрыть" (пока запроса нет), либо
+//   "Подтвердить"/"Отклонить" — как только стажёр запросил закрытие.
+function buildTicketActionRow(threadId, record, isSenior) {
+    const components = [];
+
+    if (!record.claimedBy) {
+        components.push(
+            new ButtonBuilder()
+                .setCustomId(`${MGMT_CLAIM_PREFIX}${threadId}`)
+                .setLabel('Взять в работу')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
+
+    if (record.pendingClose) {
+        if (isSenior) {
+            components.push(
+                new ButtonBuilder()
+                    .setCustomId(`${MGMT_APPROVE_CLOSE_PREFIX}${threadId}`)
+                    .setLabel('Подтвердить закрытие')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`${MGMT_DENY_CLOSE_PREFIX}${threadId}`)
+                    .setLabel('Отклонить закрытие')
+                    .setStyle(ButtonStyle.Danger)
+            );
+        } else {
+            components.push(
+                new ButtonBuilder()
+                    .setCustomId(`${MGMT_CLOSE_PREFIX}${threadId}`)
+                    .setLabel('Закрытие запрошено')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true)
+            );
+        }
+    } else {
+        components.push(
+            new ButtonBuilder()
+                .setCustomId(`${MGMT_CLOSE_PREFIX}${threadId}`)
+                .setLabel(isSenior ? 'Закрыть' : 'Запросить закрытие')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    }
+
     if (record.targetId) {
-        row.addComponents(
+        components.push(
             new ButtonBuilder()
                 .setCustomId(`ticket_punish:${record.targetId}`)
                 .setLabel('Наказать')
                 .setStyle(ButtonStyle.Secondary)
         );
     }
-    return row;
+
+    return new ActionRowBuilder().addComponents(...components);
 }
 
 // Чистое форматирование — переиспользуется и тестируется отдельно от
@@ -208,7 +274,11 @@ function buildTicketActionRow(threadId, record) {
 function formatActiveTicketsList(threads) {
     if (!threads.length) return 'Открытых тикетов нет.';
     return threads
-        .map(t => `• ${t.name} — ${t.url} — ${t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят'}`)
+        .map(t => {
+            const status = t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят';
+            const pending = t.pendingClose ? ' ⏳ запрошено закрытие' : '';
+            return `• ${t.name} — ${t.url} — ${status}${pending}`;
+        })
         .join('\n');
 }
 
@@ -242,6 +312,7 @@ async function listActiveTickets(guild, config) {
             name: t.name,
             url: t.url,
             claimedByTag: config.ticketsById?.[t.id]?.claimedByTag ?? null,
+            pendingClose: Boolean(config.ticketsById?.[t.id]?.pendingClose),
         }));
 }
 
@@ -257,17 +328,47 @@ async function getTicketStats(guild, config) {
 
 // "Взять в работу" — фиксирует, кто из стафа разбирает тикет, чтобы
 // несколько модераторов не отвечали одному и тому же участнику вразнобой
-// и чтобы "Активные тикеты" показывал, что ещё никто не подхватил.
-// Повторное нажатие (в том числе другим модератором) просто переставляет
-// claimedBy — отдельного "открепить" не делаем, тема не про полноценный
-// жизненный цикл с правами на переназначение.
+// и чтобы "Активные тикеты" показывал, что ещё никто не подхватил. Тикет
+// закреплён за одним сотрудником: как только его кто-то взял, повторный
+// claim (в том числе другим сотрудником) отклоняется — над тикетом должен
+// работать один человек (item 3). Возвращает дискриминированный результат
+// вместо голого record/null, чтобы вызывающий код (handlers.js) мог
+// отличить "тикет уже закрыт" от "уже взят другим" и показать разные
+// сообщения.
 async function claimTicket(threadId, staffId, staffTag) {
     return update(c => {
         const record = c.ticketsById[threadId];
-        if (!record) return null;
+        if (!record) return { ok: false, reason: 'not_found' };
+        if (record.claimedBy && record.claimedBy !== staffId) {
+            return { ok: false, reason: 'already_claimed', claimedByTag: record.claimedByTag };
+        }
         record.claimedBy = staffId;
         record.claimedByTag = staffTag;
-        return record;
+        return { ok: true, record };
+    });
+}
+
+// Стажёр (Beta-Support/Beta-Moderator, см. isSeniorStaff) не закрывает
+// тикет напрямую — только помечает его как "запрошено закрытие", а
+// подтверждает или отклоняет запрос уже старший состав (см.
+// handleMgmtApproveCloseButton/handleMgmtDenyCloseButton в handlers.js).
+// Сам тред при запросе не трогаем — закрывает его только closeReport()
+// после подтверждения.
+async function requestCloseApproval(threadId, staffId, staffTag) {
+    return update(c => {
+        const record = c.ticketsById[threadId];
+        if (!record) return { ok: false, reason: 'not_found' };
+        record.pendingClose = { requestedBy: staffId, requestedByTag: staffTag };
+        return { ok: true, record };
+    });
+}
+
+async function rejectCloseRequest(threadId) {
+    return update(c => {
+        const record = c.ticketsById[threadId];
+        if (!record) return { ok: false, reason: 'not_found' };
+        record.pendingClose = null;
+        return { ok: true, record };
     });
 }
 
@@ -382,10 +483,12 @@ async function submitReport(interaction, rawTarget, description) {
         c.ticketsById[thread.id] = {
             number,
             authorId: interaction.user.id,
+            rawTarget,
             targetId,
             targetTag,
             claimedBy: null,
             claimedByTag: null,
+            pendingClose: null,
             createdAt: now,
         };
     });
@@ -467,8 +570,11 @@ module.exports = {
     MGMT_SELECT_ID,
     MGMT_CLAIM_PREFIX,
     MGMT_CLOSE_PREFIX,
+    MGMT_APPROVE_CLOSE_PREFIX,
+    MGMT_DENY_CLOSE_PREFIX,
     REPORT_HISTORY_WINDOW_MS,
     isStaff,
+    isSeniorStaff,
     countRecentReportsOn,
     formatDuration,
     formatReportedUser,
@@ -487,4 +593,6 @@ module.exports = {
     punishReportedUser,
     closeReport,
     claimTicket,
+    requestCloseApproval,
+    rejectCloseRequest,
 };

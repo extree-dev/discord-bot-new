@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { PermissionFlagsBits } = require('discord.js');
 const {
     isStaff,
+    isSeniorStaff,
     countRecentReportsOn,
     formatDuration,
     formatReportedUser,
@@ -12,6 +13,8 @@ const {
     MGMT_SELECT_ID,
     MGMT_CLAIM_PREFIX,
     MGMT_CLOSE_PREFIX,
+    MGMT_APPROVE_CLOSE_PREFIX,
+    MGMT_DENY_CLOSE_PREFIX,
     buildPanelMessage,
     buildThreadWelcomeMessage,
     buildManagementPanelMessage,
@@ -30,13 +33,14 @@ const { closePool } = require('../utils/db');
 // будет висеть после того, как все тесты этого файла отработают.
 after(() => closePool());
 
-function makeMember({ roleIds = [], isAdmin = false, isModerator = false }) {
+function makeMember({ roleIds = [], isAdmin = false, isModerator = false, canBan = false }) {
     return {
         roles: { cache: new Set(roleIds) },
         permissions: {
             has(flag) {
                 if (isAdmin) return true;
                 if (isModerator && flag === PermissionFlagsBits.ModerateMembers) return true;
+                if (canBan && flag === PermissionFlagsBits.BanMembers) return true;
                 return false;
             },
         },
@@ -68,9 +72,28 @@ test('isStaff: пропускает администратора и модера
     assert.equal(isStaff(config, makeMember({ isModerator: true })), true);
 });
 
+test('isStaff: пропускает участника с ролью Beta-Support', () => {
+    const config = { supportRoleId: 'support-role', betaSupportRoleId: 'beta-support-role' };
+    const member = makeMember({ roleIds: ['beta-support-role'] });
+    assert.equal(isStaff(config, member), true);
+});
+
 test('isStaff: обычный участник без роли и прав — не staff', () => {
     const config = { supportRoleId: 'support-role' };
     assert.equal(isStaff(config, makeMember({})), false);
+});
+
+test('isSeniorStaff: админ, "полный" модератор (BanMembers) и Support — старший состав', () => {
+    const config = { supportRoleId: 'support-role' };
+    assert.equal(isSeniorStaff(config, makeMember({ isAdmin: true })), true);
+    assert.equal(isSeniorStaff(config, makeMember({ isModerator: true, canBan: true })), true);
+    assert.equal(isSeniorStaff(config, makeMember({ roleIds: ['support-role'] })), true);
+});
+
+test('isSeniorStaff: бета-модератор/бета-саппорт (ModerateMembers без BanMembers) — не старший состав', () => {
+    const config = { supportRoleId: 'support-role', betaSupportRoleId: 'beta-support-role' };
+    assert.equal(isSeniorStaff(config, makeMember({ isModerator: true })), false);
+    assert.equal(isSeniorStaff(config, makeMember({ roleIds: ['beta-support-role'] })), false);
 });
 
 test('extractTargetId: находит чистый ID (снежинку), не находит тег или мусор', () => {
@@ -156,17 +179,70 @@ test('formatTicketDetail: показывает автора/цель/claim-ст�
     assert.match(text, /никто/);
 });
 
-test('buildTicketActionRow: "Взять в работу"/"Закрыть" всегда, "Наказать" — только если есть targetId', () => {
-    const withTarget = buildTicketActionRow('thread1', { targetId: '354261484395560961' });
+test('formatTicketDetail: без резолвящегося targetId показывает сырой введённый текст', () => {
+    const text = formatTicketDetail({
+        number: 6,
+        authorId: 'u1',
+        targetId: null,
+        targetTag: null,
+        rawTarget: 'Jerry Smith#6666',
+        claimedByTag: null,
+    });
+    assert.match(text, /`Jerry Smith#6666`/);
+});
+
+test('formatTicketDetail: без targetId и rawTarget — просто прочерк', () => {
+    const text = formatTicketDetail({ number: 7, authorId: 'u1', targetId: null, targetTag: null, claimedByTag: null });
+    assert.match(text, /нарушителя:\*\* —/);
+});
+
+test('formatTicketDetail: показывает, кто запросил закрытие, если есть pendingClose', () => {
+    const text = formatTicketDetail({
+        number: 8,
+        authorId: 'u1',
+        targetId: null,
+        targetTag: null,
+        claimedByTag: 'Beta#0001',
+        pendingClose: { requestedBy: 'u2', requestedByTag: 'Beta#0001' },
+    });
+    assert.match(text, /Beta#0001/);
+    assert.match(text, /Запрос на закрытие/);
+});
+
+test('buildTicketActionRow: "Взять в работу" только пока не взят, "Наказать" — только если есть targetId', () => {
+    const unclaimed = buildTicketActionRow('thread1', { claimedBy: null, targetId: '354261484395560961' }, false);
     assert.deepEqual(
-        withTarget.components.map(c => c.toJSON().custom_id),
+        unclaimed.components.map(c => c.toJSON().custom_id),
         [`${MGMT_CLAIM_PREFIX}thread1`, `${MGMT_CLOSE_PREFIX}thread1`, 'ticket_punish:354261484395560961']
     );
 
-    const withoutTarget = buildTicketActionRow('thread2', { targetId: null });
+    const claimed = buildTicketActionRow('thread2', { claimedBy: 'staff1', targetId: null }, false);
     assert.deepEqual(
-        withoutTarget.components.map(c => c.toJSON().custom_id),
-        [`${MGMT_CLAIM_PREFIX}thread2`, `${MGMT_CLOSE_PREFIX}thread2`]
+        claimed.components.map(c => c.toJSON().custom_id),
+        [`${MGMT_CLOSE_PREFIX}thread2`]
+    );
+});
+
+test('buildTicketActionRow: стажёр видит "Запросить закрытие", старший состав — "Закрыть"', () => {
+    const trialRow = buildTicketActionRow('thread1', { claimedBy: 'staff1', targetId: null }, false);
+    assert.equal(trialRow.components[0].toJSON().label, 'Запросить закрытие');
+
+    const seniorRow = buildTicketActionRow('thread1', { claimedBy: 'staff1', targetId: null }, true);
+    assert.equal(seniorRow.components[0].toJSON().label, 'Закрыть');
+});
+
+test('buildTicketActionRow: с pendingClose стажёр видит задизейбленную кнопку, старший — подтвердить/отклонить', () => {
+    const record = { claimedBy: 'staff1', targetId: null, pendingClose: { requestedBy: 'staff1' } };
+
+    const trialRow = buildTicketActionRow('thread1', record, false);
+    const trialButton = trialRow.components[0].toJSON();
+    assert.equal(trialButton.custom_id, `${MGMT_CLOSE_PREFIX}thread1`);
+    assert.equal(trialButton.disabled, true);
+
+    const seniorRow = buildTicketActionRow('thread1', record, true);
+    assert.deepEqual(
+        seniorRow.components.map(c => c.toJSON().custom_id),
+        [`${MGMT_APPROVE_CLOSE_PREFIX}thread1`, `${MGMT_DENY_CLOSE_PREFIX}thread1`]
     );
 });
 
@@ -180,6 +256,13 @@ test('formatActiveTicketsList: список тредов с claim-статусо
         '• ticket-1 — https://discord.com/channels/1/2/3 — не взят\n' +
             '• ticket-2 — https://discord.com/channels/1/2/4 — взял Mod#0001'
     );
+});
+
+test('formatActiveTicketsList: помечает тикеты с запросом на закрытие', () => {
+    const text = formatActiveTicketsList([
+        { name: 'ticket-3', url: 'https://discord.com/channels/1/2/5', claimedByTag: 'Mod#0001', pendingClose: true },
+    ]);
+    assert.match(text, /⏳ запрошено закрытие/);
 });
 
 test('formatTicketStats: четыре строки с числами как есть', () => {
