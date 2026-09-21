@@ -173,17 +173,14 @@ async function submitReport(interaction, rawTarget, description) {
     // персональные оверрайты), а submissionsChannel закрыт от @everyone.
     await thread.members.add(interaction.user.id).catch(() => {});
 
+    // Без пинга роли — как на референс-сервере: ManageThreads на
+    // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
+    // Support видеть каждый новый приватный тред без явного добавления
+    // в участники и без отдельного уведомления через упоминание.
     const bodyComponents = buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount);
-    // Пинг — отдельным TextDisplay первым компонентом, а не через content:
-    // сообщение с флагом IsComponentsV2 не может содержать content/embeds
-    // (см. utils/components.js). Упоминания внутри TextDisplay всё равно
-    // доставляют уведомление; ManageThreads на submissionsChannel (см.
-    // scripts/setup-tickets.js) даёт роли Support видеть тред без явного
-    // добавления в участники.
-    const payload = config.supportRoleId
-        ? toMessage(textDisplay(`<@&${config.supportRoleId}>`), ...bodyComponents)
-        : toMessage(...bodyComponents);
-    await thread.send(payload).catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
+    await thread
+        .send(toMessage(...bodyComponents))
+        .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
 
     return { ok: true, thread };
 }
