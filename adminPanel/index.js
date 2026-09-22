@@ -7,6 +7,8 @@ const config = require('./config');
 // провижининга канала и публикации сообщения).
 module.exports = {
     handleButton: handlers.handleButton,
+    handleSelectMenu: handlers.handleSelectMenu,
+    handleModalSubmit: handlers.handleModalSubmit,
     gatherStatus: model.gatherStatus,
     buildPanelMessage: model.buildPanelMessage,
     getConfig: config.load,

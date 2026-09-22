@@ -1,11 +1,23 @@
 // Панель администратора — постоянное сообщение в staff-only канале с
 // кнопками на самые частые/тяжёлые админские действия (экстренная
-// блокировка, модули безопасности, бэкап, статус) вместо похода в слэш-
-// команды (/lockdown, /security-status, /backup, /dashboard остаются
-// рабочими — панель не замена, а более быстрый путь к тем же действиям).
-// Кнопки читают и правят тот же security-config, что и команды, поэтому
-// оба входа всегда показывают согласованное состояние.
-const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+// блокировка, модули безопасности, бэкап, статус, точечные наказания)
+// вместо похода в слэш-команды (/lockdown, /security-status, /backup,
+// /dashboard, /ban, /kick, /timeout, /warn остаются рабочими — панель не
+// замена, а более быстрый путь к тем же действиям). Кнопки читают и
+// правят тот же security-config, что и команды, поэтому оба входа всегда
+// показывают согласованное состояние.
+//
+// Все кнопки — единый серый Secondary, без цветового кодирования по
+// смыслу (по прямому запросу администратора): состояние тумблеров и тип
+// действия читаются по эмодзи/подписи, а не по цвету самой кнопки.
+const {
+    ButtonBuilder,
+    ButtonStyle,
+    ActionRowBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+} = require('discord.js');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 const { COLORS, formatBody, baseEmbed, infoEmbed } = require('../utils/embeds');
 const security = require('../security');
@@ -20,6 +32,9 @@ const BACKUP_ID = 'admin_panel_backup';
 const BACKUP_LIST_ID = 'admin_panel_backup_list';
 const STATUS_DETAIL_ID = 'admin_panel_status_detail';
 const REFRESH_ID = 'admin_panel_refresh';
+const QUICK_ACTION_PREFIX = 'admin_panel_quick:';
+const QUICK_SELECT_PREFIX = 'admin_panel_quick_select:';
+const QUICK_MODAL_PREFIX = 'admin_panel_quick_modal:';
 
 // Модули security-config, для которых на панели есть кнопка-тумблер —
 // каждая просто читает/пишет config.<key>.enabled, остальные настройки
@@ -32,6 +47,19 @@ const MODULES = [
     { key: 'automod', label: 'Automod' },
     { key: 'verification', label: 'Верификация' },
     { key: 'auditLog', label: 'Audit log' },
+];
+
+// Точечные наказания — то же самое, что /ban, /kick, /timeout, /warn, но
+// кнопкой вместо ввода команды с параметрами. Кнопка сама по себе
+// параметров нести не может (в отличие от слэш-команды), поэтому по клику
+// сперва просят выбрать участника (UserSelectMenu), а затем — причину (и
+// для мута/бана ещё пару чисел) через модалку. Видит эту цепочку тот же
+// staff-only канал панели, поэтому отдельного подтверждения "точно?" нет.
+const QUICK_ACTIONS = [
+    { key: 'ban', label: 'Бан', emoji: '🔨' },
+    { key: 'kick', label: 'Кик', emoji: '👢' },
+    { key: 'mute', label: 'Мут', emoji: '🔇' },
+    { key: 'warn', label: 'Варн', emoji: '⚠️' },
 ];
 
 // Единственное место, которое реально знает, как считается статус —
@@ -103,12 +131,12 @@ function buildPanelMessage(status) {
                   .setCustomId(LOCKDOWN_TOGGLE_ID)
                   .setLabel('Снять блокировку')
                   .setEmoji('🔓')
-                  .setStyle(ButtonStyle.Success)
+                  .setStyle(ButtonStyle.Secondary)
             : new ButtonBuilder()
                   .setCustomId(LOCKDOWN_TOGGLE_ID)
                   .setLabel('Экстренная блокировка')
                   .setEmoji('🔒')
-                  .setStyle(ButtonStyle.Danger)
+                  .setStyle(ButtonStyle.Secondary)
     );
 
     // 5 тумблеров — ровно потолок ActionRow (максимум 5 кнопок в ряду у
@@ -119,21 +147,26 @@ function buildPanelMessage(status) {
                 .setCustomId(`${TOGGLE_PREFIX}${m.key}`)
                 .setLabel(m.label)
                 .setEmoji(dot(securityConfig[m.key].enabled))
-                .setStyle(securityConfig[m.key].enabled ? ButtonStyle.Success : ButtonStyle.Secondary)
+                .setStyle(ButtonStyle.Secondary)
         )
     );
 
-    // Primary (не серый Secondary) — только у кнопок, которые реально
-    // что-то ДЕЛАЮТ (создают бэкап, открывают подробный отчёт); чисто
-    // просмотровые/служебные ("Список бэкапов", "Обновить") остаются
-    // серыми — так с одного взгляда на цвет понятно, повлияет кнопка на
-    // сервер или просто покажет данные.
+    const quickActionRow = new ActionRowBuilder().addComponents(
+        ...QUICK_ACTIONS.map(a =>
+            new ButtonBuilder()
+                .setCustomId(`${QUICK_ACTION_PREFIX}${a.key}`)
+                .setLabel(a.label)
+                .setEmoji(a.emoji)
+                .setStyle(ButtonStyle.Secondary)
+        )
+    );
+
     const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(BACKUP_ID)
             .setLabel('Создать бэкап')
             .setEmoji('💾')
-            .setStyle(ButtonStyle.Primary),
+            .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
             .setCustomId(BACKUP_LIST_ID)
             .setLabel('Список бэкапов')
@@ -143,11 +176,60 @@ function buildPanelMessage(status) {
             .setCustomId(STATUS_DETAIL_ID)
             .setLabel('Подробный статус')
             .setEmoji('📊')
-            .setStyle(ButtonStyle.Primary),
+            .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
     );
 
-    return toMessage(container, lockdownRow, toggleRow, actionRow);
+    return toMessage(container, lockdownRow, toggleRow, quickActionRow, actionRow);
+}
+
+// Модалка под конкретное точечное наказание — поля разные (мут просит
+// длительность, варн требует причину, бан/кик — причина опциональна).
+// targetId зашит в customId, потому что submit модалки — отдельный
+// interaction без доступа к выбору из предыдущего UserSelectMenu.
+function buildQuickActionModal(action, targetId) {
+    const modal = new ModalBuilder().setCustomId(`${QUICK_MODAL_PREFIX}${action}:${targetId}`);
+    const reasonInput = (required = false) =>
+        new TextInputBuilder()
+            .setCustomId('reason')
+            .setLabel('Причина')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(required);
+
+    if (action === 'ban') {
+        modal.setTitle('Бан участника');
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(reasonInput(false)),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('deleteDays')
+                    .setLabel('Удалить сообщения за N дней (0-7)')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('0')
+                    .setRequired(false)
+            )
+        );
+    } else if (action === 'kick') {
+        modal.setTitle('Кик участника');
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput(false)));
+    } else if (action === 'mute') {
+        modal.setTitle('Мут участника');
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('minutes')
+                    .setLabel('На сколько минут')
+                    .setStyle(TextInputStyle.Short)
+                    .setPlaceholder('60')
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(reasonInput(false))
+        );
+    } else {
+        modal.setTitle('Предупреждение участнику');
+        modal.addComponents(new ActionRowBuilder().addComponents(reasonInput(true)));
+    }
+    return modal;
 }
 
 // Тот же отчёт, что у /security-status, но как ephemeral-ответ на кнопку
@@ -206,6 +288,7 @@ function buildBackupListEmbed(files) {
 module.exports = {
     gatherStatus,
     buildPanelMessage,
+    buildQuickActionModal,
     buildStatusDetailEmbed,
     buildBackupListEmbed,
     LOCKDOWN_TOGGLE_ID,
@@ -214,5 +297,9 @@ module.exports = {
     BACKUP_LIST_ID,
     STATUS_DETAIL_ID,
     REFRESH_ID,
+    QUICK_ACTION_PREFIX,
+    QUICK_SELECT_PREFIX,
+    QUICK_MODAL_PREFIX,
     MODULES,
+    QUICK_ACTIONS,
 };

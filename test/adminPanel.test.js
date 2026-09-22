@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     buildPanelMessage,
+    buildQuickActionModal,
     buildStatusDetailEmbed,
     buildBackupListEmbed,
     LOCKDOWN_TOGGLE_ID,
@@ -10,7 +11,9 @@ const {
     BACKUP_LIST_ID,
     STATUS_DETAIL_ID,
     REFRESH_ID,
+    QUICK_ACTION_PREFIX,
     MODULES,
+    QUICK_ACTIONS,
 } = require('../adminPanel/model');
 
 function fakeSecurityConfig(overrides = {}) {
@@ -42,24 +45,38 @@ function fakeStatus(overrides = {}) {
     };
 }
 
-function customIds(message) {
-    return message.components.flatMap(c =>
-        typeof c.toJSON === 'function' && c.toJSON().type === 1 ? c.toJSON().components.map(b => b.custom_id) : []
-    );
+function buttonRows(message) {
+    return message.components.filter(c => typeof c.toJSON === 'function' && c.toJSON().type === 1);
 }
 
-test('buildPanelMessage: собирает контейнер + 3 ряда кнопок, не падает', () => {
+function customIds(message) {
+    return buttonRows(message).flatMap(c => c.toJSON().components.map(b => b.custom_id));
+}
+
+test('buildPanelMessage: контейнер + 4 ряда кнопок (lockdown, тумблеры, точечные наказания, действия)', () => {
     const message = buildPanelMessage(fakeStatus());
-    assert.equal(message.components.length, 4);
+    assert.equal(message.components.length, 5);
+    const rows = buttonRows(message);
+    assert.equal(rows.length, 4);
 });
 
-test('buildPanelMessage: 5 тумблеров модулей (потолок ActionRow) и 4 кнопки действий', () => {
+test('buildPanelMessage: все кнопки серые (Secondary), без цветового кодирования', () => {
     const message = buildPanelMessage(fakeStatus());
-    assert.equal(message.components[2].toJSON().components.length, 5);
-    assert.equal(message.components[3].toJSON().components.length, 4);
+    const styles = buttonRows(message).flatMap(r => r.toJSON().components.map(b => b.style));
+    assert.ok(
+        styles.every(s => s === 2),
+        `есть не-серые кнопки: ${styles.join(',')}`
+    );
 });
 
-test('buildPanelMessage: кнопка lockdown меняет customId/эмодзи в зависимости от состояния', () => {
+test('buildPanelMessage: 5 тумблеров модулей, 4 точечных наказания, 4 кнопки действий', () => {
+    const rows = buttonRows(buildPanelMessage(fakeStatus()));
+    assert.equal(rows[1].toJSON().components.length, 5);
+    assert.equal(rows[2].toJSON().components.length, 4);
+    assert.equal(rows[3].toJSON().components.length, 4);
+});
+
+test('buildPanelMessage: кнопка lockdown присутствует в обоих состояниях', () => {
     const off = buildPanelMessage(fakeStatus());
     assert.ok(customIds(off).includes(LOCKDOWN_TOGGLE_ID));
 
@@ -70,10 +87,16 @@ test('buildPanelMessage: кнопка lockdown меняет customId/эмодз�
 });
 
 test('buildPanelMessage: по кнопке на каждый модуль из MODULES с правильным префиксом', () => {
-    const message = buildPanelMessage(fakeStatus());
-    const ids = customIds(message);
+    const ids = customIds(buildPanelMessage(fakeStatus()));
     for (const m of MODULES) {
         assert.ok(ids.includes(`${TOGGLE_PREFIX}${m.key}`), `нет кнопки для ${m.key}`);
+    }
+});
+
+test('buildPanelMessage: по кнопке на каждое точечное наказание из QUICK_ACTIONS', () => {
+    const ids = customIds(buildPanelMessage(fakeStatus()));
+    for (const a of QUICK_ACTIONS) {
+        assert.ok(ids.includes(`${QUICK_ACTION_PREFIX}${a.key}`), `нет кнопки для ${a.key}`);
     }
 });
 
@@ -103,6 +126,30 @@ test('buildPanelMessage: не падает при всех модулях вык
         backupsCount: 0,
     });
     assert.ok(buildPanelMessage(status));
+});
+
+test('buildQuickActionModal: customId несёт action+targetId, поля различаются по действию', () => {
+    const ban = buildQuickActionModal('ban', 'user-1').toJSON();
+    assert.equal(ban.custom_id, 'admin_panel_quick_modal:ban:user-1');
+    const banFieldIds = ban.components.flatMap(r => r.components.map(c => c.custom_id));
+    assert.deepEqual(banFieldIds, ['reason', 'deleteDays']);
+
+    const kick = buildQuickActionModal('kick', 'user-2').toJSON();
+    assert.deepEqual(
+        kick.components.flatMap(r => r.components.map(c => c.custom_id)),
+        ['reason']
+    );
+
+    const mute = buildQuickActionModal('mute', 'user-3').toJSON();
+    assert.deepEqual(
+        mute.components.flatMap(r => r.components.map(c => c.custom_id)),
+        ['minutes', 'reason']
+    );
+
+    const warn = buildQuickActionModal('warn', 'user-4').toJSON();
+    const warnField = warn.components[0].components[0];
+    assert.equal(warnField.custom_id, 'reason');
+    assert.equal(warnField.required, true);
 });
 
 test('buildStatusDetailEmbed: не падает с активным и неактивным lockdown', () => {
