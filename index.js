@@ -35,6 +35,7 @@ const leveling = require('./leveling');
 const moderation = require('./moderation');
 const modqueue = require('./modqueue');
 const ideaQueue = require('./ideaQueue');
+const adminPanel = require('./adminPanel');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
@@ -93,6 +94,12 @@ client.on('interactionCreate', async interaction => {
             await ideaQueue
                 .handleButton(interaction)
                 .catch(err => (console.error('Ошибка кнопки очереди предложений:', err), false))
+        )
+            return;
+        if (
+            await adminPanel
+                .handleButton(interaction)
+                .catch(err => (console.error('Ошибка кнопки панели администратора:', err), false))
         )
             return;
     }
