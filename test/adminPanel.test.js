@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
     buildPanelMessage,
     buildQuickActionModal,
+    buildUndoModal,
     buildStatusDetailEmbed,
     buildBackupListEmbed,
     LOCKDOWN_TOGGLE_ID,
@@ -12,8 +13,10 @@ const {
     STATUS_DETAIL_ID,
     REFRESH_ID,
     QUICK_ACTION_PREFIX,
+    UNDO_ACTION_PREFIX,
     MODULES,
     QUICK_ACTIONS,
+    UNDO_ACTIONS,
 } = require('../adminPanel/model');
 
 function fakeSecurityConfig(overrides = {}) {
@@ -45,35 +48,42 @@ function fakeStatus(overrides = {}) {
     };
 }
 
+// Ряды кнопок теперь вложены в сам контейнер (ContainerBuilder
+// #addActionRowComponents), а не идут отдельными top-level компонентами
+// сообщения — сообщение целиком состоит из одного контейнера.
+function containerJSON(message) {
+    assert.equal(message.components.length, 1, 'сообщение должно быть ровно одним контейнером');
+    return message.components[0].toJSON();
+}
+
 function buttonRows(message) {
-    return message.components.filter(c => typeof c.toJSON === 'function' && c.toJSON().type === 1);
+    return containerJSON(message).components.filter(c => c.type === 1);
 }
 
 function customIds(message) {
-    return buttonRows(message).flatMap(c => c.toJSON().components.map(b => b.custom_id));
+    return buttonRows(message).flatMap(r => r.components.map(b => b.custom_id));
 }
 
-test('buildPanelMessage: контейнер + 4 ряда кнопок (lockdown, тумблеры, точечные наказания, действия)', () => {
-    const message = buildPanelMessage(fakeStatus());
-    assert.equal(message.components.length, 5);
-    const rows = buttonRows(message);
-    assert.equal(rows.length, 4);
+test('buildPanelMessage: 5 рядов кнопок (lockdown, тумблеры, точечные наказания, отмена, действия)', () => {
+    const rows = buttonRows(buildPanelMessage(fakeStatus()));
+    assert.equal(rows.length, 5);
 });
 
 test('buildPanelMessage: все кнопки серые (Secondary), без цветового кодирования', () => {
     const message = buildPanelMessage(fakeStatus());
-    const styles = buttonRows(message).flatMap(r => r.toJSON().components.map(b => b.style));
+    const styles = buttonRows(message).flatMap(r => r.components.map(b => b.style));
     assert.ok(
         styles.every(s => s === 2),
         `есть не-серые кнопки: ${styles.join(',')}`
     );
 });
 
-test('buildPanelMessage: 5 тумблеров модулей, 4 точечных наказания, 4 кнопки действий', () => {
+test('buildPanelMessage: 5 тумблеров модулей, 4 точечных наказания, 3 отмены, 4 кнопки действий', () => {
     const rows = buttonRows(buildPanelMessage(fakeStatus()));
-    assert.equal(rows[1].toJSON().components.length, 5);
-    assert.equal(rows[2].toJSON().components.length, 4);
-    assert.equal(rows[3].toJSON().components.length, 4);
+    assert.equal(rows[1].components.length, 5);
+    assert.equal(rows[2].components.length, 4);
+    assert.equal(rows[3].components.length, 3);
+    assert.equal(rows[4].components.length, 4);
 });
 
 test('buildPanelMessage: кнопка lockdown присутствует в обоих состояниях', () => {
@@ -97,6 +107,13 @@ test('buildPanelMessage: по кнопке на каждое точечное н
     const ids = customIds(buildPanelMessage(fakeStatus()));
     for (const a of QUICK_ACTIONS) {
         assert.ok(ids.includes(`${QUICK_ACTION_PREFIX}${a.key}`), `нет кнопки для ${a.key}`);
+    }
+});
+
+test('buildPanelMessage: по кнопке на каждую отмену наказания из UNDO_ACTIONS', () => {
+    const ids = customIds(buildPanelMessage(fakeStatus()));
+    for (const a of UNDO_ACTIONS) {
+        assert.ok(ids.includes(`${UNDO_ACTION_PREFIX}${a.key}`), `нет кнопки для ${a.key}`);
     }
 });
 
@@ -150,6 +167,14 @@ test('buildQuickActionModal: customId несёт action+targetId, поля ра�
     const warnField = warn.components[0].components[0];
     assert.equal(warnField.custom_id, 'reason');
     assert.equal(warnField.required, true);
+});
+
+test('buildUndoModal: customId и поле ID пользователя (unban работает по ID, не по выбору участника)', () => {
+    const modal = buildUndoModal().toJSON();
+    assert.equal(modal.custom_id, 'admin_panel_undo_modal:unban');
+    const fieldIds = modal.components.flatMap(r => r.components.map(c => c.custom_id));
+    assert.deepEqual(fieldIds, ['userId']);
+    assert.equal(modal.components[0].components[0].required, true);
 });
 
 test('buildStatusDetailEmbed: не падает с активным и неактивным lockdown', () => {

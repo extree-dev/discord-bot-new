@@ -37,6 +37,9 @@ const REFRESH_ID = 'admin_panel_refresh';
 const QUICK_ACTION_PREFIX = 'admin_panel_quick:';
 const QUICK_SELECT_PREFIX = 'admin_panel_quick_select:';
 const QUICK_MODAL_PREFIX = 'admin_panel_quick_modal:';
+const UNDO_ACTION_PREFIX = 'admin_panel_undo:';
+const UNDO_SELECT_PREFIX = 'admin_panel_undo_select:';
+const UNDO_MODAL_PREFIX = 'admin_panel_undo_modal:';
 
 // Модули security-config, для которых на панели есть кнопка-тумблер —
 // каждая просто читает/пишет config.<key>.enabled, остальные настройки
@@ -62,6 +65,17 @@ const QUICK_ACTIONS = [
     { key: 'kick', label: 'Кик' },
     { key: 'mute', label: 'Мут' },
     { key: 'warn', label: 'Варн' },
+];
+
+// Отмена наказания — в отличие от QUICK_ACTIONS не всем нужна модалка:
+// unban работает по ID (забаненный уже не участник гильдии, его не
+// выбрать через UserSelectMenu — тот же расклад, что у /unban), а
+// unmute/unwarn не запрашивают причину (как /timeout minutes:0 и
+// /warnings clear:true), поэтому select сразу выполняет действие.
+const UNDO_ACTIONS = [
+    { key: 'unban', label: 'Разбан', flow: 'modal' },
+    { key: 'unmute', label: 'Размут', flow: 'select' },
+    { key: 'unwarn', label: 'Снять варн', flow: 'select' },
 ];
 
 // Единственное место, которое реально знает, как считается статус —
@@ -98,35 +112,10 @@ function buildPanelMessage(status) {
     const lockdownActive = securityConfig.manualLockdown.active;
     const state = enabled => (enabled ? 'Включён' : 'Выключен');
 
-    const container = baseContainer(lockdownActive ? COLORS.critical : COLORS.primary)
-        .addTextDisplayComponents(
-            textDisplay(formatBody('Панель администратора', 'Кнопки ниже дублируют самые частые команды модерации.'))
-        )
-        .addSeparatorComponents(separator(SeparatorSpacingSize.Large))
-        .addTextDisplayComponents(
-            textDisplay(
-                [
-                    '### Статус безопасности',
-                    `- **Lockdown** — ${lockdownActive ? 'Активен' : 'Не активен'}`,
-                    ...MODULES.map(m => `- **${m.label}** — ${state(securityConfig[m.key].enabled)}`),
-                ].join('\n')
-            )
-        )
-        .addSeparatorComponents(separator())
-        .addTextDisplayComponents(
-            textDisplay(
-                [
-                    '### Сводка сервера',
-                    `- Жалоб на игроков за 30 дней: \`${status.recentReports}\``,
-                    `- Участников с варнами: \`${status.warnedUsers}\` · всего выдано: \`${status.totalWarnings}\``,
-                    `- Активных мутов: \`${status.activeMutes}\``,
-                    `- Активных временных комнат: \`${status.activeVoiceChannels}\``,
-                    `- Бэкапов сохранено: \`${status.backupsCount}\``,
-                ].join('\n')
-            )
-        )
-        .addSeparatorComponents(separator(SeparatorSpacingSize.Large));
-
+    // Кнопки — не отдельным блоком в конце сообщения, а вложены в
+    // контейнер (ContainerBuilder#addActionRowComponents) сразу под
+    // текстом своей секции: так видно, к какому статусу/списку относится
+    // каждый ряд, а не приходится сопоставлять их самому.
     const lockdownRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(LOCKDOWN_TOGGLE_ID)
@@ -154,6 +143,15 @@ function buildPanelMessage(status) {
         )
     );
 
+    const undoActionRow = new ActionRowBuilder().addComponents(
+        ...UNDO_ACTIONS.map(a =>
+            new ButtonBuilder()
+                .setCustomId(`${UNDO_ACTION_PREFIX}${a.key}`)
+                .setLabel(a.label)
+                .setStyle(ButtonStyle.Secondary)
+        )
+    );
+
     const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(BACKUP_ID).setLabel('Создать бэкап').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(BACKUP_LIST_ID).setLabel('Список бэкапов').setStyle(ButtonStyle.Secondary),
@@ -161,7 +159,43 @@ function buildPanelMessage(status) {
         new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setStyle(ButtonStyle.Secondary)
     );
 
-    return toMessage(container, lockdownRow, toggleRow, quickActionRow, actionRow);
+    const container = baseContainer(lockdownActive ? COLORS.critical : COLORS.primary)
+        .addTextDisplayComponents(
+            textDisplay(formatBody('Панель администратора', 'Кнопки ниже дублируют самые частые команды модерации.'))
+        )
+        .addSeparatorComponents(separator(SeparatorSpacingSize.Large))
+        .addTextDisplayComponents(
+            textDisplay(
+                [
+                    '### Статус безопасности',
+                    `- **Lockdown** — ${lockdownActive ? 'Активен' : 'Не активен'}`,
+                    ...MODULES.map(m => `- **${m.label}** — ${state(securityConfig[m.key].enabled)}`),
+                ].join('\n')
+            )
+        )
+        .addActionRowComponents(lockdownRow, toggleRow)
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(textDisplay('### Точечные наказания'))
+        .addActionRowComponents(quickActionRow)
+        .addTextDisplayComponents(textDisplay('-# Отменить наказание:'))
+        .addActionRowComponents(undoActionRow)
+        .addSeparatorComponents(separator())
+        .addTextDisplayComponents(
+            textDisplay(
+                [
+                    '### Сводка сервера',
+                    `- Жалоб на игроков за 30 дней: \`${status.recentReports}\``,
+                    `- Участников с варнами: \`${status.warnedUsers}\` · всего выдано: \`${status.totalWarnings}\``,
+                    `- Активных мутов: \`${status.activeMutes}\``,
+                    `- Активных временных комнат: \`${status.activeVoiceChannels}\``,
+                    `- Бэкапов сохранено: \`${status.backupsCount}\``,
+                ].join('\n')
+            )
+        )
+        .addSeparatorComponents(separator())
+        .addActionRowComponents(actionRow);
+
+    return toMessage(container);
 }
 
 // Модалка под конкретное точечное наказание — поля разные (мут просит
@@ -211,6 +245,24 @@ function buildQuickActionModal(action, targetId) {
         modal.addComponents(new ActionRowBuilder().addComponents(reasonInput(true)));
     }
     return modal;
+}
+
+// Модалка для unban (см. UNDO_ACTIONS выше) — единственная отмена с
+// flow: 'modal', потому что забаненный уже не участник гильдии и не
+// выбирается через UserSelectMenu; ID вводится вручную, как у /unban.
+function buildUndoModal() {
+    return new ModalBuilder()
+        .setCustomId(`${UNDO_MODAL_PREFIX}unban`)
+        .setTitle('Разбан по ID')
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('userId')
+                    .setLabel('ID пользователя')
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
 }
 
 // Тот же отчёт, что у /security-status, но как ephemeral-ответ на кнопку
@@ -270,6 +322,7 @@ module.exports = {
     gatherStatus,
     buildPanelMessage,
     buildQuickActionModal,
+    buildUndoModal,
     buildStatusDetailEmbed,
     buildBackupListEmbed,
     LOCKDOWN_TOGGLE_ID,
@@ -281,6 +334,10 @@ module.exports = {
     QUICK_ACTION_PREFIX,
     QUICK_SELECT_PREFIX,
     QUICK_MODAL_PREFIX,
+    UNDO_ACTION_PREFIX,
+    UNDO_SELECT_PREFIX,
+    UNDO_MODAL_PREFIX,
     MODULES,
     QUICK_ACTIONS,
+    UNDO_ACTIONS,
 };

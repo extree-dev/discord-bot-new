@@ -6,7 +6,7 @@
 // команды трогать рискованно — они уже стабильны и покрывают тот же
 // функционал независимым путём.
 const moderation = require('../moderation');
-const { addWarning } = require('../utils/warnings');
+const { addWarning, clearWarnings } = require('../utils/warnings');
 const { notifyPunishment } = require('../utils/punishmentNotice');
 
 async function applyBan(guild, target, reason, deleteDays) {
@@ -45,4 +45,24 @@ async function applyWarn(guild, target, reason, moderatorTag) {
     return { ok: true, count: list.length };
 }
 
-module.exports = { applyBan, applyKick, applyMute, applyWarn };
+// Отмены — та же логика, что у /unban, /timeout minutes:0 и /warnings
+// clear:true: не требуют причины и не проверяют, было ли наказание
+// вообще активно (снятие того, чего нет — не ошибка, см. те же команды).
+async function applyUnban(guild, userId) {
+    const bans = await guild.bans.fetch();
+    if (!bans.has(userId)) return { error: 'Этот пользователь не забанен.' };
+    await guild.members.unban(userId);
+    return { ok: true };
+}
+
+async function applyUnmute(guild, target) {
+    await moderation.unmuteMember(guild, target.id);
+    return { ok: true };
+}
+
+async function applyClearWarnings(guild, target) {
+    await clearWarnings(guild.id, target.id);
+    return { ok: true };
+}
+
+module.exports = { applyBan, applyKick, applyMute, applyWarn, applyUnban, applyUnmute, applyClearWarnings };

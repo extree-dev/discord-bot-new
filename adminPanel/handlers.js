@@ -81,6 +81,28 @@ async function handleQuickActionButton(interaction, action) {
     });
 }
 
+// Первый шаг отмены наказания — unban сразу открывает модалку (ID, см.
+// buildUndoModal), unmute/unwarn идут тем же путём, что и точечные
+// наказания (UserSelectMenu), но без модалки на шаге 2 — им не нужна
+// причина (см. handleSelectMenu).
+async function handleUndoActionButton(interaction, action) {
+    const config = model.UNDO_ACTIONS.find(a => a.key === action);
+    if (config.flow === 'modal') {
+        await interaction.showModal(model.buildUndoModal());
+        return;
+    }
+    const select = new UserSelectMenuBuilder()
+        .setCustomId(`${model.UNDO_SELECT_PREFIX}${action}`)
+        .setPlaceholder(`Кого? (${config.label})`)
+        .setMinValues(1)
+        .setMaxValues(1);
+    await interaction.reply({
+        content: `Выбери участника для действия «${config.label}»:`,
+        components: [new ActionRowBuilder().addComponents(select)],
+        ephemeral: true,
+    });
+}
+
 async function handleButton(interaction) {
     const { customId } = interaction;
     const isPanelButton =
@@ -90,7 +112,8 @@ async function handleButton(interaction) {
         customId === model.STATUS_DETAIL_ID ||
         customId === model.REFRESH_ID ||
         customId.startsWith(model.TOGGLE_PREFIX) ||
-        customId.startsWith(model.QUICK_ACTION_PREFIX);
+        customId.startsWith(model.QUICK_ACTION_PREFIX) ||
+        customId.startsWith(model.UNDO_ACTION_PREFIX);
     if (!isPanelButton) return false;
 
     if (!isAdmin(interaction.member)) {
@@ -101,10 +124,14 @@ async function handleButton(interaction) {
         return true;
     }
 
-    // Точечные наказания — отдельная ветка, без deferUpdate: это не
-    // редактирование самой панели, а новый ephemeral-диалог выбора цели.
+    // Точечные наказания и их отмена — отдельные ветки, без deferUpdate:
+    // это не редактирование самой панели, а новый ephemeral-диалог/модалка.
     if (customId.startsWith(model.QUICK_ACTION_PREFIX)) {
         await handleQuickActionButton(interaction, customId.slice(model.QUICK_ACTION_PREFIX.length));
+        return true;
+    }
+    if (customId.startsWith(model.UNDO_ACTION_PREFIX)) {
+        await handleUndoActionButton(interaction, customId.slice(model.UNDO_ACTION_PREFIX.length));
         return true;
     }
 
@@ -132,8 +159,14 @@ async function handleButton(interaction) {
 // Шаг 2 точечного наказания — участник выбран, дальше нужна причина (и
 // для мута/бана ещё пара чисел), которую select-меню собрать не может —
 // открываем модалку. targetId зашивается в её customId (см. model.js).
+//
+// Шаг 2 отмены наказания (unmute/unwarn) — в отличие от точечных
+// наказаний, причина не нужна (см. UNDO_ACTIONS в model.js), поэтому
+// select сразу выполняет действие, без модалки.
 async function handleSelectMenu(interaction) {
-    if (!interaction.customId.startsWith(model.QUICK_SELECT_PREFIX)) return false;
+    const isQuickSelect = interaction.customId.startsWith(model.QUICK_SELECT_PREFIX);
+    const isUndoSelect = interaction.customId.startsWith(model.UNDO_SELECT_PREFIX);
+    if (!isQuickSelect && !isUndoSelect) return false;
 
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
@@ -143,23 +176,64 @@ async function handleSelectMenu(interaction) {
         return true;
     }
 
-    const action = interaction.customId.slice(model.QUICK_SELECT_PREFIX.length);
-    const targetId = interaction.values[0];
-    await interaction.showModal(model.buildQuickActionModal(action, targetId));
+    if (isQuickSelect) {
+        const action = interaction.customId.slice(model.QUICK_SELECT_PREFIX.length);
+        const targetId = interaction.values[0];
+        await interaction.showModal(model.buildQuickActionModal(action, targetId));
+        return true;
+    }
+
+    const action = interaction.customId.slice(model.UNDO_SELECT_PREFIX.length);
+    const target = interaction.users.first();
+    await interaction.deferReply({ ephemeral: true });
+
+    const result =
+        action === 'unmute'
+            ? await quickActions.applyUnmute(interaction.guild, target)
+            : await quickActions.applyClearWarnings(interaction.guild, target);
+    if (result.error) {
+        await interaction.editReply({ embeds: [errorEmbed(result.error)] });
+        return true;
+    }
+    const successText = action === 'unmute' ? `${target} размучен.` : `Предупреждения участника ${target} очищены.`;
+    await interaction.editReply({ embeds: [successEmbed(successText, 'Готово')] });
     return true;
+}
+
+// Финальный шаг разбана — единственная отмена наказания с модалкой (см.
+// UNDO_ACTIONS), потому что цель задаётся ID, а не выбором участника.
+async function handleUndoModalSubmit(interaction) {
+    const userId = interaction.fields.getTextInputValue('userId').trim();
+    await interaction.deferReply({ ephemeral: true });
+
+    const result = await quickActions.applyUnban(interaction.guild, userId);
+    if (result.error) {
+        await interaction.editReply({ embeds: [errorEmbed(result.error)] });
+        return;
+    }
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    const successText = user ? `${user} разбанен.` : `Пользователь с ID \`${userId}\` разбанен.`;
+    await interaction.editReply({ embeds: [successEmbed(successText, 'Готово')] });
 }
 
 // Шаг 3 (финальный) — причина/длительность собраны, выполняем то же
 // самое действие, что и одноимённая слэш-команда (см.
 // adminPanel/quickActions.js).
 async function handleModalSubmit(interaction) {
-    if (!interaction.customId.startsWith(model.QUICK_MODAL_PREFIX)) return false;
+    const isQuickModal = interaction.customId.startsWith(model.QUICK_MODAL_PREFIX);
+    const isUndoModal = interaction.customId.startsWith(model.UNDO_MODAL_PREFIX);
+    if (!isQuickModal && !isUndoModal) return false;
 
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
             ephemeral: true,
         });
+        return true;
+    }
+
+    if (isUndoModal) {
+        await handleUndoModalSubmit(interaction);
         return true;
     }
 
