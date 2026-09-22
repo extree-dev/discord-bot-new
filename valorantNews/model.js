@@ -3,8 +3,9 @@
 // используемый HenrikDev API (у самого Riot нет ни RSS, ни новостного
 // эндпоинта в официальном Developer API — проверено), и публикует
 // только по-настоящему новые в канал #📬│game-news.
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MediaGalleryBuilder } = require('discord.js');
 const { COLORS, formatBody } = require('../utils/embeds');
-const { baseContainer, textDisplay, toMessage } = require('../utils/components');
+const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 const config = require('./config');
 
 const API_URL = 'https://api.henrikdev.xyz/valorant/v1/website/en-us';
@@ -12,6 +13,13 @@ const API_URL = 'https://api.henrikdev.xyz/valorant/v1/website/en-us';
 // questions.js), ID нигде не персистится — резолвится по имени в момент
 // публикации, как и остальные косметические роли той же категории.
 const PING_ROLE_NAME = 'Игровые новости';
+// Единственные два значения category, реально встреченные в ответе
+// HenrikDev API (проверено живым запросом) — остальные (если появятся)
+// просто не покажут бейдж категории, а не сырой английский slug.
+const CATEGORY_LABELS = {
+    patch_notes: '🛠️ Патч-ноуты',
+    game_updates: '📰 Обновление игры',
+};
 
 async function fetchArticles() {
     const res = await fetch(API_URL, {
@@ -49,15 +57,39 @@ function latestArticleDate(articles) {
 // нужно отдельное сообщение с content — раньше было именно так, но
 // Components V2 запрещает content на этом же сообщении (см.
 // utils/components.js), а не упоминания внутри самих компонентов.
+//
+// banner_url у HenrikDev есть в каждой статье, но раньше никак не
+// использовался — карточка была чисто текстовой. MediaGallery рисует
+// картинку на всю ширину, а "Подробнее" теперь настоящая кнопка-ссылка
+// (ButtonStyle.Link, без customId — Discord открывает URL сам, ничего
+// не долетает до бота), а не текст со ссылкой внутри TextDisplay.
 function buildNewsCard(article, pingRoleId) {
     const container = baseContainer(COLORS.primary);
+
     if (pingRoleId) {
         container.addTextDisplayComponents(textDisplay(`<@&${pingRoleId}>`));
     }
+
+    const categoryLabel = CATEGORY_LABELS[article.category];
+    if (categoryLabel) {
+        container.addTextDisplayComponents(textDisplay(categoryLabel));
+    }
+
     container.addTextDisplayComponents(
         textDisplay(formatBody(`Valorant: ${article.title}`, article.description || null))
     );
-    container.addTextDisplayComponents(textDisplay(`[Подробнее](${article.url})`));
+
+    if (article.banner_url) {
+        container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems({ media: { url: article.banner_url } }));
+    }
+
+    container.addSeparatorComponents(separator());
+    container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Подробнее').setURL(article.url)
+        )
+    );
+
     return container;
 }
 
