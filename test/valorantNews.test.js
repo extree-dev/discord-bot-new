@@ -109,6 +109,28 @@ test('buildNewsCard: известная category даёт текстовый б�
     assert.doesNotMatch(unknownText, /something_new/);
 });
 
+test('buildNewsCard: badgeEmoji попадает в текст бейджа, по умолчанию — юникод-фолбэк', () => {
+    const withDefault = buildNewsCard(article('a', '2026-09-20T00:00:00Z', { category: 'patch_notes' }));
+    const defaultText = withDefault
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.match(defaultText, /🎯 Патч-ноуты/);
+
+    const withCustom = buildNewsCard(
+        article('a', '2026-09-20T00:00:00Z', { category: 'patch_notes' }),
+        undefined,
+        '<:icons8valorant481:111>'
+    );
+    const customText = withCustom
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.match(customText, /<:icons8valorant481:111> Патч-ноуты/);
+});
+
 test('buildNewsCard: без pingRoleId упоминание роли в карточке отсутствует', () => {
     const message = buildNewsCard(article('a', '2026-09-20T00:00:00Z'));
     const text = message
