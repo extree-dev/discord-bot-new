@@ -1,25 +1,20 @@
-const {
-    ModalBuilder,
-    TextInputBuilder,
-    TextInputStyle,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    AttachmentBuilder,
-} = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
 const { COLORS, baseEmbed, formatBody, errorEmbed, infoEmbed, warningEmbed } = require('../utils/embeds');
 const leveling = require('../leveling');
-const { generateCode, renderCaptcha, CODE_LENGTH } = require('./captchaImage');
+const { generateCode, generateDecoys, renderCaptcha } = require('./captchaImage');
 
 const VERIFY_BUTTON_ID = 'security_verify';
-const VERIFY_ANSWER_BUTTON_ID = 'security_verify_answer';
-const VERIFY_MODAL_ID = 'security_verify_modal';
-const VERIFY_ANSWER_INPUT_ID = 'security_verify_answer_input';
-// Заметно больше, чем раньше (было 2 мин на решение самой капчи) —
-// теперь в это же окно укладывается ещё и лишний клик по кнопке "Ввести
-// код" между показом картинки и открытием модалки (см. handleButton).
+// customId кнопок-вариантов — сам кандидат-код кодируется в нём же
+// (`${VERIFY_PICK_PREFIX}:${candidate}`), отдельно challenge-код нигде не
+// хранится: сервер просто сверяет то, что пришло в customId нажатой
+// кнопки, с кодом в pendingChallenges на момент клика.
+const VERIFY_PICK_PREFIX = 'security_verify_pick';
+// Столько кнопок-вариантов показываем под картинкой (1 верный + остальные
+// похожие неверные) — Discord ограничивает ряд кнопок пятью, ровно влезает
+// без переноса на второй ряд.
+const CANDIDATES_COUNT = 5;
 const CHALLENGE_TTL_MS = 3 * 60 * 1000;
 // Сколько неверных ответов подряд считаются одной "сессией" неудач —
 // после паузы дольше этого окна счётчик начинается заново, а не
@@ -51,9 +46,18 @@ function clearFailures(userId) {
     failedAttempts.delete(userId);
 }
 
-// Три неверных кода подряд — уже не похоже на человека, ошибившегося при
-// вводе (капча — всего 5 цифр с картинки, а не сложная форма): скорее
-// перебор скриптом. Блокируем новые попытки на время и сразу зовём
+function shuffled(array) {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+}
+
+// Три неверных клика подряд — уже не похоже на человека, ошибившегося при
+// выборе (капча — просто выбор одной кнопки из пяти, а не сложная форма):
+// скорее перебор скриптом. Блокируем новые попытки на время и сразу зовём
 // модерацию посмотреть, кто это — тем более что дальше он всё равно
 // упрётся в новую капчу при следующей попытке.
 async function registerFailure(guild, member, config) {
@@ -97,9 +101,8 @@ async function handleJoin(member) {
 
 // Шаг 1: кнопка "Пройти верификацию" — проверяет, что участник ещё не
 // верифицирован, что аккаунт не слишком новый и что он не заблокирован
-// за подозрительные попытки, затем показывает картинку-капчу с кнопкой
-// "Ввести код" (саму капчу картинкой в модалку не вставить — Discord
-// поддерживает в модалках только текстовые поля, см. captchaImage.js).
+// за подозрительные попытки, затем показывает картинку-капчу и ряд из
+// CANDIDATES_COUNT кнопок-вариантов под ней (см. captchaImage.js).
 async function startVerification(interaction) {
     const config = await load();
     const guild = interaction.guild;
@@ -187,81 +190,56 @@ async function startVerification(interaction) {
     const code = generateCode();
     pendingChallenges.set(interaction.user.id, { code, expiresAt: Date.now() + CHALLENGE_TTL_MS });
 
+    const candidates = shuffled([code, ...generateDecoys(code, CANDIDATES_COUNT - 1)]);
     const attachment = new AttachmentBuilder(renderCaptcha(code), { name: 'captcha.png' });
-    const enterCodeButton = new ButtonBuilder()
-        .setCustomId(VERIFY_ANSWER_BUTTON_ID)
-        .setLabel('Ввести код')
-        .setStyle(ButtonStyle.Secondary);
+    const row = new ActionRowBuilder().addComponents(
+        ...candidates.map(candidate =>
+            new ButtonBuilder()
+                .setCustomId(`${VERIFY_PICK_PREFIX}:${candidate}`)
+                .setLabel(candidate)
+                .setStyle(ButtonStyle.Secondary)
+        )
+    );
 
     await interaction.reply({
         embeds: [
             baseEmbed(COLORS.primary)
                 .setDescription(
-                    formatBody('Подтверди, что ты не бот', 'Введи 5 цифр с картинки ниже — код действует 3 минуты.')
+                    formatBody(
+                        'Подтверди, что ты не бот',
+                        'Выбери код с картинки среди кнопок ниже — код действует 3 минуты.'
+                    )
                 )
                 .setImage('attachment://captcha.png'),
         ],
         files: [attachment],
-        components: [new ActionRowBuilder().addComponents(enterCodeButton)],
+        components: [row],
         ephemeral: true,
     });
     return true;
 }
 
-// Шаг 2: кнопка "Ввести код" под картинкой — открывает модалку с одним
-// пустым текстовым полем (в отличие от старой капчи, ответ нигде не
-// написан текстом, его видно только на картинке).
-async function promptAnswer(interaction) {
-    cleanupExpiredChallenges();
-    const challenge = pendingChallenges.get(interaction.user.id);
-    if (!challenge || Date.now() > challenge.expiresAt) {
-        await interaction.reply({
-            embeds: [errorEmbed('Код устарел. Нажми кнопку «Пройти верификацию» ещё раз.')],
-            ephemeral: true,
-        });
-        return true;
-    }
-
-    const modal = new ModalBuilder().setCustomId(VERIFY_MODAL_ID).setTitle('Код с картинки');
-    const input = new TextInputBuilder()
-        .setCustomId(VERIFY_ANSWER_INPUT_ID)
-        .setLabel('Введи код с картинки')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('12345')
-        .setMinLength(CODE_LENGTH)
-        .setMaxLength(CODE_LENGTH)
-        .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    await interaction.showModal(modal);
-    return true;
-}
-
-async function handleButton(interaction) {
-    if (interaction.customId === VERIFY_BUTTON_ID) return startVerification(interaction);
-    if (interaction.customId === VERIFY_ANSWER_BUTTON_ID) return promptAnswer(interaction);
-    return false;
-}
-
-async function handleModalSubmit(interaction) {
-    if (interaction.customId !== VERIFY_MODAL_ID) return false;
-
+// Шаг 2: клик по одной из кнопок-вариантов под картинкой — сравнивает
+// код, зашитый в customId нажатой кнопки, с challenge.code, выданным на
+// шаге 1 (см. VERIFY_PICK_PREFIX). Отдельного окна ввода не открывает —
+// в отличие от старой капчи с модалкой, весь ответ — один клик.
+async function handlePick(interaction) {
     const config = await load();
     const guild = interaction.guild;
     const member = interaction.member;
 
-    // Код одноразовый — удаляем сразу при чтении, независимо от того,
-    // верный он или нет: повторный сабмит того же кода не должен
-    // проходить, а на новую попытку участник всё равно получит другую
-    // картинку с шага 1.
+    // Челлендж одноразовый — удаляем сразу при чтении, независимо от
+    // того, верный вариант выбран или нет: повторный клик по старому
+    // сообщению не должен проходить, а на новую попытку участник всё
+    // равно получит другую картинку с шага 1.
+    cleanupExpiredChallenges();
     const challenge = pendingChallenges.get(interaction.user.id);
     pendingChallenges.delete(interaction.user.id);
 
     // Та же проверка, что в startVerification() — на случай, если админ
     // выключил модуль уже после того, как участник получил картинку с
     // капчей (challenge создаётся до этой проверки на шаге 1), пока он
-    // вводит код. Без этого роль всё равно выдалась бы: сам submit не
-    // проверял enabled вообще.
+    // выбирает вариант.
     if (!config.verification.enabled) {
         await interaction.reply({
             embeds: [
@@ -277,14 +255,14 @@ async function handleModalSubmit(interaction) {
 
     if (!challenge || Date.now() > challenge.expiresAt) {
         await interaction.reply({
-            embeds: [errorEmbed('Время на ответ истекло. Нажми кнопку «Пройти верификацию» ещё раз.')],
+            embeds: [errorEmbed('Код устарел. Нажми кнопку «Пройти верификацию» ещё раз.')],
             ephemeral: true,
         });
         return true;
     }
 
-    const submitted = interaction.fields.getTextInputValue(VERIFY_ANSWER_INPUT_ID).trim();
-    if (submitted !== challenge.code) {
+    const picked = interaction.customId.slice(`${VERIFY_PICK_PREFIX}:`.length);
+    if (picked !== challenge.code) {
         const entry = await registerFailure(guild, member, config);
         const message = entry.lockedUntil
             ? `Неверный код. Слишком много неудачных попыток — новые попытки заблокированы на ${Math.round(config.verification.captchaLockoutMs / 60000)} мин.`
@@ -338,8 +316,14 @@ async function handleModalSubmit(interaction) {
     return true;
 }
 
+async function handleButton(interaction) {
+    if (interaction.customId === VERIFY_BUTTON_ID) return startVerification(interaction);
+    if (interaction.customId.startsWith(`${VERIFY_PICK_PREFIX}:`)) return handlePick(interaction);
+    return false;
+}
+
 function register(client) {
     client.on('guildMemberAdd', member => handleJoin(member).catch(err => console.error('verification:', err)));
 }
 
-module.exports = { register, handleButton, handleModalSubmit, VERIFY_BUTTON_ID };
+module.exports = { register, handleButton, VERIFY_BUTTON_ID };
