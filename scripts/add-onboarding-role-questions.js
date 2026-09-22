@@ -72,6 +72,40 @@ const ROLE_CATEGORIES = [
             { name: 'Маг', color: 0x8e44ad, emoji: '🔮', description: 'Разбирается во всём непонятном' },
         ],
     },
+    // По прямому запросу администратора сервер ориентирован на игровое
+    // сообщество — список подобран под это (мультивыбор, можно отметить
+    // сразу несколько игр).
+    {
+        title: 'На какой игре тебя чаще видно?',
+        singleSelect: false,
+        roles: [
+            { name: 'Valorant', color: 0xff4655, emoji: '🎯', description: 'Тактическая пятёрка на пятёрку' },
+            { name: 'CS2', color: 0xf39c12, emoji: '🔫', description: 'Классика тактических шутеров' },
+            { name: 'War Thunder', color: 0x34495e, emoji: '✈️', description: 'Танки, самолёты и флот' },
+            { name: 'Call of Duty', color: 0x4b5320, emoji: '🪖', description: 'Динамичный шутер, часто онлайн' },
+            { name: 'Dota 2', color: 0x6c3483, emoji: '🧙', description: 'MOBA на пять ролей' },
+            { name: 'Apex Legends', color: 0xff8c00, emoji: '🪂', description: 'Королевская битва с легендами' },
+            { name: 'Minecraft', color: 0x5d8f3d, emoji: '⛏️', description: 'Строю, копаю, выживаю' },
+            { name: 'GTA', color: 0xffd700, emoji: '🚗', description: 'Открытый мир и ролплей' },
+        ],
+    },
+    // Пока чисто самоотметка без прав, как и остальные роли здесь —
+    // никакого автопинга/выделенного канала под них ещё нет, это
+    // отдельная задача (нужны точные названия существующих новостных
+    // каналов и решение, как оформить пинг).
+    {
+        title: 'На какие новости хочешь подписаться?',
+        singleSelect: false,
+        roles: [
+            {
+                name: 'Новости сервера',
+                color: 0x2980b9,
+                emoji: '📰',
+                description: 'Объявления и события этого сервера',
+            },
+            { name: 'Игровые новости', color: 0x16a085, emoji: '🎮', description: 'Патчи, релизы и обновления игр' },
+        ],
+    },
 ];
 
 async function addRoleQuestions(guild) {
