@@ -6,7 +6,12 @@ const { findChannel, findOrCreateChannel } = require('../utils/idempotent');
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const CATEGORY_NAME = '📋 Информация';
-const CHANNEL_NAME = 'обновления';
+// По прямому запросу администратора канал переименован из "обновления" в
+// "новости сервера" — сюда же продолжают публиковаться автоанонсы релизов
+// бота (тот же channelId, та же логика в changelog/model.js), но теперь
+// администрация может писать туда и сама через /say (например, объявить,
+// что бот временно выключен) — канал уже не только про версии бота.
+const CHANNEL_NAME = '📰│новости-сервера';
 
 client.once('clientReady', async () => {
     try {
@@ -38,7 +43,16 @@ client.once('clientReady', async () => {
             parentId: category.id,
         });
         if (channel) {
-            console.log(`Канал обновлений уже настроен: ${channel.name}`);
+            if (channel.name !== CHANNEL_NAME) {
+                const previousName = channel.name;
+                await channel.setName(
+                    CHANNEL_NAME,
+                    'Переименование канала обновлений в новости сервера — по прямому запросу администратора'
+                );
+                console.log(`Канал переименован: было "${previousName}", стало "${CHANNEL_NAME}".`);
+            } else {
+                console.log(`Канал новостей сервера уже настроен: ${channel.name}`);
+            }
             await channel.permissionOverwrites
                 .edit(guild.roles.everyone.id, { SendMessages: false })
                 .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
@@ -50,10 +64,12 @@ client.once('clientReady', async () => {
 
         if (channel && (existing.channelId !== channel.id || existing.categoryId !== category.id)) {
             await changelog.saveChannel(channel.id, category.id);
-            console.log('Канал обновлений сохранён в конфиге.');
+            console.log('Канал новостей сервера сохранён в конфиге.');
         }
 
-        console.log('Готово. Анонс новой версии публикуется автоматически при первом запуске бота на ней.');
+        console.log(
+            'Готово. Анонс новой версии публикуется автоматически при первом запуске бота на ней; администрация может дописывать туда через /say.'
+        );
         process.exit(0);
     } catch (err) {
         console.error('Ошибка настройки канала обновлений:', err);
