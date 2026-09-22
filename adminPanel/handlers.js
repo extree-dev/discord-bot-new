@@ -46,6 +46,18 @@ async function handleBackup(interaction) {
         .catch(() => {});
 }
 
+// Просмотровые кнопки (список бэкапов, подробный статус) не меняют
+// состояние — панель под ними трогать незачем, только ephemeral-ответ.
+async function handleBackupList(interaction) {
+    const files = security.listBackups();
+    await interaction.followUp({ embeds: [model.buildBackupListEmbed(files)], ephemeral: true }).catch(() => {});
+}
+
+async function handleStatusDetail(interaction) {
+    const config = await security.getConfig();
+    await interaction.followUp({ embeds: [model.buildStatusDetailEmbed(config)], ephemeral: true }).catch(() => {});
+}
+
 async function handleRefresh(interaction) {
     await refreshPanel(interaction);
 }
@@ -55,6 +67,8 @@ async function handleButton(interaction) {
     const isPanelButton =
         customId === model.LOCKDOWN_TOGGLE_ID ||
         customId === model.BACKUP_ID ||
+        customId === model.BACKUP_LIST_ID ||
+        customId === model.STATUS_DETAIL_ID ||
         customId === model.REFRESH_ID ||
         customId.startsWith(model.TOGGLE_PREFIX);
     if (!isPanelButton) return false;
@@ -73,6 +87,10 @@ async function handleButton(interaction) {
         await handleLockdownToggle(interaction);
     } else if (customId === model.BACKUP_ID) {
         await handleBackup(interaction);
+    } else if (customId === model.BACKUP_LIST_ID) {
+        await handleBackupList(interaction);
+    } else if (customId === model.STATUS_DETAIL_ID) {
+        await handleStatusDetail(interaction);
     } else if (customId === model.REFRESH_ID) {
         await handleRefresh(interaction);
     } else {
