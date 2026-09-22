@@ -7,9 +7,10 @@
 // правят тот же security-config, что и команды, поэтому оба входа всегда
 // показывают согласованное состояние.
 //
-// Все кнопки — единый серый Secondary, без цветового кодирования по
-// смыслу (по прямому запросу администратора): состояние тумблеров и тип
-// действия читаются по эмодзи/подписи, а не по цвету самой кнопки.
+// Все кнопки — единый серый Secondary, без цветового кодирования и без
+// эмодзи (по прямому запросу администратора): состояние тумблеров читается
+// из подписи самой кнопки ("Anti-nuke: вкл"/"выкл"), тип действия — из
+// текста лейбла, а не из значка или цвета.
 const {
     ButtonBuilder,
     ButtonStyle,
@@ -17,6 +18,7 @@ const {
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
+    SeparatorSpacingSize,
 } = require('discord.js');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 const { COLORS, formatBody, baseEmbed, infoEmbed } = require('../utils/embeds');
@@ -56,10 +58,10 @@ const MODULES = [
 // для мута/бана ещё пару чисел) через модалку. Видит эту цепочку тот же
 // staff-only канал панели, поэтому отдельного подтверждения "точно?" нет.
 const QUICK_ACTIONS = [
-    { key: 'ban', label: 'Бан', emoji: '🔨' },
-    { key: 'kick', label: 'Кик', emoji: '👢' },
-    { key: 'mute', label: 'Мут', emoji: '🔇' },
-    { key: 'warn', label: 'Варн', emoji: '⚠️' },
+    { key: 'ban', label: 'Бан' },
+    { key: 'kick', label: 'Кик' },
+    { key: 'mute', label: 'Мут' },
+    { key: 'warn', label: 'Варн' },
 ];
 
 // Единственное место, которое реально знает, как считается статус —
@@ -94,21 +96,19 @@ async function gatherStatus() {
 function buildPanelMessage(status) {
     const { securityConfig } = status;
     const lockdownActive = securityConfig.manualLockdown.active;
-    const dot = enabled => (enabled ? '🟢' : '🔴');
+    const state = enabled => (enabled ? 'Включён' : 'Выключен');
 
     const container = baseContainer(lockdownActive ? COLORS.critical : COLORS.primary)
         .addTextDisplayComponents(
             textDisplay(formatBody('Панель администратора', 'Кнопки ниже дублируют самые частые команды модерации.'))
         )
-        .addSeparatorComponents(separator())
+        .addSeparatorComponents(separator(SeparatorSpacingSize.Large))
         .addTextDisplayComponents(
             textDisplay(
                 [
-                    `**Lockdown:** ${lockdownActive ? '🔴 Активен' : '🟢 Не активен'}`,
-                    ...MODULES.map(
-                        m =>
-                            `**${m.label}:** ${dot(securityConfig[m.key].enabled)} ${securityConfig[m.key].enabled ? 'Включено' : 'Выключено'}`
-                    ),
+                    '### Статус безопасности',
+                    `- **Lockdown** — ${lockdownActive ? 'Активен' : 'Не активен'}`,
+                    ...MODULES.map(m => `- **${m.label}** — ${state(securityConfig[m.key].enabled)}`),
                 ].join('\n')
             )
         )
@@ -116,27 +116,22 @@ function buildPanelMessage(status) {
         .addTextDisplayComponents(
             textDisplay(
                 [
-                    `Жалоб на игроков за 30 дней: ${status.recentReports}`,
-                    `Участников с варнами: ${status.warnedUsers} · всего выдано: ${status.totalWarnings}`,
-                    `Активных мутов: ${status.activeMutes}`,
-                    `Активных временных комнат: ${status.activeVoiceChannels}`,
-                    `Бэкапов сохранено: ${status.backupsCount}`,
+                    '### Сводка сервера',
+                    `- Жалоб на игроков за 30 дней: \`${status.recentReports}\``,
+                    `- Участников с варнами: \`${status.warnedUsers}\` · всего выдано: \`${status.totalWarnings}\``,
+                    `- Активных мутов: \`${status.activeMutes}\``,
+                    `- Активных временных комнат: \`${status.activeVoiceChannels}\``,
+                    `- Бэкапов сохранено: \`${status.backupsCount}\``,
                 ].join('\n')
             )
-        );
+        )
+        .addSeparatorComponents(separator(SeparatorSpacingSize.Large));
 
     const lockdownRow = new ActionRowBuilder().addComponents(
-        lockdownActive
-            ? new ButtonBuilder()
-                  .setCustomId(LOCKDOWN_TOGGLE_ID)
-                  .setLabel('Снять блокировку')
-                  .setEmoji('🔓')
-                  .setStyle(ButtonStyle.Secondary)
-            : new ButtonBuilder()
-                  .setCustomId(LOCKDOWN_TOGGLE_ID)
-                  .setLabel('Экстренная блокировка')
-                  .setEmoji('🔒')
-                  .setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder()
+            .setCustomId(LOCKDOWN_TOGGLE_ID)
+            .setLabel(lockdownActive ? 'Снять блокировку' : 'Заблокировать сервер')
+            .setStyle(ButtonStyle.Secondary)
     );
 
     // 5 тумблеров — ровно потолок ActionRow (максимум 5 кнопок в ряду у
@@ -145,8 +140,7 @@ function buildPanelMessage(status) {
         ...MODULES.map(m =>
             new ButtonBuilder()
                 .setCustomId(`${TOGGLE_PREFIX}${m.key}`)
-                .setLabel(m.label)
-                .setEmoji(dot(securityConfig[m.key].enabled))
+                .setLabel(`${m.label}: ${securityConfig[m.key].enabled ? 'вкл' : 'выкл'}`)
                 .setStyle(ButtonStyle.Secondary)
         )
     );
@@ -156,28 +150,15 @@ function buildPanelMessage(status) {
             new ButtonBuilder()
                 .setCustomId(`${QUICK_ACTION_PREFIX}${a.key}`)
                 .setLabel(a.label)
-                .setEmoji(a.emoji)
                 .setStyle(ButtonStyle.Secondary)
         )
     );
 
     const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId(BACKUP_ID)
-            .setLabel('Создать бэкап')
-            .setEmoji('💾')
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId(BACKUP_LIST_ID)
-            .setLabel('Список бэкапов')
-            .setEmoji('🗂️')
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId(STATUS_DETAIL_ID)
-            .setLabel('Подробный статус')
-            .setEmoji('📊')
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(BACKUP_ID).setLabel('Создать бэкап').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(BACKUP_LIST_ID).setLabel('Список бэкапов').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(STATUS_DETAIL_ID).setLabel('Подробный статус').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setStyle(ButtonStyle.Secondary)
     );
 
     return toMessage(container, lockdownRow, toggleRow, quickActionRow, actionRow);
