@@ -73,10 +73,61 @@ function computeManagedRoleDrift(canonicalOrderIds, currentPositionsById, botPos
     return drift;
 }
 
+// Для scripts/reorganize-custom-roles.js — разовая перестройка блока
+// кастомных/ярусных ролей прямо под anchorId (например, Moderator) и
+// блока bottomOrderIds в самый низ (например, Trusted/Muted), без
+// изменения относительного порядка всего остального между ними (ролей,
+// которые администратор не просил трогать). managedOrderIds/
+// bottomOrderIds — желаемый порядок сверху вниз; роли, которых нет среди
+// присланных roles (удалены вручную), пропускаются, а не создаются —
+// это не задача этой функции. Возвращает только записи, чья позиция
+// реально должна измениться (как computeManagedRoleDrift выше) — вызов
+// с уже верной раскладкой не даёт лишних API-запросов.
+function computeReorganizedPositions({ roles, anchorId, managedOrderIds, bottomOrderIds, everyoneId }) {
+    const byId = new Map(roles.map(r => [r.id, r]));
+    const anchor = byId.get(anchorId);
+    if (!anchor) return null;
+
+    const managedSet = new Set(managedOrderIds);
+    const bottomSet = new Set(bottomOrderIds);
+
+    // Всё, что сейчас ниже anchor и не входит ни в управляемый блок, ни в
+    // низовые роли, ни в managed-интеграции/@everyone — остаётся в своём
+    // текущем относительном порядке, просто уступает место сверху.
+    const untouchedIds = roles
+        .filter(
+            r =>
+                !r.managed &&
+                r.id !== everyoneId &&
+                r.id !== anchorId &&
+                r.position < anchor.position &&
+                !managedSet.has(r.id) &&
+                !bottomSet.has(r.id)
+        )
+        .sort((a, b) => b.position - a.position)
+        .map(r => r.id);
+
+    const orderedIds = [
+        ...managedOrderIds.filter(id => byId.has(id)),
+        ...untouchedIds,
+        ...bottomOrderIds.filter(id => byId.has(id)),
+    ];
+
+    const updates = [];
+    let position = anchor.position - 1;
+    for (const id of orderedIds) {
+        if (position < 1) break;
+        if (byId.get(id).position !== position) updates.push({ roleId: id, position });
+        position--;
+    }
+    return updates;
+}
+
 module.exports = {
     DANGEROUS_FOR_EVERYONE,
     findDuplicateRoleNames,
     findRolesAboveOrAtBot,
     findDangerousEveryonePermissions,
     computeManagedRoleDrift,
+    computeReorganizedPositions,
 };

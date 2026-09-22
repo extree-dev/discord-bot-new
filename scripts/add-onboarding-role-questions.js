@@ -104,7 +104,11 @@ async function addRoleQuestions(guild) {
                 guild,
                 name: r.name,
                 color: r.color,
-                hoist: false,
+                // По прямому запросу администратора все кастомные роли
+                // адаптации отображаются отдельно от участников онлайн
+                // (см. scripts/reorganize-custom-roles.js — там же
+                // разово включено это и у уже созданных ранее ролей).
+                hoist: true,
                 mentionable: false,
                 permissions: [],
             });

@@ -5,6 +5,7 @@ const {
     findRolesAboveOrAtBot,
     findDangerousEveryonePermissions,
     computeManagedRoleDrift,
+    computeReorganizedPositions,
 } = require('../utils/roleHierarchy');
 
 test('findDuplicateRoleNames: находит группы ролей с одинаковым именем без учёта регистра/пробелов', () => {
@@ -67,4 +68,83 @@ test('computeManagedRoleDrift: уже на месте — пустой резу�
     const canonicalOrderIds = ['mod'];
     const currentPositionsById = { mod: 9 };
     assert.deepEqual(computeManagedRoleDrift(canonicalOrderIds, currentPositionsById, 10), []);
+});
+
+test('computeReorganizedPositions: собирает управляемый блок и низ, сохраняя порядок нетронутых ролей между ними', () => {
+    const roles = [
+        { id: 'everyone', position: 0, managed: false },
+        { id: 'muted', position: 2, managed: false },
+        { id: 'tierA', position: 3, managed: false },
+        { id: 'trusted', position: 5, managed: false },
+        { id: 'tierB', position: 7, managed: false },
+        { id: 'support', position: 8, managed: false },
+        { id: 'mod', position: 10, managed: false },
+        { id: 'bot', position: 20, managed: true },
+    ];
+    const updates = computeReorganizedPositions({
+        roles,
+        anchorId: 'mod',
+        managedOrderIds: ['tierA', 'tierB'],
+        bottomOrderIds: ['trusted', 'muted'],
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(
+        updates.sort((a, b) => b.position - a.position),
+        [
+            { roleId: 'tierA', position: 9 },
+            { roleId: 'tierB', position: 8 },
+            { roleId: 'support', position: 7 },
+            { roleId: 'trusted', position: 6 },
+            { roleId: 'muted', position: 5 },
+        ]
+    );
+});
+
+test('computeReorganizedPositions: уже верная раскладка — пустой результат', () => {
+    const roles = [
+        { id: 'everyone', position: 0, managed: false },
+        { id: 'muted', position: 6, managed: false },
+        { id: 'trusted', position: 7, managed: false },
+        { id: 'tierB', position: 8, managed: false },
+        { id: 'tierA', position: 9, managed: false },
+        { id: 'mod', position: 10, managed: false },
+    ];
+    const updates = computeReorganizedPositions({
+        roles,
+        anchorId: 'mod',
+        managedOrderIds: ['tierA', 'tierB'],
+        bottomOrderIds: ['trusted', 'muted'],
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(updates, []);
+});
+
+test('computeReorganizedPositions: отсутствующая управляемая роль пропускается, не ломает нумерацию остальных', () => {
+    const roles = [
+        { id: 'everyone', position: 0, managed: false },
+        { id: 'tierA', position: 3, managed: false },
+        { id: 'mod', position: 10, managed: false },
+    ];
+    const updates = computeReorganizedPositions({
+        roles,
+        anchorId: 'mod',
+        managedOrderIds: ['tierA', 'missing-tier'],
+        bottomOrderIds: [],
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(updates, [{ roleId: 'tierA', position: 9 }]);
+});
+
+test('computeReorganizedPositions: анкер не найден — null', () => {
+    const roles = [{ id: 'everyone', position: 0, managed: false }];
+    assert.equal(
+        computeReorganizedPositions({
+            roles,
+            anchorId: 'missing-anchor',
+            managedOrderIds: [],
+            bottomOrderIds: [],
+            everyoneId: 'everyone',
+        }),
+        null
+    );
 });
