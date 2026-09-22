@@ -2,7 +2,7 @@
 // страницы playvalorant.com/news через неофициальный, но широко
 // используемый HenrikDev API (у самого Riot нет ни RSS, ни новостного
 // эндпоинта в официальном Developer API — проверено), и публикует
-// только по-настоящему новые в канал #📰│новости-сервера.
+// только по-настоящему новые в канал #📬│game-news.
 const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay, toMessage } = require('../utils/components');
 const config = require('./config');

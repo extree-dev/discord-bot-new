@@ -3,10 +3,9 @@ const { createStore } = require('../utils/pgStore');
 const STORE_NAME = 'valorantNews';
 
 // channelId — свой независимый config-store (тот же принцип, что у
-// changelog/rules/leveling — см. FSD-границы фич в README), даже хотя
-// физически сейчас это тот же канал #📰│новости-сервера, что и у
-// changelog/ (scripts/setup-valorant-news.js синхронизирует значение
-// оттуда, а не читает changelog/config.js напрямую при каждой публикации).
+// changelog/rules/leveling — см. FSD-границы фич в README): свой канал
+// #📬│game-news, не связанный с changelog/ (scripts/setup-valorant-news.js
+// пинит его ID напрямую, без обращения к changelog/config.js).
 // lastArticleDate — ISO-дата самой свежей статьи, которую скрипт уже
 // видел (опубликованной или нет — на самом первом прогоне бэклог не
 // публикуется, см. valorantNews/model.js), чтобы не слать одно и то же
