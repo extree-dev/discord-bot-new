@@ -129,6 +129,12 @@ client.on('interactionCreate', async interaction => {
                 .catch(err => (console.error('Ошибка формы предложения:', err), false))
         )
             return;
+        if (
+            await adminPanel
+                .handleModalSubmit(interaction)
+                .catch(err => (console.error('Ошибка формы панели администратора:', err), false))
+        )
+            return;
     }
 
     if (interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
@@ -142,6 +148,12 @@ client.on('interactionCreate', async interaction => {
             await tickets
                 .handleSelectMenu(interaction)
                 .catch(err => (console.error('Ошибка select-меню тикета:', err), false))
+        )
+            return;
+        if (
+            await adminPanel
+                .handleSelectMenu(interaction)
+                .catch(err => (console.error('Ошибка select-меню панели администратора:', err), false))
         )
             return;
     }
