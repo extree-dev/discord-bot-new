@@ -27,6 +27,7 @@ const tickets = require('../tickets');
 const voice = require('../voice');
 const moderation = require('../moderation');
 const warnings = require('../utils/warnings');
+const onboarding = require('./onboarding');
 
 const LOCKDOWN_TOGGLE_ID = 'admin_panel_lockdown_toggle';
 const TOGGLE_PREFIX = 'admin_panel_toggle:';
@@ -152,11 +153,17 @@ function buildPanelMessage(status) {
         )
     );
 
+    // 5 кнопок — снова потолок ActionRow; "Адаптация" открывает отдельное
+    // ephemeral-сообщение со своими кнопками (adminPanel/onboarding.js),
+    // а не встроена в этот ряд саму по себе — у панели уже 5 рядов из 5
+    // (максимум ActionRow на сообщение), добавить ещё один ряд сюда было
+    // бы нельзя.
     const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(BACKUP_ID).setLabel('Создать бэкап').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(BACKUP_LIST_ID).setLabel('Список бэкапов').setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(STATUS_DETAIL_ID).setLabel('Подробный статус').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(REFRESH_ID).setLabel('Обновить').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(onboarding.OPEN_ID).setLabel('Адаптация').setStyle(ButtonStyle.Secondary)
     );
 
     const container = baseContainer(lockdownActive ? COLORS.critical : COLORS.primary)

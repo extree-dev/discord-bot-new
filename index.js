@@ -137,7 +137,10 @@ client.on('interactionCreate', async interaction => {
             return;
     }
 
-    if (interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
+    // isAnySelectMenu(), а не отдельно isUserSelectMenu()/isStringSelectMenu() —
+    // адаптация (adminPanel/onboarding.js) добавляет ChannelSelectMenu,
+    // который иначе сюда не попал бы вообще.
+    if (interaction.isAnySelectMenu()) {
         if (
             await voice
                 .handleSelectMenu(interaction)
