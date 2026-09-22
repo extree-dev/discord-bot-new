@@ -125,6 +125,24 @@ async function startVerification(interaction) {
         return true;
     }
 
+    // Модуль выключен (/security-status, панель администратора) — раньше
+    // это никак не проверялось здесь, только в handleJoin (не выдаёт
+    // unverifiedRole новым участникам), из-за чего кнопка "Пройти
+    // верификацию" продолжала работать целиком и выдавать verifiedRole,
+    // даже когда админ явно отключил модуль.
+    if (!config.verification.enabled) {
+        await interaction.reply({
+            embeds: [
+                errorEmbed(
+                    'Верификация сейчас временно отключена администрацией. Обратись к администрации, чтобы получить доступ.',
+                    'Верификация недоступна'
+                ),
+            ],
+            ephemeral: true,
+        });
+        return true;
+    }
+
     // Возраст аккаунта — самый дешёвый фильтр от рейд-ботов: массовый
     // рейд почти всегда идёт с аккаунтов, созданных за минуты/часы до
     // захода. Не блокирует навсегда: как только аккаунт "дозреет" до
@@ -238,6 +256,24 @@ async function handleModalSubmit(interaction) {
     // картинку с шага 1.
     const challenge = pendingChallenges.get(interaction.user.id);
     pendingChallenges.delete(interaction.user.id);
+
+    // Та же проверка, что в startVerification() — на случай, если админ
+    // выключил модуль уже после того, как участник получил картинку с
+    // капчей (challenge создаётся до этой проверки на шаге 1), пока он
+    // вводит код. Без этого роль всё равно выдалась бы: сам submit не
+    // проверял enabled вообще.
+    if (!config.verification.enabled) {
+        await interaction.reply({
+            embeds: [
+                errorEmbed(
+                    'Верификация сейчас временно отключена администрацией. Обратись к администрации, чтобы получить доступ.',
+                    'Верификация недоступна'
+                ),
+            ],
+            ephemeral: true,
+        });
+        return true;
+    }
 
     if (!challenge || Date.now() > challenge.expiresAt) {
         await interaction.reply({
