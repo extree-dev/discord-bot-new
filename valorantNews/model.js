@@ -63,6 +63,13 @@ function latestArticleDate(articles) {
 // картинку на всю ширину, а "Подробнее" теперь настоящая кнопка-ссылка
 // (ButtonStyle.Link, без customId — Discord открывает URL сам, ничего
 // не долетает до бота), а не текст со ссылкой внутри TextDisplay.
+//
+// Бейдж категории раньше был отдельным TextDisplay-компонентом — из-за
+// собственных отступов Discord он смотрелся оторванным огрызком над
+// заголовком. Теперь это "-# бейдж" — та же строка markdown, что и у
+// заголовка/описания (formatBody), просто внутри ОДНОГО TextDisplay:
+// маленькая серая строка-эффектор сразу над жирным заголовком, без
+// разрыва между блоками.
 function buildNewsCard(article, pingRoleId) {
     const container = baseContainer(COLORS.primary);
 
@@ -71,13 +78,8 @@ function buildNewsCard(article, pingRoleId) {
     }
 
     const categoryLabel = CATEGORY_LABELS[article.category];
-    if (categoryLabel) {
-        container.addTextDisplayComponents(textDisplay(categoryLabel));
-    }
-
-    container.addTextDisplayComponents(
-        textDisplay(formatBody(`Valorant: ${article.title}`, article.description || null))
-    );
+    const body = formatBody(`Valorant: ${article.title}`, article.description || null);
+    container.addTextDisplayComponents(textDisplay(categoryLabel ? `-# ${categoryLabel}\n${body}` : body));
 
     if (article.banner_url) {
         container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems({ media: { url: article.banner_url } }));
