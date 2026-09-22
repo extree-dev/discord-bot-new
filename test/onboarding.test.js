@@ -7,13 +7,17 @@ function fakeChannel(id, name) {
     return { id, name };
 }
 
-function fakeOption(id, title, description, channelList) {
+function fakeRole(id, name) {
+    return { id, name };
+}
+
+function fakeOption(id, title, description, channelList, roleList = []) {
     return {
         id,
         title,
         description,
         channels: new Collection(channelList.map(c => [c.id, c])),
-        roles: new Collection(),
+        roles: new Collection(roleList.map(r => [r.id, r])),
     };
 }
 
@@ -105,6 +109,34 @@ test('buildOnboardingMessage: текст перечисляет вопросы, 
     assert.match(text, /Правила сервера/);
     assert.match(text, /<#1>/);
     assert.match(text, /<#2>/);
+});
+
+test('buildOnboardingMessage: вариант ответа может выдавать роль вместо канала', () => {
+    const gamer = fakeRole('10', 'Геймер');
+    const artist = fakeRole('11', 'Творец');
+
+    const onboarding = fakeOnboarding({
+        prompts: new Collection([
+            [
+                'p1',
+                fakePrompt('p1', 'Чем тебе нравится заниматься?', false, [
+                    fakeOption('o1', 'Геймер', null, [], [gamer]),
+                    fakeOption('o2', 'Творец', null, [], [artist]),
+                ]),
+            ],
+        ]),
+    });
+
+    const message = buildOnboardingMessage(onboarding);
+    const text = message.components[0]
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+
+    assert.match(text, /Чем тебе нравится заниматься\?/);
+    assert.match(text, /<@&10>/);
+    assert.match(text, /<@&11>/);
 });
 
 test('buildOnboardingMessage: вопросов нет — показывает заглушку, а не падает', () => {

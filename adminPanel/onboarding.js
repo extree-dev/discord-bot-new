@@ -13,6 +13,7 @@ const {
     TextInputBuilder,
     TextInputStyle,
     ChannelSelectMenuBuilder,
+    RoleSelectMenuBuilder,
     ChannelType,
     GuildOnboardingPromptType,
 } = require('discord.js');
@@ -27,7 +28,15 @@ const ADD_ID = `${PREFIX}add`;
 const REMOVE_ID = `${PREFIX}remove`;
 const ADD_MODAL_ID = `${PREFIX}add_modal`;
 const REMOVE_MODAL_ID = `${PREFIX}remove_modal`;
+// Большинство каналов сервера закрыты от новых участников ролью
+// Unverified до капчи (security/verification.js) — вопрос, "открывающий"
+// такой канал, для них бесполезен. Поэтому после текста вопроса
+// спрашиваем, что именно выдаёт выбранный вариант: канал (для тех
+// немногих, что видны всем) или чисто декоративную роль без прав.
+const ADD_TARGET_CHANNEL_ID = `${PREFIX}add_target_channel`;
+const ADD_TARGET_ROLE_ID = `${PREFIX}add_target_role`;
 const ADD_CHANNELS_ID = `${PREFIX}add_channels`;
+const ADD_ROLES_ID = `${PREFIX}add_roles`;
 
 // Пока админ заполняет модалку "Добавить вопрос" (шаг 1 — заголовок и
 // описание), а затем выбирает каналы через ChannelSelectMenu (шаг 2), надо
@@ -65,7 +74,10 @@ function buildOnboardingMessage(onboarding) {
         ? prompts.flatMap((p, i) => [
               `${i + 1}. **${p.title}**${p.required ? ' — обязателен' : ''}`,
               ...[...p.options.values()].map(o => {
-                  const targets = [...o.channels.values()].map(c => `<#${c.id}>`).join(', ');
+                  const targets = [
+                      ...[...o.channels.values()].map(c => `<#${c.id}>`),
+                      ...[...o.roles.values()].map(r => `<@&${r.id}>`),
+                  ].join(', ');
                   return `   - ${o.title}${targets ? ` → ${targets}` : ''}`;
               }),
           ])
@@ -144,7 +156,7 @@ async function toggleEnabled(guild) {
     });
 }
 
-async function addPrompt(guild, title, description, channels) {
+async function addPrompt(guild, title, description, { channels = [], roles = [] }) {
     const current = await guild.fetchOnboarding();
     const newPrompt = {
         title,
@@ -152,7 +164,7 @@ async function addPrompt(guild, title, description, channels) {
         required: false,
         inOnboarding: true,
         type: GuildOnboardingPromptType.MultipleChoice,
-        options: [{ title, description, channels, roles: [] }],
+        options: [{ title, description, channels, roles }],
     };
     return guild.editOnboarding({
         prompts: [...current.prompts.values(), newPrompt],
@@ -223,6 +235,47 @@ async function handleButton(interaction) {
 
     if (action === 'remove') {
         await interaction.showModal(buildRemoveModal());
+        return;
+    }
+
+    // Шаг 2 добавления вопроса — заголовок/описание собраны (модалка),
+    // теперь выбираем, что выдаёт вариант ответа: канал или роль (см.
+    // комментарий у ADD_TARGET_CHANNEL_ID выше). interaction.update() —
+    // меняет то же ephemeral-сообщение с двумя кнопками на select-меню
+    // нужного типа, отдельного ответа не создаёт.
+    if (action === 'add_target_channel' || action === 'add_target_role') {
+        const pending = pendingPrompts.get(interaction.user.id);
+        if (!pending || Date.now() > pending.expiresAt) {
+            await interaction.update({
+                content: 'Сессия добавления вопроса истекла — начни заново кнопкой «Добавить вопрос».',
+                components: [],
+            });
+            return;
+        }
+
+        if (action === 'add_target_channel') {
+            const select = new ChannelSelectMenuBuilder()
+                .setCustomId(ADD_CHANNELS_ID)
+                .setPlaceholder('Какие каналы показать, если выберут этот вариант?')
+                .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+                .setMinValues(1)
+                .setMaxValues(5);
+            await interaction.update({
+                content: `Вопрос «${pending.title}» — выбери канал(ы), которые увидит участник, выбрав этот вариант:`,
+                components: [new ActionRowBuilder().addComponents(select)],
+            });
+            return;
+        }
+
+        const select = new RoleSelectMenuBuilder()
+            .setCustomId(ADD_ROLES_ID)
+            .setPlaceholder('Какую роль выдать, если выберут этот вариант?')
+            .setMinValues(1)
+            .setMaxValues(5);
+        await interaction.update({
+            content: `Вопрос «${pending.title}» — выбери роль(и), которые получит участник, выбрав этот вариант:`,
+            components: [new ActionRowBuilder().addComponents(select)],
+        });
     }
 }
 
@@ -232,15 +285,16 @@ async function handleModalSubmit(interaction) {
         const description = interaction.fields.getTextInputValue('description')?.trim() || null;
         rememberPendingPrompt(interaction.user.id, title, description);
 
-        const select = new ChannelSelectMenuBuilder()
-            .setCustomId(ADD_CHANNELS_ID)
-            .setPlaceholder('Какие каналы показать, если выберут этот вариант?')
-            .setChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-            .setMinValues(1)
-            .setMaxValues(5);
+        const targetRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(ADD_TARGET_CHANNEL_ID)
+                .setLabel('Открыть канал')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId(ADD_TARGET_ROLE_ID).setLabel('Дать роль').setStyle(ButtonStyle.Secondary)
+        );
         await interaction.reply({
-            content: `Вопрос «${title}» — выбери канал(ы), которые увидит участник, выбрав этот вариант:`,
-            components: [new ActionRowBuilder().addComponents(select)],
+            content: `Вопрос «${title}» — что выдаёт этот вариант ответа?`,
+            components: [targetRow],
             ephemeral: true,
         });
         return true;
@@ -269,7 +323,9 @@ async function handleModalSubmit(interaction) {
 }
 
 async function handleSelectMenu(interaction) {
-    if (interaction.customId !== ADD_CHANNELS_ID) return false;
+    const isChannelTarget = interaction.customId === ADD_CHANNELS_ID;
+    const isRoleTarget = interaction.customId === ADD_ROLES_ID;
+    if (!isChannelTarget && !isRoleTarget) return false;
 
     const pending = takePendingPrompt(interaction.user.id);
     if (!pending) {
@@ -281,8 +337,10 @@ async function handleSelectMenu(interaction) {
     }
 
     await interaction.deferReply({ ephemeral: true });
-    const channels = [...interaction.channels.values()];
-    const result = await addPrompt(interaction.guild, pending.title, pending.description, channels).catch(err => ({
+    const targets = isChannelTarget
+        ? { channels: [...interaction.channels.values()] }
+        : { roles: [...interaction.roles.values()] };
+    const result = await addPrompt(interaction.guild, pending.title, pending.description, targets).catch(err => ({
         error: err.message,
     }));
     if (result.error) {
