@@ -58,12 +58,13 @@ async function setupOnboarding(guild) {
         return;
     }
 
-    const option = (title, description, channel) => ({
-        title,
-        description,
-        channels: channel ? [channel] : [],
-        roles: [],
-    });
+    // null, а не option с пустым channels — у каждой опции Discord требует
+    // хотя бы один канал или роль (ROLE_OR_CHANNEL_REQUIRED), "опция без
+    // канала как заглушка" реально ловится 400-й ошибкой на editOnboarding.
+    // .filter(Boolean) на каждом месте сборки options — тот же принцип,
+    // что и защита от несуществующих каналов выше.
+    const option = (title, description, channel) =>
+        channel ? { title, description, channels: [channel], roles: [] } : null;
 
     const prompts = [];
 
@@ -85,17 +86,17 @@ async function setupOnboarding(guild) {
         });
     }
 
-    if (channels.openTicket) {
+    const helpOptions = [option('Пожаловаться на игрока', 'Откроет тикет для модерации', channels.openTicket)].filter(
+        Boolean
+    );
+    if (helpOptions.length) {
         prompts.push({
             title: 'Нужна помощь?',
             singleSelect: true,
             required: false,
             inOnboarding: true,
             type: GuildOnboardingPromptType.MultipleChoice,
-            options: [
-                option('Пожаловаться на игрока', 'Откроет тикет для модерации', channels.openTicket),
-                option('Пока просто осматриваюсь', null, null),
-            ],
+            options: helpOptions,
         });
     }
 
