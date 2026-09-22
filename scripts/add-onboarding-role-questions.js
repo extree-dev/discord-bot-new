@@ -41,23 +41,57 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // иначе синхронизация примет их за "чужие" и оставит висеть нетронутыми.
 const RETIRED_TITLES = new Set(['Какой ты новичок?', 'Какой ты искатель приключений?']);
 
+// customEmojiName — имя кастомного эмодзи сервера (без двоеточий), если
+// администратор его загрузил под этот вариант ответа; resolveEmoji ниже
+// ищет его по имени в guild.emojis на каждом деплое и подставляет вместо
+// юникод-эмодзи из emoji. Раньше (до этого поля) администратор менял
+// эмодзи в визарде адаптации вручную через настройки Discord — но этот
+// скрипт гоняется на каждом деплое и полностью пересобирает вопросы из
+// кода (см. комментарий выше), поэтому ручная правка слетала на
+// следующем же деплое. Если кастомный эмодзи с таким именем не найден на
+// сервере (ещё не загружен или удалён), используется emoji как раньше —
+// деплой из-за этого не падает.
 const ROLE_CATEGORIES = [
     {
         title: 'Чем тебе нравится заниматься на сервере?',
         singleSelect: false,
         roles: [
-            { name: 'Геймер', color: 0xe74c3c, emoji: '🎮', description: 'Игры — это по мне' },
-            { name: 'Творец', color: 0xe67e22, emoji: '🎨', description: 'Рисую, пишу, монтирую — что угодно' },
-            { name: 'Болтун', color: 0x3498db, emoji: '💬', description: 'Больше всего люблю общение' },
-            { name: 'Меломан', color: 0x1abc9c, emoji: '🎧', description: 'Всегда с музыкой в наушниках' },
+            {
+                name: 'Геймер',
+                color: 0xe74c3c,
+                emoji: '🎮',
+                customEmojiName: 'gamepad',
+                description: 'Игры — это по мне',
+            },
+            {
+                name: 'Творец',
+                color: 0xe67e22,
+                emoji: '🎨',
+                customEmojiName: 'person',
+                description: 'Рисую, пишу, монтирую — что угодно',
+            },
+            {
+                name: 'Болтун',
+                color: 0x3498db,
+                emoji: '💬',
+                customEmojiName: 'chat',
+                description: 'Больше всего люблю общение',
+            },
+            {
+                name: 'Меломан',
+                color: 0x1abc9c,
+                emoji: '🎧',
+                customEmojiName: 'music',
+                description: 'Всегда с музыкой в наушниках',
+            },
         ],
     },
     {
         title: 'Когда ты обычно онлайн?',
         singleSelect: false,
         roles: [
-            { name: 'Жаворонок', color: 0xf1c40f, emoji: '🌅', description: 'Утро и день' },
-            { name: 'Совунья', color: 0x2c3e50, emoji: '🌙', description: 'Вечер и ночь' },
+            { name: 'Жаворонок', color: 0xf1c40f, emoji: '🌅', customEmojiName: 'bird', description: 'Утро и день' },
+            { name: 'Совунья', color: 0x2c3e50, emoji: '🌙', customEmojiName: 'owl', description: 'Вечер и ночь' },
         ],
     },
     // По прямому запросу администратора сервер ориентирован на игровое
@@ -67,14 +101,62 @@ const ROLE_CATEGORIES = [
         title: 'На какой игре тебя чаще видно?',
         singleSelect: false,
         roles: [
-            { name: 'Valorant', color: 0xff4655, emoji: '🎯', description: 'Тактическая пятёрка на пятёрку' },
-            { name: 'CS2', color: 0xf39c12, emoji: '🔫', description: 'Классика тактических шутеров' },
-            { name: 'War Thunder', color: 0x34495e, emoji: '✈️', description: 'Танки, самолёты и флот' },
-            { name: 'Call of Duty', color: 0x4b5320, emoji: '🪖', description: 'Динамичный шутер, часто онлайн' },
-            { name: 'Dota 2', color: 0x6c3483, emoji: '🧙', description: 'MOBA на пять ролей' },
-            { name: 'Apex Legends', color: 0xff8c00, emoji: '🪂', description: 'Королевская битва с легендами' },
-            { name: 'Minecraft', color: 0x5d8f3d, emoji: '⛏️', description: 'Строю, копаю, выживаю' },
-            { name: 'GTA', color: 0xffd700, emoji: '🚗', description: 'Открытый мир и ролплей' },
+            {
+                name: 'Valorant',
+                color: 0xff4655,
+                emoji: '🎯',
+                customEmojiName: 'icons8valorant481',
+                description: 'Тактическая пятёрка на пятёрку',
+            },
+            {
+                name: 'CS2',
+                color: 0xf39c12,
+                emoji: '🔫',
+                customEmojiName: '28349cs2',
+                description: 'Классика тактических шутеров',
+            },
+            {
+                name: 'War Thunder',
+                color: 0x34495e,
+                emoji: '✈️',
+                customEmojiName: 'icons8warthunder48',
+                description: 'Танки, самолёты и флот',
+            },
+            {
+                name: 'Call of Duty',
+                color: 0x4b5320,
+                emoji: '🪖',
+                customEmojiName: 'icons8callofduty100',
+                description: 'Динамичный шутер, часто онлайн',
+            },
+            {
+                name: 'Dota 2',
+                color: 0x6c3483,
+                emoji: '🧙',
+                customEmojiName: 'dota',
+                description: 'MOBA на пять ролей',
+            },
+            {
+                name: 'Apex Legends',
+                color: 0xff8c00,
+                emoji: '🪂',
+                customEmojiName: '943178apexlegends',
+                description: 'Королевская битва с легендами',
+            },
+            {
+                name: 'Minecraft',
+                color: 0x5d8f3d,
+                emoji: '⛏️',
+                customEmojiName: 'icons8minecraft50',
+                description: 'Строю, копаю, выживаю',
+            },
+            {
+                name: 'GTA',
+                color: 0xffd700,
+                emoji: '🚗',
+                customEmojiName: 'icons8gta548',
+                description: 'Открытый мир и ролплей',
+            },
         ],
     },
     // Пока чисто самоотметка без прав, как и остальные роли здесь —
@@ -95,6 +177,21 @@ const ROLE_CATEGORIES = [
         ],
     },
 ];
+
+// Возвращает кастомный эмодзи сервера по имени (см. customEmojiName в
+// ROLE_CATEGORIES), если он есть — иначе юникод-эмодзи из r.emoji, как и
+// раньше. Отдаём сам объект GuildEmoji, не строку/ID: discord.js
+// (resolvePartialEmoji внутри editOnboarding) принимает его напрямую.
+function resolveEmoji(guild, r) {
+    if (r.customEmojiName) {
+        const custom = guild.emojis.cache.find(e => e.name === r.customEmojiName);
+        if (custom) return custom;
+        console.warn(
+            `Кастомный эмодзи ":${r.customEmojiName}:" не найден на сервере — для роли "${r.name}" использую стандартный ${r.emoji}.`
+        );
+    }
+    return r.emoji;
+}
 
 async function addRoleQuestions(guild) {
     const roleIds = {};
@@ -136,7 +233,7 @@ async function addRoleQuestions(guild) {
         options: category.roles.map(r => ({
             title: r.name,
             description: r.description,
-            emoji: r.emoji,
+            emoji: resolveEmoji(guild, r),
             channels: [],
             roles: [roleIds[r.name]],
         })),
@@ -167,6 +264,7 @@ client.once('clientReady', async () => {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
+        await guild.emojis.fetch();
         await addRoleQuestions(guild);
         process.exit(0);
     } catch (err) {
