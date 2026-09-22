@@ -63,3 +63,23 @@ test('buildNewsCard: заголовок и ссылка попадают в те
     assert.match(text, /Большой патч/);
     assert.match(text, /https:\/\/playvalorant\.com\/x/);
 });
+
+test('buildNewsCard: без pingRoleId упоминание роли в карточке отсутствует', () => {
+    const message = buildNewsCard(article('a', '2026-09-20T00:00:00Z'));
+    const text = message
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.doesNotMatch(text, /<@&/);
+});
+
+test('buildNewsCard: с pingRoleId упоминание роли добавляется первой строкой', () => {
+    const message = buildNewsCard(article('a', '2026-09-20T00:00:00Z'), '123456789');
+    const text = message
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.match(text, /<@&123456789>/);
+});
