@@ -80,4 +80,7 @@ jobs:
                       # новые категории применяются сами, чужие вопросы не
                       # трогает.
                       run_setup_step scripts/add-onboarding-role-questions.js
+                      # Читает уже сохранённый channelId у scripts/setup-changelog.js
+                      # (тот же канал #новости-сервера) — держать после него.
+                      run_setup_step scripts/setup-valorant-news.js
                       exit $FAILED
