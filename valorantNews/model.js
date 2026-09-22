@@ -42,8 +42,19 @@ function latestArticleDate(articles) {
     }, null);
 }
 
-function buildNewsCard(article) {
-    const container = baseContainer(COLORS.primary).addTextDisplayComponents(
+// pingRoleId — необязательный: упоминание роли рисуется отдельной
+// TextDisplay-строкой прямо над заголовком. Discord парсит и пингует
+// упоминания внутри TextDisplay точно так же, как в обычном content
+// (подтверждено официальной документацией компонентов), поэтому не
+// нужно отдельное сообщение с content — раньше было именно так, но
+// Components V2 запрещает content на этом же сообщении (см.
+// utils/components.js), а не упоминания внутри самих компонентов.
+function buildNewsCard(article, pingRoleId) {
+    const container = baseContainer(COLORS.primary);
+    if (pingRoleId) {
+        container.addTextDisplayComponents(textDisplay(`<@&${pingRoleId}>`));
+    }
+    container.addTextDisplayComponents(
         textDisplay(formatBody(`Valorant: ${article.title}`, article.description || null))
     );
     container.addTextDisplayComponents(textDisplay(`[Подробнее](${article.url})`));
@@ -84,15 +95,8 @@ async function checkAndPostNews(client) {
     const pingRole = channel.guild.roles.cache.find(r => r.name === PING_ROLE_NAME);
 
     for (const article of fresh) {
-        // Components V2 (toMessage()) не может нести content вместе с
-        // компонентами (см. комментарий в utils/components.js) — пинг
-        // роли поэтому отдельным обычным сообщением перед карточкой, а
-        // не полем content на том же payload.
-        if (pingRole) {
-            await channel.send({ content: `<@&${pingRole.id}>` }).catch(() => {});
-        }
         await channel
-            .send(toMessage(buildNewsCard(article)))
+            .send(toMessage(buildNewsCard(article, pingRole?.id)))
             .catch(err => console.error('valorantNews: не удалось отправить статью:', err.message));
     }
 
