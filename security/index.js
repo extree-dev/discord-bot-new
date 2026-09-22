@@ -28,7 +28,6 @@ function register(client) {
 module.exports = {
     register,
     handleVerifyButton: verification.handleButton,
-    handleVerifyModal: verification.handleModalSubmit,
     VERIFY_BUTTON_ID: verification.VERIFY_BUTTON_ID,
     getConfig: config.load,
     updateConfig: config.update,

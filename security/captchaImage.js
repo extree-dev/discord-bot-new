@@ -1,11 +1,8 @@
-// Картинка-капча для верификации: код рисуется искажёнными цифрами на
-// зашумленном фоне, а не текстом в лейбле модалки (как было раньше) —
-// раньше ответ ("Сколько будет 3 + 5?") был обычным текстом компонента,
-// который простейший скрипт-бот читает и решает регуляркой за миллисекунды.
-// Картинку без OCR не прочитать. Discord-модалки не умеют показывать
-// картинки напрямую (только текстовые поля), поэтому картинка уходит
-// отдельным сообщением с кнопкой "Ввести код", а сам ввод уже собирается
-// в модалке (см. verification.js).
+// Картинка-капча для верификации: код рисуется искажёнными символами на
+// зашумленном фоне — участник сверяет картинку с кнопками под ней и
+// нажимает верный вариант (см. verification.js), никакого текстового
+// ввода. Код нигде не встречается открытым текстом рядом с картинкой —
+// простейший скрипт-бот без OCR его прочитать не может.
 //
 // Не переиспользует ensureFonts() из leveling/canvasUtils.js — фичи не
 // тянут зависимости друг на друга (см. аналогичный комментарий у
@@ -14,9 +11,13 @@
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 const path = require('path');
 
-const WIDTH = 220;
+const WIDTH = 260;
 const HEIGHT = 80;
-const CODE_LENGTH = 5;
+const CODE_LENGTH = 6;
+// Только заглавные буквы и цифры, без разделения на регистр — тот же
+// алфавит, что и в лейблах кнопок-вариантов, человеку легко сверить на
+// глаз символ за символом.
+const CODE_ALPHABET = '0123456789ABCDEF';
 const FONT_FAMILY = 'CaptchaDigits';
 
 let fontRegistered = false;
@@ -33,8 +34,34 @@ function randomBetween(min, max) {
 
 function generateCode() {
     let code = '';
-    for (let i = 0; i < CODE_LENGTH; i++) code += Math.floor(Math.random() * 10);
+    for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
     return code;
+}
+
+// Неверные варианты для кнопок множественного выбора — не случайные строки,
+// а сам код с 1-2 заменёнными символами, то есть заведомо похожие на вид
+// (тот же приём, что в макете, на который ссылался администратор: варианты
+// отличаются на пару символов, а не полностью). Так выбрать верный вариант
+// можно только реально сверившись с картинкой посимвольно, а не по общему
+// "непохоже" на первый взгляд.
+function generateDecoys(code, count) {
+    const decoys = new Set();
+    while (decoys.size < count) {
+        const chars = code.split('');
+        const mutationsCount = 1 + Math.floor(Math.random() * 2);
+        const positions = new Set();
+        while (positions.size < mutationsCount) positions.add(Math.floor(Math.random() * chars.length));
+        for (const pos of positions) {
+            let replacement;
+            do {
+                replacement = CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+            } while (replacement === chars[pos]);
+            chars[pos] = replacement;
+        }
+        const candidate = chars.join('');
+        if (candidate !== code) decoys.add(candidate);
+    }
+    return [...decoys];
 }
 
 // Чистая функция рисования — принимает готовый код, сама ничего не
@@ -90,4 +117,4 @@ function renderCaptcha(code) {
     return canvas.toBuffer('image/png');
 }
 
-module.exports = { generateCode, renderCaptcha, CODE_LENGTH };
+module.exports = { generateCode, generateDecoys, renderCaptcha, CODE_LENGTH };

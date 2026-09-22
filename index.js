@@ -108,12 +108,6 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isModalSubmit()) {
         if (
-            await security
-                .handleVerifyModal(interaction)
-                .catch(err => (console.error('Ошибка формы верификации:', err), false))
-        )
-            return;
-        if (
             await voice
                 .handleModalSubmit(interaction)
                 .catch(err => (console.error('Ошибка формы временной комнаты:', err), false))
