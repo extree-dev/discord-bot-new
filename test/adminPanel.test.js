@@ -18,6 +18,7 @@ const {
     QUICK_ACTIONS,
     UNDO_ACTIONS,
 } = require('../adminPanel/model');
+const { OPEN_ID: ONBOARDING_OPEN_ID } = require('../adminPanel/onboarding');
 
 function fakeSecurityConfig(overrides = {}) {
     return {
@@ -78,12 +79,12 @@ test('buildPanelMessage: все кнопки серые (Secondary), без цв
     );
 });
 
-test('buildPanelMessage: 5 тумблеров модулей, 4 точечных наказания, 3 отмены, 4 кнопки действий', () => {
+test('buildPanelMessage: 5 тумблеров модулей, 4 точечных наказания, 3 отмены, 5 кнопок действий (с адаптацией)', () => {
     const rows = buttonRows(buildPanelMessage(fakeStatus()));
     assert.equal(rows[1].components.length, 5);
     assert.equal(rows[2].components.length, 4);
     assert.equal(rows[3].components.length, 3);
-    assert.equal(rows[4].components.length, 4);
+    assert.equal(rows[4].components.length, 5);
 });
 
 test('buildPanelMessage: кнопка lockdown присутствует в обоих состояниях', () => {
@@ -108,6 +109,11 @@ test('buildPanelMessage: по кнопке на каждое точечное н
     for (const a of QUICK_ACTIONS) {
         assert.ok(ids.includes(`${QUICK_ACTION_PREFIX}${a.key}`), `нет кнопки для ${a.key}`);
     }
+});
+
+test('buildPanelMessage: кнопка "Адаптация" открывает отдельную под-панель', () => {
+    const ids = customIds(buildPanelMessage(fakeStatus()));
+    assert.ok(ids.includes(ONBOARDING_OPEN_ID));
 });
 
 test('buildPanelMessage: по кнопке на каждую отмену наказания из UNDO_ACTIONS', () => {

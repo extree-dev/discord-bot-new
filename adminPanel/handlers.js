@@ -6,6 +6,7 @@
 const { PermissionFlagsBits, UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 const model = require('./model');
 const quickActions = require('./quickActions');
+const onboarding = require('./onboarding');
 const security = require('../security');
 const { errorEmbed, successEmbed } = require('../utils/embeds');
 
@@ -113,7 +114,8 @@ async function handleButton(interaction) {
         customId === model.REFRESH_ID ||
         customId.startsWith(model.TOGGLE_PREFIX) ||
         customId.startsWith(model.QUICK_ACTION_PREFIX) ||
-        customId.startsWith(model.UNDO_ACTION_PREFIX);
+        customId.startsWith(model.UNDO_ACTION_PREFIX) ||
+        customId.startsWith(onboarding.PREFIX);
     if (!isPanelButton) return false;
 
     if (!isAdmin(interaction.member)) {
@@ -124,14 +126,19 @@ async function handleButton(interaction) {
         return true;
     }
 
-    // Точечные наказания и их отмена — отдельные ветки, без deferUpdate:
-    // это не редактирование самой панели, а новый ephemeral-диалог/модалка.
+    // Точечные наказания, их отмена и адаптация — отдельные ветки, без
+    // deferUpdate: это не редактирование самой панели, а новый
+    // ephemeral-диалог/модалка/собственное под-сообщение со своими кнопками.
     if (customId.startsWith(model.QUICK_ACTION_PREFIX)) {
         await handleQuickActionButton(interaction, customId.slice(model.QUICK_ACTION_PREFIX.length));
         return true;
     }
     if (customId.startsWith(model.UNDO_ACTION_PREFIX)) {
         await handleUndoActionButton(interaction, customId.slice(model.UNDO_ACTION_PREFIX.length));
+        return true;
+    }
+    if (customId.startsWith(onboarding.PREFIX)) {
+        await onboarding.handleButton(interaction);
         return true;
     }
 
@@ -166,13 +173,19 @@ async function handleButton(interaction) {
 async function handleSelectMenu(interaction) {
     const isQuickSelect = interaction.customId.startsWith(model.QUICK_SELECT_PREFIX);
     const isUndoSelect = interaction.customId.startsWith(model.UNDO_SELECT_PREFIX);
-    if (!isQuickSelect && !isUndoSelect) return false;
+    const isOnboardingSelect = interaction.customId.startsWith(onboarding.PREFIX);
+    if (!isQuickSelect && !isUndoSelect && !isOnboardingSelect) return false;
 
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
             ephemeral: true,
         });
+        return true;
+    }
+
+    if (isOnboardingSelect) {
+        await onboarding.handleSelectMenu(interaction);
         return true;
     }
 
@@ -222,13 +235,19 @@ async function handleUndoModalSubmit(interaction) {
 async function handleModalSubmit(interaction) {
     const isQuickModal = interaction.customId.startsWith(model.QUICK_MODAL_PREFIX);
     const isUndoModal = interaction.customId.startsWith(model.UNDO_MODAL_PREFIX);
-    if (!isQuickModal && !isUndoModal) return false;
+    const isOnboardingModal = interaction.customId.startsWith(onboarding.PREFIX);
+    if (!isQuickModal && !isUndoModal && !isOnboardingModal) return false;
 
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
             ephemeral: true,
         });
+        return true;
+    }
+
+    if (isOnboardingModal) {
+        await onboarding.handleModalSubmit(interaction);
         return true;
     }
 

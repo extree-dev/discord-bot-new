@@ -70,4 +70,9 @@ jobs:
                       run_setup_step scripts/setup-modqueue.js
                       run_setup_step scripts/setup-idea-queue.js
                       run_setup_step scripts/setup-admin-panel.js
+                      # После остальных — читает уже сохранённые ID каналов
+                      # правил/верификации/обновлений/рейтинга/тикетов у
+                      # соответствующих фич, которые именно эти шаги выше и
+                      # провижинят.
+                      run_setup_step scripts/setup-onboarding.js
                       exit $FAILED
