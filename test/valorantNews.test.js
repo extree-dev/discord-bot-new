@@ -46,7 +46,7 @@ test('latestArticleDate: пустой список — null', () => {
     assert.equal(latestArticleDate([]), null);
 });
 
-test('buildNewsCard: заголовок и ссылка попадают в текст карточки', () => {
+test('buildNewsCard: заголовок и описание попадают в текст карточки', () => {
     const message = buildNewsCard(
         article('a', '2026-09-20T00:00:00Z', {
             title: 'Patch Notes 13.06',
@@ -61,7 +61,52 @@ test('buildNewsCard: заголовок и ссылка попадают в те
         .join('\n');
     assert.match(text, /Valorant: Patch Notes 13\.06/);
     assert.match(text, /Большой патч/);
-    assert.match(text, /https:\/\/playvalorant\.com\/x/);
+});
+
+test('buildNewsCard: ссылка на статью — кнопка, а не текст', () => {
+    const message = buildNewsCard(article('a', '2026-09-20T00:00:00Z', { url: 'https://playvalorant.com/x' }));
+    const components = message.toJSON().components;
+    const actionRow = components.find(c => c.type === 1);
+    assert.ok(actionRow, 'ожидали ActionRow с кнопкой-ссылкой');
+    assert.equal(actionRow.components[0].url, 'https://playvalorant.com/x');
+    const text = components
+        .filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.doesNotMatch(text, /playvalorant\.com/);
+});
+
+test('buildNewsCard: с banner_url добавляется MediaGallery с этой картинкой', () => {
+    const message = buildNewsCard(
+        article('a', '2026-09-20T00:00:00Z', { banner_url: 'https://example.com/banner.png' })
+    );
+    const gallery = message.toJSON().components.find(c => c.type === 12);
+    assert.ok(gallery, 'ожидали MediaGallery');
+    assert.equal(gallery.items[0].media.url, 'https://example.com/banner.png');
+});
+
+test('buildNewsCard: без banner_url MediaGallery не добавляется', () => {
+    const message = buildNewsCard(article('a', '2026-09-20T00:00:00Z'));
+    const gallery = message.toJSON().components.find(c => c.type === 12);
+    assert.equal(gallery, undefined);
+});
+
+test('buildNewsCard: известная category даёт текстовый бейдж, неизвестная — нет', () => {
+    const withKnown = buildNewsCard(article('a', '2026-09-20T00:00:00Z', { category: 'patch_notes' }));
+    const knownText = withKnown
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.match(knownText, /Патч-ноуты/);
+
+    const withUnknown = buildNewsCard(article('a', '2026-09-20T00:00:00Z', { category: 'something_new' }));
+    const unknownText = withUnknown
+        .toJSON()
+        .components.filter(c => c.type === 10)
+        .map(c => c.content)
+        .join('\n');
+    assert.doesNotMatch(unknownText, /something_new/);
 });
 
 test('buildNewsCard: без pingRoleId упоминание роли в карточке отсутствует', () => {
