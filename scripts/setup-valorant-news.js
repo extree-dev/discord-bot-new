@@ -1,29 +1,35 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits } = require('discord.js');
-const changelog = require('../changelog');
 const valorantNews = require('../valorantNews');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Свой независимый config-store (valorantNews/config.js), но канал у него
-// тот же, что и у changelog/ — #📰│новости-сервера (см. PR про
-// переименование #обновления). Читаем уже сохранённый channelId у
-// changelog/, а не ищем канал заново по имени — тот же приём, что у
-// scripts/setup-onboarding.js с чужими каналами.
+// Канал #📬│game-news — уже существующий на сервере канал для игровых
+// новостей (не бот-управляемый, ID пришёл напрямую от администратора), не
+// #📰│новости-сервера (тот у changelog/ — про релизы бота и объявления
+// администрации, начиная с этого пиннинга больше не используется для
+// новостей Valorant). Тот же приём, что у ADMIN_ROLE_ID в
+// scripts/setup-roles.js — пиним готовый ID константой вместо поиска по
+// имени/создания.
+const GAME_NEWS_CHANNEL_ID = '1550163038517334188';
+
 client.once('clientReady', async () => {
     try {
-        const { channelId } = await changelog.getConfig();
-        if (!channelId) {
-            console.warn(
-                'Канал новостей сервера ещё не настроен (changelog/) — запусти сначала scripts/setup-changelog.js.'
+        const guild = await client.guilds.fetch(process.env.GUILD_ID);
+        await guild.channels.fetch();
+
+        const channel = guild.channels.cache.get(GAME_NEWS_CHANNEL_ID);
+        if (!channel) {
+            console.error(
+                `Канал с ID ${GAME_NEWS_CHANNEL_ID} (ожидался #📬│game-news) не найден на сервере — проверь GAME_NEWS_CHANNEL_ID в scripts/setup-valorant-news.js.`
             );
-            process.exit(0);
+            process.exit(1);
         }
 
         const existing = await valorantNews.getConfig();
-        if (existing.channelId !== channelId) {
-            await valorantNews.saveChannel(channelId);
-            console.log('Канал для новостей Valorant сохранён (тот же, что #новости-сервера).');
+        if (existing.channelId !== channel.id) {
+            await valorantNews.saveChannel(channel.id);
+            console.log(`Канал для новостей Valorant сохранён: ${channel.name} (${channel.id}).`);
         } else {
             console.log('Канал для новостей Valorant уже настроен.');
         }
