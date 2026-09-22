@@ -17,9 +17,17 @@ const PING_ROLE_NAME = 'Игровые новости';
 // HenrikDev API (проверено живым запросом) — остальные (если появятся)
 // просто не покажут бейдж категории, а не сырой английский slug.
 const CATEGORY_LABELS = {
-    patch_notes: '🛠️ Патч-ноуты',
-    game_updates: '📰 Обновление игры',
+    patch_notes: 'Патч-ноуты',
+    game_updates: 'Обновление игры',
 };
+// Лого Valorant, загруженное администратором как кастомный эмодзи
+// сервера — вся эта лента и так только про Valorant, поэтому один и тот
+// же бренд-эмодзи у обеих категорий вместо разных юникод-иконок
+// (🛠️/📰). Резолвится по имени в checkAndPostNews (см. её комментарий),
+// как и остальные кастомные эмодзи адаптации — если админ его удалит,
+// используется юникод-фолбэк, деплой/публикация из-за этого не падает.
+const BADGE_EMOJI_NAME = 'icons8valorant481';
+const BADGE_EMOJI_FALLBACK = '🎯';
 
 async function fetchArticles() {
     const res = await fetch(API_URL, {
@@ -70,7 +78,7 @@ function latestArticleDate(articles) {
 // заголовка/описания (formatBody), просто внутри ОДНОГО TextDisplay:
 // маленькая серая строка-эффектор сразу над жирным заголовком, без
 // разрыва между блоками.
-function buildNewsCard(article, pingRoleId) {
+function buildNewsCard(article, pingRoleId, badgeEmoji = BADGE_EMOJI_FALLBACK) {
     const container = baseContainer(COLORS.primary);
 
     if (pingRoleId) {
@@ -79,7 +87,9 @@ function buildNewsCard(article, pingRoleId) {
 
     const categoryLabel = CATEGORY_LABELS[article.category];
     const body = formatBody(`Valorant: ${article.title}`, article.description || null);
-    container.addTextDisplayComponents(textDisplay(categoryLabel ? `-# ${categoryLabel}\n${body}` : body));
+    container.addTextDisplayComponents(
+        textDisplay(categoryLabel ? `-# ${badgeEmoji} ${categoryLabel}\n${body}` : body)
+    );
 
     if (article.banner_url) {
         container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems({ media: { url: article.banner_url } }));
@@ -127,10 +137,12 @@ async function checkAndPostNews(client) {
     if (!channel) return;
 
     const pingRole = channel.guild.roles.cache.find(r => r.name === PING_ROLE_NAME);
+    const badgeEmojiObj = channel.guild.emojis.cache.find(e => e.name === BADGE_EMOJI_NAME);
+    const badgeEmoji = badgeEmojiObj ? badgeEmojiObj.toString() : BADGE_EMOJI_FALLBACK;
 
     for (const article of fresh) {
         await channel
-            .send(toMessage(buildNewsCard(article, pingRole?.id)))
+            .send(toMessage(buildNewsCard(article, pingRole?.id, badgeEmoji)))
             .catch(err => console.error('valorantNews: не удалось отправить статью:', err.message));
     }
 
