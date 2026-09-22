@@ -36,6 +36,7 @@ const moderation = require('./moderation');
 const modqueue = require('./modqueue');
 const ideaQueue = require('./ideaQueue');
 const adminPanel = require('./adminPanel');
+const valorantNews = require('./valorantNews');
 
 client.once('ready', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
@@ -49,6 +50,7 @@ client.once('ready', () => {
     leveling.register(client);
     modqueue.register(client);
     ideaQueue.register(client);
+    valorantNews.register(client);
 });
 
 client.on('interactionCreate', async interaction => {
