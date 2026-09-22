@@ -6,10 +6,15 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 // В отличие от setup-onboarding.js этот скрипт — часть обычного деплоя
 // (см. .github/workflows/deploy.yml) и гоняется на каждый прогон: он
-// добавляет только те категории из ROLE_CATEGORIES ниже, которых ещё
-// нет среди текущих вопросов (дедуп по title), так что повторный запуск
-// без изменений в списке ничего не делает. Новую категорию — просто
-// дописать в массив, следующий деплой подхватит её сам.
+// СИНХРОНИЗИРУЕТ категории из ROLE_CATEGORIES ниже (полностью
+// пересобирает их с нуля по текущему коду), не трогая ничего другого —
+// вопросы от setup-onboarding.js или добавленные вручную через панель
+// администратора остаются как есть (их title не входит в managedTitles
+// внутри addRoleQuestions). Значит, эмодзи/описание/состав ролей можно
+// свободно менять — просто дописав здесь и передеплоив, дубликатов не
+// будет. Заголовки категорий (title) — единственное, что менять не
+// стоит: смена title создаст рядом НОВУЮ категорию вместо замены старой
+// (сихронизация матчит именно по нему), а старая останется висеть.
 //
 // По прямому запросу администратора: почти все каналы сервера закрыты от
 // новых участников ролью Unverified до прохождения капчи (см.
@@ -26,26 +31,45 @@ const ROLE_CATEGORIES = [
         title: 'Чем тебе нравится заниматься на сервере?',
         singleSelect: false,
         roles: [
-            { name: 'Геймер', color: 0xe74c3c, description: null },
-            { name: 'Творец', color: 0xe67e22, description: null },
-            { name: 'Болтун', color: 0x3498db, description: null },
-            { name: 'Меломан', color: 0x1abc9c, description: null },
+            { name: 'Геймер', color: 0xe74c3c, emoji: '🎮', description: 'Игры — это по мне' },
+            { name: 'Творец', color: 0xe67e22, emoji: '🎨', description: 'Рисую, пишу, монтирую — что угодно' },
+            { name: 'Болтун', color: 0x3498db, emoji: '💬', description: 'Больше всего люблю общение' },
+            { name: 'Меломан', color: 0x1abc9c, emoji: '🎧', description: 'Всегда с музыкой в наушниках' },
         ],
     },
     {
         title: 'Когда ты обычно онлайн?',
         singleSelect: false,
         roles: [
-            { name: 'Жаворонок', color: 0xf1c40f, description: 'Утро и день' },
-            { name: 'Совунья', color: 0x2c3e50, description: 'Вечер и ночь' },
+            { name: 'Жаворонок', color: 0xf1c40f, emoji: '🌅', description: 'Утро и день' },
+            { name: 'Совунья', color: 0x2c3e50, emoji: '🌙', description: 'Вечер и ночь' },
         ],
     },
     {
         title: 'Какой ты новичок?',
         singleSelect: true,
         roles: [
-            { name: 'Активный', color: 0x2ecc71, description: null },
-            { name: 'Тихий наблюдатель', color: 0x95a5a6, description: null },
+            { name: 'Активный', color: 0x2ecc71, emoji: '🔥', description: 'Пишу первым и везде успеваю' },
+            {
+                name: 'Тихий наблюдатель',
+                color: 0x95a5a6,
+                emoji: '🧊',
+                description: 'Сначала смотрю, потом включаюсь',
+            },
+        ],
+    },
+    // Перекликается с ярусами активности (Новичок → Путник → ... →
+    // Хранитель, см. leveling/model.js) без пересечения с ними — здесь
+    // архетип "по вкусу", а не прогресс, роль не заменяет и не имитирует
+    // ни одну из ролей ярусов.
+    {
+        title: 'Какой ты искатель приключений?',
+        singleSelect: true,
+        roles: [
+            { name: 'Воин', color: 0xc0392b, emoji: '⚔️', description: 'Всегда на передовой' },
+            { name: 'Страж', color: 0x7f8c8d, emoji: '🛡️', description: 'Прикрывает тех, кто рядом' },
+            { name: 'Стрелок', color: 0x27ae60, emoji: '🏹', description: 'Бьёт точно и издалека' },
+            { name: 'Маг', color: 0x8e44ad, emoji: '🔮', description: 'Разбирается во всём непонятном' },
         ],
     },
 ];
@@ -68,9 +92,12 @@ async function addRoleQuestions(guild) {
     }
 
     const current = await guild.fetchOnboarding();
-    const existingTitles = new Set([...current.prompts.values()].map(p => p.title));
+    const managedTitles = new Set(ROLE_CATEGORIES.map(c => c.title));
+    // Вопросы не из этого скрипта (setup-onboarding.js, добавленные
+    // вручную через панель) — не трогаем, оставляем как есть.
+    const untouchedPrompts = [...current.prompts.values()].filter(p => !managedTitles.has(p.title));
 
-    const newPrompts = ROLE_CATEGORIES.filter(category => !existingTitles.has(category.title)).map(category => ({
+    const managedPrompts = ROLE_CATEGORIES.map(category => ({
         title: category.title,
         singleSelect: category.singleSelect,
         required: false,
@@ -79,33 +106,29 @@ async function addRoleQuestions(guild) {
         options: category.roles.map(r => ({
             title: r.name,
             description: r.description,
+            emoji: r.emoji,
             channels: [],
             roles: [roleIds[r.name]],
         })),
     }));
 
-    if (newPrompts.length === 0) {
-        console.log('Добавление вопросов адаптации: все вопросы-категории уже есть — ничего не делаю.');
-        return;
-    }
-
     const payload = {
-        prompts: [...current.prompts.values(), ...newPrompts],
+        prompts: [...untouchedPrompts, ...managedPrompts],
         defaultChannels: [...current.defaultChannels.values()],
         mode: current.mode,
-        reason: 'Массовое добавление вопросов адаптации с косметическими ролями',
+        reason: 'Синхронизация вопросов адаптации с косметическими ролями',
     };
 
     try {
         const updated = await guild.editOnboarding({ ...payload, enabled: true });
         console.log(
-            `Готово: добавлено ${newPrompts.length} вопрос(ов), адаптация включена. Всего вопросов: ${updated.prompts.size}.`
+            `Готово: синхронизировано ${managedPrompts.length} вопрос(ов) с ролями, адаптация включена. Всего вопросов: ${updated.prompts.size}.`
         );
     } catch (err) {
         console.warn(`Не удалось включить адаптацию (${err.message}) — сохраняю вопросы выключенными.`);
         const updated = await guild.editOnboarding({ ...payload, enabled: false });
         console.log(
-            `Добавлено ${newPrompts.length} вопрос(ов), но адаптация всё ещё выключена (не хватает вопросов/каналов для порога Discord). Всего вопросов: ${updated.prompts.size}. Можно добавить ещё через панель администратора или запустить скрипт снова с новой категорией.`
+            `Синхронизировано ${managedPrompts.length} вопрос(ов) с ролями, но адаптация всё ещё выключена (не хватает вопросов/каналов для порога Discord). Всего вопросов: ${updated.prompts.size}.`
         );
     }
 }
