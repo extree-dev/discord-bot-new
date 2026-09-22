@@ -15,6 +15,10 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // будет. Заголовки категорий (title) — единственное, что менять не
 // стоит: смена title создаст рядом НОВУЮ категорию вместо замены старой
 // (сихронизация матчит именно по нему), а старая останется висеть.
+// Категорию, которую нужно полностью убрать из визарда (а не просто
+// перестать упоминать в ROLE_CATEGORIES), впиши в RETIRED_TITLES ниже —
+// иначе синхронизация посчитает её "чужой" и оставит висеть нетронутой
+// (роли участников это не трогает, их убирает только вручную админ).
 //
 // По прямому запросу администратора: почти все каналы сервера закрыты от
 // новых участников ролью Unverified до прохождения капчи (см.
@@ -26,6 +30,17 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // вкус/характер, и которые попутно помогают набрать нужный Discord
 // минимум (сумма вопросов+вариантов) для включения адаптации, раз
 // каналов для этого решили не использовать.
+// Discord жёстко ограничивает адаптацию 4 категориями на сервер
+// (проверено на практике: editOnboarding с 6 категориями упал с
+// prompts[TOO_MANY_ONBOARDING_PROMPTS]) — ROLE_CATEGORIES ниже всегда
+// должен содержать не больше 4 записей.
+//
+// Категории, которые раньше были в ROLE_CATEGORIES и уже создавали
+// вопрос на сервере, но теперь убраны из списка выше (например, чтобы
+// освободить место под новые под лимит в 4) — перечисли их title здесь,
+// иначе синхронизация примет их за "чужие" и оставит висеть нетронутыми.
+const RETIRED_TITLES = new Set(['Какой ты новичок?', 'Какой ты искатель приключений?']);
+
 const ROLE_CATEGORIES = [
     {
         title: 'Чем тебе нравится заниматься на сервере?',
@@ -43,33 +58,6 @@ const ROLE_CATEGORIES = [
         roles: [
             { name: 'Жаворонок', color: 0xf1c40f, emoji: '🌅', description: 'Утро и день' },
             { name: 'Совунья', color: 0x2c3e50, emoji: '🌙', description: 'Вечер и ночь' },
-        ],
-    },
-    {
-        title: 'Какой ты новичок?',
-        singleSelect: true,
-        roles: [
-            { name: 'Активный', color: 0x2ecc71, emoji: '🔥', description: 'Пишу первым и везде успеваю' },
-            {
-                name: 'Тихий наблюдатель',
-                color: 0x95a5a6,
-                emoji: '🧊',
-                description: 'Сначала смотрю, потом включаюсь',
-            },
-        ],
-    },
-    // Перекликается с ярусами активности (Новичок → Путник → ... →
-    // Хранитель, см. leveling/model.js) без пересечения с ними — здесь
-    // архетип "по вкусу", а не прогресс, роль не заменяет и не имитирует
-    // ни одну из ролей ярусов.
-    {
-        title: 'Какой ты искатель приключений?',
-        singleSelect: true,
-        roles: [
-            { name: 'Воин', color: 0xc0392b, emoji: '⚔️', description: 'Всегда на передовой' },
-            { name: 'Страж', color: 0x7f8c8d, emoji: '🛡️', description: 'Прикрывает тех, кто рядом' },
-            { name: 'Стрелок', color: 0x27ae60, emoji: '🏹', description: 'Бьёт точно и издалека' },
-            { name: 'Маг', color: 0x8e44ad, emoji: '🔮', description: 'Разбирается во всём непонятном' },
         ],
     },
     // По прямому запросу администратора сервер ориентирован на игровое
@@ -128,8 +116,12 @@ async function addRoleQuestions(guild) {
     const current = await guild.fetchOnboarding();
     const managedTitles = new Set(ROLE_CATEGORIES.map(c => c.title));
     // Вопросы не из этого скрипта (setup-onboarding.js, добавленные
-    // вручную через панель) — не трогаем, оставляем как есть.
-    const untouchedPrompts = [...current.prompts.values()].filter(p => !managedTitles.has(p.title));
+    // вручную через панель) — не трогаем, оставляем как есть. Отдельно
+    // отсекаем RETIRED_TITLES — это бывшие "свои" категории, которые
+    // нужно удалить из визарда, а не просто прекратить упоминать.
+    const untouchedPrompts = [...current.prompts.values()].filter(
+        p => !managedTitles.has(p.title) && !RETIRED_TITLES.has(p.title)
+    );
 
     const managedPrompts = ROLE_CATEGORIES.map(category => ({
         title: category.title,
