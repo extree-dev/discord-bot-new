@@ -1,5 +1,5 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
 const { errorEmbed } = require('./utils/embeds');
 const { ensureSchema, closePool } = require('./utils/db');
 const { loadCommands } = require('./utils/loadCommands');
@@ -38,7 +38,7 @@ const ideaQueue = require('./ideaQueue');
 const adminPanel = require('./adminPanel');
 const valorantNews = require('./valorantNews');
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
     security.register(client);
     voice.register(client);
@@ -176,7 +176,7 @@ client.on('interactionCreate', async interaction => {
             const target = cfg?.channelId ? `<#${cfg.channelId}>` : 'специальном канале';
             await interaction.reply({
                 embeds: [errorEmbed(`Общие команды доступны только в ${target}.`)],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -186,7 +186,10 @@ client.on('interactionCreate', async interaction => {
         await command.execute(interaction);
     } catch (error) {
         console.error(error);
-        const errorReply = { embeds: [errorEmbed('Произошла ошибка при выполнении команды.')], ephemeral: true };
+        const errorReply = {
+            embeds: [errorEmbed('Произошла ошибка при выполнении команды.')],
+            flags: MessageFlags.Ephemeral,
+        };
         try {
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(errorReply);

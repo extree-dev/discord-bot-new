@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const security = require('../../security');
 const { successEmbed } = require('../../utils/embeds');
 
@@ -41,7 +41,7 @@ module.exports = {
         const label = sub === 'verified' ? 'выдаваемая после верификации' : 'выдаваемая до верификации';
         await interaction.reply({
             embeds: [successEmbed(`Роль, ${label}: ${role}.`, 'Сохранено')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     },
 };

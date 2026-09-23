@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const security = require('../../security');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
@@ -51,6 +51,6 @@ module.exports = {
             )
             .setFooter({ text: 'Конфиг хранится в PostgreSQL (bot_stores.security-config)' });
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

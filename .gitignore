@@ -5,3 +5,4 @@ data/
 *.backup2
 *.backup3
 *.backup4
+backups/

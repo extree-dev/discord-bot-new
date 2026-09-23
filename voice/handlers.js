@@ -8,8 +8,10 @@ const {
     TextInputStyle,
     UserSelectMenuBuilder,
     StringSelectMenuBuilder,
+    MessageFlags,
 } = require('discord.js');
 const { load } = require('./config');
+const security = require('../security');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../utils/embeds');
 const model = require('./model');
 
@@ -18,7 +20,7 @@ function resolveUser(interaction, targetId) {
 }
 
 // Общая для всех кнопок/select-меню/модалок этой фичи проверка: "ты
-// сейчас в своей временной комнате (или модератор), и она существует?"
+// сейчас в своей временной комнате, ты её владелец, и она существует?"
 // Раньше жила один раз перед веткой if в каждом из трёх handle*, теперь
 // оборачивает каждый обработчик, чтобы каждый оставался самостоятельным.
 function withTarget(handler) {
@@ -26,7 +28,7 @@ function withTarget(handler) {
         const config = await load();
         const target = model.resolveTarget(interaction, config);
         if (target.error) {
-            await interaction.reply({ embeds: [errorEmbed(target.error)], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed(target.error)], flags: MessageFlags.Ephemeral });
             return;
         }
         await handler(interaction, target.channel, target.entry);
@@ -47,7 +49,7 @@ const handleLockButton = withTarget(async (interaction, channel) => {
                 )
             ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -65,7 +67,7 @@ const handleHideButton = withTarget(async (interaction, channel) => {
                 )
             ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -93,16 +95,34 @@ const handleLimitButton = withTarget(async interaction => {
     await interaction.showModal(modal);
 });
 
-const handleKickButton = withTarget(async (interaction, channel) => {
-    const select = new UserSelectMenuBuilder()
-        .setCustomId('tempvoice_kick_select')
-        .setPlaceholder('Кого отключить от канала?')
-        .setMinValues(1)
-        .setMaxValues(1);
+// Меню из тех, кто сейчас в комнате (без владельца и ботов) — раньше
+// UserSelect предлагал всех участников сервера, и большая часть пунктов
+// заканчивалась ошибкой "его нет в комнате". Discord ограничивает меню 25
+// пунктами — в комнате с лимитом до 99 показываем первых 25.
+function roomMemberSelect(channel, entry, customId, placeholder) {
+    const members = model.getRoomMembers(channel, entry);
+    if (members.length === 0) return null;
+    const options = members.slice(0, 25).map(m => ({
+        label: m.displayName.slice(0, 100),
+        description: m.user.tag.slice(0, 100),
+        value: m.id,
+    }));
+    return new StringSelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).addOptions(options);
+}
+
+const handleKickButton = withTarget(async (interaction, channel, entry) => {
+    const select = roomMemberSelect(channel, entry, 'tempvoice_kick_select', 'Кого отключить от канала?');
+    if (!select) {
+        await interaction.reply({
+            embeds: [errorEmbed('В комнате нет никого, кроме тебя.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
     await interaction.reply({
         content: `Выбери участника, чтобы отключить его от комнаты «${channel.name}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -115,7 +135,7 @@ const handleBlockButton = withTarget(async (interaction, channel) => {
     await interaction.reply({
         content: `Выбери, кому запретить заходить в «${channel.name}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -123,7 +143,10 @@ const handleUnblockButton = withTarget(async (interaction, channel, entry) => {
     const everyoneId = interaction.guild.roles.everyone.id;
     const blockedIds = model.getBlockedMemberIds(channel, entry, everyoneId);
     if (blockedIds.length === 0) {
-        await interaction.reply({ embeds: [errorEmbed('В этой комнате никто не заблокирован.')], ephemeral: true });
+        await interaction.reply({
+            embeds: [errorEmbed('В этой комнате никто не заблокирован.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return;
     }
     const options = blockedIds
@@ -139,20 +162,23 @@ const handleUnblockButton = withTarget(async (interaction, channel, entry) => {
     await interaction.reply({
         content: `Выбери, кого разблокировать в «${channel.name}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
-const handleTransferButton = withTarget(async (interaction, channel) => {
-    const select = new UserSelectMenuBuilder()
-        .setCustomId('tempvoice_transfer_select')
-        .setPlaceholder('Кому передать права владельца?')
-        .setMinValues(1)
-        .setMaxValues(1);
+const handleTransferButton = withTarget(async (interaction, channel, entry) => {
+    const select = roomMemberSelect(channel, entry, 'tempvoice_transfer_select', 'Кому передать права владельца?');
+    if (!select) {
+        await interaction.reply({
+            embeds: [errorEmbed('Передать права можно только тому, кто сейчас в комнате.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
     await interaction.reply({
         content: `Выбери нового владельца комнаты «${channel.name}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -178,10 +204,34 @@ async function handleButton(interaction) {
 
 const handleRenameModal = withTarget(async (interaction, channel) => {
     const name = interaction.fields.getTextInputValue('tempvoice_rename_input').trim();
-    await model.renameRoom(channel, name);
-    await interaction.reply({
+    const { bannedWords } = await security.getConfig();
+    const invalid = model.validateRoomName(name, bannedWords);
+    if (invalid) {
+        await interaction.reply({ embeds: [errorEmbed(invalid)], flags: MessageFlags.Ephemeral });
+        return;
+    }
+    const wait = model.renameWaitMs(channel.id);
+    if (wait > 0) {
+        await interaction.reply({
+            embeds: [
+                errorEmbed(
+                    `Discord разрешает переименовать канал только 2 раза за 10 минут. Попробуй через ${Math.ceil(wait / 60000)} мин.`
+                ),
+            ],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+        await model.renameRoom(channel, name);
+    } catch (err) {
+        console.error('tempVoice: не удалось переименовать комнату:', err.message);
+        await interaction.editReply({ embeds: [errorEmbed('Не удалось переименовать комнату. Попробуй позже.')] });
+        return;
+    }
+    await interaction.editReply({
         embeds: [successEmbed(`Комната переименована в **${name}**.`, 'Комната переименована')],
-        ephemeral: true,
     });
 });
 
@@ -189,10 +239,22 @@ const handleLimitModal = withTarget(async (interaction, channel) => {
     const raw = interaction.fields.getTextInputValue('tempvoice_limit_input').trim();
     const limit = Number(raw);
     if (!Number.isInteger(limit) || limit < 0 || limit > 99) {
-        await interaction.reply({ embeds: [errorEmbed('Введи целое число от 0 до 99.')], ephemeral: true });
+        await interaction.reply({
+            embeds: [errorEmbed('Введи целое число от 0 до 99.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return;
     }
-    await model.setRoomLimit(channel, limit);
+    try {
+        await model.setRoomLimit(channel, limit);
+    } catch (err) {
+        console.error('tempVoice: не удалось изменить лимит комнаты:', err.message);
+        await interaction.reply({
+            embeds: [errorEmbed('Не удалось изменить лимит. Попробуй позже.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
     await interaction.reply({
         embeds: [
             successEmbed(
@@ -200,7 +262,7 @@ const handleLimitModal = withTarget(async (interaction, channel) => {
                 'Лимит обновлён'
             ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -218,24 +280,30 @@ async function handleModalSubmit(interaction) {
 
 // --- Select-меню (выбор конкретного участника после кнопки) ---
 
-const handleKickSelect = withTarget(async (interaction, channel) => {
+const handleKickSelect = withTarget(async (interaction, channel, entry) => {
     const targetId = interaction.values[0];
     const targetMember = channel.members.get(targetId);
-    if (!targetMember) {
-        await interaction.reply({ embeds: [errorEmbed('Этого участника нет в твоей комнате.')], ephemeral: true });
+    if (!targetMember || targetMember.user.bot || targetId === entry.ownerId) {
+        await interaction.reply({
+            embeds: [errorEmbed('Этого участника нет в твоей комнате.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return;
     }
     await model.kickFromRoom(targetMember);
     await interaction.reply({
         embeds: [successEmbed(`${targetMember} отключён от комнаты «${channel.name}».`, 'Участник отключён')],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
 const handleBlockSelect = withTarget(async (interaction, channel, entry) => {
     const targetId = interaction.values[0];
     if (targetId === entry.ownerId) {
-        await interaction.reply({ embeds: [errorEmbed('Нельзя заблокировать самого себя.')], ephemeral: true });
+        await interaction.reply({
+            embeds: [errorEmbed('Нельзя заблокировать самого себя.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return;
     }
     await model.blockInRoom(channel, targetId);
@@ -244,7 +312,7 @@ const handleBlockSelect = withTarget(async (interaction, channel, entry) => {
         embeds: [
             successEmbed(`${user ?? 'Участник'} заблокирован в комнате «${channel.name}».`, 'Участник заблокирован'),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -253,14 +321,27 @@ const handleUnblockSelect = withTarget(async (interaction, channel) => {
     await model.unblockInRoom(channel, targetId);
     await interaction.reply({
         embeds: [successEmbed('Блокировка снята.', 'Блокировка снята')],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
 const handleTransferSelect = withTarget(async (interaction, channel, entry) => {
     const targetId = interaction.values[0];
     if (targetId === entry.ownerId) {
-        await interaction.reply({ embeds: [errorEmbed('Ты уже владелец этой комнаты.')], ephemeral: true });
+        await interaction.reply({
+            embeds: [errorEmbed('Ты уже владелец этой комнаты.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+    // Меню собрано на момент нажатия кнопки — за это время выбранный
+    // участник мог уйти. Права получает только тот, кто всё ещё в комнате.
+    const targetMember = channel.members.get(targetId);
+    if (!targetMember || targetMember.user.bot) {
+        await interaction.reply({
+            embeds: [errorEmbed('Этого участника уже нет в твоей комнате.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return;
     }
     await model.transferOwnership(channel, entry, targetId);
@@ -272,7 +353,7 @@ const handleTransferSelect = withTarget(async (interaction, channel, entry) => {
                 'Права переданы'
             ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 });
 
@@ -291,6 +372,7 @@ async function handleSelectMenu(interaction) {
 }
 
 function register(client) {
+    model.startSweep(client);
     client.on('voiceStateUpdate', (oldState, newState) => {
         model.handleVoiceStateUpdate(oldState, newState).catch(err => console.error('tempVoice:', err));
     });

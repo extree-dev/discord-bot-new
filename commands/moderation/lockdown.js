@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const security = require('../../security');
 const { COLORS, baseEmbed, formatBody, infoEmbed } = require('../../utils/embeds');
 
@@ -12,7 +12,7 @@ module.exports = {
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (sub === 'on') {
             const result = await security.activateLockdown(interaction.guild, interaction.user);

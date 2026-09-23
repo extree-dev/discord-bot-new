@@ -30,6 +30,42 @@ services:
         volumes:
             - bot-data:/app/data
 
+    # Ежедневный дамп базы в ./backups на хосте (рядом с docker-compose.yml),
+    # хранятся последние BACKUP_KEEP файлов. Раньше вся база жила только в
+    # томе pgdata без единой копии — потеря тома означала потерю всего.
+    # Первый дамп — сразу при запуске сервиса. Восстановление:
+    # gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U discordbot discordbot
+    db-backup:
+        image: postgres:16-alpine
+        restart: unless-stopped
+        environment:
+            PGHOST: postgres
+            PGUSER: ${POSTGRES_USER:-discordbot}
+            PGPASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            PGDATABASE: ${POSTGRES_DB:-discordbot}
+            BACKUP_KEEP: 7
+        volumes:
+            - ./backups:/backups
+        depends_on:
+            postgres:
+                condition: service_healthy
+        entrypoint: ['/bin/sh', '-c']
+        command:
+            - |
+                set -o pipefail
+                while true; do
+                    file=/backups/discordbot-$$(date +%Y-%m-%d_%H%M).sql.gz
+                    if pg_dump --clean --if-exists | gzip > "$$file.tmp"; then
+                        mv "$$file.tmp" "$$file"
+                        echo "backup: $$file"
+                    else
+                        rm -f "$$file.tmp"
+                        echo "backup: pg_dump завершился с ошибкой" >&2
+                    fi
+                    ls -1t /backups/discordbot-*.sql.gz 2>/dev/null | tail -n +$$((BACKUP_KEEP + 1)) | xargs -r rm -f
+                    sleep 86400
+                done
+
 volumes:
     pgdata:
     bot-data:

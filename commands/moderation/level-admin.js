@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const leveling = require('../../leveling');
 const { successEmbed } = require('../../utils/embeds');
 
@@ -57,7 +57,7 @@ module.exports = {
                         'Готово'
                     ),
                 ],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -69,7 +69,7 @@ module.exports = {
         const targets = ['user1', 'user2', 'user3'].map(name => interaction.options.getUser(name)).filter(Boolean);
         const uniqueTargets = [...new Map(targets.map(u => [u.id, u])).values()];
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         for (const target of uniqueTargets) {
             await leveling.resetStats(interaction.guild, target.id);
         }

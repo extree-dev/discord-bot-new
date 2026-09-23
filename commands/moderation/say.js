@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
 const security = require('../../security');
 
@@ -31,7 +31,7 @@ module.exports = {
         if (!permissions?.has(PermissionFlagsBits.ViewChannel) || !permissions.has(PermissionFlagsBits.SendMessages)) {
             return interaction.reply({
                 embeds: [errorEmbed('У меня нет прав писать в этот канал.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -40,13 +40,13 @@ module.exports = {
         } catch (err) {
             return interaction.reply({
                 embeds: [errorEmbed(`Не удалось отправить сообщение: ${err.message}`)],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
         await interaction.reply({
             embeds: [successEmbed(`Сообщение отправлено в ${channel}.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
 
         // Discord не пишет в свой audit log отдельные сообщения бота — без

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { getWarnings, clearWarnings } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
@@ -22,7 +22,7 @@ module.exports = {
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
                 .setDescription(formatBody('Предупреждения очищены'))
                 .addFields({ name: 'Модератор', value: `${interaction.user}`, inline: true });
-            return interaction.reply({ embeds: [clearedEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [clearedEmbed], flags: MessageFlags.Ephemeral });
         }
 
         const warnings = await getWarnings(interaction.guild.id, target.id);
@@ -31,7 +31,7 @@ module.exports = {
             const emptyEmbed = baseEmbed(COLORS.primary)
                 .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
                 .setDescription(formatBody('Предупреждения', 'У этого участника нет предупреждений.'));
-            return interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [emptyEmbed], flags: MessageFlags.Ephemeral });
         }
 
         const embed = baseEmbed(COLORS.warning)
@@ -46,6 +46,6 @@ module.exports = {
             )
             .setFooter({ text: `Всего: ${warnings.length} · ID: ${target.id}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

@@ -1,7 +1,7 @@
 // Роутинг Discord-взаимодействий системы предложений: кнопка открытия
 // формы и сабмит модалки — через карты customId -> обработчик, вся
 // доменная работа делегирована в suggestions/model.js.
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../utils/embeds');
 const model = require('./model');
 
@@ -50,7 +50,7 @@ async function handleSuggestionModal(interaction) {
     const result = await model.createSuggestion(interaction, { title, description });
 
     if (result.error) {
-        await interaction.reply({ embeds: [errorEmbed(result.error)], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed(result.error)], flags: MessageFlags.Ephemeral });
         return;
     }
 
@@ -61,7 +61,7 @@ async function handleSuggestionModal(interaction) {
                 'Предложение отправлено'
             ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 }
 

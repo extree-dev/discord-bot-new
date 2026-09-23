@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
@@ -13,7 +13,10 @@ module.exports = {
 
         const bans = await interaction.guild.bans.fetch();
         if (!bans.has(userId)) {
-            return interaction.reply({ embeds: [errorEmbed('Этот пользователь не забанен.')], ephemeral: true });
+            return interaction.reply({
+                embeds: [errorEmbed('Этот пользователь не забанен.')],
+                flags: MessageFlags.Ephemeral,
+            });
         }
 
         await interaction.guild.members.unban(userId);
@@ -25,6 +28,6 @@ module.exports = {
                 { name: 'Модератор', value: `${interaction.user}`, inline: true }
             );
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require(
 const ideaQueue = require('../ideaQueue');
 const security = require('../security');
 const tickets = require('../tickets');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { isBootstrap, ensureChannel } = require('../utils/setupMode');
 
 // Канал, где участники пишут предложения по нему самому — задан
 // администратором напрямую по ID (тот же приём, что MANAGEMENT_
@@ -48,9 +48,13 @@ client.once('clientReady', async () => {
             process.exit(1);
         }
 
-        await channel
-            .setRateLimitPerUser(SLOWMODE_SECONDS)
-            .catch(err => console.error('Не удалось выставить slowmode на канал предложений:', err.message));
+        // Только при первичной настройке — на каждом деплое это сбрасывало
+        // slowmode, выставленный администратором вручную.
+        if (isBootstrap()) {
+            await channel
+                .setRateLimitPerUser(SLOWMODE_SECONDS)
+                .catch(err => console.error('Не удалось выставить slowmode на канал предложений:', err.message));
+        }
 
         // Видят только модерация и поддержка — тот же набор ролей, что и у
         // канала очереди модерации (scripts/setup-modqueue.js).
@@ -62,7 +66,7 @@ client.once('clientReady', async () => {
             ticketsConfig.betaSupportRoleId,
         ].filter(Boolean);
 
-        const { channel: reviewChannel, created } = await findOrCreateChannel({
+        const { channel: reviewChannel, created } = await ensureChannel({
             guild,
             existingId: config.reviewChannelId,
             name: REVIEW_CHANNEL_NAME,
@@ -76,22 +80,24 @@ client.once('clientReady', async () => {
         });
         if (created) {
             console.log(`Создан канал: ${REVIEW_CHANNEL_NAME}`);
-        } else {
+        } else if (reviewChannel) {
             console.log('Канал проверки предложений уже настроен');
-            await reviewChannel.permissionOverwrites
-                .edit(guild.roles.everyone.id, { ViewChannel: false })
-                .catch(() => {});
-            for (const id of staffRoleIds) {
-                await reviewChannel.permissionOverwrites.edit(id, { ViewChannel: true }).catch(() => {});
+            if (isBootstrap()) {
+                await reviewChannel.permissionOverwrites
+                    .edit(guild.roles.everyone.id, { ViewChannel: false })
+                    .catch(() => {});
+                for (const id of staffRoleIds) {
+                    await reviewChannel.permissionOverwrites.edit(id, { ViewChannel: true }).catch(() => {});
+                }
             }
         }
 
         await ideaQueue.updateConfig(cfg => {
             cfg.channelId = channel.id;
-            cfg.reviewChannelId = reviewChannel.id;
+            if (reviewChannel) cfg.reviewChannelId = reviewChannel.id;
         });
 
-        console.log(`Готово. Очередь предложений настроена (slowmode ${SLOWMODE_SECONDS / 3600} ч).`);
+        console.log('Готово. Очередь предложений настроена.');
         process.exit(0);
     } catch (err) {
         console.error('Ошибка настройки очереди предложений:', err);

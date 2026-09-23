@@ -7,6 +7,7 @@ const {
     TextInputBuilder,
     TextInputStyle,
     StringSelectMenuBuilder,
+    MessageFlags,
 } = require('discord.js');
 const { load } = require('./config');
 const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
@@ -55,7 +56,7 @@ async function handleCreateModal(interaction) {
     // ID, создание треда, отправка сообщения) — без него на медленной
     // сети interaction протухает за 3 секунды, хотя тикет всё равно
     // успешно создаётся в фоне.
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
         const rawTarget = interaction.fields.getTextInputValue(TARGET_INPUT_ID).trim();
@@ -84,7 +85,7 @@ async function handlePunishButton(interaction) {
     if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может применять наказания.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
@@ -102,7 +103,7 @@ async function handlePunishButton(interaction) {
     await interaction.reply({
         content: 'Выбери наказание для нарушителя:',
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 }
 
@@ -142,11 +143,11 @@ async function handleManagementListButton(interaction) {
     if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может это смотреть.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const threads = await model.listActiveTickets(interaction.guild, config);
     await interaction.editReply({
         embeds: [successEmbed(model.formatActiveTicketsList(threads), 'Активные тикеты')],
@@ -159,11 +160,11 @@ async function handleManagementStatsButton(interaction) {
     if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может это смотреть.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const stats = await model.getTicketStats(interaction.guild, config);
     await interaction.editReply({ embeds: [successEmbed(model.formatTicketStats(stats), 'Статистика тикетов')] });
 }
@@ -207,7 +208,7 @@ async function handleMgmtClaimButton(interaction) {
     if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может брать тикеты в работу.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
@@ -242,7 +243,7 @@ async function handleMgmtCloseButton(interaction) {
     if (!model.isStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Только поддержка или модератор может закрывать тикеты.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
@@ -296,7 +297,7 @@ async function handleMgmtApproveCloseButton(interaction) {
     if (!model.isSeniorStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Подтверждать закрытие может только старший состав.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
@@ -320,7 +321,7 @@ async function handleMgmtDenyCloseButton(interaction) {
     if (!model.isSeniorStaff(config, interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Отклонять закрытие может только старший состав.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }

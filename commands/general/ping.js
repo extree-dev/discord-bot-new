@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
@@ -7,7 +7,7 @@ module.exports = {
     async execute(interaction) {
         await interaction.reply({
             embeds: [baseEmbed(COLORS.primary).setDescription(formatBody('Пинг', 'Измеряю задержку...'))],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
 
         const sent = await interaction.fetchReply();

@@ -1,49 +1,44 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { findNewArticles, latestArticleDate, buildNewsCard } = require('../valorantNews/model');
+const { findUnseenArticles, mergeSeenIds, buildNewsCard } = require('../valorantNews/model');
 
 function article(id, date, overrides = {}) {
     return { id, date, title: `Статья ${id}`, url: `https://example.com/${id}`, description: null, ...overrides };
 }
 
-test('findNewArticles: возвращает только статьи строго новее sinceIso, отсортированные от старых к новым', () => {
+test('findUnseenArticles: только ещё не виденные статьи, от старых к новым', () => {
     const articles = [
         article('c', '2026-09-20T00:00:00Z'),
         article('a', '2026-09-10T00:00:00Z'),
         article('b', '2026-09-15T00:00:00Z'),
     ];
-    const fresh = findNewArticles(articles, '2026-09-12T00:00:00Z');
     assert.deepEqual(
-        fresh.map(a => a.id),
+        findUnseenArticles(articles, ['a']).map(a => a.id),
         ['b', 'c']
     );
 });
 
-test('findNewArticles: sinceIso === null считает все статьи новыми', () => {
-    const articles = [article('a', '2026-09-10T00:00:00Z'), article('b', '2026-09-15T00:00:00Z')];
+test('findUnseenArticles: анонс с датой из будущего не мешает публикации более ранних статей', () => {
+    const trailer = article('trailer', '2026-12-05T00:00:00Z');
+    const news = article('news', '2026-09-22T00:00:00Z');
     assert.deepEqual(
-        findNewArticles(articles, null).map(a => a.id),
-        ['a', 'b']
+        findUnseenArticles([trailer, news], ['trailer']).map(a => a.id),
+        ['news']
     );
 });
 
-test('findNewArticles: ровно та же дата, что и sinceIso — не считается новой', () => {
-    const since = '2026-09-15T00:00:00Z';
-    const articles = [article('a', since)];
-    assert.deepEqual(findNewArticles(articles, since), []);
+test('findUnseenArticles: без id статья узнаётся по url, без обоих — пропускается', () => {
+    const noId = article(undefined, '2026-09-10T00:00:00Z', { url: 'https://example.com/x' });
+    const nothing = article(undefined, '2026-09-11T00:00:00Z', { url: undefined });
+    assert.deepEqual(findUnseenArticles([noId, nothing], ['https://example.com/x']), []);
+    assert.deepEqual(findUnseenArticles([noId, nothing], []), [noId]);
 });
 
-test('latestArticleDate: находит максимальную дату среди статей', () => {
-    const articles = [
-        article('a', '2026-09-10T00:00:00Z'),
-        article('b', '2026-09-20T00:00:00Z'),
-        article('c', '2026-09-15T00:00:00Z'),
-    ];
-    assert.equal(latestArticleDate(articles), '2026-09-20T00:00:00Z');
-});
-
-test('latestArticleDate: пустой список — null', () => {
-    assert.equal(latestArticleDate([]), null);
+test('mergeSeenIds: текущая лента плюс выпавшие из неё, без повторов и с ограничением размера', () => {
+    const articles = [article('b', '2026-09-15T00:00:00Z'), article('c', '2026-09-20T00:00:00Z')];
+    assert.deepEqual(mergeSeenIds(articles, ['a', 'b']), ['b', 'c', 'a']);
+    const many = Array.from({ length: 250 }, (_, i) => `old-${i}`);
+    assert.equal(mergeSeenIds(articles, many).length, 200);
 });
 
 test('buildNewsCard: заголовок и описание попадают в текст карточки', () => {

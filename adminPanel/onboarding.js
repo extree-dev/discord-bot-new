@@ -16,6 +16,7 @@ const {
     RoleSelectMenuBuilder,
     ChannelType,
     GuildOnboardingPromptType,
+    MessageFlags,
 } = require('discord.js');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 const { COLORS, errorEmbed, successEmbed } = require('../utils/embeds');
@@ -200,11 +201,12 @@ async function handleButton(interaction) {
         if (!data) {
             await interaction.reply({
                 embeds: [errorEmbed('Не удалось получить данные адаптации от Discord.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
-        await interaction.reply({ ...buildOnboardingMessage(data), ephemeral: true });
+        const message = buildOnboardingMessage(data);
+        await interaction.reply({ ...message, flags: message.flags | MessageFlags.Ephemeral });
         return;
     }
 
@@ -215,7 +217,10 @@ async function handleButton(interaction) {
             await interaction.message.edit(buildOnboardingMessage(updated)).catch(() => {});
         } catch (err) {
             await interaction
-                .followUp({ embeds: [errorEmbed(`Discord отклонил изменение: ${err.message}`)], ephemeral: true })
+                .followUp({
+                    embeds: [errorEmbed(`Discord отклонил изменение: ${err.message}`)],
+                    flags: MessageFlags.Ephemeral,
+                })
                 .catch(() => {});
         }
         return;
@@ -295,7 +300,7 @@ async function handleModalSubmit(interaction) {
         await interaction.reply({
             content: `Вопрос «${title}» — что выдаёт этот вариант ответа?`,
             components: [targetRow],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -304,10 +309,13 @@ async function handleModalSubmit(interaction) {
         const raw = interaction.fields.getTextInputValue('index').trim();
         const index = Number.parseInt(raw, 10) - 1;
         if (!Number.isInteger(index)) {
-            await interaction.reply({ embeds: [errorEmbed('Номер вопроса должен быть числом.')], ephemeral: true });
+            await interaction.reply({
+                embeds: [errorEmbed('Номер вопроса должен быть числом.')],
+                flags: MessageFlags.Ephemeral,
+            });
             return true;
         }
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const result = await removePromptAt(interaction.guild, index).catch(err => ({ error: err.message }));
         if (result.error) {
             await interaction.editReply({ embeds: [errorEmbed(result.error)] });
@@ -331,12 +339,12 @@ async function handleSelectMenu(interaction) {
     if (!pending) {
         await interaction.reply({
             embeds: [errorEmbed('Сессия добавления вопроса истекла — начни заново кнопкой «Добавить вопрос».')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const targets = isChannelTarget
         ? { channels: [...interaction.channels.values()] }
         : { roles: [...interaction.roles.values()] };

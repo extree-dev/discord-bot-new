@@ -2,7 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const adminPanel = require('../adminPanel');
 const security = require('../security');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -30,10 +30,9 @@ client.once('clientReady', async () => {
             process.exit(1);
         }
 
-        // Та же категория, что и security-log (security/logger.js) — по
-        // имени: findOrCreateChannel сам найдёт уже существующую, если
-        // security-log успел её создать раньше, дубликата не будет.
-        const { channel: category } = await findOrCreateChannel({
+        // Та же категория, что и security-log (security/logger.js) — поиск
+        // по имени находит уже существующую, дубликата не будет.
+        const { channel: category } = await ensureChannel({
             guild,
             existingId: config.categoryId,
             name: CATEGORY_NAME,
@@ -42,13 +41,14 @@ client.once('clientReady', async () => {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
             },
         });
+        if (!category) process.exit(0);
 
         const overwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
             { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel] },
             { id: adminRoleId, allow: [PermissionFlagsBits.ViewChannel] },
         ];
-        const { channel, created } = await findOrCreateChannel({
+        const { channel, created } = await ensureChannel({
             guild,
             existingId: config.channelId,
             name: CHANNEL_NAME,
@@ -56,25 +56,27 @@ client.once('clientReady', async () => {
             parentId: category.id,
             createOptions: { permissionOverwrites: overwrites },
         });
+        if (!channel) process.exit(0);
         if (created) {
             console.log(`Создан канал: ${CHANNEL_NAME}`);
         } else {
             console.log('Канал панели администратора уже настроен');
-            await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
-            await channel.permissionOverwrites.edit(client.user.id, { ViewChannel: true }).catch(() => {});
-            await channel.permissionOverwrites.edit(adminRoleId, { ViewChannel: true }).catch(() => {});
+            if (isBootstrap()) {
+                await channel.permissionOverwrites
+                    .edit(guild.roles.everyone.id, { ViewChannel: false })
+                    .catch(() => {});
+                await channel.permissionOverwrites.edit(client.user.id, { ViewChannel: true }).catch(() => {});
+                await channel.permissionOverwrites.edit(adminRoleId, { ViewChannel: true }).catch(() => {});
+            }
         }
 
         const status = await adminPanel.gatherStatus();
-        const messages = await channel.messages.fetch({ limit: 10 });
-        const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
-        if (existingPanel) {
-            await existingPanel.edit(adminPanel.buildPanelMessage(status));
-            console.log('Панель администратора обновлена.');
-        } else {
-            await channel.send(adminPanel.buildPanelMessage(status));
-            console.log('Панель администратора отправлена.');
-        }
+        await refreshPanel({
+            channel,
+            botId: client.user.id,
+            payload: adminPanel.buildPanelMessage(status),
+            label: 'Панель администратора',
+        });
 
         await adminPanel.updateConfig(cfg => {
             cfg.channelId = channel.id;

@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
 const { COLORS, baseEmbed, formatBody, errorEmbed, infoEmbed, warningEmbed } = require('../utils/embeds');
@@ -123,7 +123,7 @@ async function startVerification(interaction) {
     if (verifiedRole && member.roles.cache.has(verifiedRole.id)) {
         await interaction.reply({
             embeds: [infoEmbed('Ты уже верифицирован.', 'Уже верифицирован')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -141,7 +141,7 @@ async function startVerification(interaction) {
                     'Верификация недоступна'
                 ),
             ],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -161,7 +161,7 @@ async function startVerification(interaction) {
                     'Подожди немного'
                 ),
             ],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         await log(
             guild,
@@ -181,7 +181,7 @@ async function startVerification(interaction) {
                     `Слишком много неверных попыток — подожди ещё ${minutesLeft(entry.lockedUntil)} мин. и нажми кнопку снова.`
                 ),
             ],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -214,7 +214,7 @@ async function startVerification(interaction) {
         ],
         files: [attachment],
         components: [row],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
     return true;
 }
@@ -248,7 +248,7 @@ async function handlePick(interaction) {
                     'Верификация недоступна'
                 ),
             ],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -256,7 +256,7 @@ async function handlePick(interaction) {
     if (!challenge || Date.now() > challenge.expiresAt) {
         await interaction.reply({
             embeds: [errorEmbed('Код устарел. Нажми кнопку «Пройти верификацию» ещё раз.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -267,7 +267,7 @@ async function handlePick(interaction) {
         const message = entry.lockedUntil
             ? `Неверный код. Слишком много неудачных попыток — новые попытки заблокированы на ${Math.round(config.verification.captchaLockoutMs / 60000)} мин.`
             : `Неверный код. Осталось попыток: ${Math.max(0, config.verification.maxCaptchaAttempts - entry.count)}. Нажми «Пройти верификацию» ещё раз.`;
-        await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+        await interaction.reply({ embeds: [errorEmbed(message)], flags: MessageFlags.Ephemeral });
         return true;
     }
 
@@ -287,7 +287,7 @@ async function handlePick(interaction) {
         console.error('verification: не удалось выдать роли:', err.message);
         await interaction.reply({
             embeds: [errorEmbed('Не получилось выдать роль автоматически, обратись к администратору.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -306,7 +306,7 @@ async function handlePick(interaction) {
     const passedEmbed = baseEmbed(COLORS.success).setDescription(
         formatBody('Верификация пройдена', 'Добро пожаловать!')
     );
-    await interaction.reply({ embeds: [passedEmbed], ephemeral: true });
+    await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral });
     await log(
         guild,
         baseEmbed(COLORS.success)

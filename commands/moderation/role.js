@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { errorEmbed, successEmbed } = require('../../utils/embeds');
 
 module.exports = {
@@ -30,7 +30,7 @@ module.exports = {
         if (!member) {
             return interaction.reply({
                 embeds: [errorEmbed('Не удалось найти этого участника на сервере.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -38,13 +38,13 @@ module.exports = {
         if (role.position >= botHighestRole.position) {
             return interaction.reply({
                 embeds: [errorEmbed('Эта роль выше или равна высшей роли бота — я не могу ей управлять.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
         if (role.managed) {
             return interaction.reply({
                 embeds: [errorEmbed('Это роль интеграции/бота — ей нельзя управлять вручную.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -52,23 +52,26 @@ module.exports = {
             if (member.roles.cache.has(role.id)) {
                 return interaction.reply({
                     embeds: [errorEmbed(`У ${member} уже есть роль ${role}.`)],
-                    ephemeral: true,
+                    flags: MessageFlags.Ephemeral,
                 });
             }
             await member.roles.add(role, `Выдано: ${interaction.user.tag}`);
             return interaction.reply({
                 embeds: [successEmbed(`${member} получил роль ${role}.`, 'Роль выдана')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
         if (!member.roles.cache.has(role.id)) {
-            return interaction.reply({ embeds: [errorEmbed(`У ${member} нет роли ${role}.`)], ephemeral: true });
+            return interaction.reply({
+                embeds: [errorEmbed(`У ${member} нет роли ${role}.`)],
+                flags: MessageFlags.Ephemeral,
+            });
         }
         await member.roles.remove(role, `Снято: ${interaction.user.tag}`);
         return interaction.reply({
             embeds: [successEmbed(`У ${member} снята роль ${role}.`, 'Роль снята')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     },
 };

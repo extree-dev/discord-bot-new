@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { loadCommands } = require('../../utils/loadCommands');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
@@ -48,6 +48,6 @@ module.exports = {
             .setDescription(`${formatBody('Команды бота')}\n\n${lines.join('\n').trim()}`)
             .setFooter({ text: `Доступно тебе: ${commands.length} из ${allCommands.length}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

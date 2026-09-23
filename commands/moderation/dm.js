@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
 const { buildClearHistoryButtonRow } = require('../../utils/dm');
 const security = require('../../security');
@@ -26,13 +26,13 @@ module.exports = {
                         `Не удалось отправить личное сообщение (у пользователя могут быть закрыты DM): ${err.message}`
                     ),
                 ],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
         await interaction.reply({
             embeds: [successEmbed(`Личное сообщение отправлено ${target}.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
 
         // См. say.js — Discord не логирует DM бота сам, запись в

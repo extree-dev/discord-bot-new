@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 const { notifyPunishment } = require('../../utils/punishmentNotice');
 const moderation = require('../../moderation');
@@ -28,7 +28,7 @@ module.exports = {
         if (!member) {
             return interaction.reply({
                 embeds: [errorEmbed('Не удалось найти этого участника на сервере.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -41,7 +41,7 @@ module.exports = {
                     { name: 'Участник', value: `${target}`, inline: true },
                     { name: 'Модератор', value: `${interaction.user}`, inline: true }
                 );
-            return interaction.reply({ embeds: [unmuteEmbed], ephemeral: true });
+            return interaction.reply({ embeds: [unmuteEmbed], flags: MessageFlags.Ephemeral });
         }
 
         // Не нативный Discord-таймаут, а собственная роль "Muted" (см.
@@ -58,7 +58,7 @@ module.exports = {
             interaction.user.id
         );
         if (muteResult.error) {
-            return interaction.reply({ embeds: [errorEmbed(muteResult.error)], ephemeral: true });
+            return interaction.reply({ embeds: [errorEmbed(muteResult.error)], flags: MessageFlags.Ephemeral });
         }
 
         await notifyPunishment(target, interaction.guild, {
@@ -78,6 +78,6 @@ module.exports = {
             )
             .setFooter({ text: `ID: ${target.id}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

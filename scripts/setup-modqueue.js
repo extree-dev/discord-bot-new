@@ -4,6 +4,7 @@ const modqueue = require('../modqueue');
 const security = require('../security');
 const tickets = require('../tickets');
 const { findChannel } = require('../utils/idempotent');
+const { isBootstrap } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -45,9 +46,11 @@ client.once('clientReady', async () => {
             process.exit(0);
         }
         console.log(`Канал очереди модерации уже настроен: ${channel.name}`);
-        await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
-        for (const id of staffRoleIds) {
-            await channel.permissionOverwrites.edit(id, { ViewChannel: true }).catch(() => {});
+        if (isBootstrap()) {
+            await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
+            for (const id of staffRoleIds) {
+                await channel.permissionOverwrites.edit(id, { ViewChannel: true }).catch(() => {});
+            }
         }
 
         await modqueue.updateConfig(cfg => {

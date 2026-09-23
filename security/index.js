@@ -37,4 +37,6 @@ module.exports = {
     activateLockdown: lockdown.activate,
     deactivateLockdown: lockdown.deactivate,
     log: logger.log,
+    isInviteLink: automod.isInviteLink,
+    isPhishingLink: automod.isPhishingLink,
 };

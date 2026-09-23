@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
 const { clearBotDmHistory } = require('../../utils/dm');
 const security = require('../../security');
@@ -12,7 +12,7 @@ module.exports = {
 
     async execute(interaction) {
         const target = interaction.options.getUser('user');
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const result = await clearBotDmHistory(interaction.client, target.id);
         if (result.error) {

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, version: discordJsVersion } = require('discord.js');
+const { SlashCommandBuilder, version: discordJsVersion, MessageFlags } = require('discord.js');
 const { getVersion, getAppName, formatUptime } = require('../../utils/version');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
@@ -16,6 +16,6 @@ module.exports = {
             )
             .setFooter({ text: getAppName() });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

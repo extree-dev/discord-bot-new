@@ -38,24 +38,35 @@ async function fetchArticles() {
     return Array.isArray(body?.data) ? body.data : [];
 }
 
-// Только статьи строже новее sinceIso, от старых к новым — чтобы при
-// публикации сразу нескольких пропущенных новостей порядок сообщений в
-// канале совпадал с хронологией их выхода. sinceIso === null (самый
-// первый прогон, см. checkAndPostNews) означает "ничего ещё не видели" —
-// формально тогда все статьи "новые", но checkAndPostNews такой список
-// не публикует, а только использует latestArticleDate() для затравки.
-function findNewArticles(articles, sinceIso) {
-    const since = sinceIso ? new Date(sinceIso).getTime() : null;
-    return articles
-        .filter(a => a?.date && (since === null || new Date(a.date).getTime() > since))
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
+// Раньше новизна определялась датой: запоминалась самая поздняя дата в
+// ленте, и публиковалось только то, что вышло позже неё. HenrikDev
+// отдаёт в ленте и анонсы с датой из будущего (трейлер с датой
+// 2026-12-05) — после такой статьи порог уезжал вперёд, и все настоящие
+// новости с более ранней датой не публиковались вообще. Теперь помним
+// сами статьи (по id, а без него — по url), которые уже видели.
+const SEEN_LIMIT = 200;
+
+function articleKey(article) {
+    return article?.id || article?.url || null;
 }
 
-function latestArticleDate(articles) {
-    return articles.reduce((max, a) => {
-        if (!a?.date) return max;
-        return !max || new Date(a.date) > new Date(max) ? a.date : max;
-    }, null);
+// Ещё не виденные статьи, от старых к новым — чтобы при публикации сразу
+// нескольких пропущенных новостей порядок сообщений в канале совпадал с
+// хронологией их выхода.
+function findUnseenArticles(articles, seenIds) {
+    const seen = new Set(seenIds);
+    return articles
+        .filter(a => articleKey(a) && !seen.has(articleKey(a)))
+        .sort((a, b) => new Date(a.date ?? 0) - new Date(b.date ?? 0));
+}
+
+// Статьи текущей ленты плюс ранее виденные, которых в ленте уже нет, —
+// чтобы статья, ненадолго выпавшая из ленты, не опубликовалась повторно.
+// Ограничено SEEN_LIMIT, чтобы список не рос бесконечно.
+function mergeSeenIds(articles, seenIds) {
+    const current = articles.map(articleKey).filter(Boolean);
+    const currentSet = new Set(current);
+    return [...current, ...seenIds.filter(id => !currentSet.has(id))].slice(0, SEEN_LIMIT);
 }
 
 // pingRoleId — необязательный: упоминание роли рисуется отдельной
@@ -121,14 +132,17 @@ async function checkAndPostNews(client) {
 
     const cfg = await config.load();
 
-    if (!cfg.lastArticleDate) {
+    // Самый первый прогон (или первый после перехода с lastArticleDate):
+    // не публикуем весь бэклог ленты, только запоминаем, что уже в ней есть.
+    if (!Array.isArray(cfg.seenArticleIds)) {
         await config.update(c => {
-            c.lastArticleDate = latestArticleDate(articles);
+            c.seenArticleIds = mergeSeenIds(articles, []);
+            delete c.lastArticleDate;
         });
         return;
     }
 
-    const fresh = findNewArticles(articles, cfg.lastArticleDate);
+    const fresh = findUnseenArticles(articles, cfg.seenArticleIds);
     if (!fresh.length) return;
 
     if (!cfg.channelId) return;
@@ -147,14 +161,14 @@ async function checkAndPostNews(client) {
     }
 
     await config.update(c => {
-        c.lastArticleDate = latestArticleDate(articles);
+        c.seenArticleIds = mergeSeenIds(articles, Array.isArray(c.seenArticleIds) ? c.seenArticleIds : []);
     });
 }
 
 module.exports = {
     fetchArticles,
-    findNewArticles,
-    latestArticleDate,
+    findUnseenArticles,
+    mergeSeenIds,
     buildNewsCard,
     checkAndPostNews,
 };

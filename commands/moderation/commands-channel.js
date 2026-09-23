@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const commandsChannel = require('../../commandsChannel');
 const { successEmbed } = require('../../utils/embeds');
 
@@ -35,7 +35,7 @@ module.exports = {
             });
             await interaction.reply({
                 embeds: [successEmbed('Общие команды снова доступны в любом канале.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -46,7 +46,7 @@ module.exports = {
         });
         await interaction.reply({
             embeds: [successEmbed(`Общие команды теперь доступны только в ${channel}.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     },
 };

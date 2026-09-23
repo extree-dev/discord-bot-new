@@ -1,7 +1,7 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const changelog = require('../../changelog');
 const { errorEmbed } = require('../../utils/embeds');
-const { toMessage } = require('../../utils/components');
+const { toEphemeralMessage } = require('../../utils/components');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -21,10 +21,10 @@ module.exports = {
         if (!entries.length) {
             await interaction.reply({
                 embeds: [errorEmbed('Пока нет опубликованных записей изменений.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
-        await interaction.reply({ ...toMessage(changelog.buildChangelogSummary(entries)), ephemeral: true });
+        await interaction.reply(toEphemeralMessage(changelog.buildChangelogSummary(entries)));
     },
 };

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const security = require('../../security');
 const { COLORS, baseEmbed, formatBody, infoEmbed, errorEmbed } = require('../../utils/embeds');
 
@@ -22,7 +22,7 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'create') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const filename = await security.createBackup(interaction.guild);
             const embed = baseEmbed(COLORS.success)
                 .setDescription(formatBody('Бэкап создан'))
@@ -35,7 +35,7 @@ module.exports = {
             if (!files.length) {
                 return interaction.reply({
                     embeds: [infoEmbed('Бэкапов пока нет.', 'Бэкапы')],
-                    ephemeral: true,
+                    flags: MessageFlags.Ephemeral,
                 });
             }
             const embed = baseEmbed(COLORS.primary)
@@ -46,12 +46,12 @@ module.exports = {
                         .join('\n')}`
                 )
                 .setFooter({ text: `Всего: ${files.length}` });
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         if (sub === 'restore') {
             const file = interaction.options.getString('file');
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             try {
                 const result = await security.restoreBackup(interaction.guild, file);
                 const embed = baseEmbed(COLORS.success)
