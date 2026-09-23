@@ -2,15 +2,25 @@
 // киберсцены с VLR.gg (трансферы, турниры, интервью — RSS, без пинга),
 // официальные анонсы Riot (статьи категории esports с playvalorant.com,
 // с пингом роли), сводка "Матчи сегодня" с пингом, "Матч начался" и итог
-// матча со счётом. Матчи — из расписания HenrikDev
-// (/valorant/v1/esports/schedule, данные официальной лиги).
+// матча со счётом. Матчи — со страниц VLR.gg /matches (расписание и
+// лайв) и /matches/results (итоги): расписание HenrikDev
+// (/valorant/v1/esports/schedule) отвечало 500 перед самым стартом
+// Champions 2026, а VLR.gg — первоисточник этих данных у самого HenrikDev.
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { COLORS } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 const news = require('./model');
 const config = require('./esportsConfig');
 
-const SCHEDULE_URL = 'https://api.henrikdev.xyz/valorant/v1/esports/schedule';
+const VLR_BASE_URL = 'https://www.vlr.gg';
+const VLR_MATCHES_URL = `${VLR_BASE_URL}/matches`;
+const VLR_RESULTS_URL = `${VLR_BASE_URL}/matches/results`;
+const VLR_HEADERS = { 'User-Agent': 'ExtreeBot (Discord bot; VLR.gg reader)' };
+// VLR.gg показывает время матчей без пояса, по центральному времени США
+// (как и pubDate в его RSS). Точное смещение берётся из обратного
+// отсчёта "через 14h 19m" у ближайших матчей (parseVlrMatches), а этот
+// пояс — запасной вариант, если отсчёта на странице нет.
+const VLR_FALLBACK_TIME_ZONE = 'America/Chicago';
 // Главный сайт новостей киберсцены Valorant. RSS — 20 последних
 // новостей: заголовок, ссылка, дата, короткое описание (без картинок).
 const VLR_RSS_URL = 'https://www.vlr.gg/rss';
@@ -34,11 +44,147 @@ const MAX_MATCH_POSTS_PER_CHECK = 6;
 const DIGEST_TIME_ZONE = 'Europe/Moscow';
 const DIGEST_HOUR = 10;
 
-async function fetchSchedule() {
-    const res = await fetch(SCHEDULE_URL, { headers: { Authorization: process.env.HENRIKDEV_API_KEY } });
-    if (!res.ok) throw new Error(`HenrikDev API (расписание) ответил ${res.status}`);
-    const body = await res.json();
-    return Array.isArray(body?.data) ? body.data : [];
+const MONTHS = {
+    January: 0,
+    February: 1,
+    March: 2,
+    April: 3,
+    May: 4,
+    June: 5,
+    July: 6,
+    August: 7,
+    September: 8,
+    October: 9,
+    November: 10,
+    December: 11,
+};
+
+function stripTags(html) {
+    return decodeXml(html.replace(/<[^>]*>/g, ' '))
+        .replace(/&ndash;/g, '–')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Смещение пояса (мс) в момент utcMs: сколько местное время опережает UTC.
+function zoneOffsetMs(utcMs, timeZone) {
+    const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            hourCycle: 'h23',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        })
+            .formatToParts(utcMs)
+            .map(p => [p.type, p.value])
+    );
+    const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    return asUtc - Math.floor(utcMs / 1000) * 1000;
+}
+
+// "14h 19m" / "1d 3h" / "45m" → мс; точным считаем только отсчёт с
+// минутами (меньше суток) — по нему и вычисляется пояс страницы.
+function parseEta(text) {
+    const match = String(text ?? '').match(/^(?:(\d+)h\s*)?(\d+)m$/);
+    if (!match) return null;
+    return (Number(match[1] ?? 0) * 60 + Number(match[2])) * 60 * 1000;
+}
+
+// Разбор страниц VLR.gg /matches и /matches/results в тот же вид, что
+// был у расписания HenrikDev: остальной код (фильтр лиг, план
+// публикаций, карточки) от источника не зависит.
+function parseVlrMatches(html, now = Date.now()) {
+    const tokens = [];
+    const labelRe = /<div class="wf-label mod-large">\s*([^<]*?)\s*</g;
+    const itemRe = /<a href="\/(\d+)\/([^"]*)" class="wf-module-item match-item[^"]*">([\s\S]*?)<\/a>/g;
+    for (const m of html.matchAll(labelRe)) tokens.push({ index: m.index, label: m[1] });
+    for (const m of html.matchAll(itemRe)) tokens.push({ index: m.index, id: m[1], slug: m[2], body: m[3] });
+    tokens.sort((a, b) => a.index - b.index);
+
+    const raw = [];
+    let day = null;
+    for (const token of tokens) {
+        if (token.label !== undefined) {
+            const d = token.label.match(/([A-Z][a-z]+) (\d{1,2}), (\d{4})/);
+            day = d && MONTHS[d[1]] !== undefined ? { y: Number(d[3]), m: MONTHS[d[1]], d: Number(d[2]) } : null;
+            continue;
+        }
+        const body = token.body;
+        const time = stripTags(body.match(/<div class="match-item-time">([\s\S]*?)<\/div>/)?.[1] ?? '');
+        const t = time.match(/^(\d{1,2}):(\d{2}) (AM|PM)$/);
+        const teamStarts = [...body.matchAll(/<div class="match-item-vs-team( mod-winner)?\s*">/g)];
+        const etaIndex = body.indexOf('match-item-eta');
+        const teams = teamStarts.map((tm, i) => {
+            const segment = body.slice(tm.index, teamStarts[i + 1]?.index ?? (etaIndex === -1 ? undefined : etaIndex));
+            const name = stripTags(segment.match(/<div class="text-of">([\s\S]*?)<\/div>/)?.[1] ?? '');
+            const score = stripTags(segment.match(/match-item-vs-team-score[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '');
+            return { name: name || 'TBD', has_won: Boolean(tm[1]), game_wins: /^\d+$/.test(score) ? Number(score) : 0 };
+        });
+        const eventBlock =
+            body.match(
+                /<div class="match-item-event text-of">([\s\S]*?)<\/div>\s*(?:<div class="match-item-icon"|$)/
+            )?.[1] ?? '';
+        const series = stripTags(
+            eventBlock.match(/<div class="match-item-event-series[^"]*">([\s\S]*?)<\/div>/)?.[1] ?? ''
+        );
+        const event = stripTags(eventBlock.replace(/<div class="match-item-event-series[\s\S]*?<\/div>/, ''));
+        const status = stripTags(body.match(/<div class="ml-status">([\s\S]*?)<\/div>/)?.[1] ?? '').toLowerCase();
+        const eta = stripTags(body.match(/<div class="ml-eta[^"]*">([\s\S]*?)<\/div>/)?.[1] ?? '');
+        const localMs =
+            day && t
+                ? Date.UTC(day.y, day.m, day.d, (Number(t[1]) % 12) + (t[3] === 'PM' ? 12 : 0), Number(t[2]))
+                : day
+                  ? Date.UTC(day.y, day.m, day.d)
+                  : null;
+        raw.push({ token, teams, series, event, status, eta, localMs, timeKnown: Boolean(t) });
+    }
+
+    // Пояс страницы: по первому матчу с точным обратным отсчётом.
+    let offsetMs = null;
+    for (const r of raw) {
+        const eta = parseEta(r.eta);
+        if (r.localMs !== null && r.timeKnown && eta !== null && r.status === 'upcoming') {
+            const quarter = 15 * 60 * 1000;
+            const candidate = Math.round((r.localMs - (now + eta)) / quarter) * quarter;
+            // Реальные пояса — от UTC−12 до UTC+14; всё остальное — сбой
+            // отсчёта, тогда остаётся пояс по умолчанию.
+            if (Math.abs(candidate) <= 14 * 3600 * 1000) offsetMs = candidate;
+            break;
+        }
+    }
+
+    return raw
+        .filter(r => r.teams.length === 2)
+        .map(r => {
+            const offset = offsetMs ?? (r.localMs === null ? 0 : zoneOffsetMs(r.localMs, VLR_FALLBACK_TIME_ZONE));
+            const state = r.status === 'completed' ? 'completed' : r.status === 'live' ? 'inProgress' : 'unstarted';
+            return {
+                date: r.localMs === null ? null : new Date(r.localMs - offset).toISOString(),
+                timeKnown: r.timeKnown,
+                state,
+                league: { name: r.event || 'VALORANT Esports', identifier: r.token.slug },
+                tournament: { name: r.series || null },
+                match: { id: r.token.id, teams: r.teams, game_type: {} },
+                url: `${VLR_BASE_URL}/${r.token.id}/${r.token.slug}`,
+                vod: null,
+            };
+        });
+}
+
+async function fetchVlrPage(url) {
+    const res = await fetch(url, { headers: VLR_HEADERS });
+    if (!res.ok) throw new Error(`VLR.gg ${url} ответил ${res.status}`);
+    return res.text();
+}
+
+// Расписание + лайв (/matches) и итоги (/matches/results) одним списком.
+async function fetchSchedule(now = Date.now()) {
+    const [upcoming, results] = await Promise.all([fetchVlrPage(VLR_MATCHES_URL), fetchVlrPage(VLR_RESULTS_URL)]);
+    return [...parseVlrMatches(upcoming, now), ...parseVlrMatches(results, now)];
 }
 
 const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -84,14 +230,15 @@ async function fetchVlrNews() {
 }
 
 function isTracked(item) {
-    const text = [item?.league?.name, item?.league?.identifier, item?.tournament?.name]
-        .filter(Boolean)
-        .join(' ')
-        .replace(/[_-]/g, ' ');
+    // Только VLR-адрес матча не должен включать фильтр: в slug бывает
+    // "champions" и у Game Changers ("...-championship" отсекается \b, но
+    // адрес не участвует вовсе — только названия турнира и стадии).
+    const text = [item?.league?.name, item?.tournament?.name].filter(Boolean).join(' ').replace(/[_-]/g, ' ');
     return TRACKED_REGEX.test(text);
 }
 
-// Статус матча в расписании Riot: unstarted / inProgress / completed.
+// Статус матча: unstarted / inProgress / completed (parseVlrMatches
+// приводит статусы VLR.gg к этим значениям).
 // Сравниваем без учёта регистра и разделителей — на случай in_progress.
 function matchState(item) {
     const state = String(item?.state ?? '')
@@ -185,7 +332,8 @@ function buildDigestCard(items, pingRoleId, badgeEmoji) {
     const lines = items.map(i => {
         const [a, b] = i.match?.teams ?? [];
         const extra = [bestOf(i), i.tournament?.name || i.league?.name].filter(Boolean).join(' · ');
-        return `<t:${unixSeconds(i.date)}:t> — **${teamName(a)}** vs **${teamName(b)}**${extra ? ` · ${extra}` : ''}`;
+        const time = i.timeKnown === false ? 'время уточняется' : `<t:${unixSeconds(i.date)}:t>`;
+        return `${time} — **${teamName(a)}** vs **${teamName(b)}**${extra ? ` · ${extra}` : ''}`;
     });
     container.addTextDisplayComponents(
         textDisplay(`-# ${badgeEmoji} VALORANT Esports\n### Матчи сегодня\n${lines.join('\n')}`)
@@ -213,13 +361,14 @@ function buildResultCard(item, badgeEmoji) {
                 (winner ? `\nПобедитель: **${teamName(winner)}**` : '')
         )
     );
-    if (item.vod) {
+    const buttons = [];
+    if (item.url)
+        buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Матч на VLR.gg').setURL(item.url));
+    if (item.vod)
+        buttons.push(new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Запись матча').setURL(item.vod));
+    if (buttons.length) {
         container.addSeparatorComponents(separator());
-        container.addActionRowComponents(
-            new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Запись матча').setURL(item.vod)
-            )
-        );
+        container.addActionRowComponents(new ActionRowBuilder().addComponents(...buttons));
     }
     return container;
 }
@@ -336,18 +485,22 @@ async function checkMatches(channel, cfg, badgeEmoji, now = Date.now()) {
 }
 
 async function checkAndPostEsports(client) {
-    if (!process.env.HENRIKDEV_API_KEY) return;
     const cfg = await config.load();
     const channel = await resolveChannel(client, cfg.channelId);
     if (!channel) return;
     const badgeEmoji = news.resolveBadgeEmoji(channel.guild);
     await checkVlrNews(channel, cfg, badgeEmoji);
-    await checkArticles(channel, cfg, badgeEmoji);
+    // Официальные статьи Riot — через HenrikDev, им нужен ключ; VLR.gg
+    // (новости и матчи) открыт и работает без него.
+    if (process.env.HENRIKDEV_API_KEY) await checkArticles(channel, cfg, badgeEmoji);
     await checkMatches(channel, cfg, badgeEmoji);
 }
 
 module.exports = {
     parseVlrRss,
+    parseVlrMatches,
+    parseEta,
+    zoneOffsetMs,
     fetchVlrNews,
     fetchSchedule,
     isTracked,

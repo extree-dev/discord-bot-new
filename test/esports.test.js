@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     parseVlrRss,
+    parseVlrMatches,
+    parseEta,
     isTracked,
     matchState,
     matchKey,
@@ -34,7 +36,7 @@ function match(id, { state = 'unstarted', date = '2026-09-24T15:00:00Z', league 
 
 test('isTracked: VCT, Masters и Champions — да, Challengers и Game Changers Championship — нет', () => {
     assert.equal(isTracked(match('1', { league: 'VCT Americas' })), true);
-    assert.equal(isTracked({ league: { name: 'Americas', identifier: 'vct_americas' }, tournament: {} }), true);
+    assert.equal(isTracked({ league: { name: 'VCT 2026: Americas Stage 2' }, tournament: {} }), true);
     assert.equal(isTracked(match('2', { league: 'Champions' })), true);
     assert.equal(isTracked(match('3', { league: 'Masters' })), true);
     assert.equal(
@@ -139,4 +141,126 @@ test('parseVlrRss: новости VLR.gg из RSS — заголовок, ссы
     });
     assert.equal(items[1].title, 'LOUD adds balax');
     assert.equal(items[1].date, null);
+});
+
+function vlrItem({ id, slug, time, teams, status, eta, series, event }) {
+    const team = ([name, score, winner]) => `
+                            <div class="match-item-vs-team ${winner ? 'mod-winner' : ''}">
+                                <div class="match-item-vs-team-name">
+                                    <div class="text-of">
+                                        <span class="flag mod-eu"></span>
+                                        ${name}                                    </div>
+                                </div>
+                                <div class="match-item-vs-team-score mod-upcoming">
+                                    ${score}
+                                </div>
+                            </div>`;
+    return `<a href="/${id}/${slug}" class="wf-module-item match-item mod-color">
+        <div class="match-item-time">
+            ${time}        </div>
+        <div class="match-item-vs">${teams.map(team).join('')}
+        </div>
+        <div class="match-item-eta"><div class="ml"><div class="ml-status">${status}</div><div class="ml-eta">${eta}</div></div></div>
+        <div class="match-item-event text-of">
+            <div class="match-item-event-series text-of">
+                ${series}            </div>
+            ${event}        </div>
+        <div class="match-item-icon"><img src="//owcdn.net/img/x.png"></div>
+    </a>`;
+}
+
+test('parseEta: точным считается только отсчёт с минутами', () => {
+    assert.equal(parseEta('14h 19m'), (14 * 60 + 19) * 60000);
+    assert.equal(parseEta('45m'), 45 * 60000);
+    assert.equal(parseEta('1d 14h'), null);
+});
+
+test('parseVlrMatches: расписание VLR.gg — время по отсчёту до матча, команды, турнир и стадия', () => {
+    const html = `<div class="wf-label mod-large">
+            Thu, September 24, 2026 <span class="wf-tag">Tomorrow</span>
+        </div><div class="wf-card">
+        ${vlrItem({
+            id: '753455',
+            slug: 'team-liquid-vs-paper-rex-valorant-champions-2026-opening-c',
+            time: '4:00 AM',
+            teams: [
+                ['Team Liquid', '&ndash;'],
+                ['Paper Rex', '&ndash;'],
+            ],
+            status: 'Upcoming',
+            eta: '14h 19m',
+            series: 'Group Stage&ndash;Opening (C)',
+            event: 'Valorant Champions 2026',
+        })}
+        ${vlrItem({
+            id: '1',
+            slug: 'x-vs-y',
+            time: 'TBD',
+            teams: [
+                ['TBD', '&ndash;'],
+                ['TBD', '&ndash;'],
+            ],
+            status: 'Upcoming',
+            eta: '1d 3h',
+            series: 'Playoffs',
+            event: 'Valorant Champions 2026',
+        })}</div>`;
+    const now = Date.parse('2026-09-23T18:40:30Z');
+    const [first, tbd] = parseVlrMatches(html, now);
+    assert.equal(first.date, '2026-09-24T09:00:00.000Z');
+    assert.equal(first.state, 'unstarted');
+    assert.equal(first.league.name, 'Valorant Champions 2026');
+    assert.equal(first.tournament.name, 'Group Stage–Opening (C)');
+    assert.deepEqual(
+        first.match.teams.map(t => t.name),
+        ['Team Liquid', 'Paper Rex']
+    );
+    assert.equal(first.match.id, '753455');
+    assert.equal(first.url, 'https://www.vlr.gg/753455/team-liquid-vs-paper-rex-valorant-champions-2026-opening-c');
+    assert.equal(isTracked(first), true);
+    assert.equal(tbd.timeKnown, false);
+});
+
+test('parseVlrMatches: итоги VLR.gg — счёт и победитель, время по поясу США без отсчёта', () => {
+    const html = `<div class="wf-label mod-large">Sun, September 20, 2026</div>
+        ${vlrItem({
+            id: '755371',
+            slug: 'havoc-vs-nova-game-changers-2026-china-gf',
+            time: '4:00 AM',
+            teams: [
+                ['Havoc &amp; Yonder GC', '1'],
+                ['Nova Esports GC', '3', true],
+            ],
+            status: 'Completed',
+            eta: '3d 9h',
+            series: 'Main Event&ndash;Grand Final',
+            event: 'Game Changers 2026: China',
+        })}`;
+    const [result] = parseVlrMatches(html, Date.parse('2026-09-23T18:40:00Z'));
+    assert.equal(result.state, 'completed');
+    assert.equal(result.date, '2026-09-20T09:00:00.000Z'); // 4:00 AM CDT
+    assert.deepEqual(result.match.teams, [
+        { name: 'Havoc & Yonder GC', has_won: false, game_wins: 1 },
+        { name: 'Nova Esports GC', has_won: true, game_wins: 3 },
+    ]);
+    assert.equal(isTracked(result), false);
+});
+
+test('parseVlrMatches: матч в эфире — статус LIVE', () => {
+    const html = `<div class="wf-label mod-large">Thu, September 24, 2026</div>
+        ${vlrItem({
+            id: '2',
+            slug: 'a-vs-b',
+            time: '4:00 AM',
+            teams: [
+                ['A', '1'],
+                ['B', '0'],
+            ],
+            status: 'LIVE',
+            eta: '',
+            series: 'Group Stage',
+            event: 'Valorant Champions 2026',
+        })}`;
+    const [live] = parseVlrMatches(html, Date.parse('2026-09-24T09:10:00Z'));
+    assert.equal(live.state, 'inProgress');
 });
