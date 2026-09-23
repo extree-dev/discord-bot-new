@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    parseVlrRss,
     isTracked,
     matchState,
     matchKey,
@@ -113,4 +114,29 @@ test('карточки: сводка с пингом роли, итог со с�
     );
     assert.ok(result.includes('Team A 2 : 1 Team B'));
     assert.ok(result.includes('Победитель: **Team A**'));
+});
+
+test('parseVlrRss: новости VLR.gg из RSS — заголовок, ссылка, дата, описание, спецсимволы декодированы', () => {
+    const xml = `<?xml version="1.0"?><rss><channel><title>VLR.gg</title><description>site</description>
+<item>
+    <title>Coach Joe: &quot;[Shopify] is the team to beat&quot;</title>
+    <link>https://www.vlr.gg/757396/coach-joe</link>
+    <guid isPermaLink="true">https://www.vlr.gg/757396/coach-joe</guid>
+    <pubDate>Fri, 18 Sep 2026 22:23:28 CDT</pubDate>
+    <description>FlyQuest RED&#039;s Head Coach &amp; team.</description>
+</item>
+<item><title><![CDATA[LOUD adds balax]]></title><link>https://www.vlr.gg/757962/loud</link><pubDate>bad date</pubDate></item>
+<item><description>без заголовка и ссылки</description></item>
+</channel></rss>`;
+    const items = parseVlrRss(xml);
+    assert.equal(items.length, 2);
+    assert.deepEqual(items[0], {
+        title: 'Coach Joe: "[Shopify] is the team to beat"',
+        url: 'https://www.vlr.gg/757396/coach-joe',
+        description: "FlyQuest RED's Head Coach & team.",
+        date: '2026-09-19T03:23:28.000Z',
+        category: 'vlr',
+    });
+    assert.equal(items[1].title, 'LOUD adds balax');
+    assert.equal(items[1].date, null);
 });

@@ -19,6 +19,7 @@ const PING_ROLE_NAME = 'Игровые новости';
 const CATEGORY_LABELS = {
     patch_notes: 'Патч-ноуты',
     esports: 'Киберспорт',
+    vlr: 'Киберспорт · VLR.gg',
     game_updates: 'Обновление игры',
 };
 // Лого Valorant, загруженное администратором как кастомный эмодзи
