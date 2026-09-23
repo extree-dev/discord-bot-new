@@ -77,4 +77,5 @@ jobs:
                       # Канал #📬│game-news задан константой в самом скрипте,
                       # от setup-changelog.js не зависит — порядок здесь не важен.
                       run_setup_step scripts/setup-valorant-news.js
+                      run_setup_step scripts/setup-esports-news.js
                       exit $FAILED
