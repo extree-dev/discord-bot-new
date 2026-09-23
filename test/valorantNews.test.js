@@ -45,20 +45,31 @@ test('findUnseenArticles: без url статья узнаётся по заго
 test('selectArticlesToPost: только свежие статьи и не больше трёх за проверку', () => {
     const now = new Date('2026-09-23T12:00:00Z').getTime();
     const fresh = id => article(id, '2026-09-23T10:00:00Z');
-    const old = article('old', '2026-09-01T00:00:00Z');
+    const old = id => article(id, '2026-09-01T00:00:00Z');
+    const picked = selectArticlesToPost([old('old'), fresh('a'), fresh('b')], now);
     assert.deepEqual(
-        selectArticlesToPost([old, fresh('a'), fresh('b')], now).map(a => a.id),
+        picked.articles.map(a => a.id),
         ['a', 'b']
     );
-    // Четыре "новые" разом — сбой сверки, а не новости: не публикуем ничего.
-    assert.deepEqual(selectArticlesToPost(['a', 'b', 'c', 'd'].map(fresh), now), []);
+    assert.equal(picked.tooMany, false);
+    // Много старых "новых" (хвост ленты) — не сбой: публиковать нечего, но и не тревога.
+    const oldOnly = selectArticlesToPost(['x', 'y', 'z', 'w', 'v'].map(old), now);
+    assert.deepEqual(oldOnly, { articles: [], tooMany: false });
+    // Четыре свежие "новые" разом — сбой сверки, а не новости: не публикуем ничего.
+    assert.deepEqual(selectArticlesToPost(['a', 'b', 'c', 'd'].map(fresh), now), { articles: [], tooMany: true });
 });
 
-test('mergeSeenKeys: текущая лента плюс выпавшие из неё, без повторов и с ограничением размера', () => {
+test('mergeSeenKeys: вся текущая лента плюс выпавшие из неё, без повторов', () => {
     const articles = [article('b', '2026-09-15T00:00:00Z'), article('c', '2026-09-20T00:00:00Z')];
     assert.deepEqual(mergeSeenKeys(articles, [url('a'), url('b')]), [url('b'), url('c'), url('a')]);
-    const many = Array.from({ length: 250 }, (_, i) => `old-${i}`);
-    assert.equal(mergeSeenKeys(articles, many).length, 200);
+});
+
+test('mergeSeenKeys: лента больше 200 статей запоминается целиком, выпавших — не больше 200', () => {
+    const feed = Array.from({ length: 250 }, (_, i) => article(`feed-${i}`, '2026-09-01T00:00:00Z'));
+    const dropped = Array.from({ length: 300 }, (_, i) => `dropped-${i}`);
+    const seen = mergeSeenKeys(feed, dropped);
+    assert.equal(seen.length, 250 + 200);
+    assert.deepEqual(findUnseenArticles(feed, seen), []);
 });
 
 test('buildNewsCard: заголовок и описание попадают в текст карточки', () => {

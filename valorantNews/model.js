@@ -46,7 +46,11 @@ async function fetchArticles() {
 // сами статьи, которые уже видели, — по url, а не по id: id HenrikDev
 // генерирует заново при каждом запросе, и сверка по нему (3.9.13)
 // считала всю ленту новой на каждой проверке и заспамила канал.
-const SEEN_LIMIT = 200;
+// Сколько статей, выпавших из ленты, помнить сверх самой ленты. Сама
+// текущая лента запоминается всегда целиком: в выдаче HenrikDev больше
+// 200 статей, и прежний общий потолок в 200 отрезал хвост ленты — эти
+// статьи на каждой проверке снова считались новыми.
+const EXTRA_SEEN_LIMIT = 200;
 
 // Страховка от повторения такого спама: больше статей за одну проверку
 // (раз в 30 минут) реальная лента не выпускает. Если "новых" оказалось
@@ -74,22 +78,25 @@ function findUnseenArticles(articles, seenKeys) {
 }
 
 // Какие из ещё не виденных статей публиковать: только свежие и не больше
-// MAX_POSTS_PER_CHECK — при превышении пустой список (см. выше).
+// MAX_POSTS_PER_CHECK. tooMany — свежих "новых" больше лимита, значит,
+// сбой сверки (см. выше): тогда не публикуется ничего.
 function selectArticlesToPost(unseen, now = Date.now()) {
     const recent = unseen.filter(a => {
         const time = new Date(a.date).getTime();
         return Number.isFinite(time) && now - time <= MAX_ARTICLE_AGE_MS;
     });
-    return recent.length > MAX_POSTS_PER_CHECK ? [] : recent;
+    const tooMany = recent.length > MAX_POSTS_PER_CHECK;
+    return { articles: tooMany ? [] : recent, tooMany };
 }
 
 // Статьи текущей ленты плюс ранее виденные, которых в ленте уже нет, —
 // чтобы статья, ненадолго выпавшая из ленты, не опубликовалась повторно.
-// Ограничено SEEN_LIMIT, чтобы список не рос бесконечно.
+// Выпавших из ленты помним не больше EXTRA_SEEN_LIMIT, чтобы список не
+// рос бесконечно; саму ленту — всегда целиком.
 function mergeSeenKeys(articles, seenKeys) {
-    const current = articles.map(articleKey).filter(Boolean);
+    const current = [...new Set(articles.map(articleKey).filter(Boolean))];
     const currentSet = new Set(current);
-    return [...current, ...seenKeys.filter(key => !currentSet.has(key))].slice(0, SEEN_LIMIT);
+    return [...current, ...seenKeys.filter(key => !currentSet.has(key)).slice(0, EXTRA_SEEN_LIMIT)];
 }
 
 // pingRoleId — необязательный: упоминание роли рисуется отдельной
@@ -169,10 +176,10 @@ async function checkAndPostNews(client) {
     const unseen = findUnseenArticles(articles, cfg.seenArticleUrls);
     if (!unseen.length) return;
 
-    const toPost = selectArticlesToPost(unseen);
-    if (unseen.length > MAX_POSTS_PER_CHECK && !toPost.length) {
+    const { articles: toPost, tooMany } = selectArticlesToPost(unseen);
+    if (tooMany) {
         console.warn(
-            `valorantNews: ${unseen.length} "новых" статей за одну проверку — похоже на сбой сверки, не публикую, запоминаю ленту заново.`
+            `valorantNews: больше ${MAX_POSTS_PER_CHECK} свежих "новых" статей за одну проверку — похоже на сбой сверки, не публикую, запоминаю ленту заново.`
         );
     }
 
