@@ -123,7 +123,30 @@ function computeReorganizedPositions({ roles, anchorId, managedOrderIds, bottomO
     return updates;
 }
 
+// Полная расстановка всех ролей ниже роли бота по явному списку
+// (scripts/reorder-roles.js). orderedIds — сверху вниз; роли, которых нет
+// в списке, не теряются: встают сразу после первых afterCount ролей
+// списка (после состава), в своём текущем относительном порядке. Роли на
+// уровне бота и выше и @everyone не трогаются. Возвращает итоговый
+// порядок сверху вниз и позиции для guild.roles.setPositions().
+function computeFullOrderPositions({ roles, orderedIds, afterCount = 0, botPosition, everyoneId }) {
+    const movable = roles.filter(r => r.id !== everyoneId && r.position < botPosition);
+    const movableIds = new Set(movable.map(r => r.id));
+    const listed = orderedIds.filter(id => movableIds.has(id));
+    const listedSet = new Set(listed);
+    const unlisted = movable
+        .filter(r => !listedSet.has(r.id))
+        .sort((a, b) => b.position - a.position)
+        .map(r => r.id);
+
+    const head = listed.slice(0, afterCount);
+    const order = [...head, ...unlisted, ...listed.slice(afterCount)];
+    const positions = order.map((id, i) => ({ roleId: id, position: order.length - i }));
+    return { order, unlisted, positions };
+}
+
 module.exports = {
+    computeFullOrderPositions,
     DANGEROUS_FOR_EVERYONE,
     findDuplicateRoleNames,
     findRolesAboveOrAtBot,

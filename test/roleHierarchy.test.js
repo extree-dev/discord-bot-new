@@ -6,6 +6,7 @@ const {
     findDangerousEveryonePermissions,
     computeManagedRoleDrift,
     computeReorganizedPositions,
+    computeFullOrderPositions,
 } = require('../utils/roleHierarchy');
 
 test('findDuplicateRoleNames: находит группы ролей с одинаковым именем без учёта регистра/пробелов', () => {
@@ -147,4 +148,50 @@ test('computeReorganizedPositions: анкер не найден — null', () =>
         }),
         null
     );
+});
+
+test('computeFullOrderPositions: расставляет роли по списку сверху вниз, не трогая бота и @everyone', () => {
+    const roles = [
+        { id: 'everyone', position: 0 },
+        { id: 'muted', position: 1 },
+        { id: 'admin', position: 2 },
+        { id: 'level', position: 3 },
+        { id: 'game', position: 4 },
+        { id: 'bot', position: 5 },
+    ];
+    const { order, positions, unlisted } = computeFullOrderPositions({
+        roles,
+        orderedIds: ['admin', 'game', 'level', 'muted'],
+        afterCount: 1,
+        botPosition: 5,
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(order, ['admin', 'game', 'level', 'muted']);
+    assert.deepEqual(unlisted, []);
+    assert.deepEqual(positions, [
+        { roleId: 'admin', position: 4 },
+        { roleId: 'game', position: 3 },
+        { roleId: 'level', position: 2 },
+        { roleId: 'muted', position: 1 },
+    ]);
+});
+
+test('computeFullOrderPositions: роли не из списка встают сразу после состава в прежнем порядке', () => {
+    const roles = [
+        { id: 'everyone', position: 0 },
+        { id: 'x', position: 1 },
+        { id: 'admin', position: 2 },
+        { id: 'y', position: 3 },
+        { id: 'level', position: 4 },
+        { id: 'bot', position: 5 },
+    ];
+    const { order, unlisted } = computeFullOrderPositions({
+        roles,
+        orderedIds: ['admin', 'level', 'missing'],
+        afterCount: 1,
+        botPosition: 5,
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(unlisted, ['y', 'x']);
+    assert.deepEqual(order, ['admin', 'y', 'x', 'level']);
 });
