@@ -18,6 +18,7 @@ const PING_ROLE_NAME = 'Игровые новости';
 // просто не покажут бейдж категории, а не сырой английский slug.
 const CATEGORY_LABELS = {
     patch_notes: 'Патч-ноуты',
+    esports: 'Киберспорт',
     game_updates: 'Обновление игры',
 };
 // Лого Valorant, загруженное администратором как кастомный эмодзи
@@ -28,9 +29,19 @@ const CATEGORY_LABELS = {
 // используется юникод-фолбэк, деплой/публикация из-за этого не падает.
 const BADGE_EMOJI_NAME = 'icons8valorant481';
 const BADGE_EMOJI_FALLBACK = '🎯';
+const ESPORTS_CATEGORY = 'esports';
 
-async function fetchArticles() {
-    const res = await fetch(API_URL, {
+// Бейдж-эмодзи Valorant сервера (или юникод-фолбэк, если его удалили).
+function resolveBadgeEmoji(guild) {
+    const emoji = guild.emojis.cache.find(e => e.name === BADGE_EMOJI_NAME);
+    return emoji ? emoji.toString() : BADGE_EMOJI_FALLBACK;
+}
+
+// category — фильтр HenrikDev по категории статьи (например, esports —
+// для отдельного канала киберспорта, см. valorantNews/esports.js).
+async function fetchArticles(category = null) {
+    const url = category ? `${API_URL}?category=${encodeURIComponent(category)}` : API_URL;
+    const res = await fetch(url, {
         headers: { Authorization: process.env.HENRIKDEV_API_KEY },
     });
     if (!res.ok) throw new Error(`HenrikDev API ответил ${res.status}`);
@@ -173,7 +184,9 @@ async function checkAndPostNews(client) {
         return;
     }
 
-    const unseen = findUnseenArticles(articles, cfg.seenArticleUrls);
+    // Киберспортивные статьи уходят в свой канал (valorantNews/esports.js),
+    // сюда — всё остальное. Запоминаются здесь всё равно все статьи ленты.
+    const unseen = findUnseenArticles(articles, cfg.seenArticleUrls).filter(a => a.category !== ESPORTS_CATEGORY);
     if (!unseen.length) return;
 
     const { articles: toPost, tooMany } = selectArticlesToPost(unseen);
@@ -189,8 +202,7 @@ async function checkAndPostNews(client) {
 
     if (channel && toPost.length) {
         const pingRole = channel.guild.roles.cache.find(r => r.name === PING_ROLE_NAME);
-        const badgeEmojiObj = channel.guild.emojis.cache.find(e => e.name === BADGE_EMOJI_NAME);
-        const badgeEmoji = badgeEmojiObj ? badgeEmojiObj.toString() : BADGE_EMOJI_FALLBACK;
+        const badgeEmoji = resolveBadgeEmoji(channel.guild);
 
         for (const article of toPost) {
             await channel
@@ -208,6 +220,9 @@ async function checkAndPostNews(client) {
 }
 
 module.exports = {
+    ESPORTS_CATEGORY,
+    MAX_POSTS_PER_CHECK,
+    resolveBadgeEmoji,
     fetchArticles,
     findUnseenArticles,
     selectArticlesToPost,

@@ -1,10 +1,15 @@
 const config = require('./config');
 const model = require('./model');
+const esports = require('./esports');
+const esportsConfig = require('./esportsConfig');
 
 // Проверяем не чаще, чем раз в 30 минут — патчи и новости выходят редко,
 // а Basic-ключ HenrikDev ограничен 30 запросами/мин, так что даже частый
 // перезапуск бота не рискует упереться в лимит.
 const POLL_INTERVAL_MS = 30 * 60 * 1000;
+// Киберспорт — чаще: "Матч начался" и итог должны приходить вовремя.
+// Два запроса раз в 5 минут — далеко от лимита Basic-ключа.
+const ESPORTS_POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 // Публичный API фичи valorantNews/. scripts/setup-valorant-news.js
 // обращается только сюда, а не к valorantNews/config.js напрямую.
@@ -14,7 +19,20 @@ module.exports = {
         setInterval(() => {
             model.checkAndPostNews(client).catch(err => console.error('valorantNews:', err));
         }, POLL_INTERVAL_MS);
+        esports.checkAndPostEsports(client).catch(err => console.error('valorantEsports:', err));
+        setInterval(() => {
+            esports.checkAndPostEsports(client).catch(err => console.error('valorantEsports:', err));
+        }, ESPORTS_POLL_INTERVAL_MS);
     },
+    getEsportsConfig: esportsConfig.load,
+    saveEsportsTargets: async ({ channelId, pingRoleId }) => {
+        await esportsConfig.update(c => {
+            c.channelId = channelId;
+            c.pingRoleId = pingRoleId;
+        });
+    },
+    fetchEsportsSchedule: esports.fetchSchedule,
+    isTrackedEsportsMatch: esports.isTracked,
     getConfig: config.load,
     saveChannel: async channelId => {
         await config.update(c => {
