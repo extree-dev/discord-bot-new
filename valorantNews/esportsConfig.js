@@ -6,6 +6,7 @@ const STORE_NAME = 'valorantEsports';
 // ленты новостей: свой канал, своя роль для пинга и своя память.
 // channelId/pingRoleId — пинит scripts/setup-esports-news.js.
 // seenArticleUrls — статьи категории esports, уже виденные ботом.
+// seenVlrUrls — новости VLR.gg (RSS), уже виденные ботом.
 // liveMatchKeys/resultMatchKeys — матчи, о начале/итоге которых уже
 // написали. null — ещё ни разу не проверяли: на первой проверке всё
 // текущее запоминается без публикации, как и у ленты новостей.
@@ -14,6 +15,7 @@ const DEFAULTS = {
     channelId: null,
     pingRoleId: null,
     seenArticleUrls: null,
+    seenVlrUrls: null,
     liveMatchKeys: null,
     resultMatchKeys: null,
     lastDigestDate: null,

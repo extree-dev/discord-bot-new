@@ -1,8 +1,9 @@
-// Киберспорт Valorant в отдельный канал #📬│esports-news: статьи
-// категории esports с playvalorant.com, сводка "Матчи сегодня" с пингом
-// роли, "Матч начался" и итог матча со счётом. Матчи — из расписания
-// HenrikDev (/valorant/v1/esports/schedule, данные официальной лиги):
-// статус, команды, победитель и счёт по картам.
+// Киберспорт Valorant в отдельный канал #📬│esports-news: все новости
+// киберсцены с VLR.gg (трансферы, турниры, интервью — RSS, без пинга),
+// официальные анонсы Riot (статьи категории esports с playvalorant.com,
+// с пингом роли), сводка "Матчи сегодня" с пингом, "Матч начался" и итог
+// матча со счётом. Матчи — из расписания HenrikDev
+// (/valorant/v1/esports/schedule, данные официальной лиги).
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { COLORS } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
@@ -10,6 +11,9 @@ const news = require('./model');
 const config = require('./esportsConfig');
 
 const SCHEDULE_URL = 'https://api.henrikdev.xyz/valorant/v1/esports/schedule';
+// Главный сайт новостей киберсцены Valorant. RSS — 20 последних
+// новостей: заголовок, ссылка, дата, короткое описание (без картинок).
+const VLR_RSS_URL = 'https://www.vlr.gg/rss';
 
 // Только VCT: региональные лиги VCT, Masters и Champions. Challengers,
 // Game Changers и прочие лиги в расписании тоже есть — их не публикуем.
@@ -35,6 +39,48 @@ async function fetchSchedule() {
     if (!res.ok) throw new Error(`HenrikDev API (расписание) ответил ${res.status}`);
     const body = await res.json();
     return Array.isArray(body?.data) ? body.data : [];
+}
+
+const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+
+function decodeXml(text) {
+    return text
+        .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+        .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+        .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+        .replace(/&(amp|lt|gt|quot|apos);/g, (_, name) => XML_ENTITIES[name])
+        .trim();
+}
+
+function xmlTag(block, tag) {
+    const match = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+    return match ? decodeXml(match[1]) : null;
+}
+
+// Разбор RSS VLR.gg в тот же вид, что у статей HenrikDev, — чтобы
+// работали общие сверка по url и карточка новости (valorantNews/model.js).
+// pubDate у VLR в формате "Mon, 21 Sep 2026 15:47:14 CDT" — его Date
+// разбирает сам.
+function parseVlrRss(xml) {
+    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+    return items
+        .map(block => {
+            const date = new Date(xmlTag(block, 'pubDate') ?? '');
+            return {
+                title: xmlTag(block, 'title'),
+                url: xmlTag(block, 'link') || xmlTag(block, 'guid'),
+                description: xmlTag(block, 'description'),
+                date: Number.isFinite(date.getTime()) ? date.toISOString() : null,
+                category: 'vlr',
+            };
+        })
+        .filter(a => a.title && a.url);
+}
+
+async function fetchVlrNews() {
+    const res = await fetch(VLR_RSS_URL, { headers: { 'User-Agent': 'ExtreeBot (Discord bot; VLR RSS reader)' } });
+    if (!res.ok) throw new Error(`VLR.gg RSS ответил ${res.status}`);
+    return parseVlrRss(await res.text());
 }
 
 function isTracked(item) {
@@ -221,6 +267,38 @@ async function checkArticles(channel, cfg, badgeEmoji) {
     }
 }
 
+// Новости VLR.gg: публикуются все, без фильтра по лигам, но без пинга
+// роли — их бывает по 10-15 в день.
+async function checkVlrNews(channel, cfg, badgeEmoji) {
+    let articles;
+    try {
+        articles = await fetchVlrNews();
+    } catch (err) {
+        console.error('valorantEsports: не удалось получить новости VLR.gg:', err.message);
+        return;
+    }
+    if (!articles.length) return;
+
+    if (!Array.isArray(cfg.seenVlrUrls)) {
+        await config.update(c => {
+            c.seenVlrUrls = news.mergeSeenKeys(articles, []);
+        });
+        return;
+    }
+
+    const unseen = news.findUnseenArticles(articles, cfg.seenVlrUrls);
+    if (!unseen.length) return;
+    const { articles: toPost, tooMany } = news.selectArticlesToPost(unseen);
+    if (tooMany)
+        console.warn('valorantEsports: слишком много "новых" новостей VLR.gg — похоже на сбой сверки, не публикую.');
+    for (const article of toPost) {
+        await send(channel, news.buildNewsCard(article, null, badgeEmoji));
+    }
+    await config.update(c => {
+        c.seenVlrUrls = news.mergeSeenKeys(articles, Array.isArray(c.seenVlrUrls) ? c.seenVlrUrls : []);
+    });
+}
+
 async function checkMatches(channel, cfg, badgeEmoji, now = Date.now()) {
     let items;
     try {
@@ -263,11 +341,14 @@ async function checkAndPostEsports(client) {
     const channel = await resolveChannel(client, cfg.channelId);
     if (!channel) return;
     const badgeEmoji = news.resolveBadgeEmoji(channel.guild);
+    await checkVlrNews(channel, cfg, badgeEmoji);
     await checkArticles(channel, cfg, badgeEmoji);
     await checkMatches(channel, cfg, badgeEmoji);
 }
 
 module.exports = {
+    parseVlrRss,
+    fetchVlrNews,
     fetchSchedule,
     isTracked,
     matchState,
