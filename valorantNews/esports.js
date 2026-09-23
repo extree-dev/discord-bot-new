@@ -1,5 +1,5 @@
 // Киберспорт Valorant в отдельный канал #📬│esports-news: все новости
-// киберсцены с VLR.gg (трансферы, турниры, интервью — RSS, без пинга),
+// киберсцены с VLR.gg (трансферы, турниры, интервью — RSS, с пингом),
 // официальные анонсы Riot (статьи категории esports с playvalorant.com,
 // с пингом роли), сводка "Матчи сегодня" с пингом, "Матч начался" и итог
 // матча со счётом. Матчи — со страниц VLR.gg /matches (расписание и
@@ -416,8 +416,8 @@ async function checkArticles(channel, cfg, badgeEmoji) {
     }
 }
 
-// Новости VLR.gg: публикуются все, без фильтра по лигам, но без пинга
-// роли — их бывает по 10-15 в день.
+// Новости VLR.gg: публикуются все, без фильтра по лигам, с пингом роли
+// киберспорта (по просьбе администратора, хотя их бывает по 10-15 в день).
 async function checkVlrNews(channel, cfg, badgeEmoji) {
     let articles;
     try {
@@ -441,7 +441,7 @@ async function checkVlrNews(channel, cfg, badgeEmoji) {
     if (tooMany)
         console.warn('valorantEsports: слишком много "новых" новостей VLR.gg — похоже на сбой сверки, не публикую.');
     for (const article of toPost) {
-        await send(channel, news.buildNewsCard(article, null, badgeEmoji));
+        await send(channel, news.buildNewsCard(article, cfg.pingRoleId, badgeEmoji));
     }
     await config.update(c => {
         c.seenVlrUrls = news.mergeSeenKeys(articles, Array.isArray(c.seenVlrUrls) ? c.seenVlrUrls : []);
