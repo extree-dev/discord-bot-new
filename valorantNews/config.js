@@ -6,14 +6,14 @@ const STORE_NAME = 'valorantNews';
 // changelog/rules/leveling — см. FSD-границы фич в README): свой канал
 // #📬│game-news, не связанный с changelog/ (scripts/setup-valorant-news.js
 // пинит его ID напрямую, без обращения к changelog/config.js).
-// seenArticleIds — id (или url) статей, которые бот уже видел в ленте
+// seenArticleUrls — url статей, которые бот уже видел в ленте
 // (опубликованных или нет — на самом первом прогоне бэклог не
 // публикуется, см. valorantNews/model.js), чтобы не слать одно и то же
 // повторно и не заспамить канал всей историей новостей при первом запуске.
 // null — ещё ни разу не проверяли.
 const DEFAULTS = {
     channelId: null,
-    seenArticleIds: null,
+    seenArticleUrls: null,
 };
 
 const store = createStore(STORE_NAME, DEFAULTS);

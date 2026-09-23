@@ -43,30 +43,53 @@ async function fetchArticles() {
 // отдаёт в ленте и анонсы с датой из будущего (трейлер с датой
 // 2026-12-05) — после такой статьи порог уезжал вперёд, и все настоящие
 // новости с более ранней датой не публиковались вообще. Теперь помним
-// сами статьи (по id, а без него — по url), которые уже видели.
+// сами статьи, которые уже видели, — по url, а не по id: id HenrikDev
+// генерирует заново при каждом запросе, и сверка по нему (3.9.13)
+// считала всю ленту новой на каждой проверке и заспамила канал.
 const SEEN_LIMIT = 200;
 
+// Страховка от повторения такого спама: больше статей за одну проверку
+// (раз в 30 минут) реальная лента не выпускает. Если "новых" оказалось
+// больше — значит, сломалась сверка, а не вышло столько новостей:
+// ничего не публикуем, просто запоминаем ленту заново.
+const MAX_POSTS_PER_CHECK = 3;
+// Старые статьи, впервые увиденные в ленте (вернулись в выдачу и т.п.),
+// не публикуем — это уже не новость.
+const MAX_ARTICLE_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
 function articleKey(article) {
-    return article?.id || article?.url || null;
+    if (article?.url) return article.url;
+    if (article?.title && article?.date) return `${article.title}|${article.date}`;
+    return null;
 }
 
 // Ещё не виденные статьи, от старых к новым — чтобы при публикации сразу
 // нескольких пропущенных новостей порядок сообщений в канале совпадал с
 // хронологией их выхода.
-function findUnseenArticles(articles, seenIds) {
-    const seen = new Set(seenIds);
+function findUnseenArticles(articles, seenKeys) {
+    const seen = new Set(seenKeys);
     return articles
         .filter(a => articleKey(a) && !seen.has(articleKey(a)))
         .sort((a, b) => new Date(a.date ?? 0) - new Date(b.date ?? 0));
 }
 
+// Какие из ещё не виденных статей публиковать: только свежие и не больше
+// MAX_POSTS_PER_CHECK — при превышении пустой список (см. выше).
+function selectArticlesToPost(unseen, now = Date.now()) {
+    const recent = unseen.filter(a => {
+        const time = new Date(a.date).getTime();
+        return Number.isFinite(time) && now - time <= MAX_ARTICLE_AGE_MS;
+    });
+    return recent.length > MAX_POSTS_PER_CHECK ? [] : recent;
+}
+
 // Статьи текущей ленты плюс ранее виденные, которых в ленте уже нет, —
 // чтобы статья, ненадолго выпавшая из ленты, не опубликовалась повторно.
 // Ограничено SEEN_LIMIT, чтобы список не рос бесконечно.
-function mergeSeenIds(articles, seenIds) {
+function mergeSeenKeys(articles, seenKeys) {
     const current = articles.map(articleKey).filter(Boolean);
     const currentSet = new Set(current);
-    return [...current, ...seenIds.filter(id => !currentSet.has(id))].slice(0, SEEN_LIMIT);
+    return [...current, ...seenKeys.filter(key => !currentSet.has(key))].slice(0, SEEN_LIMIT);
 }
 
 // pingRoleId — необязательный: упоминание роли рисуется отдельной
@@ -132,43 +155,56 @@ async function checkAndPostNews(client) {
 
     const cfg = await config.load();
 
-    // Самый первый прогон (или первый после перехода с lastArticleDate):
+    // Самый первый прогон (или первый после смены ключа сверки на url):
     // не публикуем весь бэклог ленты, только запоминаем, что уже в ней есть.
-    if (!Array.isArray(cfg.seenArticleIds)) {
+    if (!Array.isArray(cfg.seenArticleUrls)) {
         await config.update(c => {
-            c.seenArticleIds = mergeSeenIds(articles, []);
+            c.seenArticleUrls = mergeSeenKeys(articles, []);
+            delete c.seenArticleIds;
             delete c.lastArticleDate;
         });
         return;
     }
 
-    const fresh = findUnseenArticles(articles, cfg.seenArticleIds);
-    if (!fresh.length) return;
+    const unseen = findUnseenArticles(articles, cfg.seenArticleUrls);
+    if (!unseen.length) return;
 
-    if (!cfg.channelId) return;
-    const channel =
-        client.channels.cache.get(cfg.channelId) ?? (await client.channels.fetch(cfg.channelId).catch(() => null));
-    if (!channel) return;
-
-    const pingRole = channel.guild.roles.cache.find(r => r.name === PING_ROLE_NAME);
-    const badgeEmojiObj = channel.guild.emojis.cache.find(e => e.name === BADGE_EMOJI_NAME);
-    const badgeEmoji = badgeEmojiObj ? badgeEmojiObj.toString() : BADGE_EMOJI_FALLBACK;
-
-    for (const article of fresh) {
-        await channel
-            .send(toMessage(buildNewsCard(article, pingRole?.id, badgeEmoji)))
-            .catch(err => console.error('valorantNews: не удалось отправить статью:', err.message));
+    const toPost = selectArticlesToPost(unseen);
+    if (unseen.length > MAX_POSTS_PER_CHECK && !toPost.length) {
+        console.warn(
+            `valorantNews: ${unseen.length} "новых" статей за одну проверку — похоже на сбой сверки, не публикую, запоминаю ленту заново.`
+        );
     }
 
+    const channel = cfg.channelId
+        ? (client.channels.cache.get(cfg.channelId) ?? (await client.channels.fetch(cfg.channelId).catch(() => null)))
+        : null;
+
+    if (channel && toPost.length) {
+        const pingRole = channel.guild.roles.cache.find(r => r.name === PING_ROLE_NAME);
+        const badgeEmojiObj = channel.guild.emojis.cache.find(e => e.name === BADGE_EMOJI_NAME);
+        const badgeEmoji = badgeEmojiObj ? badgeEmojiObj.toString() : BADGE_EMOJI_FALLBACK;
+
+        for (const article of toPost) {
+            await channel
+                .send(toMessage(buildNewsCard(article, pingRole?.id, badgeEmoji)))
+                .catch(err => console.error('valorantNews: не удалось отправить статью:', err.message));
+        }
+    }
+
+    // Запоминаем всю текущую ленту, даже если что-то не опубликовали
+    // (старое, сбой сверки, канал не настроен), — иначе те же статьи
+    // пытались бы уйти в канал на каждой следующей проверке.
     await config.update(c => {
-        c.seenArticleIds = mergeSeenIds(articles, Array.isArray(c.seenArticleIds) ? c.seenArticleIds : []);
+        c.seenArticleUrls = mergeSeenKeys(articles, Array.isArray(c.seenArticleUrls) ? c.seenArticleUrls : []);
     });
 }
 
 module.exports = {
     fetchArticles,
     findUnseenArticles,
-    mergeSeenIds,
+    selectArticlesToPost,
+    mergeSeenKeys,
     buildNewsCard,
     checkAndPostNews,
 };
