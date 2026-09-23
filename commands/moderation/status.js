@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const presence = require('../../presence');
 const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../../utils/embeds');
 
@@ -114,7 +114,7 @@ module.exports = {
                         'Статус обновлён'
                     ),
                 ],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -129,7 +129,7 @@ module.exports = {
                 embeds: [
                     successEmbed(`Пунктов в ротации: ${count}. Включи её через /status rotate-toggle on.`, 'Добавлено'),
                 ],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -142,7 +142,7 @@ module.exports = {
             await presence.applyCurrentPresence(interaction.client);
             return interaction.reply({
                 embeds: [successEmbed('Список ротации очищен, ротация выключена.', 'Готово')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -152,7 +152,7 @@ module.exports = {
             if (state && config.rotateItems.length === 0) {
                 return interaction.reply({
                     embeds: [errorEmbed('В ротации пока нет ни одного пункта — добавь через /status rotate-add.')],
-                    ephemeral: true,
+                    flags: MessageFlags.Ephemeral,
                 });
             }
             await presence.updateConfig(cfg => {
@@ -162,7 +162,7 @@ module.exports = {
             await presence.applyCurrentPresence(interaction.client);
             return interaction.reply({
                 embeds: [successEmbed(state ? 'Ротация включена.' : 'Ротация выключена.', 'Готово')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -173,7 +173,7 @@ module.exports = {
             });
             return interaction.reply({
                 embeds: [successEmbed(`Интервал ротации: ${minutes} мин.`, 'Готово')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -193,6 +193,6 @@ module.exports = {
             );
         }
         const embed = baseEmbed(COLORS.primary).setDescription(`${formatBody('Статус бота')}\n\n${lines.join('\n')}`);
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

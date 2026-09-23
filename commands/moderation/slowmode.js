@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
@@ -29,7 +29,7 @@ module.exports = {
         if (!channel.isTextBased() || channel.isThread()) {
             return interaction.reply({
                 embeds: [errorEmbed('Slowmode можно установить только в текстовом канале.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -42,6 +42,6 @@ module.exports = {
                 { name: 'Задержка', value: seconds === 0 ? 'выключена' : `${seconds} сек.`, inline: true }
             );
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

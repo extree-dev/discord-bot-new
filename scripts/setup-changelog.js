@@ -1,7 +1,8 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const changelog = require('../changelog');
-const { findChannel, findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel } = require('../utils/idempotent');
+const { isBootstrap, ensureChannel } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -24,12 +25,13 @@ client.once('clientReady', async () => {
         // информацию о сервере/боте, не про общение. Свой categoryId в
         // конфиге changelog/ (не общий с rules/) — у каждой фичи
         // независимый config-store (см. FSD-границы в README).
-        const { channel: category, created: categoryCreated } = await findOrCreateChannel({
+        const { channel: category, created: categoryCreated } = await ensureChannel({
             guild,
             existingId: existing.categoryId,
             name: CATEGORY_NAME,
             type: ChannelType.GuildCategory,
         });
+        if (!category) process.exit(0);
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
         // По прямому запросу администратора — канал больше не создаётся
@@ -42,20 +44,17 @@ client.once('clientReady', async () => {
             type: ChannelType.GuildText,
             parentId: category.id,
         });
+        // Разовое переименование #обновления → #📰│новости-сервера уже
+        // выполнено; дальше деплой имя канала не трогает (раньше каждый
+        // деплой возвращал его обратно, если администратор переименовал
+        // канал вручную).
         if (channel) {
-            if (channel.name !== CHANNEL_NAME) {
-                const previousName = channel.name;
-                await channel.setName(
-                    CHANNEL_NAME,
-                    'Переименование канала обновлений в новости сервера — по прямому запросу администратора'
-                );
-                console.log(`Канал переименован: было "${previousName}", стало "${CHANNEL_NAME}".`);
-            } else {
-                console.log(`Канал новостей сервера уже настроен: ${channel.name}`);
+            console.log(`Канал новостей сервера уже настроен: ${channel.name}`);
+            if (isBootstrap()) {
+                await channel.permissionOverwrites
+                    .edit(guild.roles.everyone.id, { SendMessages: false })
+                    .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
             }
-            await channel.permissionOverwrites
-                .edit(guild.roles.everyone.id, { SendMessages: false })
-                .catch(err => console.error('Не удалось закрыть канал от записи:', err.message));
         } else {
             console.warn(
                 `Канал "${CHANNEL_NAME}" не найден — автосоздание отключено администратором. Создай канал вручную, конфиг подхватит его по имени на следующем деплое.`

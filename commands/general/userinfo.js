@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
@@ -43,6 +43,6 @@ module.exports = {
             );
         }
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

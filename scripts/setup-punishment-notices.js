@@ -2,6 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const security = require('../security');
 const { findChannel } = require('../utils/idempotent');
+const { isBootstrap } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -34,7 +35,9 @@ client.once('clientReady', async () => {
             process.exit(0);
         }
         console.log('Канал уведомления-о-наказаниях уже настроен');
-        await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
+        if (isBootstrap()) {
+            await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
+        }
 
         await security.updateConfig(cfg => {
             cfg.punishmentNoticeChannelId = channel.id;

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const modqueue = require('../../modqueue');
 const { successEmbed, errorEmbed } = require('../../utils/embeds');
 
@@ -42,7 +42,7 @@ module.exports = {
         if (!config.reviewChannelId) {
             await interaction.reply({
                 embeds: [errorEmbed('Канал проверки ещё не настроен — сначала прогони scripts/setup-modqueue.js.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -51,7 +51,10 @@ module.exports = {
             const list = config.moderatedChannelIds.length
                 ? config.moderatedChannelIds.map(id => `<#${id}>`).join('\n')
                 : 'Список пуст — проверка сообщений нигде не включена.';
-            await interaction.reply({ embeds: [successEmbed(list, 'Каналы с проверкой сообщений')], ephemeral: true });
+            await interaction.reply({
+                embeds: [successEmbed(list, 'Каналы с проверкой сообщений')],
+                flags: MessageFlags.Ephemeral,
+            });
             return;
         }
 
@@ -61,7 +64,7 @@ module.exports = {
             if (channel.id === config.reviewChannelId) {
                 await interaction.reply({
                     embeds: [errorEmbed('Нельзя включить проверку в самом канале проверки.')],
-                    ephemeral: true,
+                    flags: MessageFlags.Ephemeral,
                 });
                 return;
             }
@@ -70,7 +73,7 @@ module.exports = {
             });
             await interaction.reply({
                 embeds: [successEmbed(`Сообщения в ${channel} теперь публикуются только после одобрения модератором.`)],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -81,7 +84,7 @@ module.exports = {
         });
         await interaction.reply({
             embeds: [successEmbed(`Проверка сообщений в ${channel} выключена.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     },
 };

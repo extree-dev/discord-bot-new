@@ -1,9 +1,9 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { load, save } = require('../tickets/config');
+const { load, update } = require('../tickets/config');
 const security = require('../security');
 const { buildManagementPanelMessage } = require('../tickets');
-const { findOrCreateChannel } = require('../utils/idempotent');
+const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode');
 
 // Панель управления тикетами — по прямому запросу администратора:
 // staff-only канал с сообщением-панелью (кнопки "Активные тикеты" /
@@ -55,7 +55,7 @@ client.once('clientReady', async () => {
             { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel] },
             ...staffRoles.map(role => ({ id: role.id, allow: [PermissionFlagsBits.ViewChannel] })),
         ];
-        const { channel, created } = await findOrCreateChannel({
+        const { channel, created } = await ensureChannel({
             guild,
             existingId: config.managementChannelId,
             name: '🛠️│управление-тикетами',
@@ -63,10 +63,10 @@ client.once('clientReady', async () => {
             parentId: category.id,
             createOptions: { permissionOverwrites: overwrites },
         });
-        if (created) {
-            console.log('Создан канал: 🛠️│управление-тикетами');
-        } else {
-            console.log('Канал управления тикетами уже настроен');
+        if (!channel) process.exit(0);
+        console.log(created ? 'Создан канал: 🛠️│управление-тикетами' : 'Канал управления тикетами уже настроен');
+
+        if (isBootstrap() && !created) {
             await channel.permissionOverwrites.edit(guild.roles.everyone.id, { ViewChannel: false }).catch(() => {});
             await channel.permissionOverwrites.edit(client.user.id, { ViewChannel: true }).catch(() => {});
             for (const role of staffRoles) {
@@ -74,19 +74,19 @@ client.once('clientReady', async () => {
             }
         }
 
-        const messages = await channel.messages.fetch({ limit: 10 });
-        const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
-        if (existingPanel) {
-            await existingPanel.edit({ ...buildManagementPanelMessage(), embeds: [] });
-            console.log('Панель управления тикетами обновлена.');
-        } else {
-            await channel.send(buildManagementPanelMessage());
-            console.log('Панель управления тикетами отправлена.');
-        }
+        await refreshPanel({
+            channel,
+            botId: client.user.id,
+            payload: { ...buildManagementPanelMessage(), embeds: [] },
+            label: 'Управление тикетами',
+        });
 
-        config.managementCategoryId = category.id;
-        config.managementChannelId = channel.id;
-        await save(config);
+        // Точечно через update(): в том же сторе живые тикеты, которые бот
+        // может менять прямо во время деплоя.
+        await update(cfg => {
+            cfg.managementCategoryId = category.id;
+            cfg.managementChannelId = channel.id;
+        });
 
         console.log('Готово. Панель управления тикетами настроена.');
         process.exit(0);

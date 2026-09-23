@@ -3,7 +3,7 @@
 // Сама доменная логика — в security/tickets/voice/moderation (тумблеры,
 // бэкап, статус) и adminPanel/quickActions.js (бан/кик/мут/варн), здесь
 // только разбор interaction'ов и сборка ответов.
-const { PermissionFlagsBits, UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+const { PermissionFlagsBits, UserSelectMenuBuilder, ActionRowBuilder, MessageFlags } = require('discord.js');
 const model = require('./model');
 const quickActions = require('./quickActions');
 const onboarding = require('./onboarding');
@@ -46,7 +46,7 @@ async function handleBackup(interaction) {
     const filename = await security.createBackup(interaction.guild);
     await refreshPanel(interaction);
     await interaction
-        .followUp({ embeds: [successEmbed(`Файл: \`${filename}\``, 'Бэкап создан')], ephemeral: true })
+        .followUp({ embeds: [successEmbed(`Файл: \`${filename}\``, 'Бэкап создан')], flags: MessageFlags.Ephemeral })
         .catch(() => {});
 }
 
@@ -54,12 +54,16 @@ async function handleBackup(interaction) {
 // состояние — панель под ними трогать незачем, только ephemeral-ответ.
 async function handleBackupList(interaction) {
     const files = security.listBackups();
-    await interaction.followUp({ embeds: [model.buildBackupListEmbed(files)], ephemeral: true }).catch(() => {});
+    await interaction
+        .followUp({ embeds: [model.buildBackupListEmbed(files)], flags: MessageFlags.Ephemeral })
+        .catch(() => {});
 }
 
 async function handleStatusDetail(interaction) {
     const config = await security.getConfig();
-    await interaction.followUp({ embeds: [model.buildStatusDetailEmbed(config)], ephemeral: true }).catch(() => {});
+    await interaction
+        .followUp({ embeds: [model.buildStatusDetailEmbed(config)], flags: MessageFlags.Ephemeral })
+        .catch(() => {});
 }
 
 async function handleRefresh(interaction) {
@@ -78,7 +82,7 @@ async function handleQuickActionButton(interaction, action) {
     await interaction.reply({
         content: `Выбери участника для действия «${config.label}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 }
 
@@ -100,7 +104,7 @@ async function handleUndoActionButton(interaction, action) {
     await interaction.reply({
         content: `Выбери участника для действия «${config.label}»:`,
         components: [new ActionRowBuilder().addComponents(select)],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
     });
 }
 
@@ -121,7 +125,7 @@ async function handleButton(interaction) {
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -179,7 +183,7 @@ async function handleSelectMenu(interaction) {
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -198,7 +202,7 @@ async function handleSelectMenu(interaction) {
 
     const action = interaction.customId.slice(model.UNDO_SELECT_PREFIX.length);
     const target = interaction.users.first();
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const result =
         action === 'unmute'
@@ -217,7 +221,7 @@ async function handleSelectMenu(interaction) {
 // UNDO_ACTIONS), потому что цель задаётся ID, а не выбором участника.
 async function handleUndoModalSubmit(interaction) {
     const userId = interaction.fields.getTextInputValue('userId').trim();
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const result = await quickActions.applyUnban(interaction.guild, userId);
     if (result.error) {
@@ -241,7 +245,7 @@ async function handleModalSubmit(interaction) {
     if (!isAdmin(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Панель администратора доступна только администраторам сервера.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return true;
     }
@@ -259,11 +263,14 @@ async function handleModalSubmit(interaction) {
     const [action, targetId] = interaction.customId.slice(model.QUICK_MODAL_PREFIX.length).split(':');
     const target = await interaction.client.users.fetch(targetId).catch(() => null);
     if (!target) {
-        await interaction.reply({ embeds: [errorEmbed('Не удалось найти этого пользователя.')], ephemeral: true });
+        await interaction.reply({
+            embeds: [errorEmbed('Не удалось найти этого пользователя.')],
+            flags: MessageFlags.Ephemeral,
+        });
         return true;
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const getReason = () => interaction.fields.getTextInputValue('reason')?.trim() || 'Причина не указана';
     let result;

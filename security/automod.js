@@ -25,6 +25,10 @@ function isExcessiveCaps(content) {
     return upper.length / letters.length > 0.7;
 }
 
+function isInviteLink(content) {
+    return INVITE_REGEX.test(content);
+}
+
 function isPhishingLink(content) {
     return PHISHING_REGEX.test(content);
 }
@@ -79,7 +83,7 @@ async function handle(msg) {
     }
     messageTimestamps.set(msg.author.id, arr);
 
-    if (INVITE_REGEX.test(msg.content)) {
+    if (isInviteLink(msg.content)) {
         return violate(msg, 'Приглашение на сторонний сервер');
     }
 
@@ -102,4 +106,4 @@ function register(client) {
     client.on('messageCreate', msg => handle(msg).catch(err => console.error('automod:', err)));
 }
 
-module.exports = { register, isPhishingLink, isExcessiveCaps };
+module.exports = { register, isInviteLink, isPhishingLink, isExcessiveCaps };

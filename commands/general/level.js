@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const leveling = require('../../leveling');
 
 // set/reset вынесены в отдельную команду commands/moderation/level-admin.js —
@@ -25,7 +25,7 @@ module.exports = {
             // пользователя и параллельно тянет аватар/баннер с CDN Discord перед
             // рендером канваса — суммарно легко выходит за 3-секундное окно
             // ответа на interaction.
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             const target = interaction.options.getUser('user') ?? interaction.user;
             const profile = await leveling.getProfile(guildId, target.id);
             const attachment = await leveling.buildRankCardAttachment(

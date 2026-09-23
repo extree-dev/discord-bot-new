@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
@@ -17,13 +17,13 @@ module.exports = {
         if (!member) {
             return interaction.reply({
                 embeds: [errorEmbed('Не удалось найти этого участника на сервере.')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
         if (!member.kickable) {
             return interaction.reply({
                 embeds: [errorEmbed('Я не могу кикнуть этого участника (недостаточно прав или роль выше моей).')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -39,6 +39,6 @@ module.exports = {
             )
             .setFooter({ text: `ID: ${target.id}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

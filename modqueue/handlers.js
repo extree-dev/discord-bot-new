@@ -1,4 +1,4 @@
-const { PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { load } = require('./config');
 const model = require('./model');
 const { toMessage } = require('../utils/components');
@@ -32,7 +32,7 @@ const handleApproveButton = async interaction => {
     if (!canModerate(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Одобрять публикации может только модерация.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }
@@ -61,7 +61,7 @@ const handleRejectButton = async interaction => {
     if (!canModerate(interaction.member)) {
         await interaction.reply({
             embeds: [errorEmbed('Отклонять публикации может только модерация.')],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
         return;
     }

@@ -1,9 +1,10 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
-const { load, save } = require('../suggestions/config');
+const { load, update } = require('../suggestions/config');
 const security = require('../security');
 const { buildPanelMessage } = require('../suggestions');
-const { findChannel, findOrCreateChannel } = require('../utils/idempotent');
+const { findChannel } = require('../utils/idempotent');
+const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -34,7 +35,7 @@ client.once('clientReady', async () => {
         }
 
         // канал вывода предложений — тоже read-only для участников, туда публикует бот
-        const { channel: outputChannel, created: outputCreated } = await findOrCreateChannel({
+        const { channel: outputChannel, created: outputCreated } = await ensureChannel({
             guild,
             existingId: config.outputChannelId,
             name: 'предложения',
@@ -43,39 +44,40 @@ client.once('clientReady', async () => {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
             },
         });
-        console.log(outputCreated ? 'Создан канал: предложения' : 'Канал предложения уже настроен');
+        if (outputChannel) {
+            console.log(outputCreated ? 'Создан канал: предложения' : 'Канал предложения уже настроен');
+        }
 
-        const securityConfig = await security.getConfig();
-        if (securityConfig.verification.unverifiedRoleId) {
-            const unverifiedRole = guild.roles.cache.get(securityConfig.verification.unverifiedRoleId);
+        if (isBootstrap()) {
+            const securityConfig = await security.getConfig();
+            const unverifiedRole = securityConfig.verification.unverifiedRoleId
+                ? guild.roles.cache.get(securityConfig.verification.unverifiedRoleId)
+                : null;
             if (unverifiedRole) {
-                if (panelChannel)
-                    await panelChannel.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
-                await outputChannel.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
+                for (const ch of [panelChannel, outputChannel].filter(Boolean)) {
+                    await ch.permissionOverwrites.edit(unverifiedRole.id, { ViewChannel: false });
+                }
                 console.log(`Каналы закрыты от роли ${unverifiedRole.name}`);
             }
         }
 
         if (panelChannel) {
-            const messages = await panelChannel.messages.fetch({ limit: 10 });
-            const existingPanel = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
-            if (existingPanel) {
-                // embeds: [] — та же причина, что и у панели тикетов/голосовых
-                // комнат: без явной очистки Discord отвергает PATCH, который
-                // одновременно оставляет старый embed и включает флаг
-                // IS_COMPONENTS_V2.
-                await existingPanel.edit({ ...buildPanelMessage(), embeds: [] });
-                console.log('Панель предложений обновлена.');
-            } else {
-                await panelChannel.send(buildPanelMessage());
-                console.log('Панель предложений отправлена.');
-            }
+            // embeds: [] — без явной очистки Discord отвергает PATCH, который
+            // одновременно оставляет старый embed и включает флаг
+            // IS_COMPONENTS_V2.
+            await refreshPanel({
+                channel: panelChannel,
+                botId: client.user.id,
+                payload: { ...buildPanelMessage(), embeds: [] },
+                label: 'Предложения',
+            });
         }
 
-        await save({
-            ...config,
-            panelChannelId: panelChannel?.id ?? config.panelChannelId,
-            outputChannelId: outputChannel.id,
+        // Точечно через update(): в том же сторе счётчик предложений, который
+        // бот может увеличить прямо во время деплоя.
+        await update(cfg => {
+            if (panelChannel) cfg.panelChannelId = panelChannel.id;
+            if (outputChannel) cfg.outputChannelId = outputChannel.id;
         });
 
         console.log('Готово. Система предложений настроена.');

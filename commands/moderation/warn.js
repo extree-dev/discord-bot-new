@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { addWarning } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 const { notifyPunishment } = require('../../utils/punishmentNotice');
@@ -34,6 +34,6 @@ module.exports = {
         // получил предупреждение.
         await notifyPunishment(target, interaction.guild, { kind: 'warn', reason });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

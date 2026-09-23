@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const voice = require('../../voice');
 const { successEmbed } = require('../../utils/embeds');
 
@@ -39,7 +39,7 @@ module.exports = {
                 embeds: [
                     successEmbed('Категория для временных комнат сброшена — снова используется значение по умолчанию.'),
                 ],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
             return;
         }
@@ -50,7 +50,7 @@ module.exports = {
         });
         await interaction.reply({
             embeds: [successEmbed(`Временные комнаты теперь создаются в категории ${category}.`)],
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
         });
     },
 };

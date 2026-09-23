@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const tickets = require('../../tickets');
 const security = require('../../security');
 const voice = require('../../voice');
@@ -66,6 +66,6 @@ module.exports = {
             )
             .setFooter({ text: 'Подробнее: /security-status, /warnings' });
 
-        return interaction.reply({ embeds: [embed], ephemeral: true });
+        return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

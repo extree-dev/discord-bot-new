@@ -2,7 +2,7 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const security = require('../security');
 const moderation = require('../moderation');
-const { findOrCreateRole } = require('../utils/idempotent');
+const { isBootstrap, ensureRole } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -78,7 +78,7 @@ client.once('clientReady', async () => {
         const me = await guild.members.fetchMe();
         const botPosition = me.roles.highest.position;
 
-        if (botPosition <= 1) {
+        if (isBootstrap() && botPosition <= 1) {
             console.error(
                 'Роль бота слишком низко в иерархии — новые роли могут оказаться выше неё, и бот не сможет ими управлять. Подними роль бота вручную (Настройки сервера → Роли) и перезапусти скрипт.'
             );
@@ -98,9 +98,10 @@ client.once('clientReady', async () => {
             );
         }
 
-        const created = {};
+        const found = {};
+        const createdNow = [];
         for (const r of ROLES) {
-            const { role, created: wasCreated } = await findOrCreateRole({
+            const { role, created } = await ensureRole({
                 guild,
                 existingId: baseRoleIds[r.name],
                 name: r.name,
@@ -109,23 +110,27 @@ client.once('clientReady', async () => {
                 mentionable: r.mentionable,
                 permissions: r.permissions,
             });
-            console.log(wasCreated ? `Создана роль: ${r.name}` : `Роль уже настроена: ${role.name}`);
+            if (!role) continue;
+            console.log(created ? `Создана роль: ${r.name}` : `Роль уже настроена: ${role.name}`);
             baseRoleIds[r.name] = role.id;
-            created[r.name] = role;
+            found[r.name] = role;
+            if (created) createdNow.push(r);
         }
 
-        const positions = ROLES.map((r, i) => ({ role: created[r.name].id, position: botPosition - 1 - i })).filter(
-            p => p.position >= 1
-        );
+        // Позиция — только у ролей, созданных прямо сейчас (--bootstrap).
+        // Раньше каждый деплой ставил все четыре роли сразу под роль бота и
+        // тем самым откатывал иерархию, выставленную вручную или
+        // scripts/reorganize-custom-roles.js (Trusted/Muted внизу).
+        const positions = createdNow
+            .map(r => ({ role: found[r.name].id, position: botPosition - 1 - ROLES.indexOf(r) }))
+            .filter(p => p.position >= 1);
         if (positions.length) {
             // Discord отказывает (Missing Permissions) всей пачке, если хотя бы
-            // одна из этих ролей уже стоит выше роли бота в иерархии (например,
-            // её вручную подвинул администратор) — это не мешает остальной
-            // настройке (сами роли уже созданы/найдены выше), поэтому не даём
-            // этой ошибке прервать скрипт.
+            // одна из ролей уже стоит выше роли бота — это не мешает остальной
+            // настройке, поэтому не даём ошибке прервать скрипт.
             try {
                 await guild.roles.setPositions(positions);
-                console.log('Позиции ролей выставлены ниже роли бота.');
+                console.log('Позиции новых ролей выставлены ниже роли бота.');
             } catch (err) {
                 console.error(
                     'Не удалось выставить позиции ролей (вероятно, конфликт иерархии — поправь позиции вручную в Настройках сервера → Роли):',
@@ -135,33 +140,26 @@ client.once('clientReady', async () => {
         }
 
         await security.updateConfig(config => {
-            config.trustedRoleId = created['Trusted'].id;
+            if (found.Trusted) config.trustedRoleId = found.Trusted.id;
             config.baseRoleIds = baseRoleIds;
         });
-        console.log(`Роль Trusted (${created['Trusted'].id}) добавлена в белый список anti-nuke.`);
+        if (found.Trusted) console.log(`Роль Trusted (${found.Trusted.id}) в белом списке anti-nuke.`);
 
-        // Deny-оверрайт роли Muted — на КАЖДЫЙ канал и категорию, не
-        // только на категории: канал с собственным оверрайтом какой-то
-        // другой роли иначе может перебить категорийный запрет Muted (у
-        // Discord канальные оверрайты всегда приоритетнее категорийных
-        // для одной и той же роли — именно так замученные участники
-        // могли, например, по-прежнему подключаться к голосовым каналам
-        // с собственными оверрайтами, несмотря на категорийный запрет).
-        // Идемпотентно: повторный запуск просто переустанавливает те же
-        // значения. Новые каналы/категории, созданные после этого
-        // запуска, подхватывает moderation/index.js (событие
-        // channelCreate).
-        // isThread() — guild.channels.cache внутри discord.js неожиданно
-        // включает и треды, не только "настоящие" каналы; applyMuteOverwrite
-        // теперь и сама на них не падает (см. её комментарий), но фильтр
-        // здесь ещё и избавляет от бессмысленных вызовов на объектах, для
-        // которых оверрайт технически невозможен.
-        await guild.channels.fetch();
-        const muteTargets = guild.channels.cache.filter(c => !c.isThread());
-        for (const channel of muteTargets.values()) {
-            await moderation.applyMuteOverwrite(channel, created['Muted'].id);
+        // Deny-оверрайт роли Muted на КАЖДЫЙ канал и категорию (канальный
+        // оверрайт другой роли иначе может перебить категорийный запрет).
+        // Только при --bootstrap: каналы, созданные позже, подхватывает
+        // moderation/index.js (событие channelCreate), а проход по всем
+        // каналам на каждом деплое переписывал бы права, выставленные
+        // администратором вручную. isThread() — guild.channels.cache
+        // включает и треды, на которых оверрайт невозможен.
+        if (isBootstrap() && found.Muted) {
+            await guild.channels.fetch();
+            const muteTargets = guild.channels.cache.filter(c => !c.isThread());
+            for (const channel of muteTargets.values()) {
+                await moderation.applyMuteOverwrite(channel, found.Muted.id);
+            }
+            console.log(`Роль Muted настроена на ${muteTargets.size} каналах/категориях.`);
         }
-        console.log(`Роль Muted настроена на ${muteTargets.size} каналах/категориях.`);
 
         console.log('Готово.');
         process.exit(0);

@@ -4,6 +4,7 @@
 // voice/handlers.js.
 const { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { load, update } = require('./config');
+const security = require('../security');
 const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
@@ -23,14 +24,15 @@ const CUSTOM_ICONS = {
 // ManageChannels владельцу намеренно не даём — управление комнатой
 // должно идти через кнопки на панели (rename/limit и т.д. уже покрыты),
 // а не через нативный "Edit Channel" в Discord, который эти кнопки
-// обходит.
+// обходит. MuteMembers/DeafenMembers тоже не даём: серверный мут/глушение
+// в Discord действуют на весь сервер, а не на одну комнату — владелец
+// мог замутить человека, и тот оставался замьюченным во всех каналах
+// после выхода из комнаты. Отключить неугодного можно кнопкой "Кикнуть".
 function ownerPermissions() {
     return {
         ViewChannel: true,
         Connect: true,
         MoveMembers: true,
-        MuteMembers: true,
-        DeafenMembers: true,
     };
 }
 
@@ -39,9 +41,28 @@ const OWNER_PERMISSION_FLAGS = [
     PermissionFlagsBits.ViewChannel,
     PermissionFlagsBits.Connect,
     PermissionFlagsBits.MoveMembers,
-    PermissionFlagsBits.MuteMembers,
-    PermissionFlagsBits.DeafenMembers,
 ];
+
+// Discord разрешает переименовать канал только 2 раза за 10 минут. Сверх
+// лимита discord.js не падает, а молча ждёт окончания окна (до 10 минут) —
+// ответ на модалку не успевал уйти, и участник видел "Взаимодействие не
+// удалось". Считаем переименования сами и сразу отвечаем, когда можно.
+const RENAME_LIMIT = 2;
+const RENAME_WINDOW_MS = 10 * 60 * 1000;
+const renameHistory = new Map();
+
+// Повторный заход в триггер сразу после создания комнаты — не новая
+// комната: иначе прыжками в триггер можно было наплодить десятки каналов.
+const CREATE_COOLDOWN_MS = 30 * 1000;
+const lastCreateAt = new Map();
+
+// Периодическая уборка: комнаты, которые остались пустыми, но не были
+// удалены (бот перезапускался, пока из комнаты выходили, участника не
+// удалось переместить в новую комнату), и записи о каналах, удалённых
+// вручную. Свежие комнаты не трогаем — участника в них ещё переносят.
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const SWEEP_GRACE_MS = 60 * 1000;
+const UNKNOWN_CHANNEL = 10003;
 
 function isOwner(entry, member) {
     return entry.ownerId === member.id;
@@ -142,9 +163,73 @@ async function resolveCategory(guild, categoryId) {
     return guild.channels.cache.get(categoryId) ?? (await guild.channels.fetch(categoryId).catch(() => null));
 }
 
+function findOwnedRoom(guild, config, memberId) {
+    for (const [channelId, entry] of Object.entries(config.channels)) {
+        if (entry.ownerId !== memberId) continue;
+        const channel = guild.channels.cache.get(channelId);
+        if (channel) return channel;
+    }
+    return null;
+}
+
+// Сколько ещё ждать до следующего разрешённого переименования (0 — можно).
+function renameWaitMs(channelId, now = Date.now()) {
+    const recent = (renameHistory.get(channelId) ?? []).filter(t => now - t < RENAME_WINDOW_MS);
+    renameHistory.set(channelId, recent);
+    if (recent.length < RENAME_LIMIT) return 0;
+    return RENAME_WINDOW_MS - (now - recent[0]);
+}
+
+// Сколько ещё ждать до создания следующей комнаты (0 — можно).
+function createCooldownMs(memberId, now = Date.now()) {
+    const last = lastCreateAt.get(memberId);
+    if (last === undefined) return 0;
+    return Math.max(0, CREATE_COOLDOWN_MS - (now - last));
+}
+
+const LINK_REGEX = /(https?:\/\/|www\.)\S+/i;
+const MASS_MENTION_REGEX = /@(everyone|here)\b/i;
+
+// Название комнаты видят все в списке каналов — те же ограничения, что и
+// автомодерация в чате: без ссылок, инвайтов, @everyone/@here и
+// запрещённых слов из security-config (bannedWords). Возвращает текст
+// ошибки или null.
+function validateRoomName(name, bannedWords = []) {
+    if (!name) return 'Название не может быть пустым.';
+    if (security.isInviteLink(name) || security.isPhishingLink(name) || LINK_REGEX.test(name))
+        return 'Ссылки и приглашения в названии комнаты запрещены.';
+    if (MASS_MENTION_REGEX.test(name)) return 'Упоминания @everyone и @here в названии комнаты запрещены.';
+    const lower = name.toLowerCase();
+    if (bannedWords.some(w => w && lower.includes(w.toLowerCase()))) {
+        return 'Название содержит запрещённое слово.';
+    }
+    return null;
+}
+
 async function createRoom(state, config) {
     const guild = state.guild;
     const member = state.member;
+
+    // Уже есть своя комната — возвращаем в неё, а не создаём вторую.
+    // Возвращаем её ID, чтобы handleVoiceStateUpdate не удалил эту же
+    // комнату как опустевшую, если участник вышел в триггер именно из неё.
+    const owned = findOwnedRoom(guild, config, member.id);
+    if (owned) {
+        await member.voice.setChannel(owned).catch(err => {
+            console.error('tempVoice: не удалось вернуть участника в его комнату:', err.message);
+        });
+        return owned.id;
+    }
+
+    const wait = createCooldownMs(member.id);
+    if (wait > 0) {
+        await member.voice.disconnect('Слишком частое создание временных комнат').catch(() => {});
+        await member.send(`Новую временную комнату можно создать через ${Math.ceil(wait / 1000)} сек.`).catch(() => {});
+        return;
+    }
+    // Ставим до первого await — два быстрых захода в триггер подряд
+    // иначе оба успевали бы пройти проверку и создать по комнате.
+    lastCreateAt.set(member.id, Date.now());
     // Комнаты создаются в отдельной категории (roomsCategoryId), а не в
     // той же, где лежат триггер-канал и панель управления (categoryId) —
     // иначе та категория зарастает десятками комнат участников. Если
@@ -247,14 +332,18 @@ async function handleLeave(oldState) {
 
 async function handleVoiceStateUpdate(oldState, newState) {
     if (newState.member?.user.bot) return;
+    // Мут/глушение/стрим/камера тоже приходят как voiceStateUpdate, но
+    // канал при этом не меняется — не ходим за конфигом в базу зря.
+    if (oldState.channelId === newState.channelId) return;
     const config = await load();
     if (!config.triggerChannelId) return;
 
+    let returnedTo = null;
     if (newState.channelId === config.triggerChannelId && oldState.channelId !== config.triggerChannelId) {
-        await createRoom(newState, config);
+        returnedTo = await createRoom(newState, config);
     }
 
-    if (oldState.channelId && oldState.channelId !== newState.channelId) {
+    if (oldState.channelId && oldState.channelId !== returnedTo) {
         await handleLeave(oldState);
     }
 }
@@ -277,12 +366,22 @@ async function toggleHide(channel, everyoneRole) {
     return { wasHidden };
 }
 
+// Ошибки не глотаем — раньше при отказе Discord участнику всё равно
+// отвечали "Комната переименована". Лимит переименований проверяет
+// вызывающий код через renameWaitMs() до вызова.
 async function renameRoom(channel, name) {
-    await channel.setName(name).catch(() => {});
+    await channel.setName(name);
+    renameHistory.set(channel.id, [...(renameHistory.get(channel.id) ?? []), Date.now()]);
 }
 
 async function setRoomLimit(channel, limit) {
-    await channel.setUserLimit(limit).catch(() => {});
+    await channel.setUserLimit(limit);
+}
+
+// Участники комнаты, кроме владельца и ботов — кандидаты для кика и
+// передачи прав (раньше меню предлагало вообще всех участников сервера).
+function getRoomMembers(channel, entry) {
+    return [...channel.members.values()].filter(m => m.id !== entry.ownerId && !m.user.bot);
 }
 
 async function kickFromRoom(targetMember) {
@@ -309,6 +408,60 @@ function getBlockedMemberIds(channel, entry, everyoneId) {
         .map(ow => ow.id);
 }
 
+async function fetchRoomChannel(client, channelId) {
+    const cached = client.channels.cache.get(channelId);
+    if (cached) return { channel: cached };
+    try {
+        return { channel: await client.channels.fetch(channelId) };
+    } catch (err) {
+        // Удалять запись только когда Discord прямо ответил "канала нет" —
+        // сетевая ошибка не повод забыть о живой комнате.
+        return { channel: null, missing: err.code === UNKNOWN_CHANNEL };
+    }
+}
+
+async function sweepRooms(client, now = Date.now()) {
+    const config = await load();
+    for (const [channelId, entry] of Object.entries(config.channels)) {
+        const { channel, missing } = await fetchRoomChannel(client, channelId);
+        if (!channel) {
+            if (missing) {
+                await update(cfg => {
+                    delete cfg.channels[channelId];
+                });
+            }
+            continue;
+        }
+
+        if (channel.members.size === 0) {
+            if (now - (entry.createdAt ?? 0) < SWEEP_GRACE_MS) continue;
+            await update(cfg => {
+                delete cfg.channels[channelId];
+            });
+            await channel.delete('Временная комната пуста').catch(() => {});
+            continue;
+        }
+
+        // Комнаты, созданные до отказа от MuteMembers/DeafenMembers у
+        // владельца, — снимаем эти права и с них.
+        const ownerOverwrite = channel.permissionOverwrites.cache.get(entry.ownerId);
+        if (
+            ownerOverwrite?.allow.has(PermissionFlagsBits.MuteMembers) ||
+            ownerOverwrite?.allow.has(PermissionFlagsBits.DeafenMembers)
+        ) {
+            await channel.permissionOverwrites
+                .edit(entry.ownerId, { MuteMembers: null, DeafenMembers: null })
+                .catch(() => {});
+        }
+    }
+}
+
+function startSweep(client) {
+    const run = () => sweepRooms(client).catch(err => console.error('tempVoice sweep:', err));
+    run();
+    setInterval(run, SWEEP_INTERVAL_MS);
+}
+
 module.exports = {
     CUSTOM_ICONS,
     ownerPermissions,
@@ -330,4 +483,10 @@ module.exports = {
     blockInRoom,
     unblockInRoom,
     getBlockedMemberIds,
+    getRoomMembers,
+    validateRoomName,
+    renameWaitMs,
+    createCooldownMs,
+    sweepRooms,
+    startSweep,
 };

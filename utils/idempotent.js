@@ -64,7 +64,8 @@ async function findOrCreateChannel({ guild, existingId, name, type, parentId, cr
     return { channel: created, created: true };
 }
 
-async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
+// Только поиск, без создания — ролевой аналог findChannel.
+function findRole({ guild, existingId, name }) {
     let role = existingId ? guild.roles.cache.get(existingId) : null;
     if (!role) {
         const matches = [...guild.roles.cache.filter(r => r.name === name).values()];
@@ -75,10 +76,15 @@ async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
             role = matches[0] ?? null;
         }
     }
-    if (role) return { role, created: false };
-
-    role = await guild.roles.create({ name, ...createOptions });
-    return { role, created: true };
+    return role;
 }
 
-module.exports = { findChannel, findOrCreateChannel, findOrCreateRole, pickOldest };
+async function findOrCreateRole({ guild, existingId, name, ...createOptions }) {
+    const role = findRole({ guild, existingId, name });
+    if (role) return { role, created: false };
+
+    const created = await guild.roles.create({ name, ...createOptions });
+    return { role: created, created: true };
+}
+
+module.exports = { findChannel, findOrCreateChannel, findRole, findOrCreateRole, pickOldest };

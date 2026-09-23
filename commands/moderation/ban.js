@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 
 module.exports = {
@@ -25,7 +25,7 @@ module.exports = {
         if (member && !member.bannable) {
             return interaction.reply({
                 embeds: [errorEmbed('Я не могу забанить этого участника (недостаточно прав или роль выше моей).')],
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -49,6 +49,6 @@ module.exports = {
             )
             .setFooter({ text: `ID: ${target.id}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

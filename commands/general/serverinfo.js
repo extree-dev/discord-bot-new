@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, ChannelType, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
@@ -32,6 +32,6 @@ module.exports = {
             .setDescription(`${formatBody(guild.name)}\n\n${lines.join('\n')}`)
             .setFooter({ text: `ID: ${guild.id}` });
 
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };
