@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    parseRssDate,
+    fetchSchedule,
     parseVlrRss,
     parseVlrMatches,
     parseEta,
@@ -263,4 +265,64 @@ test('parseVlrMatches: матч в эфире — статус LIVE', () => {
         })}`;
     const [live] = parseVlrMatches(html, Date.parse('2026-09-24T09:10:00Z'));
     assert.equal(live.state, 'inProgress');
+});
+
+test('parseRssDate: европейские и американские пояса VLR.gg, числовое смещение, мусор', () => {
+    assert.equal(parseRssDate('Thu, 24 Sep 2026 13:07:39 CEST'), '2026-09-24T11:07:39.000Z');
+    assert.equal(parseRssDate('Thu, 24 Sep 2026 06:07:39 CDT'), '2026-09-24T11:07:39.000Z');
+    assert.equal(parseRssDate('Thu, 24 Sep 2026 14:07:39 MSK'), '2026-09-24T11:07:39.000Z');
+    assert.equal(parseRssDate('Thu, 24 Sep 2026 13:07:39 +0200'), '2026-09-24T11:07:39.000Z');
+    assert.equal(parseRssDate('bad date'), null);
+    assert.equal(parseRssDate(undefined), null);
+});
+
+test('parseVlrRss: новость с датой в CEST (сервер в Европе) получает дату, а не null', () => {
+    const xml = `<rss><channel><item><title>Paper Rex shuts down Team Liquid</title>
+        <link>https://www.vlr.gg/758987/paper-rex</link>
+        <pubDate>Thu, 24 Sep 2026 13:07:39 CEST</pubDate></item></channel></rss>`;
+    assert.equal(parseVlrRss(xml)[0].date, '2026-09-24T11:07:39.000Z');
+});
+
+test('fetchSchedule: итоги берут пояс страницы расписания (сервер в Европе, CEST)', async () => {
+    const upcomingHtml = `<div class="wf-label mod-large">Thu, September 24, 2026</div>${vlrItem({
+        id: '10',
+        slug: 'tyloo-vs-g2',
+        time: '2:00 PM',
+        teams: [
+            ['TYLOO', '&ndash;'],
+            ['G2 Esports', '&ndash;'],
+        ],
+        status: 'Upcoming',
+        eta: '1h 0m',
+        series: 'Group Stage',
+        event: 'Valorant Champions 2026',
+    })}`;
+    const resultsHtml = `<div class="wf-label mod-large">Thu, September 24, 2026</div>${vlrItem({
+        id: '11',
+        slug: 'liquid-vs-prx',
+        time: '11:00 AM',
+        teams: [
+            ['Team Liquid', '0'],
+            ['Paper Rex', '2', true],
+        ],
+        status: 'Completed',
+        eta: '2h 5m',
+        series: 'Group Stage',
+        event: 'Valorant Champions 2026',
+    })}`;
+    const realFetch = global.fetch;
+    global.fetch = async url => ({
+        ok: true,
+        text: async () => (url.endsWith('/matches/results') ? resultsHtml : upcomingHtml),
+    });
+    try {
+        // Сейчас 11:00 UTC = 13:00 CEST; до матча TYLOO — G2 (14:00 CEST) час.
+        const items = await fetchSchedule(Date.parse('2026-09-24T11:00:00Z'));
+        const result = items.find(i => i.match.id === '11');
+        assert.equal(items.find(i => i.match.id === '10').date, '2026-09-24T12:00:00.000Z');
+        assert.equal(result.date, '2026-09-24T09:00:00.000Z'); // 11:00 CEST
+        assert.equal(result.state, 'completed');
+    } finally {
+        global.fetch = realFetch;
+    }
 });
