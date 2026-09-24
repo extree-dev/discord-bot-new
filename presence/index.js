@@ -10,4 +10,5 @@ module.exports = {
     updateConfig: config.update,
     ACTIVITY_TYPES: model.ACTIVITY_TYPES,
     ACTIVITY_LABELS: model.ACTIVITY_LABELS,
+    isValidStreamUrl: model.isValidStreamUrl,
 };

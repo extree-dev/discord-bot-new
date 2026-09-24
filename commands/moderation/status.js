@@ -4,6 +4,7 @@ const { COLORS, baseEmbed, formatBody, errorEmbed, successEmbed } = require('../
 
 const TYPE_CHOICES = [
     { name: 'Играет в', value: 'playing' },
+    { name: 'Стримит', value: 'streaming' },
     { name: 'Смотрит', value: 'watching' },
     { name: 'Слушает', value: 'listening' },
     { name: 'Участвует в', value: 'competing' },
@@ -45,6 +46,12 @@ module.exports = {
                         .setRequired(false)
                         .addChoices(...PRESENCE_CHOICES)
                 )
+                .addStringOption(opt =>
+                    opt
+                        .setName('url')
+                        .setDescription('Для типа «Стримит»: ссылка на twitch.tv/канал или youtube.com/watch?v=...')
+                        .setRequired(false)
+                )
         )
         .addSubcommand(sub =>
             sub
@@ -63,6 +70,12 @@ module.exports = {
                         .setDescription('Тип активности')
                         .setRequired(false)
                         .addChoices(...TYPE_CHOICES)
+                )
+                .addStringOption(opt =>
+                    opt
+                        .setName('url')
+                        .setDescription('Для типа «Стримит»: ссылка на twitch.tv/канал или youtube.com/watch?v=...')
+                        .setRequired(false)
                 )
         )
         .addSubcommand(sub => sub.setName('rotate-clear').setDescription('Очистить список ротации и выключить её'))
@@ -101,9 +114,20 @@ module.exports = {
             const text = interaction.options.getString('text');
             const typeKey = interaction.options.getString('type') ?? 'playing';
             const presenceStatus = interaction.options.getString('presence');
+            const url = interaction.options.getString('url');
+            if (typeKey === 'streaming' && !presence.isValidStreamUrl(url)) {
+                return interaction.reply({
+                    embeds: [
+                        errorEmbed(
+                            'Для типа «Стримит» укажи ссылку в url: twitch.tv/канал или youtube.com/watch?v=... — иначе Discord не покажет бейдж «В эфире».'
+                        ),
+                    ],
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
             await presence.updateConfig(cfg => {
                 cfg.rotate = false;
-                cfg.activity = { type: presence.ACTIVITY_TYPES[typeKey], text };
+                cfg.activity = { type: presence.ACTIVITY_TYPES[typeKey], text, url: url ?? null };
                 if (presenceStatus) cfg.status = presenceStatus;
             });
             await presence.applyCurrentPresence(interaction.client);
@@ -121,8 +145,19 @@ module.exports = {
         if (sub === 'rotate-add') {
             const text = interaction.options.getString('text');
             const typeKey = interaction.options.getString('type') ?? 'playing';
+            const url = interaction.options.getString('url');
+            if (typeKey === 'streaming' && !presence.isValidStreamUrl(url)) {
+                return interaction.reply({
+                    embeds: [
+                        errorEmbed(
+                            'Для типа «Стримит» укажи ссылку в url: twitch.tv/канал или youtube.com/watch?v=... — иначе Discord не покажет бейдж «В эфире».'
+                        ),
+                    ],
+                    flags: MessageFlags.Ephemeral,
+                });
+            }
             const count = await presence.updateConfig(cfg => {
-                cfg.rotateItems.push({ type: presence.ACTIVITY_TYPES[typeKey], text });
+                cfg.rotateItems.push({ type: presence.ACTIVITY_TYPES[typeKey], text, url: url ?? null });
                 return cfg.rotateItems.length;
             });
             return interaction.reply({
@@ -179,18 +214,18 @@ module.exports = {
 
         const config = await presence.getConfig();
         const lines = [`**Онлайн-статус:** ${config.status}`];
+        const describe = item => {
+            const label = `${presence.ACTIVITY_LABELS[item.type] ?? item.type} «${item.text}»`;
+            return item.url ? `${label} (${item.url})` : label;
+        };
         if (config.rotate && config.rotateItems.length) {
             lines.push(`**Ротация:** включена, каждые ${config.rotateIntervalMs / 60000} мин.`);
             config.rotateItems.forEach((item, i) => {
-                lines.push(`  ${i + 1}. ${presence.ACTIVITY_LABELS[item.type] ?? item.type} «${item.text}»`);
+                lines.push(`  ${i + 1}. ${describe(item)}`);
             });
         } else {
             lines.push('**Ротация:** выключена');
-            lines.push(
-                config.activity.text
-                    ? `**Статус:** ${presence.ACTIVITY_LABELS[config.activity.type] ?? config.activity.type} «${config.activity.text}»`
-                    : '**Статус:** не задан'
-            );
+            lines.push(config.activity.text ? `**Статус:** ${describe(config.activity)}` : '**Статус:** не задан');
         }
         const embed = baseEmbed(COLORS.primary).setDescription(`${formatBody('Статус бота')}\n\n${lines.join('\n')}`);
         return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
