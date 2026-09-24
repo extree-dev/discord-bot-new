@@ -8,6 +8,7 @@ const { load, update } = require('./config');
 
 const ACTIVITY_TYPES = {
     playing: ActivityType.Playing,
+    streaming: ActivityType.Streaming,
     watching: ActivityType.Watching,
     listening: ActivityType.Listening,
     competing: ActivityType.Competing,
@@ -15,10 +16,21 @@ const ACTIVITY_TYPES = {
 
 const ACTIVITY_LABELS = {
     [ActivityType.Playing]: 'Играет в',
+    [ActivityType.Streaming]: 'Стримит',
     [ActivityType.Watching]: 'Смотрит',
     [ActivityType.Listening]: 'Слушает',
     [ActivityType.Competing]: 'Участвует в',
 };
+
+// Discord рисует бейдж "В эфире" (фиолетовый) только при типе Streaming
+// с ссылкой на twitch.tv/<канал> или youtube.com/watch?v=... — с любым
+// другим url или без него статус просто показывается как обычный,
+// без бейджа.
+const STREAM_URL_REGEX = /^https?:\/\/(www\.)?(twitch\.tv\/\w+|youtube\.com\/watch\?v=|youtu\.be\/)/i;
+
+function isValidStreamUrl(url) {
+    return typeof url === 'string' && STREAM_URL_REGEX.test(url);
+}
 
 const TICK_MS = 30 * 1000;
 
@@ -47,9 +59,16 @@ function resolveTemplate(text, client) {
 }
 
 async function applyActivity(client, config, item) {
+    const activity = item?.text
+        ? {
+              name: resolveTemplate(item.text, client),
+              type: item.type,
+              ...(item.type === ActivityType.Streaming && isValidStreamUrl(item.url) ? { url: item.url } : {}),
+          }
+        : null;
     await client.user.setPresence({
         status: config.status,
-        activities: item?.text ? [{ name: resolveTemplate(item.text, client), type: item.type }] : [],
+        activities: activity ? [activity] : [],
     });
 }
 
@@ -89,6 +108,7 @@ function start(client) {
 module.exports = {
     ACTIVITY_TYPES,
     ACTIVITY_LABELS,
+    isValidStreamUrl,
     formatUptime,
     start,
     applyCurrentPresence,
