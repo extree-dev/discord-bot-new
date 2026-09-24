@@ -64,6 +64,18 @@ const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 const SWEEP_GRACE_MS = 60 * 1000;
 const UNKNOWN_CHANNEL = 10003;
 
+// @everyone в комнате: помимо статуса канала (см. createRoom), запрещены
+// приглашение в комнату, запуск активности и звуковая панель — для них
+// нет ни кнопки на панели, ни модерирования владельцем, и они позволяют
+// притащить в комнату чужих людей/шум в обход владельца.
+const ROOM_EVERYONE_DENY = {
+    SetVoiceChannelStatus: false,
+    CreateInstantInvite: false,
+    UseEmbeddedActivities: false,
+    UseSoundboard: false,
+    UseExternalSounds: false,
+};
+
 function isOwner(entry, member) {
     return entry.ownerId === member.id;
 }
@@ -256,8 +268,12 @@ async function createRoom(state, config) {
 
     // Никто, включая владельца, не должен ставить нативный "статус
     // голосового канала" Discord — управление комнатой только через
-    // кнопки на панели, а не через отдельную функцию клиента.
-    await channel.permissionOverwrites.edit(guild.roles.everyone.id, { SetVoiceChannelStatus: false }).catch(() => {});
+    // кнопки на панели, а не через отдельную функцию клиента. По той же
+    // причине запрещены приглашение в комнату, запуск активности
+    // (игры/просмотр вместе) и звуковая панель — это неуправляемые
+    // ботом способы привести в комнату чужих людей/шум, для которых нет
+    // ни кнопки на панели, ни какого-либо модерирования владельцем.
+    await channel.permissionOverwrites.edit(guild.roles.everyone.id, ROOM_EVERYONE_DENY).catch(() => {});
 
     await member.voice.setChannel(channel).catch(err => {
         console.error('tempVoice: не удалось переместить участника в новую комнату:', err.message);
@@ -453,6 +469,18 @@ async function sweepRooms(client, now = Date.now()) {
                 .edit(entry.ownerId, { MuteMembers: null, DeafenMembers: null })
                 .catch(() => {});
         }
+
+        // Комнаты, созданные до запрета приглашений/активностей/звуковой
+        // панели (см. ROOM_EVERYONE_DENY в createRoom), — донастраиваем
+        // и их, а не только новые.
+        const everyoneId = channel.guild.roles.everyone.id;
+        const everyoneOverwrite = channel.permissionOverwrites.cache.get(everyoneId);
+        const missingDeny = Object.entries(ROOM_EVERYONE_DENY).some(
+            ([flag]) => !everyoneOverwrite?.deny.has(PermissionFlagsBits[flag])
+        );
+        if (missingDeny) {
+            await channel.permissionOverwrites.edit(everyoneId, ROOM_EVERYONE_DENY).catch(() => {});
+        }
     }
 }
 
@@ -466,6 +494,7 @@ module.exports = {
     CUSTOM_ICONS,
     ownerPermissions,
     OWNER_PERMISSION_FLAGS,
+    ROOM_EVERYONE_DENY,
     isOwner,
     resolveTarget,
     buildPanelMessage,
