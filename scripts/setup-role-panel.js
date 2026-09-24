@@ -33,6 +33,12 @@ client.once('clientReady', async () => {
         });
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
+        // Как и у остальных scripts/setup-*.js (см. utils/setupMode.js):
+        // отсутствие канала в режиме синхронизации — это не ошибка деплоя,
+        // а нормальное состояние до первого ручного --bootstrap. Раньше
+        // здесь был process.exit(1), из-за чего деплой падал целиком на
+        // каждом прогоне до тех пор, пока администратор не запустит
+        // --bootstrap вручную (см. CHANGELOG).
         const { channel, created } = await ensureChannel({
             guild,
             existingId: existing.channelId,
@@ -40,10 +46,6 @@ client.once('clientReady', async () => {
             type: ChannelType.GuildText,
             parentId: category?.id,
         });
-        if (!channel) {
-            console.error(`Канал "${CHANNEL_NAME}" не найден и не создан — панель ролей не настроена.`);
-            process.exit(1);
-        }
         if (created) console.log(`Создан канал: ${CHANNEL_NAME}`);
 
         const roleIds = { ...existing.roleIds };
@@ -60,10 +62,14 @@ client.once('clientReady', async () => {
 
         await rolePanel.saveTargets({
             categoryId: category?.id ?? existing.categoryId,
-            channelId: channel.id,
+            channelId: channel?.id ?? existing.channelId,
             roleIds,
         });
 
+        if (!channel) {
+            console.warn('Канал панели не найден — панель не опубликована.');
+            process.exit(0);
+        }
         if (availableGames.length === 0) {
             console.warn('Ни одна роль игры не найдена — панель не опубликована.');
             process.exit(0);
