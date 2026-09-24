@@ -17,7 +17,10 @@ async function runOnce(client) {
         const guild =
             client.guilds.cache.get(result.guildId) ?? (await client.guilds.fetch(result.guildId).catch(() => null));
         if (!guild) continue;
-        await handlers.applyLevelUp(client, guild, result.userId, result.levelIndex);
+        await handlers.applyLevelUp(client, guild, result.userId, result.levelIndex, {
+            prestiged: result.prestiged,
+            prestige: result.prestige,
+        });
     }
 }
 

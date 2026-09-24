@@ -16,6 +16,7 @@ const { COLORS, formatBody } = require('../utils/embeds');
 const { baseContainer, textDisplay } = require('../utils/components');
 const { renderRankCard } = require('./rankCardImage');
 const { renderLeaderboardCard } = require('./leaderboardImage');
+const { formatPrestigeBadge } = require('./canvasUtils');
 const config = require('./config');
 
 // Очки за одно засчитанное сообщение и за одну минуту в голосовом канале.
@@ -180,7 +181,31 @@ function buildLeaderboardMovement(currentTop, previousSnapshot) {
 }
 
 function emptyUser() {
-    return { score: 0, messageCount: 0, voiceMinutes: 0 };
+    return { score: 0, messageCount: 0, voiceMinutes: 0, prestige: 0 };
+}
+
+// Индекс максимального яруса ("Хранитель") — достижение его запускает
+// Престиж (см. applyPrestige).
+const MAX_LEVEL_INDEX = LEVELS.length - 1;
+
+// Престиж: по прямому запросу администратора участник, дошедший до
+// максимального яруса, не останавливается на нём навечно — score/
+// messageCount/voiceMinutes сбрасываются в 0 (обратно на "Новичок"), а
+// счётчик престижа растёт на 1 и НИКОГДА не сбрасывается сам (переживает
+// сколько угодно повторных сбросов) — его показывают рядом с титулом как
+// "★N" везде, где он есть (rankCardImage.js/leaderboardImage.js/карточка
+// level-up). Мутирует user на месте, возвращает true, если престиж
+// сработал в этом вызове — только строго в момент ПЕРЕХОДА в максимальный
+// ярус (oldLevelIndex ниже него), а не на каждом сообщении/минуте после
+// того, как участник там уже находится.
+function applyPrestige(user, oldLevelIndex) {
+    if (oldLevelIndex >= MAX_LEVEL_INDEX) return false;
+    if (getLevelIndex(user.score) < MAX_LEVEL_INDEX) return false;
+    user.prestige = (user.prestige ?? 0) + 1;
+    user.score = 0;
+    user.messageCount = 0;
+    user.voiceMinutes = 0;
+    return true;
 }
 
 // Вызывается из leveling/handlers.js messageCreate-обработчика уже
@@ -194,14 +219,17 @@ async function addTextPoint(guildId, userId) {
         const oldLevelIndex = getLevelIndex(user.score);
         user.score += POINTS_PER_MESSAGE;
         user.messageCount += 1;
+        const prestiged = applyPrestige(user, oldLevelIndex);
         const newLevelIndex = getLevelIndex(user.score);
         cfg.users[key] = user;
         return {
             guildId,
             userId,
             newScore: user.score,
-            leveledUp: newLevelIndex > oldLevelIndex,
+            leveledUp: newLevelIndex > oldLevelIndex || prestiged,
             levelIndex: newLevelIndex,
+            prestiged,
+            prestige: user.prestige ?? 0,
         };
     });
 }
@@ -221,14 +249,17 @@ async function flushVoiceMinutes(entries) {
             const oldLevelIndex = getLevelIndex(user.score);
             user.score += minutes * POINTS_PER_VOICE_MINUTE;
             user.voiceMinutes += minutes;
+            const prestiged = applyPrestige(user, oldLevelIndex);
             const newLevelIndex = getLevelIndex(user.score);
             cfg.users[key] = user;
             results.push({
                 guildId,
                 userId,
                 newScore: user.score,
-                leveledUp: newLevelIndex > oldLevelIndex,
+                leveledUp: newLevelIndex > oldLevelIndex || prestiged,
                 levelIndex: newLevelIndex,
+                prestiged,
+                prestige: user.prestige ?? 0,
             });
         }
         return results;
@@ -248,6 +279,7 @@ async function getLeaderboard(guildId, limit = 10) {
             score: u.score,
             messageCount: u.messageCount ?? 0,
             voiceMinutes: u.voiceMinutes ?? 0,
+            prestige: u.prestige ?? 0,
         }))
         .sort((a, b) => b.score - a.score);
     return entries.slice(0, limit);
@@ -264,6 +296,7 @@ async function getProfile(guildId, userId) {
         rank: rank || null,
         messageCount: user.messageCount ?? 0,
         voiceMinutes: user.voiceMinutes ?? 0,
+        prestige: user.prestige ?? 0,
     };
 }
 
@@ -293,12 +326,25 @@ async function resetStats(guild, userId) {
     await config.update(cfg => {
         delete cfg.users[userKey(guild.id, userId)];
     });
+    // Полный сброс (включая счётчик престижа) — в отличие от
+    // stripLevelRolesAbove(..., 0), вызванного из-за автоматического
+    // Престижа, это явное решение модерации, а не игровая механика.
+    await stripLevelRolesAbove(guild, userId, 0, 'Сброс статистики активности');
+}
+
+// Снимает роли всех ярусов выше keepIndex — общий хвост для ручного
+// сброса модерацией (resetStats, keepIndex=0) и автоматического Престижа
+// (handlers.js applyLevelUp, keepIndex=0 при result.prestiged): роли
+// ярусов только СКЛАДЫВАЮТСЯ (см. grantLevelRolesUpTo) и сами никогда не
+// снимаются, поэтому участник, чей score вернулся к 0, остался бы со
+// всеми ролями до "Хранителя" включительно, если их не снять явно.
+async function stripLevelRolesAbove(guild, userId, keepIndex, reason = 'Престиж: сброс прогресса активности') {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return;
-    for (let i = 1; i < LEVELS.length; i++) {
+    for (let i = keepIndex + 1; i < LEVELS.length; i++) {
         const roleId = await getLevelRoleId(guild.id, i);
         if (roleId && member.roles.cache.has(roleId)) {
-            await member.roles.remove(roleId, 'Сброс статистики активности').catch(() => {});
+            await member.roles.remove(roleId, reason).catch(() => {});
         }
     }
 }
@@ -320,7 +366,12 @@ async function fetchImageBuffer(url) {
 // обязателен — баннер не входит в частичные данные из кэша/resolved
 // interaction, только в полный fetch. guild — опционален: без него
 // карточка просто не рисует уголок с иконкой/именем сервера.
-async function buildRankCardAttachment(client, userId, { score, level, rank, messageCount, voiceMinutes }, guild) {
+async function buildRankCardAttachment(
+    client,
+    userId,
+    { score, level, rank, messageCount, voiceMinutes, prestige },
+    guild
+) {
     const user = await client.users.fetch(userId, { force: true }).catch(() => null);
     const displayName = user?.globalName ?? user?.username ?? 'Пользователь';
     const avatarUrl = user?.displayAvatarURL({ extension: 'png', size: 256 }) ?? null;
@@ -347,15 +398,24 @@ async function buildRankCardAttachment(client, userId, { score, level, rank, mes
         rank,
         messageCount,
         voiceMinutes,
+        prestige,
         guildName: guild?.name ?? null,
         guildIconBuffer,
     });
     return new AttachmentBuilder(png, { name: 'rank-card.png' });
 }
 
-function buildLevelUpCard(user, level) {
+// prestiged: true — особый случай level-up'а, которым и является сам
+// момент Престижа (см. applyPrestige) — участник только что дошёл до
+// "Хранителя", после чего его статистика сразу сброшена обратно на
+// "Новичок", поэтому обычная формулировка "теперь «Хранитель»!" была бы
+// неверной (он в этот же момент уже не Хранитель).
+function buildLevelUpCard(user, level, { prestiged = false, prestige = 0 } = {}) {
+    const text = prestiged
+        ? `${user} достиг яруса «${LEVELS[MAX_LEVEL_INDEX].title}» и получает Престиж ${formatPrestigeBadge(prestige)}! Статистика активности сброшена — снова «${LEVELS[0].title}».`
+        : `${user} теперь «${level.title}»!`;
     return baseContainer(COLORS.success).addTextDisplayComponents(
-        textDisplay(formatBody('Новый уровень активности', `${user} теперь «${level.title}»!`))
+        textDisplay(formatBody('Новый уровень активности', text))
     );
 }
 
@@ -443,7 +503,7 @@ async function grantLevelRolesUpTo(guild, userId, levelIndex) {
 // configureGuild) — в отличие от прежней /rep give, здесь нет
 // interaction.channel под рукой (level-up может произойти в фоне, от
 // голосового sweep), поэтому канал берётся из конфигурации фичи.
-async function announceLevelUp(client, guildId, userId, levelIndex) {
+async function announceLevelUp(client, guildId, userId, levelIndex, prestigeInfo = {}) {
     const guildCfg = await getGuildConfig(guildId);
     if (!guildCfg.announceChannelId) return;
     const channel =
@@ -452,7 +512,7 @@ async function announceLevelUp(client, guildId, userId, levelIndex) {
     if (!channel) return;
     const { toMessage } = require('../utils/components');
     const level = LEVELS[levelIndex];
-    await channel.send(toMessage(buildLevelUpCard(`<@${userId}>`, level))).catch(() => {});
+    await channel.send(toMessage(buildLevelUpCard(`<@${userId}>`, level, prestigeInfo))).catch(() => {});
 }
 
 // Вызывается из scripts/setup-leveling.js, чтобы предпочесть уже
@@ -510,6 +570,7 @@ function getBoosterBundlePermissions() {
 
 module.exports = {
     LEVELS,
+    MAX_LEVEL_INDEX,
     POINTS_PER_MESSAGE,
     POINTS_PER_VOICE_MINUTE,
     POINTS_PER_LEVEL,
@@ -519,12 +580,15 @@ module.exports = {
     getLevel,
     canCountMessage,
     buildLeaderboardMovement,
+    applyPrestige,
+    formatPrestigeBadge,
     addTextPoint,
     flushVoiceMinutes,
     getLeaderboard,
     getProfile,
     setScore,
     resetStats,
+    stripLevelRolesAbove,
     getLevelRoleId,
     grantLevelRolesUpTo,
     announceLevelUp,

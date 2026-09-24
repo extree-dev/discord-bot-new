@@ -7,7 +7,14 @@
 // buildRankCardAttachment(), где буферы собираются).
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { COLORS } = require('../utils/embeds');
-const { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes } = require('./canvasUtils');
+const {
+    ensureFonts,
+    roundedRectPath,
+    drawCircleImage,
+    truncate,
+    formatVoiceMinutes,
+    formatPrestigeBadge,
+} = require('./canvasUtils');
 
 const WIDTH = 900;
 const HEIGHT = 270;
@@ -64,6 +71,7 @@ async function renderRankCard({
     rank,
     messageCount,
     voiceMinutes,
+    prestige,
     guildName,
     guildIconBuffer,
 }) {
@@ -118,7 +126,8 @@ async function renderRankCard({
 
     ctx.font = '22px NotoSansCyrillic';
     ctx.fillStyle = '#c9cdfb';
-    ctx.fillText(level.title, TEXT_X, 112);
+    const prestigeBadge = formatPrestigeBadge(prestige);
+    ctx.fillText(prestigeBadge ? `${level.title} ${prestigeBadge}` : level.title, TEXT_X, 112);
 
     // "Уровень N" — число растёт непрерывно (score / POINTS_PER_LEVEL,
     // см. leveling/model.js), не привязано к потолку текущего яруса, в

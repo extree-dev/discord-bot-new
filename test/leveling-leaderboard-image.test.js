@@ -188,3 +188,20 @@ test('renderLeaderboardCard: полоса прогресса красится в
 test('WIDTH экспортирован и положителен', () => {
     assert.ok(WIDTH > 0);
 });
+
+test('renderLeaderboardCard: запись с prestige не падает', async () => {
+    const entries = [
+        {
+            rank: 1,
+            userId: 'a',
+            displayName: 'Престижный',
+            avatarBuffer: null,
+            score: 100,
+            messageCount: 10,
+            prestige: 2,
+            level: { title: 'Новичок', number: 0, progress: 0 },
+        },
+    ];
+    const png = await renderLeaderboardCard({ title: 'Топ', entries });
+    assert.deepEqual(png.subarray(0, 8), PNG_SIGNATURE);
+});

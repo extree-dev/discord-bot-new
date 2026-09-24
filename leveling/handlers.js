@@ -25,10 +25,17 @@ function isCountableVoiceState(state) {
 
 // Выдаёт роль уровня и публикует карточку level-up — общий хвост и для
 // текстовых сообщений, и для голосового sweep.js, чтобы оба пути не
-// дублировали одну и ту же последовательность вызовов.
-async function applyLevelUp(client, guild, userId, levelIndex) {
-    await model.grantLevelRolesUpTo(guild, userId, levelIndex);
-    await model.announceLevelUp(client, guild.id, userId, levelIndex);
+// дублировали одну и ту же последовательность вызовов. prestiged: true —
+// levelIndex уже сброшен обратно на "Новичок" (см. model.js
+// applyPrestige), поэтому вместо выдачи новых ролей снимаем те, что
+// участник успел получить до сброса.
+async function applyLevelUp(client, guild, userId, levelIndex, { prestiged = false, prestige = 0 } = {}) {
+    if (prestiged) {
+        await model.stripLevelRolesAbove(guild, userId, 0);
+    } else {
+        await model.grantLevelRolesUpTo(guild, userId, levelIndex);
+    }
+    await model.announceLevelUp(client, guild.id, userId, levelIndex, { prestiged, prestige });
 }
 
 async function handleMessageCreate(msg) {
@@ -37,7 +44,10 @@ async function handleMessageCreate(msg) {
 
     const result = await model.addTextPoint(msg.guild.id, msg.author.id);
     if (result.leveledUp) {
-        await applyLevelUp(msg.client, msg.guild, msg.author.id, result.levelIndex);
+        await applyLevelUp(msg.client, msg.guild, msg.author.id, result.levelIndex, {
+            prestiged: result.prestiged,
+            prestige: result.prestige,
+        });
     }
 }
 

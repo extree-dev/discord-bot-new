@@ -56,4 +56,12 @@ function formatVoiceMinutes(totalMinutes) {
     return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
 }
 
-module.exports = { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes };
+// "★N" — бейдж престижа (см. model.js applyPrestige), рисуется рядом с
+// титулом яруса и на карточке профиля, и в топе. Пустая строка при
+// prestige <= 0, чтобы вызывающему коду не приходилось самому решать,
+// добавлять ли пробел перед бейджем.
+function formatPrestigeBadge(prestige) {
+    return prestige > 0 ? `★${prestige}` : '';
+}
+
+module.exports = { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes, formatPrestigeBadge };

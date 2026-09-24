@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { PermissionFlagsBits } = require('discord.js');
 const {
     LEVELS,
+    MAX_LEVEL_INDEX,
     POINTS_PER_LEVEL,
     getLevelNumber,
     getLevelIndex,
@@ -10,9 +11,12 @@ const {
     canCountMessage,
     MESSAGE_COOLDOWN_MS,
     buildLeaderboardMovement,
+    applyPrestige,
+    formatPrestigeBadge,
     getBoosterBundlePermissions,
     buildRankCardAttachment,
     buildLeaderboardAttachment,
+    buildLevelUpCard,
 } = require('../leveling/model');
 
 // Discord CDN принимает только эти размеры — любое другое значение роняет
@@ -219,4 +223,63 @@ test('buildLeaderboardAttachment: пустой список не падает', 
     const fakeClient = { users: { fetch: async () => null } };
     const attachment = await buildLeaderboardAttachment(fakeClient, []);
     assert.ok(attachment);
+});
+
+test('applyPrestige: срабатывает только в момент перехода в максимальный ярус, сбрасывает score/messageCount/voiceMinutes и растит счётчик', () => {
+    const user = { score: POINTS_PER_LEVEL * LEVELS[MAX_LEVEL_INDEX].min, messageCount: 500, voiceMinutes: 300 };
+    const oldLevelIndex = MAX_LEVEL_INDEX - 1; // только что пришёл с яруса ниже "Хранителя"
+    const prestiged = applyPrestige(user, oldLevelIndex);
+
+    assert.equal(prestiged, true);
+    assert.equal(user.score, 0);
+    assert.equal(user.messageCount, 0);
+    assert.equal(user.voiceMinutes, 0);
+    assert.equal(user.prestige, 1);
+});
+
+test('applyPrestige: повторный вызов на второй раз даёт ★2, а не ★1 снова', () => {
+    const user = {
+        score: POINTS_PER_LEVEL * LEVELS[MAX_LEVEL_INDEX].min,
+        messageCount: 0,
+        voiceMinutes: 0,
+        prestige: 1,
+    };
+    const prestiged = applyPrestige(user, MAX_LEVEL_INDEX - 1);
+    assert.equal(prestiged, true);
+    assert.equal(user.prestige, 2);
+});
+
+test('applyPrestige: не срабатывает, если уже был на максимальном ярусе до этого начисления (только накопление очков дальше)', () => {
+    const user = { score: POINTS_PER_LEVEL * (LEVELS[MAX_LEVEL_INDEX].min + 50), messageCount: 10, voiceMinutes: 5 };
+    const prestiged = applyPrestige(user, MAX_LEVEL_INDEX);
+    assert.equal(prestiged, false);
+    assert.equal(user.score, POINTS_PER_LEVEL * (LEVELS[MAX_LEVEL_INDEX].min + 50)); // не тронуто
+});
+
+test('applyPrestige: не срабатывает, если новый score всё ещё ниже максимального яруса', () => {
+    const user = { score: POINTS_PER_LEVEL * 10, messageCount: 5, voiceMinutes: 5 };
+    const prestiged = applyPrestige(user, 0);
+    assert.equal(prestiged, false);
+    assert.equal(user.prestige, undefined);
+});
+
+test('formatPrestigeBadge: "★N" при prestige > 0, пустая строка иначе', () => {
+    assert.equal(formatPrestigeBadge(0), '');
+    assert.equal(formatPrestigeBadge(undefined), '');
+    assert.equal(formatPrestigeBadge(1), '★1');
+    assert.equal(formatPrestigeBadge(7), '★7');
+});
+
+test('buildLevelUpCard: обычный level-up — просто новый титул', () => {
+    const card = buildLevelUpCard('<@u1>', LEVELS[1]);
+    const text = JSON.stringify(card.toJSON());
+    assert.match(text, /теперь «Путник»/);
+});
+
+test('buildLevelUpCard: prestiged — текст про Престиж и сброс, а не про "теперь «Хранитель»"', () => {
+    const card = buildLevelUpCard('<@u1>', LEVELS[0], { prestiged: true, prestige: 3 });
+    const text = JSON.stringify(card.toJSON());
+    assert.match(text, /Престиж ★3/);
+    assert.match(text, /Хранитель/);
+    assert.doesNotMatch(text, /теперь «Хранитель»/);
 });

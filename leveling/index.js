@@ -16,6 +16,7 @@ module.exports = {
         }, LEADERBOARD_TICK_MS);
     },
     LEVELS: model.LEVELS,
+    formatPrestigeBadge: model.formatPrestigeBadge,
     getProfile: model.getProfile,
     getLeaderboard: model.getLeaderboard,
     setScore: model.setScore,
