@@ -175,3 +175,30 @@ test('WIDTH/HEIGHT экспортированы и положительны', ()
     assert.ok(WIDTH > 0);
     assert.ok(HEIGHT > 0);
 });
+
+test('renderRankCard: с престижем не падает (без него — тоже, prestige не передан)', async () => {
+    const withPrestige = await renderRankCard({
+        displayName: 'Престижный',
+        avatarBuffer: null,
+        bannerBuffer: null,
+        level: midLevel,
+        score: 100,
+        rank: 1,
+        messageCount: 10,
+        voiceMinutes: 10,
+        prestige: 3,
+    });
+    assert.deepEqual(withPrestige.subarray(0, 8), PNG_SIGNATURE);
+
+    const withoutPrestige = await renderRankCard({
+        displayName: 'Без престижа',
+        avatarBuffer: null,
+        bannerBuffer: null,
+        level: midLevel,
+        score: 100,
+        rank: 1,
+        messageCount: 10,
+        voiceMinutes: 10,
+    });
+    assert.deepEqual(withoutPrestige.subarray(0, 8), PNG_SIGNATURE);
+});

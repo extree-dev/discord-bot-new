@@ -9,7 +9,7 @@
 // сама функция рисования не трогает сеть и не трогает Discord API (см.
 // leveling/model.js buildLeaderboardAttachment()).
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { ensureFonts, roundedRectPath, drawCircleImage, truncate } = require('./canvasUtils');
+const { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatPrestigeBadge } = require('./canvasUtils');
 
 const WIDTH = 720;
 const PADDING_X = 24;
@@ -108,8 +108,10 @@ async function drawRow(ctx, entry, y) {
 
     ctx.font = '12px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    const prestigeBadge = formatPrestigeBadge(entry.prestige);
+    const titleText = prestigeBadge ? `${entry.level?.title ?? ''} ${prestigeBadge}` : (entry.level?.title ?? '');
     ctx.fillText(
-        `${entry.level?.title ?? ''} (ур. ${entry.level?.number ?? 0}) · Сообщений: ${entry.messageCount ?? 0}`,
+        `${titleText} (ур. ${entry.level?.number ?? 0}) · Сообщений: ${entry.messageCount ?? 0}`,
         textX + 14,
         dotY
     );
