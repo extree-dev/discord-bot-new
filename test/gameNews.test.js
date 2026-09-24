@@ -3,11 +3,15 @@ const assert = require('node:assert/strict');
 const gameNews = require('../gameNews');
 const config = require('../gameNews/config');
 
-test('GAMES: 8 уникальных игр из пула ролей, у каждой есть key/name/slug/emoji/color', () => {
-    assert.equal(gameNews.GAMES.length, 8);
+test('GAMES: 7 уникальных игр из пула ролей (без Valorant — у него своя система новостей), у каждой есть key/name/slug/emoji/color/customEmojiName', () => {
+    assert.equal(gameNews.GAMES.length, 7);
     assert.deepEqual(
         gameNews.GAMES.map(g => g.name),
-        ['Valorant', 'CS2', 'War Thunder', 'Call of Duty', 'Dota 2', 'Apex Legends', 'Minecraft', 'GTA']
+        ['CS2', 'War Thunder', 'Call of Duty', 'Dota 2', 'Apex Legends', 'Minecraft', 'GTA']
+    );
+    assert.ok(
+        !gameNews.GAMES.some(g => g.name === 'Valorant'),
+        'Valorant не должен попадать в gameNews — у него отдельная valorantNews/'
     );
     const keys = gameNews.GAMES.map(g => g.key);
     assert.equal(new Set(keys).size, keys.length, 'ключи не должны повторяться');
@@ -15,6 +19,7 @@ test('GAMES: 8 уникальных игр из пула ролей, у кажд
         assert.ok(game.slug, `у ${game.name} должен быть slug`);
         assert.ok(game.emoji, `у ${game.name} должен быть emoji`);
         assert.equal(typeof game.color, 'number', `у ${game.name} должен быть числовой color`);
+        assert.ok(game.customEmojiName, `у ${game.name} должен быть customEmojiName для панели`);
     }
 });
 
@@ -31,13 +36,13 @@ test('saveTargets/getConfig: категория, каналы и роли-пин
     try {
         await gameNews.saveTargets({
             categoryId: 'cat-1',
-            channels: { valorant: 'chan-1', cs2: 'chan-2' },
-            newsRoleIds: { valorant: 'role-news-1' },
+            channels: { cs2: 'chan-1', gta: 'chan-2' },
+            newsRoleIds: { cs2: 'role-news-1' },
         });
         const after = await gameNews.getConfig();
         assert.equal(after.categoryId, 'cat-1');
-        assert.deepEqual(after.channels, { valorant: 'chan-1', cs2: 'chan-2' });
-        assert.deepEqual(after.newsRoleIds, { valorant: 'role-news-1' });
+        assert.deepEqual(after.channels, { cs2: 'chan-1', gta: 'chan-2' });
+        assert.deepEqual(after.newsRoleIds, { cs2: 'role-news-1' });
     } finally {
         await config.save(before);
     }

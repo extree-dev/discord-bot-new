@@ -14,6 +14,23 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const CATEGORY_NAME = '📋 Информация';
 const CHANNEL_NAME = 'выбор-ролей';
 
+// Возвращает кастомный эмодзи сервера по имени (game.customEmojiName —
+// тот же, что и у игровой роли в scripts/add-onboarding-role-
+// questions.js), если он есть — иначе юникод-эмодзи game.emoji.
+// StringSelectMenu умеет показывать кастомные эмодзи (в отличие от
+// названий каналов — там работает только юникод, см. gameNews/games.js),
+// поэтому эта замена только для панели.
+function resolveEmoji(guild, game) {
+    if (game.customEmojiName) {
+        const custom = guild.emojis.cache.find(e => e.name === game.customEmojiName);
+        if (custom) return { id: custom.id, name: custom.name };
+        console.warn(
+            `Кастомный эмодзи ":${game.customEmojiName}:" не найден на сервере — для игры "${game.name}" в панели использую стандартный ${game.emoji}.`
+        );
+    }
+    return game.emoji;
+}
+
 // Роли игр панель не создаёт — они уже заведены адаптацией
 // (scripts/add-onboarding-role-questions.js), здесь только находим их
 // по имени. Игра без найденной роли не попадает в панель совсем (не
@@ -23,6 +40,7 @@ client.once('clientReady', async () => {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
         await guild.channels.fetch();
+        await guild.emojis.fetch();
 
         const existing = await rolePanel.getConfig();
 
@@ -58,14 +76,17 @@ client.once('clientReady', async () => {
                 continue;
             }
             roleIds[game.key] = role.id;
-            availableGames.push(game);
+            availableGames.push({ ...game, emoji: resolveEmoji(guild, game) });
         }
 
         // Роли-пинги новостей создаёт scripts/setup-game-news.js
         // (запускается перед этим скриптом в деплое) — здесь только
         // читаем уже сохранённые ID, сами роли не ищем и не создаём.
         const newsRoleIds = (await gameNews.getConfig()).newsRoleIds;
-        const availableNewsGames = GAMES.filter(game => newsRoleIds[game.key]);
+        const availableNewsGames = GAMES.filter(game => newsRoleIds[game.key]).map(game => ({
+            ...game,
+            emoji: resolveEmoji(guild, game),
+        }));
 
         await rolePanel.saveTargets({
             categoryId: category?.id ?? existing.categoryId,
