@@ -3,6 +3,16 @@ const assert = require('node:assert/strict');
 const { PermissionFlagsBits } = require('discord.js');
 const model = require('../voice/model');
 
+test('ROOM_EVERYONE_DENY: запрещает инвайт, активность, саундборд и статус канала — имена флагов существуют в discord.js', () => {
+    for (const [flag, value] of Object.entries(model.ROOM_EVERYONE_DENY)) {
+        assert.equal(value, false, `${flag} должен быть false (запрет), а не null/true`);
+        assert.equal(typeof PermissionFlagsBits[flag], 'bigint', `${flag} — не существующий флаг PermissionFlagsBits`);
+    }
+    for (const flag of ['CreateInstantInvite', 'UseEmbeddedActivities', 'UseSoundboard', 'SetVoiceChannelStatus']) {
+        assert.ok(flag in model.ROOM_EVERYONE_DENY, `${flag} должен быть в ROOM_EVERYONE_DENY`);
+    }
+});
+
 test('ownerPermissions: у владельца нет серверного мута и глушения', () => {
     const perms = model.ownerPermissions();
     assert.equal(perms.MuteMembers, undefined);
@@ -79,20 +89,30 @@ test('sweepRooms: убирает брошенные пустые комнаты 
     const now = Date.now();
     const deleted = [];
     const edits = [];
-    const overwrites = owner => ({
-        cache: new Map([[owner, { allow: { has: bit => bit === PermissionFlagsBits.MuteMembers } }]]),
+    const guild = { roles: { everyone: { id: 'everyone' } } };
+    // allowMute — старая комната с не снятым MuteMembers у владельца;
+    // denyEveryone — уже настроенный запрет инвайта/активности/саундборда
+    // у @everyone (deny.has всегда true), чтобы sweepRooms не редактировал
+    // то, что уже верно.
+    const overwrites = ({ owner, allowMute, denyEveryone }) => ({
+        cache: new Map([
+            [owner, { allow: { has: bit => allowMute && bit === PermissionFlagsBits.MuteMembers } }],
+            ['everyone', { deny: { has: () => denyEveryone } }],
+        ]),
         edit: async (id, perms) => edits.push({ id, perms }),
     });
-    const room = (id, members) => ({
+    const room = (id, members, opts) => ({
         id,
+        guild,
         members: { size: members },
-        permissionOverwrites: overwrites('owner-busy'),
+        permissionOverwrites: overwrites(opts),
         delete: async () => deleted.push(id),
     });
     const channels = {
-        'sweep-empty': room('sweep-empty', 0),
-        'sweep-fresh': room('sweep-fresh', 0),
-        'sweep-busy': room('sweep-busy', 2),
+        'sweep-empty': room('sweep-empty', 0, { owner: 'a' }),
+        'sweep-fresh': room('sweep-fresh', 0, { owner: 'b' }),
+        'sweep-busy': room('sweep-busy', 2, { owner: 'owner-busy', allowMute: true, denyEveryone: false }),
+        'sweep-configured': room('sweep-configured', 2, { owner: 'owner-configured', denyEveryone: true }),
     };
     const client = {
         channels: {
@@ -111,6 +131,7 @@ test('sweepRooms: убирает брошенные пустые комнаты 
             'sweep-empty': { ownerId: 'a', createdAt: now - 10 * 60 * 1000 },
             'sweep-fresh': { ownerId: 'b', createdAt: now },
             'sweep-busy': { ownerId: 'owner-busy', createdAt: now - 10 * 60 * 1000 },
+            'sweep-configured': { ownerId: 'owner-configured', createdAt: now - 10 * 60 * 1000 },
             'sweep-gone': { ownerId: 'c', createdAt: now - 10 * 60 * 1000 },
             'sweep-network': { ownerId: 'd', createdAt: now - 10 * 60 * 1000 },
         };
@@ -118,9 +139,17 @@ test('sweepRooms: убирает брошенные пустые комнаты 
     try {
         await model.sweepRooms(client, now);
         const after = await load();
-        assert.deepEqual(Object.keys(after.channels).sort(), ['sweep-busy', 'sweep-fresh', 'sweep-network']);
+        assert.deepEqual(Object.keys(after.channels).sort(), [
+            'sweep-busy',
+            'sweep-configured',
+            'sweep-fresh',
+            'sweep-network',
+        ]);
         assert.deepEqual(deleted, ['sweep-empty']);
-        assert.deepEqual(edits, [{ id: 'owner-busy', perms: { MuteMembers: null, DeafenMembers: null } }]);
+        assert.deepEqual(edits, [
+            { id: 'owner-busy', perms: { MuteMembers: null, DeafenMembers: null } },
+            { id: 'everyone', perms: model.ROOM_EVERYONE_DENY },
+        ]);
     } finally {
         await update(cfg => {
             cfg.channels = before.channels;
