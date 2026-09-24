@@ -1,7 +1,8 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const gameNews = require('../gameNews');
-const { isBootstrap, ensureChannel } = require('../utils/setupMode');
+const { newsRoleName } = require('../gameNews/games');
+const { isBootstrap, ensureChannel, ensureRole } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -17,6 +18,7 @@ client.once('clientReady', async () => {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
+        await guild.roles.fetch();
 
         const existing = await gameNews.getConfig();
 
@@ -29,6 +31,7 @@ client.once('clientReady', async () => {
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
         const channels = { ...existing.channels };
+        const newsRoleIds = { ...existing.newsRoleIds };
         for (const game of gameNews.GAMES) {
             const { channel, created } = await ensureChannel({
                 guild,
@@ -41,14 +44,33 @@ client.once('clientReady', async () => {
                     permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
                 },
             });
-            if (!channel) continue;
-            channels[game.key] = channel.id;
-            console.log(
-                created ? `Создан канал новостей: ${channel.name}` : `Канал новостей уже настроен: ${channel.name}`
-            );
+            if (channel) {
+                channels[game.key] = channel.id;
+                console.log(
+                    created ? `Создан канал новостей: ${channel.name}` : `Канал новостей уже настроен: ${channel.name}`
+                );
+            }
+
+            // Отдельная декоративная роль-пинг (не совпадает с игровой
+            // ролью "играю в это" из адаптации) — самостоятельно
+            // выбирается в rolePanel/, будущая интеграция Steam API будет
+            // упоминать её в публикации, чтобы пинговать только тех, кому
+            // интересна конкретная игра.
+            const { role, created: roleCreated } = await ensureRole({
+                guild,
+                existingId: existing.newsRoleIds[game.key],
+                name: newsRoleName(game),
+                color: game.color,
+                hoist: false,
+                mentionable: true,
+            });
+            if (role) {
+                newsRoleIds[game.key] = role.id;
+                console.log(roleCreated ? `Создана роль-пинг: ${role.name}` : `Роль-пинг уже настроена: ${role.name}`);
+            }
         }
 
-        await gameNews.saveTargets({ categoryId: category?.id ?? existing.categoryId, channels });
+        await gameNews.saveTargets({ categoryId: category?.id ?? existing.categoryId, channels, newsRoleIds });
 
         console.log(
             isBootstrap()

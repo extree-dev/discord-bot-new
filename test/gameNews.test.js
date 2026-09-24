@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const gameNews = require('../gameNews');
 const config = require('../gameNews/config');
 
-test('GAMES: 8 уникальных игр из пула ролей, у каждой есть key/name/slug/emoji', () => {
+test('GAMES: 8 уникальных игр из пула ролей, у каждой есть key/name/slug/emoji/color', () => {
     assert.equal(gameNews.GAMES.length, 8);
     assert.deepEqual(
         gameNews.GAMES.map(g => g.name),
@@ -14,16 +14,30 @@ test('GAMES: 8 уникальных игр из пула ролей, у кажд
     for (const game of gameNews.GAMES) {
         assert.ok(game.slug, `у ${game.name} должен быть slug`);
         assert.ok(game.emoji, `у ${game.name} должен быть emoji`);
+        assert.equal(typeof game.color, 'number', `у ${game.name} должен быть числовой color`);
     }
 });
 
-test('saveTargets/getConfig: категория и каналы сохраняются и перечитываются', async () => {
+test('newsRoleName: не совпадает с названием самой игровой роли', () => {
+    for (const game of gameNews.GAMES) {
+        const name = gameNews.newsRoleName(game);
+        assert.notEqual(name, game.name);
+        assert.match(name, new RegExp(game.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+});
+
+test('saveTargets/getConfig: категория, каналы и роли-пинги новостей сохраняются и перечитываются', async () => {
     const before = await gameNews.getConfig();
     try {
-        await gameNews.saveTargets({ categoryId: 'cat-1', channels: { valorant: 'chan-1', cs2: 'chan-2' } });
+        await gameNews.saveTargets({
+            categoryId: 'cat-1',
+            channels: { valorant: 'chan-1', cs2: 'chan-2' },
+            newsRoleIds: { valorant: 'role-news-1' },
+        });
         const after = await gameNews.getConfig();
         assert.equal(after.categoryId, 'cat-1');
         assert.deepEqual(after.channels, { valorant: 'chan-1', cs2: 'chan-2' });
+        assert.deepEqual(after.newsRoleIds, { valorant: 'role-news-1' });
     } finally {
         await config.save(before);
     }

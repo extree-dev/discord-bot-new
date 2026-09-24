@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const rolePanel = require('../rolePanel');
+const gameNews = require('../gameNews');
 const { GAMES } = require('../gameNews/games');
 const { findRole } = require('../utils/idempotent');
 const { ensureChannel, refreshPanel } = require('../utils/setupMode');
@@ -60,6 +61,12 @@ client.once('clientReady', async () => {
             availableGames.push(game);
         }
 
+        // Роли-пинги новостей создаёт scripts/setup-game-news.js
+        // (запускается перед этим скриптом в деплое) — здесь только
+        // читаем уже сохранённые ID, сами роли не ищем и не создаём.
+        const newsRoleIds = (await gameNews.getConfig()).newsRoleIds;
+        const availableNewsGames = GAMES.filter(game => newsRoleIds[game.key]);
+
         await rolePanel.saveTargets({
             categoryId: category?.id ?? existing.categoryId,
             channelId: channel?.id ?? existing.channelId,
@@ -70,15 +77,17 @@ client.once('clientReady', async () => {
             console.warn('Канал панели не найден — панель не опубликована.');
             process.exit(0);
         }
-        if (availableGames.length === 0) {
-            console.warn('Ни одна роль игры не найдена — панель не опубликована.');
+        if (availableGames.length === 0 && availableNewsGames.length === 0) {
+            console.warn('Ни одна роль (игровая или новостная) не найдена — панель не опубликована.');
             process.exit(0);
         }
 
         await refreshPanel({
             channel,
             botId: client.user.id,
-            payload: toMessage(rolePanel.buildPanelMessage(availableGames)),
+            payload: toMessage(
+                rolePanel.buildPanelMessage({ playGames: availableGames, newsGames: availableNewsGames })
+            ),
             label: 'Панель выбора игровых ролей',
         });
 
