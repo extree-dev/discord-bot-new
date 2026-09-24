@@ -4,8 +4,10 @@ const {
     computeRoleDiff,
     describeSelection,
     buildPanelMessage,
-    SELECT_CUSTOM_ID,
+    GAMES_SELECT_CUSTOM_ID,
+    NEWS_SELECT_CUSTOM_ID,
     handleGamesSelect,
+    handleNewsSelect,
 } = require('../rolePanel/model');
 const handlers = require('../rolePanel/handlers');
 
@@ -15,6 +17,34 @@ const GAMES = [
     { key: 'gta', name: 'GTA', emoji: '🚗' },
 ];
 const ROLE_IDS = { valorant: 'role-valorant', cs2: 'role-cs2', gta: 'role-gta' };
+
+// interaction.deferUpdate() + followUp() — не reply() (см. model.js
+// applySelection: без deferUpdate() Discord-клиент продолжает
+// показывать выбранные варианты отмеченными в самом меню).
+function fakeInteraction({ values, currentRoleIds }) {
+    const added = [];
+    const removed = [];
+    const deferred = { count: 0 };
+    const followUps = [];
+    return {
+        values,
+        member: {
+            roles: {
+                cache: new Map(currentRoleIds.map(id => [id, {}])),
+                add: async id => added.push(id),
+                remove: async id => removed.push(id),
+            },
+        },
+        deferUpdate: async () => {
+            deferred.count += 1;
+        },
+        followUp: async payload => followUps.push(payload),
+        added,
+        removed,
+        deferred,
+        followUps,
+    };
+}
 
 test('computeRoleDiff: добавляет впервые выбранные, снимает отмеченные ранее, но не выбранные сейчас', () => {
     const { toAdd, toRemove } = computeRoleDiff(['valorant', 'gta'], ROLE_IDS, ['role-cs2']);
@@ -51,63 +81,61 @@ test('describeSelection: перечисляет названия выбранн�
     assert.equal(describeSelection([], GAMES), null);
 });
 
-test('buildPanelMessage: собирает StringSelectMenu с опцией на каждую игру', () => {
-    const container = buildPanelMessage(GAMES);
+test('buildPanelMessage: собирает оба StringSelectMenu, каждый с опцией на каждую игру своей категории', () => {
+    const container = buildPanelMessage({ playGames: GAMES, newsGames: GAMES.slice(0, 2) });
     const json = container.toJSON();
-    const actionRow = json.components.find(c => c.type === 1);
-    const select = actionRow.components[0];
-    assert.equal(select.custom_id, SELECT_CUSTOM_ID);
-    assert.equal(select.options.length, GAMES.length);
+    const actionRows = json.components.filter(c => c.type === 1);
+    assert.equal(actionRows.length, 2);
+
+    const playSelect = actionRows[0].components[0];
+    assert.equal(playSelect.custom_id, GAMES_SELECT_CUSTOM_ID);
+    assert.equal(playSelect.options.length, GAMES.length);
     assert.deepEqual(
-        select.options.map(o => o.value),
+        playSelect.options.map(o => o.value),
         GAMES.map(g => g.key)
     );
-    assert.equal(select.min_values, 0);
+    assert.equal(playSelect.min_values, 0);
+
+    const newsSelect = actionRows[1].components[0];
+    assert.equal(newsSelect.custom_id, NEWS_SELECT_CUSTOM_ID);
+    assert.equal(newsSelect.options.length, 2);
 });
 
-test('handleGamesSelect: применяет диф к ролям участника и отвечает эфемерным сообщением с итогом', async () => {
-    const added = [];
-    const removed = [];
-    const replies = [];
-    const interaction = {
-        values: ['valorant'],
-        member: {
-            roles: {
-                cache: new Map([['role-cs2', {}]]),
-                add: async id => added.push(id),
-                remove: async id => removed.push(id),
-            },
-        },
-        reply: async payload => replies.push(payload),
-    };
+test('buildPanelMessage: пустая категория не рисует свой ряд меню', () => {
+    const container = buildPanelMessage({ playGames: GAMES, newsGames: [] });
+    const json = container.toJSON();
+    const actionRows = json.components.filter(c => c.type === 1);
+    assert.equal(actionRows.length, 1);
+    assert.equal(actionRows[0].components[0].custom_id, GAMES_SELECT_CUSTOM_ID);
+});
+
+test('handleGamesSelect: применяет диф к ролям участника, deferUpdate()+followUp() с итогом', async () => {
+    const interaction = fakeInteraction({ values: ['valorant'], currentRoleIds: ['role-cs2'] });
 
     await handleGamesSelect(interaction, ROLE_IDS, GAMES);
 
-    assert.deepEqual(added, ['role-valorant']);
-    assert.deepEqual(removed, ['role-cs2']);
-    assert.equal(replies.length, 1);
-    const text = JSON.stringify(replies[0]);
-    assert.match(text, /Valorant/);
+    assert.deepEqual(interaction.added, ['role-valorant']);
+    assert.deepEqual(interaction.removed, ['role-cs2']);
+    assert.equal(interaction.deferred.count, 1);
+    assert.equal(interaction.followUps.length, 1);
+    assert.match(JSON.stringify(interaction.followUps[0]), /Valorant/);
 });
 
 test('handleGamesSelect: пустой выбор отвечает текстом про снятие всех ролей', async () => {
-    const replies = [];
-    const interaction = {
-        values: [],
-        member: {
-            roles: {
-                cache: new Map([['role-valorant', {}]]),
-                add: async () => {},
-                remove: async () => {},
-            },
-        },
-        reply: async payload => replies.push(payload),
-    };
+    const interaction = fakeInteraction({ values: [], currentRoleIds: ['role-valorant'] });
 
     await handleGamesSelect(interaction, ROLE_IDS, GAMES);
 
-    const text = JSON.stringify(replies[0]);
-    assert.match(text, /ни одна игра не выбрана/);
+    assert.match(JSON.stringify(interaction.followUps[0]), /ни одна игра не выбрана/);
+});
+
+test('handleNewsSelect: свой текст и своя причина в audit-логе, независим от игровых ролей', async () => {
+    const interaction = fakeInteraction({ values: ['cs2'], currentRoleIds: [] });
+
+    await handleNewsSelect(interaction, ROLE_IDS, GAMES);
+
+    assert.deepEqual(interaction.added, ['role-cs2']);
+    assert.match(JSON.stringify(interaction.followUps[0]), /Подписки на новости обновлены.*CS2/);
 });
 
 test('handlers.handleSelectMenu: чужой customId — false без похода в БД', async () => {
