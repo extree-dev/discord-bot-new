@@ -16,10 +16,11 @@ const VLR_BASE_URL = 'https://www.vlr.gg';
 const VLR_MATCHES_URL = `${VLR_BASE_URL}/matches`;
 const VLR_RESULTS_URL = `${VLR_BASE_URL}/matches/results`;
 const VLR_HEADERS = { 'User-Agent': 'ExtreeBot (Discord bot; VLR.gg reader)' };
-// VLR.gg показывает время матчей без пояса, по центральному времени США
-// (как и pubDate в его RSS). Точное смещение берётся из обратного
-// отсчёта "через 14h 19m" у ближайших матчей (parseVlrMatches), а этот
-// пояс — запасной вариант, если отсчёта на странице нет.
+// VLR.gg показывает время в поясе того, кто открывает сайт (по IP): с
+// сервера в США — CDT, с сервера в Европе — CEST. Поэтому точное
+// смещение берётся из обратного отсчёта "через 14h 19m" у ближайших
+// матчей на /matches (и переиспользуется для /matches/results, где
+// отсчёта нет), а этот пояс — только запасной вариант.
 const VLR_FALLBACK_TIME_ZONE = 'America/Chicago';
 // Главный сайт новостей киберсцены Valorant. RSS — 20 последних
 // новостей: заголовок, ссылка, дата, короткое описание (без картинок).
@@ -96,8 +97,10 @@ function parseEta(text) {
 
 // Разбор страниц VLR.gg /matches и /matches/results в тот же вид, что
 // был у расписания HenrikDev: остальной код (фильтр лиг, план
-// публикаций, карточки) от источника не зависит.
-function parseVlrMatches(html, now = Date.now()) {
+// публикаций, карточки) от источника не зависит. Возвращает и смещение
+// пояса страницы (offsetMs, null — не удалось определить), чтобы
+// fetchSchedule применил его к итогам, где обратного отсчёта нет.
+function parseVlrPage(html, now = Date.now(), knownOffsetMs = null) {
     const tokens = [];
     const labelRe = /<div class="wf-label mod-large">\s*([^<]*?)\s*</g;
     const itemRe = /<a href="\/(\d+)\/([^"]*)" class="wf-module-item match-item[^"]*">([\s\S]*?)<\/a>/g;
@@ -144,7 +147,7 @@ function parseVlrMatches(html, now = Date.now()) {
     }
 
     // Пояс страницы: по первому матчу с точным обратным отсчётом.
-    let offsetMs = null;
+    let offsetMs = knownOffsetMs;
     for (const r of raw) {
         const eta = parseEta(r.eta);
         if (r.localMs !== null && r.timeKnown && eta !== null && r.status === 'upcoming') {
@@ -152,12 +155,14 @@ function parseVlrMatches(html, now = Date.now()) {
             const candidate = Math.round((r.localMs - (now + eta)) / quarter) * quarter;
             // Реальные пояса — от UTC−12 до UTC+14; всё остальное — сбой
             // отсчёта, тогда остаётся пояс по умолчанию.
-            if (Math.abs(candidate) <= 14 * 3600 * 1000) offsetMs = candidate;
-            break;
+            if (Math.abs(candidate) <= 14 * 3600 * 1000) {
+                offsetMs = candidate;
+                break;
+            }
         }
     }
 
-    return raw
+    const items = raw
         .filter(r => r.teams.length === 2)
         .map(r => {
             const offset = offsetMs ?? (r.localMs === null ? 0 : zoneOffsetMs(r.localMs, VLR_FALLBACK_TIME_ZONE));
@@ -173,18 +178,44 @@ function parseVlrMatches(html, now = Date.now()) {
                 vod: null,
             };
         });
+    return { items, offsetMs };
+}
+
+function parseVlrMatches(html, now = Date.now(), knownOffsetMs = null) {
+    return parseVlrPage(html, now, knownOffsetMs).items;
+}
+
+const RETRY_DELAY_MS = 3000;
+
+// fetch с одной повторной попыткой при сетевой ошибке ("fetch failed" —
+// DNS/сеть на сервере): разовый сбой не должен пропускать целую
+// проверку. Ответ с ошибкой HTTP не повторяется — это не сбой сети.
+async function fetchWithRetry(url, options) {
+    try {
+        return await fetch(url, options);
+    } catch {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        return fetch(url, options);
+    }
 }
 
 async function fetchVlrPage(url) {
-    const res = await fetch(url, { headers: VLR_HEADERS });
+    const res = await fetchWithRetry(url, { headers: VLR_HEADERS });
     if (!res.ok) throw new Error(`VLR.gg ${url} ответил ${res.status}`);
     return res.text();
 }
 
 // Расписание + лайв (/matches) и итоги (/matches/results) одним списком.
+// Пояс итогов — тот же, что вычислен по отсчёту на /matches: страницы
+// открываются с одного сервера, VLR.gg показывает их в одном поясе.
 async function fetchSchedule(now = Date.now()) {
-    const [upcoming, results] = await Promise.all([fetchVlrPage(VLR_MATCHES_URL), fetchVlrPage(VLR_RESULTS_URL)]);
-    return [...parseVlrMatches(upcoming, now), ...parseVlrMatches(results, now)];
+    const [upcomingHtml, resultsHtml] = await Promise.all([
+        fetchVlrPage(VLR_MATCHES_URL),
+        fetchVlrPage(VLR_RESULTS_URL),
+    ]);
+    const upcoming = parseVlrPage(upcomingHtml, now);
+    const results = parseVlrPage(resultsHtml, now, upcoming.offsetMs);
+    return [...upcoming.items, ...results.items];
 }
 
 const XML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -203,20 +234,55 @@ function xmlTag(block, tag) {
     return match ? decodeXml(match[1]) : null;
 }
 
+// Смещения часовых поясов (в часах), которыми VLR.gg подписывает pubDate
+// в RSS. Date сам понимает только американские (CDT, EST, ...), а VLR
+// подписывает время поясом того, кто открывает сайт: с сервера в Европе
+// приходит "CEST" — Date давал Invalid Date, и новость считалась старой
+// и не публиковалась.
+const TZ_ABBREVIATIONS = {
+    UTC: 0,
+    GMT: 0,
+    WET: 0,
+    WEST: 1,
+    BST: 1,
+    CET: 1,
+    CEST: 2,
+    EET: 2,
+    EEST: 3,
+    MSK: 3,
+    EST: -5,
+    EDT: -4,
+    CST: -6,
+    CDT: -5,
+    MST: -7,
+    MDT: -6,
+    PST: -8,
+    PDT: -7,
+};
+
+// "Thu, 24 Sep 2026 13:07:39 CEST" / "... +0200" → ISO или null.
+function parseRssDate(text) {
+    const value = String(text ?? '').trim();
+    const abbr = value.match(/^(.*\d{1,2}:\d{2}(?::\d{2})?)\s+([A-Z]{2,5})$/);
+    if (abbr && TZ_ABBREVIATIONS[abbr[2]] !== undefined) {
+        const asUtc = Date.parse(`${abbr[1]} GMT`);
+        if (Number.isFinite(asUtc)) return new Date(asUtc - TZ_ABBREVIATIONS[abbr[2]] * 3600 * 1000).toISOString();
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
 // Разбор RSS VLR.gg в тот же вид, что у статей HenrikDev, — чтобы
 // работали общие сверка по url и карточка новости (valorantNews/model.js).
-// pubDate у VLR в формате "Mon, 21 Sep 2026 15:47:14 CDT" — его Date
-// разбирает сам.
 function parseVlrRss(xml) {
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
     return items
         .map(block => {
-            const date = new Date(xmlTag(block, 'pubDate') ?? '');
             return {
                 title: xmlTag(block, 'title'),
                 url: xmlTag(block, 'link') || xmlTag(block, 'guid'),
                 description: xmlTag(block, 'description'),
-                date: Number.isFinite(date.getTime()) ? date.toISOString() : null,
+                date: parseRssDate(xmlTag(block, 'pubDate')),
                 category: 'vlr',
             };
         })
@@ -224,7 +290,9 @@ function parseVlrRss(xml) {
 }
 
 async function fetchVlrNews() {
-    const res = await fetch(VLR_RSS_URL, { headers: { 'User-Agent': 'ExtreeBot (Discord bot; VLR RSS reader)' } });
+    const res = await fetchWithRetry(VLR_RSS_URL, {
+        headers: { 'User-Agent': 'ExtreeBot (Discord bot; VLR RSS reader)' },
+    });
     if (!res.ok) throw new Error(`VLR.gg RSS ответил ${res.status}`);
     return parseVlrRss(await res.text());
 }
@@ -497,6 +565,7 @@ async function checkAndPostEsports(client) {
 }
 
 module.exports = {
+    parseRssDate,
     parseVlrRss,
     parseVlrMatches,
     parseEta,

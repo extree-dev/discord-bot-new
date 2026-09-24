@@ -42,9 +42,18 @@ function resolveBadgeEmoji(guild) {
 // для отдельного канала киберспорта, см. valorantNews/esports.js).
 async function fetchArticles(category = null) {
     const url = category ? `${API_URL}?category=${encodeURIComponent(category)}` : API_URL;
-    const res = await fetch(url, {
+    const options = {
         headers: { Authorization: process.env.HENRIKDEV_API_KEY },
-    });
+    };
+    // Одна повторная попытка при сетевой ошибке ("fetch failed" — сбой
+    // DNS/сети на сервере), чтобы разовый сбой не пропускал проверку.
+    let res;
+    try {
+        res = await fetch(url, options);
+    } catch {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        res = await fetch(url, options);
+    }
     if (!res.ok) throw new Error(`HenrikDev API ответил ${res.status}`);
     const body = await res.json();
     return Array.isArray(body?.data) ? body.data : [];
