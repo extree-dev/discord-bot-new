@@ -79,4 +79,5 @@ jobs:
                       run_setup_step scripts/setup-valorant-news.js
                       run_setup_step scripts/setup-esports-news.js
                       run_setup_step scripts/setup-game-news.js
+                      run_setup_step scripts/setup-role-panel.js
                       exit $FAILED

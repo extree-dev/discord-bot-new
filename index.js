@@ -37,6 +37,7 @@ const modqueue = require('./modqueue');
 const ideaQueue = require('./ideaQueue');
 const adminPanel = require('./adminPanel');
 const valorantNews = require('./valorantNews');
+const rolePanel = require('./rolePanel');
 
 client.once('clientReady', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
@@ -153,6 +154,12 @@ client.on('interactionCreate', async interaction => {
             await adminPanel
                 .handleSelectMenu(interaction)
                 .catch(err => (console.error('Ошибка select-меню панели администратора:', err), false))
+        )
+            return;
+        if (
+            await rolePanel
+                .handleSelectMenu(interaction)
+                .catch(err => (console.error('Ошибка select-меню панели выбора ролей:', err), false))
         )
             return;
     }
