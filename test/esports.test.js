@@ -15,6 +15,8 @@ const {
     hourInZone,
     buildDigestCard,
     buildResultCard,
+    parseOgImage,
+    fetchVlrArticleImage,
 } = require('../valorantNews/esports');
 
 function match(id, { state = 'unstarted', date = '2026-09-24T15:00:00Z', league = 'VCT Champions', a, b } = {}) {
@@ -322,6 +324,41 @@ test('fetchSchedule: итоги берут пояс страницы распи�
         assert.equal(items.find(i => i.match.id === '10').date, '2026-09-24T12:00:00.000Z');
         assert.equal(result.date, '2026-09-24T09:00:00.000Z'); // 11:00 CEST
         assert.equal(result.state, 'completed');
+    } finally {
+        global.fetch = realFetch;
+    }
+});
+
+test('parseOgImage: берёт og:image со страницы статьи, декодирует спецсимволы', () => {
+    const html = `<head><meta property="og:title" content="x"><meta property="og:image" content="https://owcdn.net/img/x.png"></head>`;
+    assert.equal(parseOgImage(html), 'https://owcdn.net/img/x.png');
+    assert.equal(parseOgImage('<head></head>'), null);
+});
+
+test('fetchVlrArticleImage: настоящая картинка статьи — постим, общий логотип-заглушка — нет', async () => {
+    const realFetch = global.fetch;
+    try {
+        global.fetch = async () => ({
+            ok: true,
+            text: async () => '<meta property="og:image" content="https://owcdn.net/img/real.png">',
+        });
+        assert.equal(await fetchVlrArticleImage('https://www.vlr.gg/1/real-photo'), 'https://owcdn.net/img/real.png');
+
+        global.fetch = async () => ({
+            ok: true,
+            text: async () => '<meta property="og:image" content="https://www.vlr.gg/img/vlr/card.png">',
+        });
+        assert.equal(await fetchVlrArticleImage('https://www.vlr.gg/2/no-photo'), null);
+    } finally {
+        global.fetch = realFetch;
+    }
+});
+
+test('fetchVlrArticleImage: страница ответила ошибкой — null, а не падение', async () => {
+    const realFetch = global.fetch;
+    try {
+        global.fetch = async () => ({ ok: false, status: 404, text: async () => '' });
+        assert.equal(await fetchVlrArticleImage('https://www.vlr.gg/3/missing'), null);
     } finally {
         global.fetch = realFetch;
     }
