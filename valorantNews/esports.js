@@ -23,8 +23,16 @@ const VLR_HEADERS = { 'User-Agent': 'ExtreeBot (Discord bot; VLR.gg reader)' };
 // отсчёта нет), а этот пояс — только запасной вариант.
 const VLR_FALLBACK_TIME_ZONE = 'America/Chicago';
 // Главный сайт новостей киберсцены Valorant. RSS — 20 последних
-// новостей: заголовок, ссылка, дата, короткое описание (без картинок).
+// новостей: заголовок, ссылка, дата, короткое описание (без картинок,
+// см. fetchVlrArticleImage — картинку приходится отдельно забирать со
+// страницы самой статьи).
 const VLR_RSS_URL = 'https://www.vlr.gg/rss';
+// og:image, который VLR.gg отдаёт у статей без собственной фотографии
+// (трансферные новости и т.п.) — общий логотип сайта, один и тот же на
+// всех таких статьях (проверено вручную по нескольким новостям текущей
+// ленты). У статей с настоящим скрином/фото og:image ведёт на их CDN
+// (owcdn.net/img/...) — такой адрес постим, этот — не считаем картинкой.
+const VLR_GENERIC_IMAGE = 'https://www.vlr.gg/img/vlr/card.png';
 
 // Только VCT: региональные лиги VCT, Masters и Champions. Challengers,
 // Game Changers и прочие лиги в расписании тоже есть — их не публикуем.
@@ -297,6 +305,28 @@ async function fetchVlrNews() {
     return parseVlrRss(await res.text());
 }
 
+function parseOgImage(html) {
+    const match = html.match(/<meta property="og:image" content="([^"]*)"/);
+    return match ? decodeXml(match[1]) : null;
+}
+
+// Картинка статьи VLR.gg — сама лента (fetchVlrNews) её не отдаёт, поэтому
+// приходится открывать страницу статьи и брать og:image оттуда. null —
+// у статьи нет своей картинки (VLR_GENERIC_IMAGE) или страницу не удалось
+// загрузить: тогда карточка публикуется без картинки, а не отваливается.
+async function fetchVlrArticleImage(url) {
+    let res;
+    try {
+        res = await fetchWithRetry(url, { headers: VLR_HEADERS });
+    } catch (err) {
+        console.error('valorantEsports: не удалось загрузить страницу статьи для картинки:', err.message);
+        return null;
+    }
+    if (!res.ok) return null;
+    const image = parseOgImage(await res.text());
+    return image && image !== VLR_GENERIC_IMAGE ? image : null;
+}
+
 function isTracked(item) {
     // Только VLR-адрес матча не должен включать фильтр: в slug бывает
     // "champions" и у Game Changers ("...-championship" отсекается \b, но
@@ -509,6 +539,7 @@ async function checkVlrNews(channel, cfg, badgeEmoji) {
     if (tooMany)
         console.warn('valorantEsports: слишком много "новых" новостей VLR.gg — похоже на сбой сверки, не публикую.');
     for (const article of toPost) {
+        article.banner_url = await fetchVlrArticleImage(article.url);
         await send(channel, news.buildNewsCard(article, cfg.pingRoleId, badgeEmoji));
     }
     await config.update(c => {
@@ -571,6 +602,8 @@ module.exports = {
     parseEta,
     zoneOffsetMs,
     fetchVlrNews,
+    parseOgImage,
+    fetchVlrArticleImage,
     fetchSchedule,
     isTracked,
     matchState,
