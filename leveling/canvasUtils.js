@@ -56,12 +56,77 @@ function formatVoiceMinutes(totalMinutes) {
     return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
 }
 
-// "★N" — бейдж престижа (см. model.js applyPrestige), рисуется рядом с
-// титулом яруса и на карточке профиля, и в топе. Пустая строка при
-// prestige <= 0, чтобы вызывающему коду не приходилось самому решать,
-// добавлять ли пробел перед бейджем.
+// "★N" — бейдж престижа (см. model.js applyPrestige) для текстовых
+// сообщений Discord (buildLevelUpCard) — рисует сам клиент Discord,
+// шрифт с символом ★ у него есть. Для канвас-карточек (см.
+// drawPrestigeBadge ниже) эта строка не годится — там звезду нужно
+// рисовать векторной фигурой, а не текстовым символом.
 function formatPrestigeBadge(prestige) {
     return prestige > 0 ? `★${prestige}` : '';
 }
 
-module.exports = { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatVoiceMinutes, formatPrestigeBadge };
+// Пятиконечная звезда — векторная фигура, а не текстовый символ.
+function drawStar(ctx, cx, cy, outerRadius, color) {
+    const spikes = 5;
+    const innerRadius = outerRadius * 0.5;
+    const step = Math.PI / spikes;
+    let rotation = -Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(rotation) * outerRadius, cy + Math.sin(rotation) * outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        rotation += step;
+        ctx.lineTo(cx + Math.cos(rotation) * innerRadius, cy + Math.sin(rotation) * innerRadius);
+        rotation += step;
+        ctx.lineTo(cx + Math.cos(rotation) * outerRadius, cy + Math.sin(rotation) * outerRadius);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+}
+
+// Бейдж престижа на канвас-карточках ("★N" рядом с титулом яруса) —
+// звезда рисуется фигурой (см. drawStar), число — обычным текстом.
+// Раньше весь бейдж дописывался в ту же строку fillText, что и титул
+// ("Новичок ★1"), символом ★ (U+2605) — этого символа нет в
+// кириллическом сабсете Noto Sans, который регистрирует ensureFonts()
+// (только буквы, без символов), поэтому вместо звезды рисовался пустой
+// квадрат-заглушка (баг, найден на реальной карточке администратора
+// после первого срабатывания престижа). x/baselineY — точка сразу после
+// уже нарисованного текста, тот же baseline. Возвращает x после
+// бейджа — если prestige <= 0, ничего не рисует и просто отдаёт x
+// обратно, чтобы вызывающему коду не нужно было отдельно проверять.
+function drawPrestigeBadge(ctx, x, baselineY, prestige, { color = '#f1c40f', font, starSize = 8 } = {}) {
+    if (!prestige) return x;
+
+    // Сохраняем состояние ДО drawStar — сама она ставит ctx.fillStyle =
+    // color, и если сохранить fillStyle после этого вызова, "восстановим"
+    // не оригинальный цвет, а только что нарисованный цвет звезды.
+    const savedFont = ctx.font;
+    const savedFill = ctx.fillStyle;
+    const savedAlign = ctx.textAlign;
+
+    const starCenterY = baselineY - starSize * 0.75;
+    drawStar(ctx, x + starSize, starCenterY, starSize, color);
+
+    if (font) ctx.font = font;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'left';
+    const numberX = x + starSize * 2 + 4;
+    const numberText = String(prestige);
+    ctx.fillText(numberText, numberX, baselineY);
+    const endX = numberX + ctx.measureText(numberText).width;
+    ctx.font = savedFont;
+    ctx.fillStyle = savedFill;
+    ctx.textAlign = savedAlign;
+    return endX;
+}
+
+module.exports = {
+    ensureFonts,
+    roundedRectPath,
+    drawCircleImage,
+    truncate,
+    formatVoiceMinutes,
+    formatPrestigeBadge,
+    drawPrestigeBadge,
+};

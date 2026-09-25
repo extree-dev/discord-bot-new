@@ -9,7 +9,7 @@
 // сама функция рисования не трогает сеть и не трогает Discord API (см.
 // leveling/model.js buildLeaderboardAttachment()).
 const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const { ensureFonts, roundedRectPath, drawCircleImage, truncate, formatPrestigeBadge } = require('./canvasUtils');
+const { ensureFonts, roundedRectPath, drawCircleImage, truncate, drawPrestigeBadge } = require('./canvasUtils');
 
 const WIDTH = 720;
 const PADDING_X = 24;
@@ -108,13 +108,18 @@ async function drawRow(ctx, entry, y) {
 
     ctx.font = '12px NotoSansCyrillic';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    const prestigeBadge = formatPrestigeBadge(entry.prestige);
-    const titleText = prestigeBadge ? `${entry.level?.title ?? ''} ${prestigeBadge}` : (entry.level?.title ?? '');
-    ctx.fillText(
-        `${titleText} (ур. ${entry.level?.number ?? 0}) · Сообщений: ${entry.messageCount ?? 0}`,
-        textX + 14,
-        dotY
-    );
+    const title = entry.level?.title ?? '';
+    ctx.fillText(title, textX + 14, dotY);
+    let cursorX = textX + 14 + ctx.measureText(title).width;
+    if (entry.prestige > 0) {
+        cursorX = drawPrestigeBadge(ctx, cursorX + 5, dotY, entry.prestige, {
+            starSize: 5,
+            font: '12px "NotoSansCyrillic Bold"',
+        });
+    }
+    ctx.font = '12px NotoSansCyrillic';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText(` (ур. ${entry.level?.number ?? 0}) · Сообщений: ${entry.messageCount ?? 0}`, cursorX, dotY);
 
     drawProgressBar(ctx, textX, y + 54, BAR_WIDTH, BAR_HEIGHT, entry.level?.progress, accent);
 

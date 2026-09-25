@@ -13,7 +13,7 @@ const {
     drawCircleImage,
     truncate,
     formatVoiceMinutes,
-    formatPrestigeBadge,
+    drawPrestigeBadge,
 } = require('./canvasUtils');
 
 const WIDTH = 900;
@@ -126,8 +126,14 @@ async function renderRankCard({
 
     ctx.font = '22px NotoSansCyrillic';
     ctx.fillStyle = '#c9cdfb';
-    const prestigeBadge = formatPrestigeBadge(prestige);
-    ctx.fillText(prestigeBadge ? `${level.title} ${prestigeBadge}` : level.title, TEXT_X, 112);
+    ctx.fillText(level.title, TEXT_X, 112);
+    if (prestige > 0) {
+        const titleWidth = ctx.measureText(level.title).width;
+        drawPrestigeBadge(ctx, TEXT_X + titleWidth + 10, 112, prestige, {
+            starSize: 8,
+            font: '20px "NotoSansCyrillic Bold"',
+        });
+    }
 
     // "Уровень N" — число растёт непрерывно (score / POINTS_PER_LEVEL,
     // см. leveling/model.js), не привязано к потолку текущего яруса, в
