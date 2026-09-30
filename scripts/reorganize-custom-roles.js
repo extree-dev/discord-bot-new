@@ -151,8 +151,38 @@ async function reorganizeRoles(guild) {
     });
 
     if (updates.length) {
-        await guild.roles.setPositions(updates.map(u => ({ role: u.roleId, position: u.position })));
-        console.log(`Позиции обновлены у ${updates.length} ролей.`);
+        try {
+            await guild.roles.setPositions(updates.map(u => ({ role: u.roleId, position: u.position })));
+            console.log(`Позиции обновлены у ${updates.length} ролей.`);
+        } catch (err) {
+            // Живой случай (найдено вживую администратором): проверка выше
+            // (только над ролями из этой пачки) НЕ поймала блокирующую роль,
+            // а сам вызов всё равно упал 50013 — значит, дело в какой-то
+            // роли, которую мы не трогаем вовсе (см. её комментарий выше),
+            // но которая всё равно мешает Discord пересчитать позиции.
+            // Вместо повторной догадки — печатаем ПОЛНУЮ картину: позицию
+            // бота, все роли сервера выше или на его уровне (тот же приём,
+            // что и в audit-roles.js/fix-role-hierarchy.js, но по всему
+            // серверу, а не только по переставляемым ролям) и сам payload,
+            // который пытались отправить — дальше решать администратору.
+            console.error(`\nОшибка перестройки позиций: ${err.message} (код ${err.code ?? '?'}).`);
+            const allAboveBot = findRolesAboveOrAtBot(roles, botPosition);
+            console.error(
+                `\nПозиция роли бота: ${botPosition}. Все роли сервера на её уровне или выше ` +
+                    `(бот не может управлять ни одной из них, даже если сама роль не входит в эту перестройку):`
+            );
+            if (allAboveBot.length) {
+                for (const r of allAboveBot) console.error(`  ${r.name} (${r.id}, позиция ${r.position})`);
+            } else {
+                console.error('  (таких ролей не нашлось — причина не в иерархии ролей выше бота)');
+            }
+            console.error('\nПопытка переставить эти роли (имя — текущая позиция → новая):');
+            for (const u of updates) {
+                const role = roles.find(r => r.id === u.roleId);
+                console.error(`  ${role?.name ?? u.roleId} — ${role?.position ?? '?'} → ${u.position}`);
+            }
+            throw err;
+        }
     } else {
         console.log('Позиции ролей уже верные — без изменений.');
     }
