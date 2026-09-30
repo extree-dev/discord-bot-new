@@ -199,15 +199,27 @@ async function reorganizeRoles(guild) {
             // серверу, а не только по переставляемым ролям) и сам payload,
             // который пытались отправить — дальше решать администратору.
             console.error(`\nОшибка перестройки позиций: ${err.message} (код ${err.code ?? '?'}).`);
-            const allAboveBot = findRolesAboveOrAtBot(roles, botPosition);
+            // Две предыдущие гипотезы (роль выше бота; роль с правом,
+            // которого нет у бота) проверены и обе ничего не нашли, а
+            // ошибка та же — значит, дело в чём-то третьем. Раньше
+            // managed-роли (боты/интеграции) намеренно исключались из
+            // отчёта (findRolesAboveOrAtBot их фильтрует) — печатаем
+            // теперь ВЕСЬ список ролей без фильтров, как audit-roles.js,
+            // чтобы увидеть, не сидит ли что-то managed между anchor и
+            // ботом (например, роль другой интеграции) — Discord мог бы
+            // потребовать сдвинуть и её, чтобы закрыть образовавшийся
+            // разрыв в позициях, а прав на управление чужой managed-
+            // ролью у бота нет и не может быть.
             console.error(
-                `\nПозиция роли бота: ${botPosition}. Все роли сервера на её уровне или выше ` +
-                    `(бот не может управлять ни одной из них, даже если сама роль не входит в эту перестройку):`
+                `\nРоль бота: ${me.roles.highest.name} (${me.roles.highest.id}, позиция ${botPosition}). ` +
+                    `Administrator у бота: ${me.permissions.has(PermissionsBitField.Flags.Administrator) ? 'да' : 'нет'}.`
             );
-            if (allAboveBot.length) {
-                for (const r of allAboveBot) console.error(`  ${r.name} (${r.id}, позиция ${r.position})`);
-            } else {
-                console.error('  (таких ролей не нашлось — причина не в иерархии ролей выше бота)');
+            console.error(`Полный список ролей сервера (сверху вниз):`);
+            for (const r of [...roles].sort((a, b) => b.position - a.position)) {
+                const flags = [r.managed ? 'managed' : null, r.everyone ? '@everyone' : null]
+                    .filter(Boolean)
+                    .join(', ');
+                console.error(`  #${r.position} ${r.name} (${r.id})${flags ? ` [${flags}]` : ''}`);
             }
             console.error('\nПопытка переставить эти роли (имя — текущая позиция → новая):');
             for (const u of updates) {
