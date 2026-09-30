@@ -6,10 +6,13 @@ const {
     buildPanelMessage,
     GAMES_SELECT_CUSTOM_ID,
     NEWS_SELECT_CUSTOM_ID,
+    COLOR_SELECT_CUSTOM_ID,
     handleGamesSelect,
     handleNewsSelect,
+    handleColorSelect,
 } = require('../rolePanel/model');
 const handlers = require('../rolePanel/handlers');
+const { PALETTE, roleName } = require('../rolePanel/colors');
 
 const GAMES = [
     { key: 'valorant', name: 'Valorant', emoji: '🎯' },
@@ -17,6 +20,12 @@ const GAMES = [
     { key: 'gta', name: 'GTA', emoji: '🚗' },
 ];
 const ROLE_IDS = { valorant: 'role-valorant', cs2: 'role-cs2', gta: 'role-gta' };
+
+const COLORS = [
+    { key: 'red', name: 'Красный', emoji: '🔴' },
+    { key: 'blue', name: 'Синий', emoji: '🔵' },
+];
+const COLOR_ROLE_IDS = { red: 'role-red', blue: 'role-blue' };
 
 // interaction.deferUpdate() + followUp() — не reply() (см. model.js
 // applySelection: без deferUpdate() Discord-клиент продолжает
@@ -109,6 +118,29 @@ test('buildPanelMessage: пустая категория не рисует св�
     assert.equal(actionRows[0].components[0].custom_id, GAMES_SELECT_CUSTOM_ID);
 });
 
+test('buildPanelMessage: без цветов (colors по умолчанию) третий ряд не рисуется', () => {
+    const container = buildPanelMessage({ playGames: GAMES, newsGames: GAMES });
+    const json = container.toJSON();
+    const actionRows = json.components.filter(c => c.type === 1);
+    assert.equal(actionRows.length, 2);
+});
+
+test('buildPanelMessage: ряд выбора цвета — максимум одно значение, в отличие от игр/новостей', () => {
+    const container = buildPanelMessage({ playGames: GAMES, newsGames: [], colors: COLORS });
+    const json = container.toJSON();
+    const actionRows = json.components.filter(c => c.type === 1);
+    assert.equal(actionRows.length, 2);
+
+    const colorSelect = actionRows[1].components[0];
+    assert.equal(colorSelect.custom_id, COLOR_SELECT_CUSTOM_ID);
+    assert.equal(colorSelect.min_values, 0);
+    assert.equal(colorSelect.max_values, 1);
+    assert.deepEqual(
+        colorSelect.options.map(o => o.value),
+        COLORS.map(c => c.key)
+    );
+});
+
 test('handleGamesSelect: применяет диф к ролям участника, deferUpdate()+followUp() с итогом', async () => {
     const interaction = fakeInteraction({ values: ['valorant'], currentRoleIds: ['role-cs2'] });
 
@@ -138,7 +170,36 @@ test('handleNewsSelect: свой текст и своя причина в audit-
     assert.match(JSON.stringify(interaction.followUps[0]), /Подписки на новости обновлены.*CS2/);
 });
 
+test('handleColorSelect: одно значение полностью заменяет прежний цвет (тот же дифф, что у игр)', async () => {
+    const interaction = fakeInteraction({ values: ['blue'], currentRoleIds: ['role-red'] });
+
+    await handleColorSelect(interaction, COLOR_ROLE_IDS, COLORS);
+
+    assert.deepEqual(interaction.added, ['role-blue']);
+    assert.deepEqual(interaction.removed, ['role-red']);
+    assert.match(JSON.stringify(interaction.followUps[0]), /Цвет ника обновлён.*Синий/);
+});
+
+test('handleColorSelect: пустой выбор снимает цвет и отвечает, что цвет не выбран', async () => {
+    const interaction = fakeInteraction({ values: [], currentRoleIds: ['role-red'] });
+
+    await handleColorSelect(interaction, COLOR_ROLE_IDS, COLORS);
+
+    assert.deepEqual(interaction.removed, ['role-red']);
+    assert.match(JSON.stringify(interaction.followUps[0]), /цвет не выбран/);
+});
+
 test('handlers.handleSelectMenu: чужой customId — false без похода в БД', async () => {
     const result = await handlers.handleSelectMenu({ customId: 'not_rolepanel' });
     assert.equal(result, false);
+});
+
+test('rolePanel/colors: ключи и названия ролей палитры уникальны (иначе роли в colorRoleIds затирали бы друг друга)', () => {
+    assert.ok(PALETTE.length > 0);
+    assert.equal(new Set(PALETTE.map(c => c.key)).size, PALETTE.length);
+    assert.equal(new Set(PALETTE.map(c => roleName(c))).size, PALETTE.length);
+    for (const color of PALETTE) {
+        assert.equal(roleName(color), `Цвет: ${color.name}`);
+        assert.equal(typeof color.hex, 'number');
+    }
 });

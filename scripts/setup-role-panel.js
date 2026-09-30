@@ -3,8 +3,9 @@ const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const rolePanel = require('../rolePanel');
 const gameNews = require('../gameNews');
 const { GAMES } = require('../gameNews/games');
+const { PALETTE, roleName } = require('../rolePanel/colors');
 const { findRole } = require('../utils/idempotent');
-const { ensureChannel, refreshPanel } = require('../utils/setupMode');
+const { ensureChannel, ensureRole, refreshPanel } = require('../utils/setupMode');
 const { toMessage } = require('../utils/components');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -88,18 +89,43 @@ client.once('clientReady', async () => {
             emoji: resolveEmoji(guild, game),
         }));
 
+        // Роли-цвета — в отличие от игровых, панель их сама и создаёт
+        // (--bootstrap): больше никто эти роли не использует, чужого
+        // ID/имени, заведённого другой фичей, тут нет. Позицию в
+        // иерархии (выше ярусов активности, см. rolePanel/colors.js)
+        // выставляет отдельно scripts/reorganize-custom-roles.js — сам
+        // Discord создаёт новую роль сразу над @everyone.
+        const colorRoleIds = { ...existing.colorRoleIds };
+        const availableColors = [];
+        for (const color of PALETTE) {
+            const { role, created } = await ensureRole({
+                guild,
+                existingId: existing.colorRoleIds[color.key],
+                name: roleName(color),
+                color: color.hex,
+                hoist: false,
+                mentionable: false,
+                permissions: [],
+            });
+            if (!role) continue;
+            if (created) console.log(`Создана роль цвета: ${role.name}`);
+            colorRoleIds[color.key] = role.id;
+            availableColors.push(color);
+        }
+
         await rolePanel.saveTargets({
             categoryId: category?.id ?? existing.categoryId,
             channelId: channel?.id ?? existing.channelId,
             roleIds,
+            colorRoleIds,
         });
 
         if (!channel) {
             console.warn('Канал панели не найден — панель не опубликована.');
             process.exit(0);
         }
-        if (availableGames.length === 0 && availableNewsGames.length === 0) {
-            console.warn('Ни одна роль (игровая или новостная) не найдена — панель не опубликована.');
+        if (availableGames.length === 0 && availableNewsGames.length === 0 && availableColors.length === 0) {
+            console.warn('Ни одна роль (игровая, новостная или цвет) не найдена — панель не опубликована.');
             process.exit(0);
         }
 
@@ -107,7 +133,11 @@ client.once('clientReady', async () => {
             channel,
             botId: client.user.id,
             payload: toMessage(
-                rolePanel.buildPanelMessage({ playGames: availableGames, newsGames: availableNewsGames })
+                rolePanel.buildPanelMessage({
+                    playGames: availableGames,
+                    newsGames: availableNewsGames,
+                    colors: availableColors,
+                })
             ),
             label: 'Панель выбора игровых ролей',
         });

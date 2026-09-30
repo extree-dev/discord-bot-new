@@ -15,14 +15,17 @@ const { baseContainer, textDisplay, separator, toEphemeralMessage } = require('.
 
 const GAMES_SELECT_CUSTOM_ID = 'rolepanel_games_select';
 const NEWS_SELECT_CUSTOM_ID = 'rolepanel_news_select';
+const COLOR_SELECT_CUSTOM_ID = 'rolepanel_color_select';
 
-function buildSelectRow(customId, placeholder, games) {
+// maxValues по умолчанию — "выбери сколько угодно из списка" (игры,
+// роли-пинги); цвет ника — ровно один, см. вызов ниже.
+function buildSelectRow(customId, placeholder, games, { maxValues } = {}) {
     const options = games.map(game => ({ label: game.name, value: game.key, emoji: game.emoji }));
     const select = new StringSelectMenuBuilder()
         .setCustomId(customId)
         .setPlaceholder(placeholder)
         .setMinValues(0)
-        .setMaxValues(Math.max(1, options.length))
+        .setMaxValues(maxValues ?? Math.max(1, options.length))
         .addOptions(options);
     return new ActionRowBuilder().addComponents(select);
 }
@@ -35,7 +38,7 @@ function buildSelectRow(customId, placeholder, games) {
 // newsGames — только те игры, чья роль реально нашлась на сервере (см.
 // scripts/setup-role-panel.js) — пустой список просто не рисует свой
 // ряд меню, вместо пункта, который ничего не сделает.
-function buildPanelMessage({ playGames, newsGames }) {
+function buildPanelMessage({ playGames, newsGames, colors = [] }) {
     const container = baseContainer(COLORS.primary).addTextDisplayComponents(
         textDisplay('### Выбери свой путь\n-# Отметь игры, в которые играешь — так тебя будет проще позвать в команду.')
     );
@@ -51,6 +54,16 @@ function buildPanelMessage({ playGames, newsGames }) {
     );
     if (newsGames.length) {
         container.addActionRowComponents(buildSelectRow(NEWS_SELECT_CUSTOM_ID, 'Подпишись на новости', newsGames));
+    }
+
+    if (colors.length) {
+        container.addSeparatorComponents(separator());
+        container.addTextDisplayComponents(
+            textDisplay('### Цвет ника\n-# Выбери себе цвет ника — можно выбрать только один.')
+        );
+        container.addActionRowComponents(
+            buildSelectRow(COLOR_SELECT_CUSTOM_ID, 'Выбери цвет', colors, { maxValues: 1 })
+        );
     }
 
     container.addTextDisplayComponents(
@@ -122,12 +135,27 @@ async function handleNewsSelect(interaction, roleIds, games) {
     });
 }
 
+// colors — та же форма, что и games ({key, name, emoji}), см.
+// rolePanel/colors.js. Единственная реальная разница с играми — в самом
+// меню (maxValues: 1, buildPanelMessage выше): applySelection и без этого
+// корректно снимает прежний цвет и выдаёт новый, потому что interaction.
+// values физически не может содержать больше одного значения.
+async function handleColorSelect(interaction, roleIds, colors) {
+    await applySelection(interaction, roleIds, colors, {
+        reason: 'Панель выбора цвета ника',
+        actionLabel: 'Цвет ника обновлён',
+        emptyText: 'Цвет ника обновлён — цвет не выбран.',
+    });
+}
+
 module.exports = {
     GAMES_SELECT_CUSTOM_ID,
     NEWS_SELECT_CUSTOM_ID,
+    COLOR_SELECT_CUSTOM_ID,
     buildPanelMessage,
     computeRoleDiff,
     describeSelection,
     handleGamesSelect,
     handleNewsSelect,
+    handleColorSelect,
 };

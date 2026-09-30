@@ -8,11 +8,12 @@ module.exports = {
     handleSelectMenu: handlers.handleSelectMenu,
     buildPanelMessage: model.buildPanelMessage,
     getConfig: config.load,
-    saveTargets: async ({ categoryId, channelId, roleIds }) => {
+    saveTargets: async ({ categoryId, channelId, roleIds, colorRoleIds }) => {
         await config.update(c => {
             c.categoryId = categoryId;
             c.channelId = channelId;
             c.roleIds = roleIds;
+            c.colorRoleIds = colorRoleIds;
         });
     },
 };
