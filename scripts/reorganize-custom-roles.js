@@ -1,5 +1,5 @@
 require('dotenv').config({ quiet: true });
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const leveling = require('../leveling');
 const { PALETTE, roleName } = require('../rolePanel/colors');
 const { pickOldest } = require('../utils/idempotent');
@@ -149,6 +149,39 @@ async function reorganizeRoles(guild) {
         bottomOrderIds,
         everyoneId: guild.roles.everyone.id,
     });
+
+    // Отдельное от позиций правило Discord: боту нельзя переставлять
+    // (и вообще управлять) роль, у которой есть право, которого нет у
+    // самого бота — даже если позиция роли ниже бота (проверено выше).
+    // Найдено вживую: проверка по позициям выше ничего не нашла (ни
+    // одной роли на уровне бота или выше), а guild.roles.setPositions()
+    // всё равно падал 50013 — значит, дело в правах, а не в иерархии.
+    // updates покрывает ВСЕ роли, которые реально попадут в payload —
+    // не только MANAGED_BLOCK_NAMES/BOTTOM_NAMES, но и "нетронутые"
+    // роли между ними (например, Beta-Moderator/Trusted/Support — они
+    // тоже сдвигаются вниз, чтобы освободить место). Administrator у
+    // бота снимает это ограничение целиком.
+    if (!me.permissions.has(PermissionsBitField.Flags.Administrator)) {
+        const permissionBlockers = [];
+        for (const u of updates) {
+            const role = guild.roles.cache.get(u.roleId);
+            if (!role) continue;
+            const missing = me.permissions.missing(role.permissions);
+            if (missing.length) permissionBlockers.push({ role, missing });
+        }
+        if (permissionBlockers.length) {
+            console.error(
+                '\nНе могу переставить роли — у этих ролей есть права, которых нет у самого бота ' +
+                    '(Discord запрещает управлять ролью с правом, которого нет у управляющего — выдай боту эти ' +
+                    'права или Administrator в Настройках сервера → Роли, и запусти скрипт заново):'
+            );
+            for (const { role, missing } of permissionBlockers) {
+                console.error(`  ${role.name} (${role.id}) — не хватает: ${missing.join(', ')}`);
+            }
+            process.exitCode = 1;
+            return;
+        }
+    }
 
     if (updates.length) {
         try {
