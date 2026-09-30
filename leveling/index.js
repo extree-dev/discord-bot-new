@@ -22,7 +22,7 @@ module.exports = {
     setScore: model.setScore,
     resetStats: model.resetStats,
     getLevelRoleId: model.getLevelRoleId,
-    grantLevelRolesUpTo: model.grantLevelRolesUpTo,
+    syncLevelRole: model.syncLevelRole,
     getGuildConfig: model.getGuildConfig,
     configureGuild: model.configureGuild,
     getBoosterBundlePermissions: model.getBoosterBundlePermissions,

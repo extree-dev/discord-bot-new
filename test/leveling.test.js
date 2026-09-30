@@ -17,6 +17,9 @@ const {
     buildRankCardAttachment,
     buildLeaderboardAttachment,
     buildLevelUpCard,
+    syncLevelRole,
+    configureGuild,
+    getGuildConfig,
 } = require('../leveling/model');
 
 // Discord CDN принимает только эти размеры — любое другое значение роняет
@@ -188,6 +191,47 @@ test('LEVELS: перки нарастают по назначению — Пут
     assert.ok(путник.perks.includes(PermissionFlagsBits.Stream));
     assert.ok(специалист.perks.includes(PermissionFlagsBits.UseExternalEmojis));
     assert.ok(специалист.perks.includes(PermissionFlagsBits.UseExternalStickers));
+});
+
+test('LEVELS: perks кумулятивны — участник держит одну роль яруса и не должен терять более ранние бонусы', () => {
+    for (let i = 1; i < LEVELS.length; i++) {
+        for (const perk of LEVELS[i - 1].perks) {
+            assert.ok(
+                LEVELS[i].perks.includes(perk),
+                `${LEVELS[i].title} должен включать все бонусы ${LEVELS[i - 1].title}`
+            );
+        }
+    }
+    // Хранитель не несёт своего нового бонуса, но не должен терять бонус Мастера.
+    const мастер = LEVELS.find(l => l.title === 'Мастер');
+    const хранитель = LEVELS.find(l => l.title === 'Хранитель');
+    assert.ok(хранитель.perks.includes(PermissionFlagsBits.PrioritySpeaker));
+    assert.deepEqual(new Set(хранитель.perks), new Set(мастер.perks));
+});
+
+test('syncLevelRole: участник держит ровно одну роль яруса — переход снимает старую и выдаёт новую, работает в обе стороны', async () => {
+    const guildId = 'test-guild-sync-level-role';
+    const before = await getGuildConfig(guildId);
+    await configureGuild(guildId, { levelRoles: { 0: 'role-0', 1: 'role-1', 2: 'role-2' } });
+    try {
+        const memberRoles = new Set(['role-0']); // начальное состояние — роль "Новичок" от верификации
+        const fakeMember = {
+            roles: {
+                cache: { has: id => memberRoles.has(id) },
+                add: async id => memberRoles.add(id),
+                remove: async id => memberRoles.delete(id),
+            },
+        };
+        const fakeGuild = { id: guildId, members: { fetch: async () => fakeMember } };
+
+        await syncLevelRole(fakeGuild, 'user-1', 1); // повышение: Новичок → Путник
+        assert.deepEqual([...memberRoles], ['role-1']);
+
+        await syncLevelRole(fakeGuild, 'user-1', 0); // админ понизил очки: Путник → снова Новичок
+        assert.deepEqual([...memberRoles], ['role-0']);
+    } finally {
+        await configureGuild(guildId, { levelRoles: before.levelRoles ?? {} });
+    }
 });
 
 test('getBoosterBundlePermissions: объединяет перки ярусов 5-50 без дублей', () => {
