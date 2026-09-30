@@ -15,21 +15,23 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const CATEGORY_NAME = '📋 Информация';
 const CHANNEL_NAME = 'выбор-ролей';
 
-// Возвращает кастомный эмодзи сервера по имени (game.customEmojiName —
+// Возвращает кастомный эмодзи сервера по имени (item.customEmojiName —
 // тот же, что и у игровой роли в scripts/add-onboarding-role-
-// questions.js), если он есть — иначе юникод-эмодзи game.emoji.
-// StringSelectMenu умеет показывать кастомные эмодзи (в отличие от
-// названий каналов — там работает только юникод, см. gameNews/games.js),
-// поэтому эта замена только для панели.
-function resolveEmoji(guild, game) {
-    if (game.customEmojiName) {
-        const custom = guild.emojis.cache.find(e => e.name === game.customEmojiName);
+// questions.js, и залитый scripts/upload-color-emojis.js у роли-цвета),
+// если он есть — иначе юникод-эмодзи item.emoji. StringSelectMenu умеет
+// показывать кастомные эмодзи (в отличие от названий каналов — там
+// работает только юникод, см. gameNews/games.js), поэтому эта замена
+// только для панели. Общая для игр (GAMES) и цветов (PALETTE) — обе
+// формы {name, emoji, customEmojiName}.
+function resolveEmoji(guild, item) {
+    if (item.customEmojiName) {
+        const custom = guild.emojis.cache.find(e => e.name === item.customEmojiName);
         if (custom) return { id: custom.id, name: custom.name };
         console.warn(
-            `Кастомный эмодзи ":${game.customEmojiName}:" не найден на сервере — для игры "${game.name}" в панели использую стандартный ${game.emoji}.`
+            `Кастомный эмодзи ":${item.customEmojiName}:" не найден на сервере — для "${item.name}" в панели использую стандартный ${item.emoji}.`
         );
     }
-    return game.emoji;
+    return item.emoji;
 }
 
 // Роли игр панель не создаёт — они уже заведены адаптацией
@@ -110,7 +112,7 @@ client.once('clientReady', async () => {
             if (!role) continue;
             if (created) console.log(`Создана роль цвета: ${role.name}`);
             colorRoleIds[color.key] = role.id;
-            availableColors.push(color);
+            availableColors.push({ ...color, emoji: resolveEmoji(guild, color) });
         }
 
         await rolePanel.saveTargets({

@@ -13,6 +13,7 @@ const {
 } = require('../rolePanel/model');
 const handlers = require('../rolePanel/handlers');
 const { PALETTE, roleName } = require('../rolePanel/colors');
+const { renderColorEmojiPng } = require('../rolePanel/colorEmojiIcon');
 
 const GAMES = [
     { key: 'valorant', name: 'Valorant', emoji: '🎯' },
@@ -201,5 +202,24 @@ test('rolePanel/colors: ключи и названия ролей палитры
     for (const color of PALETTE) {
         assert.equal(roleName(color), `Цвет: ${color.name}`);
         assert.equal(typeof color.hex, 'number');
+    }
+});
+
+test('rolePanel/colors: у каждого цвета есть уникальное имя кастомного эмодзи (иначе setup-role-panel.js резолвил бы один и тот же эмодзи двум цветам)', () => {
+    assert.equal(new Set(PALETTE.map(c => c.customEmojiName)).size, PALETTE.length);
+    for (const color of PALETTE) {
+        assert.equal(typeof color.customEmojiName, 'string');
+        assert.ok(color.customEmojiName.length > 0);
+    }
+});
+
+test('rolePanel/colorEmojiIcon.renderColorEmojiPng: рисует непустой валидный PNG для любого цвета палитры', () => {
+    for (const color of PALETTE) {
+        const png = renderColorEmojiPng(color.hex);
+        assert.ok(Buffer.isBuffer(png));
+        // Сигнатура PNG (89 50 4E 47 ...) — минимальная проверка, что
+        // canvas действительно отрисовал картинку, а не пустой/битый буфер.
+        assert.deepEqual([...png.subarray(0, 4)], [0x89, 0x50, 0x4e, 0x47]);
+        assert.ok(png.length > 0 && png.length < 256 * 1024, 'эмодзи должен укладываться в лимит Discord 256 КБ');
     }
 });

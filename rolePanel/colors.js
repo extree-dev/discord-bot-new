@@ -8,16 +8,23 @@
 // (leveling/model.js LEVELS — у каждого яруса свой цвет), иначе цвет
 // яруса всегда перебивал бы выбор участника и вся фича была бы не видна
 // никому, кто прошёл уровень "Новичок".
+//
+// emoji — юникод-запасной вариант; customEmojiName — залитый под цвет
+// кастомный эмодзи сервера (scripts/upload-color-emojis.js, разовый
+// ручной скрипт), который scripts/setup-role-panel.js подставляет в
+// панель вместо юникода, если он найден на сервере (тот же приём
+// resolveEmoji, что и у игровых ролей в gameNews/games.js) — по образцу
+// того, как это сделано у официального бота VALORANT СНГ.
 const PALETTE = [
-    { key: 'red', name: 'Красный', hex: 0xed4245, emoji: '🔴' },
-    { key: 'orange', name: 'Оранжевый', hex: 0xe67e22, emoji: '🟠' },
-    { key: 'yellow', name: 'Жёлтый', hex: 0xf1c40f, emoji: '🟡' },
-    { key: 'green', name: 'Зелёный', hex: 0x2ecc71, emoji: '🟢' },
-    { key: 'blue', name: 'Синий', hex: 0x3498db, emoji: '🔵' },
-    { key: 'purple', name: 'Фиолетовый', hex: 0x9b59b6, emoji: '🟣' },
-    { key: 'brown', name: 'Коричневый', hex: 0x8b5e3c, emoji: '🟤' },
-    { key: 'black', name: 'Чёрный', hex: 0x23272a, emoji: '⚫' },
-    { key: 'white', name: 'Белый', hex: 0xf2f3f5, emoji: '⚪' },
+    { key: 'red', name: 'Красный', hex: 0xed4245, emoji: '🔴', customEmojiName: 'color_red' },
+    { key: 'orange', name: 'Оранжевый', hex: 0xe67e22, emoji: '🟠', customEmojiName: 'color_orange' },
+    { key: 'yellow', name: 'Жёлтый', hex: 0xf1c40f, emoji: '🟡', customEmojiName: 'color_yellow' },
+    { key: 'green', name: 'Зелёный', hex: 0x2ecc71, emoji: '🟢', customEmojiName: 'color_green' },
+    { key: 'blue', name: 'Синий', hex: 0x3498db, emoji: '🔵', customEmojiName: 'color_blue' },
+    { key: 'purple', name: 'Фиолетовый', hex: 0x9b59b6, emoji: '🟣', customEmojiName: 'color_purple' },
+    { key: 'brown', name: 'Коричневый', hex: 0x8b5e3c, emoji: '🟤', customEmojiName: 'color_brown' },
+    { key: 'black', name: 'Чёрный', hex: 0x23272a, emoji: '⚫', customEmojiName: 'color_black' },
+    { key: 'white', name: 'Белый', hex: 0xf2f3f5, emoji: '⚪', customEmojiName: 'color_white' },
 ];
 
 function roleName(color) {
