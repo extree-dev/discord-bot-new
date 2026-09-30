@@ -51,12 +51,11 @@ const POINTS_PER_LEVEL = 3500;
 // референс-сервера администратора (общая практика для левелинг-ботов:
 // названия ярусов + разблокировка прав по уровню). perks — права,
 // которые получает РОЛЬ этого яруса гильдийно (не канальный оверрайт) —
-// см. scripts/setup-leveling.js, который их проставляет на роль. Роли
-// ярусов накапливаются (см. grantLevelRolesUpTo) — участник на 50
-// уровне держит роли и Путника, и Рекрута, и Бойца, и Специалиста
-// одновременно, поэтому каждому ярусу достаточно нести только СВОЙ
-// новый бонус, а не бонусы всех предыдущих — они уже есть от более
-// ранних ролей.
+// см. scripts/setup-leveling.js, который их проставляет на роль. Участник
+// держит РОВНО ОДНУ роль яруса за раз (см. syncLevelRole) — повышение
+// снимает прежнюю и выдаёт новую, поэтому perks каждого яруса
+// КУМУЛЯТИВНЫ и включают бонусы всех более ранних ярусов, а не только
+// свой новый — иначе при смене роли участник терял бы уже открытые права.
 const LEVELS = [
     { title: 'Новичок', min: 0, color: 0x99aab5, perks: [] },
     { title: 'Путник', min: 5, color: 0x2ecc71, perks: [PermissionFlagsBits.Stream] },
@@ -64,30 +63,73 @@ const LEVELS = [
         title: 'Рекрут',
         min: 15,
         color: 0x3498db,
-        perks: [PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks],
+        perks: [PermissionFlagsBits.Stream, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks],
     },
-    { title: 'Боец', min: 30, color: 0x9b59b6, perks: [PermissionFlagsBits.AddReactions] },
+    {
+        title: 'Боец',
+        min: 30,
+        color: 0x9b59b6,
+        perks: [
+            PermissionFlagsBits.Stream,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.AddReactions,
+        ],
+    },
     {
         title: 'Специалист',
         min: 50,
         color: 0xe67e22,
-        perks: [PermissionFlagsBits.UseExternalEmojis, PermissionFlagsBits.UseExternalStickers],
+        perks: [
+            PermissionFlagsBits.Stream,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.AddReactions,
+            PermissionFlagsBits.UseExternalEmojis,
+            PermissionFlagsBits.UseExternalStickers,
+        ],
     },
     // Мастер получает приоритет голоса (PrioritySpeaker) — раньше вместо
     // этого была отдельная приватная зона (клубные текст/войс-каналы),
     // от неё отказались как от лишней, никем не просимой инфраструктуры
-    // (см. scripts/setup-leveling.js и CHANGELOG). У "Хранителя"
-    // гильдийных прав нет вовсе — его бонус только позиция в списке
-    // участников (hoist сам по себе уже даёт это всем ярусам), тут
-    // только цвет/титул максимального яруса.
-    { title: 'Мастер', min: 75, color: 0xe91e63, perks: [PermissionFlagsBits.PrioritySpeaker] },
-    { title: 'Хранитель', min: 100, color: 0xf1c40f, perks: [] },
+    // (см. scripts/setup-leveling.js и CHANGELOG).
+    {
+        title: 'Мастер',
+        min: 75,
+        color: 0xe91e63,
+        perks: [
+            PermissionFlagsBits.Stream,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.AddReactions,
+            PermissionFlagsBits.UseExternalEmojis,
+            PermissionFlagsBits.UseExternalStickers,
+            PermissionFlagsBits.PrioritySpeaker,
+        ],
+    },
+    // У "Хранителя" нет СВОЕГО нового бонуса (только цвет/титул максимального
+    // яруса) — perks те же, что у "Мастера", чтобы Хранитель не терял права,
+    // уже открытые на предыдущем ярусе.
+    {
+        title: 'Хранитель',
+        min: 100,
+        color: 0xf1c40f,
+        perks: [
+            PermissionFlagsBits.Stream,
+            PermissionFlagsBits.AttachFiles,
+            PermissionFlagsBits.EmbedLinks,
+            PermissionFlagsBits.AddReactions,
+            PermissionFlagsBits.UseExternalEmojis,
+            PermissionFlagsBits.UseExternalStickers,
+            PermissionFlagsBits.PrioritySpeaker,
+        ],
+    },
 ];
 
 // Права, которые открывает бустер сервера сразу, без прокачки — те же,
-// что несут роли уровней 5-50 (Путник..Специалист) вместе взятые, минус
-// сами роли (см. scripts/setup-leveling.js — навешивается прямо на
-// нативную роль Discord "Booster", не на одну из LEVELS).
+// что несёт роль "Специалист" (Путник..Специалист кумулятивно, см. LEVELS
+// выше), минус сама роль (см. scripts/setup-leveling.js — навешивается
+// прямо на нативную роль Discord "Booster", не на одну из LEVELS).
 const BOOSTER_BUNDLE_TIERS = ['Путник', 'Рекрут', 'Боец', 'Специалист'];
 
 const LEADERBOARD_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -314,38 +356,45 @@ async function setScore(guildId, userId, score) {
 }
 
 // Полный сброс статистики активности участника (модерация) — не то же
-// самое, что setScore(0, ...): setScore трогает только score, а роли
-// ярусов только СКЛАДЫВАЮТСЯ (см. grantLevelRolesUpTo) и никогда не
-// снимаются, так что участник остался бы, например, с ролью "Боец" при
-// счёте 0. Reset обнуляет всю запись (score/messageCount/voiceMinutes) и
-// снимает роли всех ярусов ВЫШЕ "Новичка" — саму роль "Новичок" не
-// трогаем, она выдаётся при верификации (см. security/verification.js), а
-// не за активность, и сброс статистики не должен разверифицировать
-// участника.
+// самое, что setScore(0, ...): setScore трогает только score, роль яруса
+// синхронизирует отдельно вызывающий код. Reset обнуляет всю запись
+// (score/messageCount/voiceMinutes) и переводит роль яруса на "Новичок" —
+// саму роль "Новичок" не трогаем, если она уже есть (выдаётся при
+// верификации, см. security/verification.js, а не за активность, и сброс
+// статистики не должен разверифицировать участника).
 async function resetStats(guild, userId) {
     await config.update(cfg => {
         delete cfg.users[userKey(guild.id, userId)];
     });
     // Полный сброс (включая счётчик престижа) — в отличие от
-    // stripLevelRolesAbove(..., 0), вызванного из-за автоматического
-    // Престижа, это явное решение модерации, а не игровая механика.
-    await stripLevelRolesAbove(guild, userId, 0, 'Сброс статистики активности');
+    // syncLevelRole(..., 0), вызванного из-за автоматического Престижа,
+    // это явное решение модерации, а не игровая механика.
+    await syncLevelRole(guild, userId, 0, 'Сброс статистики активности');
 }
 
-// Снимает роли всех ярусов выше keepIndex — общий хвост для ручного
-// сброса модерацией (resetStats, keepIndex=0) и автоматического Престижа
-// (handlers.js applyLevelUp, keepIndex=0 при result.prestiged): роли
-// ярусов только СКЛАДЫВАЮТСЯ (см. grantLevelRolesUpTo) и сами никогда не
-// снимаются, поэтому участник, чей score вернулся к 0, остался бы со
-// всеми ролями до "Хранителя" включительно, если их не снять явно.
-async function stripLevelRolesAbove(guild, userId, keepIndex, reason = 'Престиж: сброс прогресса активности') {
+// Единая точка синхронизации роли яруса — level-up/down может прийти с
+// разных сторон (сообщение, голосовой sweep, /level-admin set, Престиж,
+// сброс модерацией), поэтому логика централизована здесь. Участник держит
+// РОВНО ОДНУ роль яруса за раз: снимает все роли LEVELS, отличные от
+// целевого levelIndex, и выдаёт роль levelIndex, если её ещё нет. Работает
+// в обе стороны — и при повышении, и при понижении (например, админ
+// понизил счёт через /level-admin set, и участник должен вернуться на
+// более раннюю роль, а не остаться с более высокой). perks роли levelIndex
+// кумулятивны (см. LEVELS выше), так что участник не теряет уже открытые
+// бонусы при смене роли.
+async function syncLevelRole(guild, userId, levelIndex, reason = 'Синхронизация роли яруса активности') {
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return;
-    for (let i = keepIndex + 1; i < LEVELS.length; i++) {
+    const targetRoleId = await getLevelRoleId(guild.id, levelIndex);
+    for (let i = 0; i < LEVELS.length; i++) {
+        if (i === levelIndex) continue;
         const roleId = await getLevelRoleId(guild.id, i);
         if (roleId && member.roles.cache.has(roleId)) {
             await member.roles.remove(roleId, reason).catch(() => {});
         }
+    }
+    if (targetRoleId && !member.roles.cache.has(targetRoleId)) {
+        await member.roles.add(targetRoleId, reason).catch(() => {});
     }
 }
 
@@ -478,27 +527,6 @@ async function getLevelRoleId(guildId, levelIndex) {
     return cfg.guilds[guildId]?.levelRoles?.[levelIndex] ?? null;
 }
 
-// Единая точка выдачи ролей уровня — level-up может прийти с трёх разных
-// сторон (сообщение, голосовой sweep, /level set), поэтому логика
-// централизована здесь, а не дублируется в каждом вызывающем месте. Роли
-// СКЛАДЫВАЮТСЯ: выдаём не только роль текущего яруса, а все роли от
-// самого первого до levelIndex включительно — иначе участник, разом
-// перепрыгнувший несколько ярусов (например, крупный /level set), получил
-// бы только роль последнего яруса и никогда не увидел бы промежуточные
-// (а вместе с ними и их гильдийные права — см. LEVELS[].perks). Для
-// обычного постепенного роста (по одному сообщению/минуте) цикл почти
-// всегда добавляет не больше одной новой роли — цена лишних проверок
-// member.roles.cache.has() на уже выданные роли пренебрежимо мала.
-async function grantLevelRolesUpTo(guild, userId, levelIndex) {
-    const member = await guild.members.fetch(userId).catch(() => null);
-    if (!member) return;
-    for (let i = 0; i <= levelIndex; i++) {
-        const roleId = await getLevelRoleId(guild.id, i);
-        if (!roleId || member.roles.cache.has(roleId)) continue;
-        await member.roles.add(roleId, 'Повышение уровня активности').catch(() => {});
-    }
-}
-
 // Публикует карточку level-up в announceChannelId гильдии (см.
 // configureGuild) — в отличие от прежней /rep give, здесь нет
 // interaction.channel под рукой (level-up может произойти в фоне, от
@@ -588,9 +616,8 @@ module.exports = {
     getProfile,
     setScore,
     resetStats,
-    stripLevelRolesAbove,
     getLevelRoleId,
-    grantLevelRolesUpTo,
+    syncLevelRole,
     announceLevelUp,
     getGuildConfig,
     configureGuild,

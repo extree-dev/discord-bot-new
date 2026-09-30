@@ -23,18 +23,14 @@ function isCountableVoiceState(state) {
     return true;
 }
 
-// Выдаёт роль уровня и публикует карточку level-up — общий хвост и для
-// текстовых сообщений, и для голосового sweep.js, чтобы оба пути не
+// Синхронизирует роль яруса и публикует карточку level-up — общий хвост
+// и для текстовых сообщений, и для голосового sweep.js, чтобы оба пути не
 // дублировали одну и ту же последовательность вызовов. prestiged: true —
 // levelIndex уже сброшен обратно на "Новичок" (см. model.js
-// applyPrestige), поэтому вместо выдачи новых ролей снимаем те, что
-// участник успел получить до сброса.
+// applyPrestige), поэтому роль синхронизируется на индекс 0, а не на
+// levelIndex из результата.
 async function applyLevelUp(client, guild, userId, levelIndex, { prestiged = false, prestige = 0 } = {}) {
-    if (prestiged) {
-        await model.stripLevelRolesAbove(guild, userId, 0);
-    } else {
-        await model.grantLevelRolesUpTo(guild, userId, levelIndex);
-    }
+    await model.syncLevelRole(guild, userId, prestiged ? 0 : levelIndex);
     await model.announceLevelUp(client, guild.id, userId, levelIndex, { prestiged, prestige });
 }
 

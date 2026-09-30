@@ -44,11 +44,11 @@ module.exports = {
             const amount = interaction.options.getInteger('amount');
             const result = await leveling.setScore(guildId, target.id, amount);
 
-            // Роли ярусов складываются (см. leveling/model.js grantLevelRolesUpTo) —
-            // ручная правка счёта может разом перепрыгнуть несколько ярусов,
-            // поэтому выдаём все роли от первого яруса до текущего, а не
-            // только роль последнего.
-            await leveling.grantLevelRolesUpTo(interaction.guild, target.id, result.level.index);
+            // Участник держит ровно одну роль яруса (см. leveling/model.js
+            // syncLevelRole) — ручная правка счёта может и повысить, и
+            // понизить итоговый ярус, syncLevelRole сам снимет роль
+            // прежнего яруса и выдаст роль нового в обе стороны.
+            await leveling.syncLevelRole(interaction.guild, target.id, result.level.index);
 
             await interaction.reply({
                 embeds: [
