@@ -210,11 +210,41 @@ async function reorganizeRoles(guild) {
         }
         console.log(`Позиции обновлены у ${moved} из ${updates.length} ролей.`);
         if (failures.length) {
+            // Живой прогон по одной роли (см. выше) подтвердил: падают
+            // ВСЕГДА именно те роли, у которых путь от текущей до целевой
+            // позиции проходит НАСКВОЗЬ через managed-роль (буст сервера,
+            // ярусы Twitch-подписки) — даже если её саму в payload нет и
+            // её номер не совпадает с целевым. Discord не даёт сдвинуть
+            // ни одну роль, если для этого мимоходом придётся сдвинуть и
+            // managed-роль — а её нельзя трогать вообще никому через API.
+            // Значит, это не лечится ни другим payload, ни правами бота —
+            // единственный выход — вручную вынести managed-роль(и) из
+            // диапазона, который переставляет скрипт (см. подсказку ниже).
             console.error(`\nНе удалось переставить ${failures.length} роль(ей) по отдельности:`);
+            const blockingRoles = new Map();
             for (const f of failures) {
+                const from = f.role?.position ?? f.position;
+                const lo = Math.min(from, f.position);
+                const hi = Math.max(from, f.position);
+                const crossed = roles.filter(r => r.managed && r.position > lo && r.position < hi);
+                for (const r of crossed) blockingRoles.set(r.id, r);
                 console.error(
-                    `  ${f.role?.name ?? f.role?.id ?? '?'} (текущая позиция ${f.role?.position ?? '?'} → ${f.position}): ` +
-                        `${f.err.message} (код ${f.err.code ?? '?'})`
+                    `  ${f.role?.name ?? f.role?.id ?? '?'} (текущая позиция ${from} → ${f.position}): ` +
+                        `${f.err.message} (код ${f.err.code ?? '?'})` +
+                        (crossed.length
+                            ? ` — путь пересекает managed-роль(и): ${crossed.map(r => `${r.name} (позиция ${r.position})`).join(', ')}`
+                            : '')
+                );
+            }
+            if (blockingRoles.size) {
+                console.error(
+                    `\nЭто ограничение самого Discord, не бота: managed-роль нельзя сдвинуть НИКОМУ через API, ` +
+                        `даже мимоходом, даже с Administrator. Перетащи вручную в Настройках сервера → Роли эти роли ` +
+                        `выше "${ANCHOR_NAME}" (тогда они окажутся вне диапазона, который переставляет скрипт, и их ` +
+                        `не придётся пересекать) — и запусти скрипт заново:\n` +
+                        [...blockingRoles.values()]
+                            .map(r => `  ${r.name} (${r.id}, сейчас позиция ${r.position})`)
+                            .join('\n')
                 );
             }
         }
