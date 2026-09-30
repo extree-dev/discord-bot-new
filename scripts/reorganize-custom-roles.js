@@ -184,49 +184,39 @@ async function reorganizeRoles(guild) {
     }
 
     if (updates.length) {
-        try {
-            await guild.roles.setPositions(updates.map(u => ({ role: u.roleId, position: u.position })));
-            console.log(`Позиции обновлены у ${updates.length} ролей.`);
-        } catch (err) {
-            // Живой случай (найдено вживую администратором): проверка выше
-            // (только над ролями из этой пачки) НЕ поймала блокирующую роль,
-            // а сам вызов всё равно упал 50013 — значит, дело в какой-то
-            // роли, которую мы не трогаем вовсе (см. её комментарий выше),
-            // но которая всё равно мешает Discord пересчитать позиции.
-            // Вместо повторной догадки — печатаем ПОЛНУЮ картину: позицию
-            // бота, все роли сервера выше или на его уровне (тот же приём,
-            // что и в audit-roles.js/fix-role-hierarchy.js, но по всему
-            // серверу, а не только по переставляемым ролям) и сам payload,
-            // который пытались отправить — дальше решать администратору.
-            console.error(`\nОшибка перестройки позиций: ${err.message} (код ${err.code ?? '?'}).`);
-            // Две предыдущие гипотезы (роль выше бота; роль с правом,
-            // которого нет у бота) проверены и обе ничего не нашли, а
-            // ошибка та же — значит, дело в чём-то третьем. Раньше
-            // managed-роли (боты/интеграции) намеренно исключались из
-            // отчёта (findRolesAboveOrAtBot их фильтрует) — печатаем
-            // теперь ВЕСЬ список ролей без фильтров, как audit-roles.js,
-            // чтобы увидеть, не сидит ли что-то managed между anchor и
-            // ботом (например, роль другой интеграции) — Discord мог бы
-            // потребовать сдвинуть и её, чтобы закрыть образовавшийся
-            // разрыв в позициях, а прав на управление чужой managed-
-            // ролью у бота нет и не может быть.
-            console.error(
-                `\nРоль бота: ${me.roles.highest.name} (${me.roles.highest.id}, позиция ${botPosition}). ` +
-                    `Administrator у бота: ${me.permissions.has(PermissionsBitField.Flags.Administrator) ? 'да' : 'нет'}.`
-            );
-            console.error(`Полный список ролей сервера (сверху вниз):`);
-            for (const r of [...roles].sort((a, b) => b.position - a.position)) {
-                const flags = [r.managed ? 'managed' : null, r.everyone ? '@everyone' : null]
-                    .filter(Boolean)
-                    .join(', ');
-                console.error(`  #${r.position} ${r.name} (${r.id})${flags ? ` [${flags}]` : ''}`);
-            }
-            console.error('\nПопытка переставить эти роли (имя — текущая позиция → новая):');
-            for (const u of updates) {
+        // Раньше все позиции отправлялись одним bulk-вызовом
+        // guild.roles.setPositions() — и падали ЦЕЛИКОМ с "Missing
+        // Permissions" (50013), даже после того, как исключили и роли
+        // выше бота, и роли с недостающими у бота правами (обе гипотезы
+        // проверены вживую и обе не объяснили падение). Значит, дело в
+        // каком-то более тонком правиле Discord про относительный
+        // порядок ролей относительно managed-ролей (Server Booster,
+        // Twitch-подписка), которое одной пачкой не продиагностировать —
+        // один общий код ошибки на 50+ ролей ничего не говорит о том,
+        // какая из них реальный виновник. Переставляем по одной — так
+        // Discord либо просто справится с каждой по отдельности, либо
+        // назовёт результат для каждой конкретной роли, и наконец будет
+        // видно, какая именно (и почему) не даётся.
+        let moved = 0;
+        const failures = [];
+        for (const u of [...updates].sort((a, b) => b.position - a.position)) {
+            try {
+                await guild.roles.setPositions([{ role: u.roleId, position: u.position }]);
+                moved++;
+            } catch (err) {
                 const role = roles.find(r => r.id === u.roleId);
-                console.error(`  ${role?.name ?? u.roleId} — ${role?.position ?? '?'} → ${u.position}`);
+                failures.push({ role, position: u.position, err });
             }
-            throw err;
+        }
+        console.log(`Позиции обновлены у ${moved} из ${updates.length} ролей.`);
+        if (failures.length) {
+            console.error(`\nНе удалось переставить ${failures.length} роль(ей) по отдельности:`);
+            for (const f of failures) {
+                console.error(
+                    `  ${f.role?.name ?? f.role?.id ?? '?'} (текущая позиция ${f.role?.position ?? '?'} → ${f.position}): ` +
+                        `${f.err.message} (код ${f.err.code ?? '?'})`
+                );
+            }
         }
     } else {
         console.log('Позиции ролей уже верные — без изменений.');
