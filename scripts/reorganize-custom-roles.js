@@ -1,7 +1,6 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, PermissionsBitField } = require('discord.js');
 const leveling = require('../leveling');
-const { PALETTE, roleName } = require('../rolePanel/colors');
 const { pickOldest } = require('../utils/idempotent');
 const { computeReorganizedPositions, findRolesAboveOrAtBot } = require('../utils/roleHierarchy');
 
@@ -46,15 +45,9 @@ const COSMETIC_ROLE_NAMES = [
     'Игровые новости',
 ];
 
-// Роли-цвета (rolePanel/colors.js, персональный выбор в панели ролей) —
-// ВЫШЕ ярусов активности: у каждого яруса свой цвет (leveling/model.js
-// LEVELS), и если поставить роли-цвета ниже, цвет яруса всегда бы их
-// перебивал — участник выбрал бы цвет, а он нигде не показался бы.
-const COLOR_ROLE_NAMES = PALETTE.map(roleName);
-
 // По прямому запросу администратора: весь блок выше — единым куском
 // прямо под ANCHOR_NAME, с включённым "отображение отдельно" (hoist).
-const MANAGED_BLOCK_NAMES = [...COLOR_ROLE_NAMES, ...LEVEL_TIER_NAMES, ...COSMETIC_ROLE_NAMES];
+const MANAGED_BLOCK_NAMES = [...LEVEL_TIER_NAMES, ...COSMETIC_ROLE_NAMES];
 const ANCHOR_NAME = 'Moderator';
 const BOTTOM_NAMES = ['Trusted', 'Muted'];
 const HOIST_OFF_NAMES = ['Verified'];

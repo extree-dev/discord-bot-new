@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const gameNews = require('../gameNews');
 const config = require('../gameNews/config');
 
-test('GAMES: 7 уникальных игр из пула ролей (без Valorant — у него своя система новостей), у каждой есть key/name/slug/emoji/color/customEmojiName', () => {
+test('GAMES: 7 уникальных игр из пула ролей (без Valorant — у него своя система новостей), у каждой есть key/name/slug/emoji/color', () => {
     assert.equal(gameNews.GAMES.length, 7);
     assert.deepEqual(
         gameNews.GAMES.map(g => g.name),
@@ -19,7 +19,6 @@ test('GAMES: 7 уникальных игр из пула ролей (без Valo
         assert.ok(game.slug, `у ${game.name} должен быть slug`);
         assert.ok(game.emoji, `у ${game.name} должен быть emoji`);
         assert.equal(typeof game.color, 'number', `у ${game.name} должен быть числовой color`);
-        assert.ok(game.customEmojiName, `у ${game.name} должен быть customEmojiName для панели`);
     }
 });
 

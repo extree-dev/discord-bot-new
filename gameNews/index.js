@@ -2,11 +2,10 @@ const config = require('./config');
 const { GAMES, newsRoleName } = require('./games');
 
 // Публичный API фичи gameNews/. Пока только хранит ID категории,
-// каналов и ролей-пингов новостей, которые пинит scripts/setup-game-
+// каналов и ролей-пингов новостей, которые создаёт scripts/setup-game-
 // news.js — самой публикации новостей ещё нет, это будущая интеграция
-// Steam API. Роли-пинги выбираются в rolePanel/, поэтому оттуда тоже
-// читают getConfig() (единый источник — без дублирования newsRoleIds
-// в конфиге rolePanel).
+// Steam API (она же будет назначать роли-пинги — панель самостоятельного
+// выбора этих ролей убрана по прямому запросу администратора).
 module.exports = {
     GAMES,
     newsRoleName,
