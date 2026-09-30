@@ -1,7 +1,6 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType } = require('discord.js');
 const rolePanel = require('../rolePanel');
-const gameNews = require('../gameNews');
 const { GAMES } = require('../gameNews/games');
 const { PALETTE, roleName } = require('../rolePanel/colors');
 const { findRole } = require('../utils/idempotent');
@@ -82,15 +81,6 @@ client.once('clientReady', async () => {
             availableGames.push({ ...game, emoji: resolveEmoji(guild, game) });
         }
 
-        // Роли-пинги новостей создаёт scripts/setup-game-news.js
-        // (запускается перед этим скриптом в деплое) — здесь только
-        // читаем уже сохранённые ID, сами роли не ищем и не создаём.
-        const newsRoleIds = (await gameNews.getConfig()).newsRoleIds;
-        const availableNewsGames = GAMES.filter(game => newsRoleIds[game.key]).map(game => ({
-            ...game,
-            emoji: resolveEmoji(guild, game),
-        }));
-
         // Роли-цвета — в отличие от игровых, панель их сама и создаёт
         // (--bootstrap): больше никто эти роли не использует, чужого
         // ID/имени, заведённого другой фичей, тут нет. Позицию в
@@ -110,7 +100,20 @@ client.once('clientReady', async () => {
                 permissions: [],
             });
             if (!role) continue;
-            if (created) console.log(`Создана роль цвета: ${role.name}`);
+            if (created) {
+                console.log(`Создана роль цвета: ${role.name}`);
+            } else if (role.name !== roleName(color)) {
+                // Роль-цвет — целиком наша (см. комментарий выше, ей не
+                // управляет никто, кроме этого скрипта), поэтому в отличие
+                // от чужих ролей (Moderator и т.п., см. utils/idempotent.js)
+                // переименование в код-текущее имя тут безопасно — это не
+                // затирает ручную правку администратора, а просто держит
+                // роль в синхроне с текущим неймингом (например, убрали
+                // префикс "Цвет: " по прямому запросу администратора).
+                const oldName = role.name;
+                await role.setName(roleName(color), 'Синхронизация имени роли-цвета с кодом панели');
+                console.log(`Переименована роль цвета: "${oldName}" → "${role.name}".`);
+            }
             colorRoleIds[color.key] = role.id;
             availableColors.push({ ...color, emoji: resolveEmoji(guild, color) });
         }
@@ -126,8 +129,8 @@ client.once('clientReady', async () => {
             console.warn('Канал панели не найден — панель не опубликована.');
             process.exit(0);
         }
-        if (availableGames.length === 0 && availableNewsGames.length === 0 && availableColors.length === 0) {
-            console.warn('Ни одна роль (игровая, новостная или цвет) не найдена — панель не опубликована.');
+        if (availableGames.length === 0 && availableColors.length === 0) {
+            console.warn('Ни одна роль (игровая или цвет) не найдена — панель не опубликована.');
             process.exit(0);
         }
 
@@ -137,7 +140,6 @@ client.once('clientReady', async () => {
             payload: toMessage(
                 rolePanel.buildPanelMessage({
                     playGames: availableGames,
-                    newsGames: availableNewsGames,
                     colors: availableColors,
                 })
             ),

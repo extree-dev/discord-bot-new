@@ -1,24 +1,28 @@
 // Отдельная (не заменяющая нативную адаптацию Discord — adminPanel/
 // onboarding.js/scripts/add-onboarding-role-questions.js) панель
-// самостоятельного выбора ролей: постоянное сообщение с двумя
-// выпадающими списками (StringSelectMenu), по образцу официального бота
-// VALORANT — участник сам выбирает роли, без визарда адаптации. Первый
-// список — игровые роли "играю в это" (те же 8 игр из gameNews/games.js,
-// уже заведены адаптацией); второй — отдельные роли-пинги "хочу новости
-// об этом" (тоже по gameNews/games.js, создаёт scripts/setup-game-
-// news.js — их упомянет будущая интеграция Steam API). Панель ничего не
-// создаёт сама — только находит роли по имени и хранит ID в
-// rolePanel/config.js (игровые роли) и gameNews/config.js (роли-пинги).
+// самостоятельного выбора ролей: постоянное сообщение с выпадающими
+// списками (StringSelectMenu), по образцу официального бота VALORANT —
+// участник сам выбирает роли, без визарда адаптации. Первый список —
+// игровые роли "играю в это" (те же 8 игр из gameNews/games.js, уже
+// заведены адаптацией); второй — персональный цвет ника (rolePanel/
+// colors.js). Панель ничего не создаёт сама для игровых ролей — только
+// находит их по имени и хранит ID в rolePanel/config.js; роли-цвета
+// создаёт сама (см. scripts/setup-role-panel.js).
+//
+// Раньше был и третий список — роли-пинги "хочу новости об этом" по
+// тем же играм (создавал scripts/setup-game-news.js) — убран из панели
+// по прямому запросу администратора (сам список игровых новостных
+// каналов и пинг при публикации остаются, см. gameNews/), самообслуживание
+// подписки через эту панель больше не нужно.
 const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
 const { COLORS } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toEphemeralMessage } = require('../utils/components');
 
 const GAMES_SELECT_CUSTOM_ID = 'rolepanel_games_select';
-const NEWS_SELECT_CUSTOM_ID = 'rolepanel_news_select';
 const COLOR_SELECT_CUSTOM_ID = 'rolepanel_color_select';
 
-// maxValues по умолчанию — "выбери сколько угодно из списка" (игры,
-// роли-пинги); цвет ника — ровно один, см. вызов ниже.
+// maxValues по умолчанию — "выбери сколько угодно из списка" (игры);
+// цвет ника — ровно один, см. вызов ниже.
 function buildSelectRow(customId, placeholder, games, { maxValues } = {}) {
     const options = games.map(game => ({ label: game.name, value: game.key, emoji: game.emoji }));
     const select = new StringSelectMenuBuilder()
@@ -34,26 +38,16 @@ function buildSelectRow(customId, placeholder, games, { maxValues } = {}) {
 // именно этой категории (Discord не поддерживает разные "выбрано по
 // умолчанию" для разных людей на одном статичном сообщении), поэтому
 // явно проговорено в тексте панели: неотмеченная игра из уже имеющихся
-// ролей будет снята, а не просто "к списку добавятся новые". playGames/
-// newsGames — только те игры, чья роль реально нашлась на сервере (см.
+// ролей будет снята, а не просто "к списку добавятся новые". playGames —
+// только те игры, чья роль реально нашлась на сервере (см.
 // scripts/setup-role-panel.js) — пустой список просто не рисует свой
 // ряд меню, вместо пункта, который ничего не сделает.
-function buildPanelMessage({ playGames, newsGames, colors = [] }) {
+function buildPanelMessage({ playGames, colors = [] }) {
     const container = baseContainer(COLORS.primary).addTextDisplayComponents(
         textDisplay('### Выбери свой путь\n-# Отметь игры, в которые играешь — так тебя будет проще позвать в команду.')
     );
     if (playGames.length) {
         container.addActionRowComponents(buildSelectRow(GAMES_SELECT_CUSTOM_ID, 'Выбери свои игры', playGames));
-    }
-
-    container.addSeparatorComponents(separator());
-    container.addTextDisplayComponents(
-        textDisplay(
-            '### Подпишись на новости\n-# Отметь игры, новости о которых хочешь получать — бот упомянет роль, когда выйдет что-то новое.'
-        )
-    );
-    if (newsGames.length) {
-        container.addActionRowComponents(buildSelectRow(NEWS_SELECT_CUSTOM_ID, 'Подпишись на новости', newsGames));
     }
 
     if (colors.length) {
@@ -127,14 +121,6 @@ async function handleGamesSelect(interaction, roleIds, games) {
     });
 }
 
-async function handleNewsSelect(interaction, roleIds, games) {
-    await applySelection(interaction, roleIds, games, {
-        reason: 'Панель подписки на новости по играм',
-        actionLabel: 'Подписки на новости обновлены',
-        emptyText: 'Подписки на новости обновлены — ни одна игра не выбрана.',
-    });
-}
-
 // colors — та же форма, что и games ({key, name, emoji}), см.
 // rolePanel/colors.js. Единственная реальная разница с играми — в самом
 // меню (maxValues: 1, buildPanelMessage выше): applySelection и без этого
@@ -150,12 +136,10 @@ async function handleColorSelect(interaction, roleIds, colors) {
 
 module.exports = {
     GAMES_SELECT_CUSTOM_ID,
-    NEWS_SELECT_CUSTOM_ID,
     COLOR_SELECT_CUSTOM_ID,
     buildPanelMessage,
     computeRoleDiff,
     describeSelection,
     handleGamesSelect,
-    handleNewsSelect,
     handleColorSelect,
 };

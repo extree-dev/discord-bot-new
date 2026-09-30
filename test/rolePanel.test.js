@@ -5,10 +5,8 @@ const {
     describeSelection,
     buildPanelMessage,
     GAMES_SELECT_CUSTOM_ID,
-    NEWS_SELECT_CUSTOM_ID,
     COLOR_SELECT_CUSTOM_ID,
     handleGamesSelect,
-    handleNewsSelect,
     handleColorSelect,
 } = require('../rolePanel/model');
 const handlers = require('../rolePanel/handlers');
@@ -91,11 +89,11 @@ test('describeSelection: перечисляет названия выбранн�
     assert.equal(describeSelection([], GAMES), null);
 });
 
-test('buildPanelMessage: собирает оба StringSelectMenu, каждый с опцией на каждую игру своей категории', () => {
-    const container = buildPanelMessage({ playGames: GAMES, newsGames: GAMES.slice(0, 2) });
+test('buildPanelMessage: собирает StringSelectMenu игр с опцией на каждую игру', () => {
+    const container = buildPanelMessage({ playGames: GAMES });
     const json = container.toJSON();
     const actionRows = json.components.filter(c => c.type === 1);
-    assert.equal(actionRows.length, 2);
+    assert.equal(actionRows.length, 1);
 
     const playSelect = actionRows[0].components[0];
     assert.equal(playSelect.custom_id, GAMES_SELECT_CUSTOM_ID);
@@ -105,29 +103,24 @@ test('buildPanelMessage: собирает оба StringSelectMenu, каждый 
         GAMES.map(g => g.key)
     );
     assert.equal(playSelect.min_values, 0);
-
-    const newsSelect = actionRows[1].components[0];
-    assert.equal(newsSelect.custom_id, NEWS_SELECT_CUSTOM_ID);
-    assert.equal(newsSelect.options.length, 2);
 });
 
 test('buildPanelMessage: пустая категория не рисует свой ряд меню', () => {
-    const container = buildPanelMessage({ playGames: GAMES, newsGames: [] });
+    const container = buildPanelMessage({ playGames: [] });
+    const json = container.toJSON();
+    const actionRows = json.components.filter(c => c.type === 1);
+    assert.equal(actionRows.length, 0);
+});
+
+test('buildPanelMessage: без цветов (colors по умолчанию) второй ряд не рисуется', () => {
+    const container = buildPanelMessage({ playGames: GAMES });
     const json = container.toJSON();
     const actionRows = json.components.filter(c => c.type === 1);
     assert.equal(actionRows.length, 1);
-    assert.equal(actionRows[0].components[0].custom_id, GAMES_SELECT_CUSTOM_ID);
 });
 
-test('buildPanelMessage: без цветов (colors по умолчанию) третий ряд не рисуется', () => {
-    const container = buildPanelMessage({ playGames: GAMES, newsGames: GAMES });
-    const json = container.toJSON();
-    const actionRows = json.components.filter(c => c.type === 1);
-    assert.equal(actionRows.length, 2);
-});
-
-test('buildPanelMessage: ряд выбора цвета — максимум одно значение, в отличие от игр/новостей', () => {
-    const container = buildPanelMessage({ playGames: GAMES, newsGames: [], colors: COLORS });
+test('buildPanelMessage: ряд выбора цвета — максимум одно значение, в отличие от игр', () => {
+    const container = buildPanelMessage({ playGames: GAMES, colors: COLORS });
     const json = container.toJSON();
     const actionRows = json.components.filter(c => c.type === 1);
     assert.equal(actionRows.length, 2);
@@ -162,15 +155,6 @@ test('handleGamesSelect: пустой выбор отвечает текстом
     assert.match(JSON.stringify(interaction.followUps[0]), /ни одна игра не выбрана/);
 });
 
-test('handleNewsSelect: свой текст и своя причина в audit-логе, независим от игровых ролей', async () => {
-    const interaction = fakeInteraction({ values: ['cs2'], currentRoleIds: [] });
-
-    await handleNewsSelect(interaction, ROLE_IDS, GAMES);
-
-    assert.deepEqual(interaction.added, ['role-cs2']);
-    assert.match(JSON.stringify(interaction.followUps[0]), /Подписки на новости обновлены.*CS2/);
-});
-
 test('handleColorSelect: одно значение полностью заменяет прежний цвет (тот же дифф, что у игр)', async () => {
     const interaction = fakeInteraction({ values: ['blue'], currentRoleIds: ['role-red'] });
 
@@ -200,7 +184,7 @@ test('rolePanel/colors: ключи и названия ролей палитры
     assert.equal(new Set(PALETTE.map(c => c.key)).size, PALETTE.length);
     assert.equal(new Set(PALETTE.map(c => roleName(c))).size, PALETTE.length);
     for (const color of PALETTE) {
-        assert.equal(roleName(color), `Цвет: ${color.name}`);
+        assert.equal(roleName(color), color.name);
         assert.equal(typeof color.hex, 'number');
     }
 });
