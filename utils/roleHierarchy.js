@@ -113,9 +113,24 @@ function computeReorganizedPositions({ roles, anchorId, managedOrderIds, bottomO
         ...bottomOrderIds.filter(id => byId.has(id)),
     ];
 
+    // Позиции managed-ролей (буст сервера, уровни Twitch-подписки и
+    // подобные интеграции) — неприкасаемые для любого бота, даже с
+    // Administrator: Discord не даёт их переставлять вообще. Раньше
+    // позиции считались сплошным диапазоном вниз от anchor без учёта
+    // того, что часть номеров в этом диапазоне уже занята такими
+    // ролями — если managed-роль физически сидела прямо посреди
+    // диапазона (например, между двумя ярусами активности), собранная
+    // пачка требовала от Discord негласно сдвинуть и её тоже, и весь
+    // bulk-запрос падал целиком с "Missing Permissions" безо всякого
+    // намёка на причину (найдено вживую на реальном сервере). Теперь
+    // такие позиции просто пропускаются при подсчёте — они остаются
+    // ровно там, где были.
+    const reservedPositions = new Set(roles.filter(r => r.managed).map(r => r.position));
+
     const updates = [];
     let position = anchor.position - 1;
     for (const id of orderedIds) {
+        while (position >= 1 && reservedPositions.has(position)) position--;
         if (position < 1) break;
         if (byId.get(id).position !== position) updates.push({ roleId: id, position });
         position--;

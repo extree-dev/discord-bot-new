@@ -136,6 +136,43 @@ test('computeReorganizedPositions: отсутствующая управляем
     assert.deepEqual(updates, [{ roleId: 'tierA', position: 9 }]);
 });
 
+test('computeReorganizedPositions: перескакивает позиции managed-ролей внутри диапазона (буст, Twitch-подписка и т.п.)', () => {
+    // Живой баг, найденный на реальном сервере: managed-роль (Server
+    // Booster/Twitch Subscriber — их нельзя переставлять НИКОМУ, даже
+    // боту с Administrator) физически сидела посреди диапазона, который
+    // требовался под свои роли — старый код просто шёл сплошным счётом
+    // вниз и наезжал на неё, из-за чего весь guild.roles.setPositions()
+    // падал целиком "Missing Permissions" без единой подсказки.
+    const roles = [
+        { id: 'everyone', position: 0, managed: false },
+        { id: 'muted', position: 1, managed: false },
+        { id: 'trusted', position: 2, managed: false },
+        { id: 'support', position: 3, managed: false },
+        { id: 'tierB', position: 4, managed: false },
+        { id: 'tierA', position: 5, managed: false },
+        { id: 'booster', position: 8, managed: true },
+        { id: 'mod', position: 10, managed: false },
+    ];
+    const updates = computeReorganizedPositions({
+        roles,
+        anchorId: 'mod',
+        managedOrderIds: ['tierA', 'tierB'],
+        bottomOrderIds: ['trusted', 'muted'],
+        everyoneId: 'everyone',
+    });
+    assert.deepEqual(
+        updates.sort((a, b) => b.position - a.position),
+        [
+            { roleId: 'tierA', position: 9 },
+            { roleId: 'tierB', position: 7 },
+            { roleId: 'support', position: 6 },
+            { roleId: 'trusted', position: 5 },
+            { roleId: 'muted', position: 4 },
+        ]
+    );
+    assert.ok(!updates.some(u => u.position === 8), 'позиция managed-роли (8) не должна достаться ни одной нашей роли');
+});
+
 test('computeReorganizedPositions: анкер не найден — null', () => {
     const roles = [{ id: 'everyone', position: 0, managed: false }];
     assert.equal(
