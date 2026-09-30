@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const leveling = require('../leveling');
 const { PALETTE, roleName } = require('../rolePanel/colors');
 const { pickOldest } = require('../utils/idempotent');
-const { computeReorganizedPositions } = require('../utils/roleHierarchy');
+const { computeReorganizedPositions, findRolesAboveOrAtBot } = require('../utils/roleHierarchy');
 
 // Разовая перестройка иерархии/отображения кастомных ролей по прямому
 // запросу администратора. Не входит в деплой (см. .github/workflows/
@@ -113,9 +113,34 @@ async function reorganizeRoles(guild) {
 
     const roles = [...guild.roles.cache.values()].map(r => ({
         id: r.id,
+        name: r.name,
         position: r.position,
         managed: r.managed,
+        everyone: r.id === guild.roles.everyone.id,
     }));
+
+    // Проверка на КАЖДУЮ роль, которую собираемся переставить, а не
+    // только на anchor (см. проверку выше) — иначе найдено вживую:
+    // guild.roles.setPositions() падает целиком с "Missing Permissions"
+    // (50013), если хотя бы ОДНА роль в пачке сейчас на уровне роли бота
+    // или выше, даже если сама anchor-роль ниже бота и остальные роли
+    // пачки — тоже. Раньше это всплывало только непонятной ошибкой
+    // Discord без указания, какая именно роль мешает.
+    const toRepositionIds = new Set([...managedOrderIds, ...bottomOrderIds]);
+    const blockers = findRolesAboveOrAtBot(
+        roles.filter(r => toRepositionIds.has(r.id)),
+        botPosition
+    );
+    if (blockers.length) {
+        console.error(
+            '\nНе могу переставить роли — эти роли сейчас на уровне роли бота или выше, у бота нет прав ' +
+                'ими управлять (подними роль бота в Настройках сервера → Роли выше них, либо опусти эти роли ' +
+                'вручную, и запусти скрипт заново):'
+        );
+        for (const r of blockers) console.error(`  ${r.name} (${r.id}, позиция ${r.position})`);
+        process.exitCode = 1;
+        return;
+    }
 
     const updates = computeReorganizedPositions({
         roles,
