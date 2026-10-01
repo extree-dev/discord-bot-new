@@ -1,6 +1,7 @@
 const { PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log } = require('./logger');
+const { applyWarningEscalation } = require('./escalation');
 const { addWarning } = require('../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
@@ -51,12 +52,7 @@ async function violate(msg, reasonText) {
 
     const member = await msg.guild.members.fetch(msg.author.id).catch(() => null);
     if (!member) return;
-
-    if (warnings.length >= 5 && member.bannable) {
-        await member.ban({ reason: 'Automod: 5+ нарушений' }).catch(() => {});
-    } else if (warnings.length >= 3 && member.moderatable) {
-        await member.timeout(10 * 60 * 1000, 'Automod: 3+ нарушений').catch(() => {});
-    }
+    await applyWarningEscalation(msg.guild, member, warnings.length, 'Automod');
 }
 
 async function handle(msg) {

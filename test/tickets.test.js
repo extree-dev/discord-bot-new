@@ -24,6 +24,14 @@ const {
     buildTicketActionRow,
     formatActiveTicketsList,
     formatTicketStats,
+    UNCLAIMED_ESCALATE_MS,
+    UNCLAIMED_REESCALATE_MS,
+    IDLE_WARN_MS,
+    IDLE_CLOSE_MS,
+    findUnclaimedToEscalate,
+    findIdleToWarn,
+    findIdleToClose,
+    touchTicketActivity,
 } = require('../tickets/model');
 const { load, save, storeName } = require('../tickets/config');
 const { withStoreBackup } = require('./helpers/withBackup');
@@ -390,5 +398,72 @@ test('tickets/config load() подставляет дефолт для lastRepor
         first.lastReportAt.u2 = 2000;
         const second = await load();
         assert.deepEqual(Object.keys(second.lastReportAt), ['u1']);
+    });
+});
+
+test('findUnclaimedToEscalate: только не взятые тикеты старше порога, не чаще UNCLAIMED_REESCALATE_MS подряд', () => {
+    const now = 1_000_000;
+    const ticketsById = {
+        fresh: { number: 1, claimedBy: null, createdAt: now - 1000 },
+        old: { number: 2, claimedBy: null, createdAt: now - UNCLAIMED_ESCALATE_MS },
+        claimed: { number: 3, claimedBy: 'staff1', createdAt: now - UNCLAIMED_ESCALATE_MS * 10 },
+        justEscalated: {
+            number: 4,
+            claimedBy: null,
+            createdAt: now - UNCLAIMED_ESCALATE_MS * 5,
+            escalatedAt: now - 1000,
+        },
+        readyAgain: {
+            number: 5,
+            claimedBy: null,
+            createdAt: now - UNCLAIMED_ESCALATE_MS * 5,
+            escalatedAt: now - UNCLAIMED_REESCALATE_MS,
+        },
+    };
+    const result = findUnclaimedToEscalate(ticketsById, now);
+    assert.deepEqual(result.map(r => r.threadId).sort(), ['old', 'readyAgain']);
+});
+
+test('findIdleToWarn: только взятые тикеты без запроса закрытия, простаивающие дольше IDLE_WARN_MS, без повторного предупреждения', () => {
+    const now = 1_000_000;
+    const ticketsById = {
+        active: { number: 1, claimedBy: 'staff1', lastActivityAt: now - 1000 },
+        idleUnclaimed: { number: 2, claimedBy: null, lastActivityAt: now - IDLE_WARN_MS * 2 },
+        idlePendingClose: { number: 3, claimedBy: 'staff1', pendingClose: {}, lastActivityAt: now - IDLE_WARN_MS * 2 },
+        idle: { number: 4, claimedBy: 'staff1', lastActivityAt: now - IDLE_WARN_MS * 2 },
+        alreadyWarned: {
+            number: 5,
+            claimedBy: 'staff1',
+            lastActivityAt: now - IDLE_WARN_MS * 2,
+            idleWarnedAt: now - 1000,
+        },
+    };
+    const result = findIdleToWarn(ticketsById, now);
+    assert.deepEqual(
+        result.map(r => r.threadId),
+        ['idle']
+    );
+});
+
+test('findIdleToClose: только тикеты, предупреждённые больше IDLE_CLOSE_MS назад', () => {
+    const now = 1_000_000;
+    const ticketsById = {
+        notWarned: { number: 1, authorId: 'u1' },
+        warnedRecently: { number: 2, authorId: 'u2', idleWarnedAt: now - 1000 },
+        readyToClose: { number: 3, authorId: 'u3', idleWarnedAt: now - IDLE_CLOSE_MS },
+    };
+    const result = findIdleToClose(ticketsById, now);
+    assert.deepEqual(result, [{ threadId: 'readyToClose', number: 3, authorId: 'u3' }]);
+});
+
+test('touchTicketActivity: обновляет lastActivityAt и сбрасывает уже выставленное idleWarnedAt', async () => {
+    await withStoreBackup(storeName, async () => {
+        await save({
+            ticketsById: { t1: { number: 1, authorId: 'u1', claimedBy: 's1', lastActivityAt: 1, idleWarnedAt: 500 } },
+        });
+        await touchTicketActivity('t1');
+        const cfg = await load();
+        assert.equal(cfg.ticketsById.t1.idleWarnedAt, null);
+        assert.ok(cfg.ticketsById.t1.lastActivityAt > 1);
     });
 });

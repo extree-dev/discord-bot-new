@@ -3,10 +3,13 @@ const assert = require('node:assert/strict');
 const {
     APPROVE_PREFIX,
     REJECT_PREFIX,
+    REMIND_THRESHOLD_MS,
     buildReviewCard,
     buildReviewButtons,
     buildApprovedEmbed,
     buildOutcomeCard,
+    findStaleEntries,
+    buildStaleReminderMessage,
 } = require('../ideaQueue/model');
 
 test('buildReviewButtons: customId несёт pendingId с нужными префиксами', () => {
@@ -45,4 +48,26 @@ test('buildOutcomeCard: строит карточку для одобрено/о
     assert.ok(approved);
     assert.ok(rejected);
     assert.ok(expired);
+});
+
+test('findStaleEntries: только заявки старше порога и без уже отправленного напоминания', () => {
+    const now = 1_000_000;
+    const pending = new Map([
+        ['fresh', { createdAt: now - 1000 }],
+        ['stale', { createdAt: now - REMIND_THRESHOLD_MS }],
+        ['staleButReminded', { createdAt: now - REMIND_THRESHOLD_MS * 2, remindedAt: now - 1000 }],
+    ]);
+    const result = findStaleEntries(pending, now);
+    assert.deepEqual(
+        result.map(r => r.pendingId),
+        ['stale']
+    );
+});
+
+test('buildStaleReminderMessage: не падает и различает единственное число', () => {
+    const now = 1_000_000;
+    const single = buildStaleReminderMessage(1, now - 2 * 60 * 60 * 1000, now);
+    const many = buildStaleReminderMessage(3, now - 5 * 60 * 60 * 1000, now);
+    assert.ok(single);
+    assert.ok(many);
 });

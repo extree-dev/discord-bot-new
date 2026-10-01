@@ -1,9 +1,12 @@
 const handlers = require('./handlers');
 const model = require('./model');
 const config = require('./config');
+const sweep = require('./sweep');
 
-function register() {
-    console.log('Система обращений (тикеты) активирована.');
+function register(client) {
+    handlers.register(client);
+    sweep.start(client);
+    console.log('Система обращений (тикеты) активирована (авто-эскалация + авто-закрытие неактивных).');
 }
 
 // Публичный API фичи tickets/. Команды и скрипты настройки должны идти

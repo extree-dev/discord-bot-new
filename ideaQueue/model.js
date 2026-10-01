@@ -21,6 +21,14 @@ const APPROVE_PREFIX = 'idea_approve:';
 const REJECT_PREFIX = 'idea_reject:';
 const CONTENT_PREVIEW_MAX_CHARS = 1500;
 
+// По прямому решению администратора ручная проверка каждой идеи
+// остаётся — очередь не переведена на авто-публикацию. Вместо этого
+// напоминание модерации, если заявки зависли без решения (см.
+// findStaleEntries/ideaQueue/sweep.js) — снижает нагрузку не отменой
+// проверки, а тем, что про забытые заявки больше не нужно помнить
+// самому.
+const REMIND_THRESHOLD_MS = 6 * 60 * 60 * 1000;
+
 const pending = new Map();
 
 function truncate(text, maxChars) {
@@ -62,6 +70,8 @@ async function submitForReview(message, reviewChannel) {
         authorTag: message.author.tag,
         authorDisplayName: message.member?.displayName ?? message.author.globalName ?? message.author.username,
         content: message.content,
+        createdAt: Date.now(),
+        remindedAt: null,
     });
 
     const card = buildReviewCard({
@@ -128,14 +138,53 @@ function buildOutcomeCard(kind, { authorId, moderator }) {
     );
 }
 
+// Чистая логика — принимает любой Map совместимой формы, не только
+// внутренний pending (см. test/ideaQueue.test.js). Заявка попадает в
+// список не чаще одного напоминания (remindedAt), иначе sweep слал бы
+// одно и то же напоминание на каждый тик, пока модератор не разберётся.
+function findStaleEntries(pendingMap, now, thresholdMs = REMIND_THRESHOLD_MS) {
+    return [...pendingMap.entries()]
+        .filter(([, item]) => !item.remindedAt)
+        .filter(([, item]) => now - item.createdAt >= thresholdMs)
+        .map(([pendingId, item]) => ({ pendingId, createdAt: item.createdAt }));
+}
+
+function findStaleReviewItems(now) {
+    return findStaleEntries(pending, now);
+}
+
+function markReviewItemsReminded(pendingIds) {
+    const now = Date.now();
+    for (const id of pendingIds) {
+        const item = pending.get(id);
+        if (item) item.remindedAt = now;
+    }
+}
+
+function buildStaleReminderMessage(count, oldestCreatedAt, now) {
+    const hours = Math.max(1, Math.floor((now - oldestCreatedAt) / (60 * 60 * 1000)));
+    const text =
+        count === 1
+            ? `Одно предложение ждёт решения уже ${hours} ч — проверьте выше.`
+            : `${count} предложений ждут решения, самое старое — уже ${hours} ч — проверьте выше.`;
+    return toMessage(
+        baseContainer(COLORS.warning).addTextDisplayComponents(textDisplay(formatBody('Заявки зависли', text)))
+    );
+}
+
 module.exports = {
     APPROVE_PREFIX,
     REJECT_PREFIX,
+    REMIND_THRESHOLD_MS,
     buildReviewCard,
     buildReviewButtons,
     buildApprovedEmbed,
     buildOutcomeCard,
+    buildStaleReminderMessage,
     submitForReview,
     approvePost,
     rejectPost,
+    findStaleEntries,
+    findStaleReviewItems,
+    markReviewItemsReminded,
 };

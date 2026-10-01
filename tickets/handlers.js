@@ -395,10 +395,25 @@ async function handleModalSubmit(interaction) {
     return false;
 }
 
-function register() {
-    // Не нужна фоновая регистрация обработчиков событий — вся маршрутизация
-    // идёт через handleButton/handleSelectMenu/handleModalSubmit,
-    // вызываемые из index.js на каждый interactionCreate.
+// Отмечает активность в треде тикета для tickets/sweep.js (авто-закрытие
+// неактивных) — любое человеческое сообщение в треде сбрасывает отсчёт
+// простоя, неважно, кто написал: автор или staff. Пропускаем сообщения
+// бота (message.author.bot) — иначе собственные уведомления sweep.js
+// ("нет активности" / "закрыт автоматически") сами сбрасывали бы только
+// что выставленное предупреждение, и тикет никогда не закрылся бы.
+async function handleMessageCreate(message) {
+    if (!message.guild || message.author.bot) return;
+    if (!message.channel.isThread()) return;
+    const config = await load();
+    if (message.channel.parentId !== config.submissionsChannelId) return;
+    if (!config.ticketsById[message.channel.id]) return;
+    await model.touchTicketActivity(message.channel.id);
 }
 
-module.exports = { register, handleButton, handleSelectMenu, handleModalSubmit };
+function register(client) {
+    client.on('messageCreate', msg => {
+        handleMessageCreate(msg).catch(err => console.error('tickets messageCreate:', err));
+    });
+}
+
+module.exports = { register, handleButton, handleSelectMenu, handleModalSubmit, handleMessageCreate };

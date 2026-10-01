@@ -1,6 +1,7 @@
 const { PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { load } = require('./config');
 const model = require('./model');
+const sweep = require('./sweep');
 const { toMessage } = require('../utils/components');
 const { errorEmbed } = require('../utils/embeds');
 
@@ -92,6 +93,7 @@ function register(client) {
     client.on('messageCreate', msg => {
         handleMessageCreate(msg).catch(err => console.error('ideaQueue messageCreate:', err));
     });
+    sweep.start(client);
 }
 
 module.exports = { register, handleButton, handleMessageCreate };

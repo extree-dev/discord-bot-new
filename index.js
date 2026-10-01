@@ -1,6 +1,6 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
-const { errorEmbed } = require('./utils/embeds');
+const { COLORS, baseEmbed, formatBody, errorEmbed } = require('./utils/embeds');
 const { ensureSchema, closePool } = require('./utils/db');
 const { loadCommands } = require('./utils/loadCommands');
 const { getVersion } = require('./utils/version');
@@ -38,6 +38,28 @@ const ideaQueue = require('./ideaQueue');
 const adminPanel = require('./adminPanel');
 const valorantNews = require('./valorantNews');
 
+// Бот размещён на одном сервере (GUILD_ID из .env) — та же логика, что в
+// presence/model.js resolveTemplate: явный GUILD_ID в приоритете, иначе
+// первая гильдия в кэше.
+function resolveMainGuild(client) {
+    return process.env.GUILD_ID ? client.guilds.cache.get(process.env.GUILD_ID) : client.guilds.cache.first();
+}
+
+// Анонс в security-log при каждом старте/плановой остановке бота —
+// внешний мониторинг (сам сервер/VPS недоступен целиком) код бота
+// отследить не может в принципе (он сам в этот момент не выполняется),
+// но перезапуск процесса (деплой, краш с автоматическим restart:
+// unless-stopped в docker-compose.yml) теперь виден прямо в Discord, а
+// не только в логах контейнера.
+async function announceBotStatus(client, online, detail) {
+    const guild = resolveMainGuild(client);
+    if (!guild) return;
+    const embed = baseEmbed(online ? COLORS.success : COLORS.critical).setDescription(
+        formatBody(online ? 'Бот снова на связи' : 'Бот уходит в офлайн', detail)
+    );
+    await security.log(guild, embed).catch(err => console.error('Не удалось анонсировать статус бота:', err.message));
+}
+
 client.once('clientReady', () => {
     console.log(`Бот запущен как ${client.user.tag} (v${getVersion()})`);
     security.register(client);
@@ -51,6 +73,7 @@ client.once('clientReady', () => {
     modqueue.register(client);
     ideaQueue.register(client);
     valorantNews.register(client);
+    announceBotStatus(client, true, `Версия v${getVersion()}.`);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -215,6 +238,9 @@ async function shutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`Получен ${signal}, завершаю работу...`);
+    // Анонс ДО client.destroy() — после разрыва соединения отправить
+    // сообщение уже нечем.
+    await announceBotStatus(client, false, `Плановая остановка (${signal}) — скорее всего деплой или перезапуск.`);
     try {
         client.destroy();
         console.log('Соединение с Discord закрыто.');

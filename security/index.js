@@ -4,6 +4,7 @@ const antiNuke = require('./antiNuke');
 const raidShield = require('./raidShield');
 const auditLog = require('./auditLog');
 const automod = require('./automod');
+const escalation = require('./escalation');
 const verification = require('./verification');
 const lockdown = require('./lockdown');
 const logger = require('./logger');
@@ -39,4 +40,5 @@ module.exports = {
     log: logger.log,
     isInviteLink: automod.isInviteLink,
     isPhishingLink: automod.isPhishingLink,
+    applyWarningEscalation: escalation.applyWarningEscalation,
 };

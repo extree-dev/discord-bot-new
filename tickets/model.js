@@ -588,6 +588,10 @@ async function submitReport(interaction, rawTarget, description) {
 
     // Для claim-статуса в "Активные тикеты" (см. listActiveTickets) —
     // запись живёт, пока тикет открыт, и удаляется в closeReport.
+    // lastActivityAt/escalatedAt/idleWarnedAt — для tickets/sweep.js (см.
+    // ниже): отдельно отслеживаем, сколько тикет лежит не взятым и
+    // сколько времени прошло с последнего сообщения в нём, без этого
+    // автоматизация ничего не могла бы эскалировать/закрывать сама.
     await update(c => {
         c.ticketsById[thread.id] = {
             number,
@@ -599,6 +603,9 @@ async function submitReport(interaction, rawTarget, description) {
             claimedByTag: null,
             pendingClose: null,
             createdAt: now,
+            lastActivityAt: now,
+            escalatedAt: null,
+            idleWarnedAt: null,
         };
     });
 
@@ -674,6 +681,101 @@ async function closeReport(thread, authorId) {
     });
 }
 
+// Автоматизация жизненного цикла тикета (tickets/sweep.js) — по прямому
+// запросу администратора: вмешательство модерации нужно свести к
+// минимуму. Два независимых механизма:
+// 1. Тикет, который никто не взял в работу дольше UNCLAIMED_ESCALATE_MS,
+//    получает пинг в канал управления (не чаще раза в
+//    UNCLAIMED_REESCALATE_MS, чтобы не спамить одним и тем же тикетом
+//    каждый тик свипа).
+// 2. Тикет, который взяли в работу, но в котором никто (ни автор, ни
+//    staff) не написал ни строчки IDLE_WARN_MS — получает предупреждение
+//    прямо в треде, а если тишина продолжается ещё IDLE_CLOSE_MS после
+//    предупреждения — закрывается автоматически. Новое сообщение в
+//    любую сторону (см. touchTicketActivity) сбрасывает отсчёт целиком.
+const UNCLAIMED_ESCALATE_MS = 15 * 60 * 1000;
+const UNCLAIMED_REESCALATE_MS = 30 * 60 * 1000;
+const IDLE_WARN_MS = 3 * 24 * 60 * 60 * 1000;
+const IDLE_CLOSE_MS = 24 * 60 * 60 * 1000;
+
+// Вызывается на каждое сообщение в треде тикета (и от автора, и от staff —
+// неважно, кто написал, главное что тикет не висит в тишине) — см.
+// handlers.js handleMessageCreate. Сбрасывает уже выставленное
+// предупреждение о простое: новая активность — повод отменить отсчёт до
+// авто-закрытия, а не просто сдвинуть дедлайн.
+async function touchTicketActivity(threadId) {
+    await update(c => {
+        const record = c.ticketsById[threadId];
+        if (!record) return;
+        record.lastActivityAt = Date.now();
+        record.idleWarnedAt = null;
+    });
+}
+
+// Чистые функции — принимают ticketsById + now, отдают список тикетов для
+// действия. Тестируются без реального guild/client (см. test/tickets.test.js).
+function findUnclaimedToEscalate(ticketsById, now) {
+    return Object.entries(ticketsById)
+        .filter(([, r]) => !r.claimedBy)
+        .filter(([, r]) => now - r.createdAt >= UNCLAIMED_ESCALATE_MS)
+        .filter(([, r]) => !r.escalatedAt || now - r.escalatedAt >= UNCLAIMED_REESCALATE_MS)
+        .map(([threadId, r]) => ({ threadId, number: r.number }));
+}
+
+function findIdleToWarn(ticketsById, now) {
+    return Object.entries(ticketsById)
+        .filter(([, r]) => Boolean(r.claimedBy))
+        .filter(([, r]) => !r.pendingClose)
+        .filter(([, r]) => !r.idleWarnedAt)
+        .filter(([, r]) => now - (r.lastActivityAt ?? r.createdAt) >= IDLE_WARN_MS)
+        .map(([threadId, r]) => ({ threadId, number: r.number }));
+}
+
+function findIdleToClose(ticketsById, now) {
+    return Object.entries(ticketsById)
+        .filter(([, r]) => r.idleWarnedAt)
+        .filter(([, r]) => now - r.idleWarnedAt >= IDLE_CLOSE_MS)
+        .map(([threadId, r]) => ({ threadId, number: r.number, authorId: r.authorId }));
+}
+
+async function markTicketEscalated(threadId) {
+    await update(c => {
+        if (c.ticketsById[threadId]) c.ticketsById[threadId].escalatedAt = Date.now();
+    });
+}
+
+async function markTicketIdleWarned(threadId) {
+    await update(c => {
+        if (c.ticketsById[threadId]) c.ticketsById[threadId].idleWarnedAt = Date.now();
+    });
+}
+
+// Сообщения для tickets/sweep.js — рендеринг остаётся в model.js (тот же
+// принцип, что и у остальных карточек этой фичи), сам свип только решает,
+// когда их отправлять.
+function buildUnclaimedEscalationMessage(number, mentionLine) {
+    const text = `ticket-${number} не взят в работу уже ${formatDuration(UNCLAIMED_ESCALATE_MS)}.${mentionLine ? ` ${mentionLine}` : ''}`;
+    const container = baseContainer(COLORS.warning).addTextDisplayComponents(
+        textDisplay(formatBody('Тикет долго не взят', text))
+    );
+    return toMessage(container);
+}
+
+function buildIdleWarnMessage() {
+    const text = `В тикете давно нет сообщений — если вопрос решён, он закроется автоматически через ${formatDuration(IDLE_CLOSE_MS)}. Если нет, просто напишите здесь.`;
+    const container = baseContainer(COLORS.warning).addTextDisplayComponents(
+        textDisplay(formatBody('Нет активности', text))
+    );
+    return toMessage(container);
+}
+
+function buildIdleCloseMessage() {
+    const container = baseContainer(COLORS.primary).addTextDisplayComponents(
+        textDisplay(formatBody('Тикет закрыт автоматически', 'Не было активности длительное время.'))
+    );
+    return toMessage(container);
+}
+
 module.exports = {
     OPEN_BUTTON_ID,
     MGMT_SELECT_ID,
@@ -706,4 +808,17 @@ module.exports = {
     claimTicket,
     requestCloseApproval,
     rejectCloseRequest,
+    UNCLAIMED_ESCALATE_MS,
+    UNCLAIMED_REESCALATE_MS,
+    IDLE_WARN_MS,
+    IDLE_CLOSE_MS,
+    touchTicketActivity,
+    findUnclaimedToEscalate,
+    findIdleToWarn,
+    findIdleToClose,
+    markTicketEscalated,
+    markTicketIdleWarned,
+    buildUnclaimedEscalationMessage,
+    buildIdleWarnMessage,
+    buildIdleCloseMessage,
 };
