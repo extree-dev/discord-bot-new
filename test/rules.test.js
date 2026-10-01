@@ -17,3 +17,11 @@ test('buildRulesEmbed собирает embed с текстом правил в �
     assert.equal(embed.description, RULES_TEXT);
     assert.ok(embed.color);
 });
+
+test('buildRulesEmbed(ideaChannelId): подставляет упоминание канала ideaQueue вместо статичной строки про кнопку', () => {
+    const embed = buildRulesEmbed('123456789012345678').toJSON();
+    assert.match(embed.description, /<#123456789012345678>/);
+    assert.doesNotMatch(embed.description, /через систему предложений \(кнопка/);
+    // Остальной текст не тронут — отличается только эта одна строка.
+    assert.equal(embed.description.length - RULES_TEXT.length > 0, true);
+});

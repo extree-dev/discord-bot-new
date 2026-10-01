@@ -62,8 +62,24 @@ const RULES_TEXT = [
     '-# Правила могут обновляться, актуальная версия всегда доступна в этом канале и через команду /rules.',
 ].join('\n');
 
-function buildRulesEmbed() {
-    return baseEmbed(COLORS.primary).setDescription(RULES_TEXT);
+const IDEA_SUBMIT_LINE = '-# Идеи по улучшению сервера — через систему предложений (кнопка «Предложить идею»).';
+
+// ideaChannelId — ID канала ideaQueue/ (отдельная витрина идей по
+// прямому сообщению, см. ideaQueue/config.js channelId), опционален:
+// вызывающий код сам решает, стоит ли его передавать (например, /rules
+// и scripts/setup-rules.js подтягивают его из ideaQueue.getConfig()).
+// Без него (undefined) — обычный статичный RULES_TEXT, как раньше.
+// Канал подставляется упоминанием <#id>, а не именем — Discord сам
+// рендерит его актуальным названием канала, живой текст не завязан на
+// то, как канал называется в момент правки этого файла.
+function buildRulesEmbed(ideaChannelId) {
+    const text = ideaChannelId
+        ? RULES_TEXT.replace(
+              IDEA_SUBMIT_LINE,
+              `-# Идеи по улучшению сервера — через кнопку «Предложить идею» или прямым сообщением в <#${ideaChannelId}> (оно сразу уходит на проверку модерации).`
+          )
+        : RULES_TEXT;
+    return baseEmbed(COLORS.primary).setDescription(text);
 }
 
 module.exports = { buildRulesEmbed, RULES_TEXT };

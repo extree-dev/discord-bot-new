@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits, ChannelType, PermissionFlagsBits } = require('discord.js');
 const rules = require('../rules');
+const ideaQueue = require('../ideaQueue');
 const { isBootstrap, ensureChannel, warnMissing } = require('../utils/setupMode');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -53,7 +54,8 @@ client.once('clientReady', async () => {
             }
         }
 
-        const embed = rules.buildRulesEmbed();
+        const ideaConfig = await ideaQueue.getConfig();
+        const embed = rules.buildRulesEmbed(ideaConfig.channelId);
 
         let message = null;
         if (existingChannelId === channel.id && messageId) {
