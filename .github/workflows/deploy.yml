@@ -68,6 +68,11 @@ jobs:
                       run_setup_step scripts/setup-leveling.js
                       run_setup_step scripts/setup-modqueue.js
                       run_setup_step scripts/setup-idea-queue.js
+                      # После rules/changelog/leveling/tickets/suggestions/
+                      # voice/idea-queue — памятка ссылается на каналы всех
+                      # этих фич по сохранённому ID (memo/index.js
+                      # gatherChannelIds), порядок здесь важен.
+                      run_setup_step scripts/setup-memo.js
                       run_setup_step scripts/setup-admin-panel.js
                       # scripts/setup-onboarding.js и
                       # scripts/add-onboarding-role-questions.js в деплой не

@@ -11,6 +11,11 @@ const VERIFY_BUTTON_ID = 'security_verify';
 // хранится: сервер просто сверяет то, что пришло в customId нажатой
 // кнопки, с кодом в pendingChallenges на момент клика.
 const VERIFY_PICK_PREFIX = 'security_verify_pick';
+// customId кнопок выбора пола — пол кодируется в самом customId
+// ('male'/'female'), отдельного состояния между интеракциями не нужно (в
+// отличие от капчи: здесь нет правильного/неправильного ответа, только
+// какую из двух уже существующих ролей выдать).
+const GENDER_PICK_PREFIX = 'security_verify_gender';
 // Столько кнопок-вариантов показываем под картинкой (1 верный + остальные
 // похожие неверные) — Discord ограничивает ряд кнопок пятью, ровно влезает
 // без переноса на второй ряд.
@@ -306,7 +311,26 @@ async function handlePick(interaction) {
     const passedEmbed = baseEmbed(COLORS.success).setDescription(
         formatBody('Верификация пройдена', 'Добро пожаловать!')
     );
-    await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral });
+
+    // Шаг выбора пола — только если администратор настроил обе роли
+    // (scripts/setup-verification.js или /verification-role). Не блокирует
+    // доступ: роли верификации уже выданы выше, это просто дополнительная
+    // ephemeral-кнопка поверх готового ответа.
+    if (config.verification.genderMaleRoleId && config.verification.genderFemaleRoleId) {
+        const genderRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`${GENDER_PICK_PREFIX}:male`)
+                .setLabel('♂ Мужчина')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId(`${GENDER_PICK_PREFIX}:female`)
+                .setLabel('♀ Женщина')
+                .setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.reply({ embeds: [passedEmbed], components: [genderRow], flags: MessageFlags.Ephemeral });
+    } else {
+        await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral });
+    }
     await log(
         guild,
         baseEmbed(COLORS.success)
@@ -316,9 +340,58 @@ async function handlePick(interaction) {
     return true;
 }
 
+// Кнопки живут на том же ephemeral-сообщении, где только что показали
+// "Верификация пройдена" (см. конец handlePick) — поэтому здесь
+// interaction.update(), а не reply(): правим то же сообщение на месте
+// (убираем кнопки, показываем подтверждение), а не плодим ещё одно.
+async function handleGenderPick(interaction) {
+    const config = await load();
+    const picked = interaction.customId.slice(`${GENDER_PICK_PREFIX}:`.length);
+    const roleId = picked === 'male' ? config.verification.genderMaleRoleId : config.verification.genderFemaleRoleId;
+    const otherRoleId =
+        picked === 'male' ? config.verification.genderFemaleRoleId : config.verification.genderMaleRoleId;
+
+    if (!roleId) {
+        await interaction.update({ embeds: [errorEmbed('Эта роль сейчас не настроена.')], components: [] });
+        return true;
+    }
+
+    const guild = interaction.guild;
+    const member = interaction.member;
+    const role = guild.roles.cache.get(roleId);
+    if (!role) {
+        await interaction.update({
+            embeds: [errorEmbed('Роль не найдена на сервере, обратись к администратору.')],
+            components: [],
+        });
+        return true;
+    }
+
+    try {
+        if (otherRoleId && member.roles.cache.has(otherRoleId)) {
+            await member.roles.remove(otherRoleId, 'Смена выбора пола');
+        }
+        await member.roles.add(role, 'Выбор пола при верификации');
+    } catch (err) {
+        console.error('verification: не удалось выдать гендерную роль:', err.message);
+        await interaction.update({
+            embeds: [errorEmbed('Не получилось выдать роль, обратись к администратору.')],
+            components: [],
+        });
+        return true;
+    }
+
+    await interaction.update({
+        embeds: [baseEmbed(COLORS.success).setDescription(formatBody('Готово', `Роль ${role} выдана.`))],
+        components: [],
+    });
+    return true;
+}
+
 async function handleButton(interaction) {
     if (interaction.customId === VERIFY_BUTTON_ID) return startVerification(interaction);
     if (interaction.customId.startsWith(`${VERIFY_PICK_PREFIX}:`)) return handlePick(interaction);
+    if (interaction.customId.startsWith(`${GENDER_PICK_PREFIX}:`)) return handleGenderPick(interaction);
     return false;
 }
 

@@ -105,5 +105,7 @@ test('load() подставляет значения по умолчанию д�
         assert.equal(config.antiNuke.maxActions, 3);
         assert.equal(config.raidShield.joinThreshold, 8);
         assert.equal(config.verification.enabled, false);
+        assert.equal(config.verification.genderMaleRoleId, null);
+        assert.equal(config.verification.genderFemaleRoleId, null);
     });
 });

@@ -46,6 +46,13 @@ const DEFAULTS = {
         // алерт в security-log.
         maxCaptchaAttempts: 3,
         captchaLockoutMs: 10 * 60 * 1000,
+        // Роли "без текста" (имя — просто символ ♂/♀, без слова) — участник
+        // выбирает кнопкой сразу после прохождения капчи (см.
+        // verification.js handleGenderPick). Пока обе не настроены (null),
+        // шаг выбора пола просто не показывается — не ломает верификацию
+        // для серверов, которым это не нужно.
+        genderMaleRoleId: null,
+        genderFemaleRoleId: null,
     },
     manualLockdown: { active: false, channelIds: [] },
 };
