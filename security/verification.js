@@ -18,8 +18,8 @@ const VERIFY_PICK_PREFIX = 'security_verify_pick';
 const GENDER_PICK_PREFIX = 'security_verify_gender';
 // Кастомные эмодзи сервера (загружены администратором вручную) — кнопки
 // выбора пола показывают только их, без подписи текстом.
-const GENDER_MALE_EMOJI_ID = '1555556250811637810';
-const GENDER_FEMALE_EMOJI_ID = '1555556252245819403';
+const GENDER_MALE_EMOJI_ID = '1555576296686231582';
+const GENDER_FEMALE_EMOJI_ID = '1555576559102857277';
 // Столько кнопок-вариантов показываем под картинкой (1 верный + остальные
 // похожие неверные) — Discord ограничивает ряд кнопок пятью, ровно влезает
 // без переноса на второй ряд.
