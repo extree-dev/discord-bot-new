@@ -1,9 +1,12 @@
 require('dotenv').config({ quiet: true });
+const fs = require('fs');
+const path = require('path');
 const {
     Client,
     GatewayIntentBits,
     ChannelType,
     PermissionFlagsBits,
+    GuildFeature,
     ButtonBuilder,
     ButtonStyle,
     ActionRowBuilder,
@@ -11,6 +14,17 @@ const {
 const security = require('../security');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 const { isBootstrap, ensureChannel, ensureRole, refreshPanel } = require('../utils/setupMode');
+
+// Картинки-иконки гендерных ролей (Microsoft Fluent Emoji 3D, MIT —
+// assets/role-icons/README.md) — у Discord роль "без текста" это не
+// картинка в самом имени (имя — всегда только текст), а отдельная иконка
+// роли рядом с именем. Доступна только серверам с правом ROLE_ICONS
+// (буст уровня 2+) — на серверах без него просто не передаём icon, роль
+// создаётся как обычно, только с именем-символом.
+const ICONS_DIR = path.join(__dirname, '..', 'assets', 'role-icons');
+function roleIcon(filename) {
+    return fs.readFileSync(path.join(ICONS_DIR, filename));
+}
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -61,8 +75,14 @@ client.once('clientReady', async () => {
         }
 
         // Роли "без текста" — имя это сам символ, без слова, как попросил
-        // администратор. Выдаются кнопкой сразу после капчи (handleGenderPick
-        // в security/verification.js), сюда просто пишется их ID.
+        // администратор; иконка (глянцевый 3D-шар) — отдельно, см. выше.
+        // Выдаются кнопкой сразу после капчи (handleGenderPick в
+        // security/verification.js), сюда просто пишется их ID.
+        const hasRoleIcons = guild.features.includes(GuildFeature.RoleIcons);
+        if (!hasRoleIcons) {
+            console.log('У сервера нет буста уровня 2+ (ROLE_ICONS) — гендерные роли без картинки-иконки.');
+        }
+
         const { role: maleRole, created: maleCreated } = await ensureRole({
             guild,
             existingId: existingConfig.verification.genderMaleRoleId,
@@ -71,6 +91,7 @@ client.once('clientReady', async () => {
             hoist: false,
             mentionable: false,
             permissions: [],
+            ...(hasRoleIcons ? { icon: roleIcon('gender-male.png') } : {}),
         });
         if (maleRole) {
             console.log(maleCreated ? 'Создана роль: ♂' : `Роль "мужчина" уже настроена: ${maleRole.name}`);
@@ -84,6 +105,7 @@ client.once('clientReady', async () => {
             hoist: false,
             mentionable: false,
             permissions: [],
+            ...(hasRoleIcons ? { icon: roleIcon('gender-female.png') } : {}),
         });
         if (femaleRole) {
             console.log(femaleCreated ? 'Создана роль: ♀' : `Роль "женщина" уже настроена: ${femaleRole.name}`);
