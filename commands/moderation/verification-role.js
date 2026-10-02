@@ -24,21 +24,41 @@ module.exports = {
                 .setName('unverified')
                 .setDescription('Роль, которая выдаётся новым участникам до верификации')
                 .addRoleOption(opt => opt.setName('role').setDescription('Роль').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub
+                .setName('gender-male')
+                .setDescription('Роль для варианта "Мужчина" в шаге выбора пола после верификации')
+                .addRoleOption(opt => opt.setName('role').setDescription('Роль').setRequired(true))
+        )
+        .addSubcommand(sub =>
+            sub
+                .setName('gender-female')
+                .setDescription('Роль для варианта "Женщина" в шаге выбора пола после верификации')
+                .addRoleOption(opt => opt.setName('role').setDescription('Роль').setRequired(true))
         ),
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
         const role = interaction.options.getRole('role');
 
+        const FIELD_BY_SUB = {
+            verified: 'verifiedRoleId',
+            unverified: 'unverifiedRoleId',
+            'gender-male': 'genderMaleRoleId',
+            'gender-female': 'genderFemaleRoleId',
+        };
         await security.updateConfig(config => {
-            if (sub === 'verified') {
-                config.verification.verifiedRoleId = role.id;
-            } else {
-                config.verification.unverifiedRoleId = role.id;
-            }
+            config.verification[FIELD_BY_SUB[sub]] = role.id;
         });
 
-        const label = sub === 'verified' ? 'выдаваемая после верификации' : 'выдаваемая до верификации';
+        const LABEL_BY_SUB = {
+            verified: 'выдаваемая после верификации',
+            unverified: 'выдаваемая до верификации',
+            'gender-male': 'выдаваемая за выбор "Мужчина"',
+            'gender-female': 'выдаваемая за выбор "Женщина"',
+        };
+        const label = LABEL_BY_SUB[sub];
         await interaction.reply({
             embeds: [successEmbed(`Роль, ${label}: ${role}.`, 'Сохранено')],
             flags: MessageFlags.Ephemeral,

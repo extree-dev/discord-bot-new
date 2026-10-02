@@ -60,6 +60,35 @@ client.once('clientReady', async () => {
             );
         }
 
+        // Роли "без текста" — имя это сам символ, без слова, как попросил
+        // администратор. Выдаются кнопкой сразу после капчи (handleGenderPick
+        // в security/verification.js), сюда просто пишется их ID.
+        const { role: maleRole, created: maleCreated } = await ensureRole({
+            guild,
+            existingId: existingConfig.verification.genderMaleRoleId,
+            name: '♂',
+            color: 0x3498db,
+            hoist: false,
+            mentionable: false,
+            permissions: [],
+        });
+        if (maleRole) {
+            console.log(maleCreated ? 'Создана роль: ♂' : `Роль "мужчина" уже настроена: ${maleRole.name}`);
+        }
+
+        const { role: femaleRole, created: femaleCreated } = await ensureRole({
+            guild,
+            existingId: existingConfig.verification.genderFemaleRoleId,
+            name: '♀',
+            color: 0xe91e8c,
+            hoist: false,
+            mentionable: false,
+            permissions: [],
+        });
+        if (femaleRole) {
+            console.log(femaleCreated ? 'Создана роль: ♀' : `Роль "женщина" уже настроена: ${femaleRole.name}`);
+        }
+
         const hiddenFromAllButUnverified = unverifiedRole
             ? [
                   { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -154,6 +183,8 @@ client.once('clientReady', async () => {
             const firstSetup = !verification.channelId;
             if (unverifiedRole) verification.unverifiedRoleId = unverifiedRole.id;
             if (verifiedRole) verification.verifiedRoleId = verifiedRole.id;
+            if (maleRole) verification.genderMaleRoleId = maleRole.id;
+            if (femaleRole) verification.genderFemaleRoleId = femaleRole.id;
             if (channel) verification.channelId = channel.id;
             if (category) verification.categoryId = category.id;
             if (isBootstrap() && firstSetup && channel) verification.enabled = true;
