@@ -16,6 +16,10 @@ const VERIFY_PICK_PREFIX = 'security_verify_pick';
 // отличие от капчи: здесь нет правильного/неправильного ответа, только
 // какую из двух уже существующих ролей выдать).
 const GENDER_PICK_PREFIX = 'security_verify_gender';
+// Кастомные эмодзи сервера (загружены администратором вручную) — кнопки
+// выбора пола показывают только их, без подписи текстом.
+const GENDER_MALE_EMOJI_ID = '1555556250811637810';
+const GENDER_FEMALE_EMOJI_ID = '1555556252245819403';
 // Столько кнопок-вариантов показываем под картинкой (1 верный + остальные
 // похожие неверные) — Discord ограничивает ряд кнопок пятью, ровно влезает
 // без переноса на второй ряд.
@@ -320,11 +324,11 @@ async function handlePick(interaction) {
         const genderRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`${GENDER_PICK_PREFIX}:male`)
-                .setLabel('♂ Мужчина')
+                .setEmoji({ id: GENDER_MALE_EMOJI_ID })
                 .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId(`${GENDER_PICK_PREFIX}:female`)
-                .setLabel('♀ Женщина')
+                .setEmoji({ id: GENDER_FEMALE_EMOJI_ID })
                 .setStyle(ButtonStyle.Secondary)
         );
         await interaction.reply({ embeds: [passedEmbed], components: [genderRow], flags: MessageFlags.Ephemeral });
