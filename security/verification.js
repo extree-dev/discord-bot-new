@@ -12,9 +12,9 @@ const VERIFY_BUTTON_ID = 'security_verify';
 // кнопки, с кодом в pendingChallenges на момент клика.
 const VERIFY_PICK_PREFIX = 'security_verify_pick';
 // customId кнопок выбора пола — пол кодируется в самом customId
-// ('male'/'female'), отдельного состояния между интеракциями не нужно (в
-// отличие от капчи: здесь нет правильного/неправильного ответа, только
-// какую из двух уже существующих ролей выдать).
+// ('male'/'female'). Выбор делается ДО капчи (см. startVerification) и
+// хранится в pendingGenderChoice до её успешного прохождения — реальная
+// роль выдаётся только вместе с остальными ролями в handlePick.
 const GENDER_PICK_PREFIX = 'security_verify_gender';
 // Кастомные эмодзи сервера (загружены администратором вручную) — кнопки
 // выбора пола показывают только их, без подписи текстом.
@@ -32,6 +32,10 @@ const FAIL_WINDOW_MS = 5 * 60 * 1000;
 
 // userId -> { code, expiresAt }
 const pendingChallenges = new Map();
+// userId -> { gender: 'male'|'female', expiresAt } — выбор пола, сделанный
+// до капчи; дожидается её успешного прохождения в handlePick, где и
+// применяется реальная роль.
+const pendingGenderChoice = new Map();
 // userId -> { count, windowStart, lockedUntil? }
 const failedAttempts = new Map();
 
@@ -39,6 +43,13 @@ function cleanupExpiredChallenges() {
     const now = Date.now();
     for (const [userId, challenge] of pendingChallenges) {
         if (now > challenge.expiresAt) pendingChallenges.delete(userId);
+    }
+}
+
+function cleanupExpiredGenderChoices() {
+    const now = Date.now();
+    for (const [userId, choice] of pendingGenderChoice) {
+        if (now > choice.expiresAt) pendingGenderChoice.delete(userId);
     }
 }
 
@@ -108,10 +119,54 @@ async function handleJoin(member) {
     });
 }
 
+// Показывает картинку-капчу и ряд из CANDIDATES_COUNT кнопок-вариантов под
+// ней (см. captchaImage.js). mode === 'update' — правим на месте сообщение
+// с кнопками выбора пола (после handleGenderPick), mode === 'reply' —
+// обычный новый ответ (когда гендерные роли не настроены и капча — первый
+// и единственный шаг).
+async function presentCaptcha(interaction, mode) {
+    cleanupExpiredChallenges();
+    const code = generateCode();
+    pendingChallenges.set(interaction.user.id, { code, expiresAt: Date.now() + CHALLENGE_TTL_MS });
+
+    const candidates = shuffled([code, ...generateDecoys(code, CANDIDATES_COUNT - 1)]);
+    const attachment = new AttachmentBuilder(renderCaptcha(code), { name: 'captcha.png' });
+    const row = new ActionRowBuilder().addComponents(
+        ...candidates.map(candidate =>
+            new ButtonBuilder()
+                .setCustomId(`${VERIFY_PICK_PREFIX}:${candidate}`)
+                .setLabel(candidate)
+                .setStyle(ButtonStyle.Secondary)
+        )
+    );
+
+    const payload = {
+        embeds: [
+            baseEmbed(COLORS.primary)
+                .setDescription(
+                    formatBody(
+                        'Подтверди, что ты не бот',
+                        'Выбери код с картинки среди кнопок ниже — код действует 3 минуты.'
+                    )
+                )
+                .setImage('attachment://captcha.png'),
+        ],
+        files: [attachment],
+        components: [row],
+    };
+
+    if (mode === 'update') {
+        await interaction.update(payload);
+    } else {
+        await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+    }
+}
+
 // Шаг 1: кнопка "Пройти верификацию" — проверяет, что участник ещё не
-// верифицирован, что аккаунт не слишком новый и что он не заблокирован
-// за подозрительные попытки, затем показывает картинку-капчу и ряд из
-// CANDIDATES_COUNT кнопок-вариантов под ней (см. captchaImage.js).
+// верифицирован, что аккаунт не слишком новый и что он не заблокирован за
+// подозрительные попытки. Если на сервере настроены обе гендерные роли —
+// первым шагом показывает выбор пола (handleGenderPick продолжит капчой),
+// иначе сразу переходит к капче.
 async function startVerification(interaction) {
     const config = await load();
     const guild = interaction.guild;
@@ -195,36 +250,33 @@ async function startVerification(interaction) {
         return true;
     }
 
-    cleanupExpiredChallenges();
-    const code = generateCode();
-    pendingChallenges.set(interaction.user.id, { code, expiresAt: Date.now() + CHALLENGE_TTL_MS });
-
-    const candidates = shuffled([code, ...generateDecoys(code, CANDIDATES_COUNT - 1)]);
-    const attachment = new AttachmentBuilder(renderCaptcha(code), { name: 'captcha.png' });
-    const row = new ActionRowBuilder().addComponents(
-        ...candidates.map(candidate =>
+    if (config.verification.genderMaleRoleId && config.verification.genderFemaleRoleId) {
+        const genderRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`${VERIFY_PICK_PREFIX}:${candidate}`)
-                .setLabel(candidate)
+                .setCustomId(`${GENDER_PICK_PREFIX}:male`)
+                .setEmoji({ id: GENDER_MALE_EMOJI_ID })
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId(`${GENDER_PICK_PREFIX}:female`)
+                .setEmoji({ id: GENDER_FEMALE_EMOJI_ID })
                 .setStyle(ButtonStyle.Secondary)
-        )
-    );
-
-    await interaction.reply({
-        embeds: [
-            baseEmbed(COLORS.primary)
-                .setDescription(
+        );
+        await interaction.reply({
+            embeds: [
+                baseEmbed(COLORS.primary).setDescription(
                     formatBody(
-                        'Подтверди, что ты не бот',
-                        'Выбери код с картинки среди кнопок ниже — код действует 3 минуты.'
+                        'Выбери свой пол',
+                        'Роль будет выдана после прохождения проверки ниже. Сменить выбор позже можно через администрацию.'
                     )
-                )
-                .setImage('attachment://captcha.png'),
-        ],
-        files: [attachment],
-        components: [row],
-        flags: MessageFlags.Ephemeral,
-    });
+                ),
+            ],
+            components: [genderRow],
+            flags: MessageFlags.Ephemeral,
+        });
+        return true;
+    }
+
+    await presentCaptcha(interaction, 'reply');
     return true;
 }
 
@@ -312,45 +364,45 @@ async function handlePick(interaction) {
         await member.roles.add(starterRoleId, 'Верификация пройдена').catch(() => {});
     }
 
+    // Пол уже выбран ДО капчи (см. startVerification/handleGenderPick) и
+    // ждал здесь в pendingGenderChoice — теперь, когда капча тоже пройдена,
+    // выдаём гендерную роль вместе с остальными. Best-effort, как и
+    // стартовая роль уровня выше: если роль не настроена/не найдена или
+    // Discord откажет в выдаче, это не должно ломать уже пройденную
+    // верификацию.
+    cleanupExpiredGenderChoices();
+    const genderChoice = pendingGenderChoice.get(interaction.user.id);
+    pendingGenderChoice.delete(interaction.user.id);
+    if (genderChoice) {
+        const genderRoleId =
+            genderChoice.gender === 'male'
+                ? config.verification.genderMaleRoleId
+                : config.verification.genderFemaleRoleId;
+        const otherGenderRoleId =
+            genderChoice.gender === 'male'
+                ? config.verification.genderFemaleRoleId
+                : config.verification.genderMaleRoleId;
+        const genderRole = genderRoleId ? guild.roles.cache.get(genderRoleId) : null;
+        if (genderRole) {
+            try {
+                if (otherGenderRoleId && member.roles.cache.has(otherGenderRoleId)) {
+                    await member.roles.remove(otherGenderRoleId, 'Смена выбора пола');
+                }
+                await member.roles.add(genderRole, 'Выбор пола при верификации');
+            } catch (err) {
+                console.error('verification: не удалось выдать гендерную роль:', err.message);
+            }
+        }
+    }
+
     const passedEmbed = baseEmbed(COLORS.success).setDescription(
         formatBody('Верификация пройдена', 'Добро пожаловать!')
     );
 
-    // Шаг выбора пола — только если администратор настроил обе роли
-    // (scripts/setup-verification.js или /verification-role). Не блокирует
-    // доступ: роли верификации уже выданы выше, это просто дополнительная
-    // ephemeral-кнопка поверх готового ответа. Если Discord отклонит сборку
-    // с кастомными эмодзи (неверный/недоступный боту ID — например, эмодзи
-    // загружен на другой сервер) — ловим это здесь и всё равно подтверждаем
-    // интеракцию обычным ответом: без try/catch необработанная ошибка
-    // внутри interaction.reply() оставляла бы интеракцию без ответа
-    // (таймаут "приложение не ответило вовремя") даже после того, как роли
-    // уже успешно выданы выше.
-    let genderRow = null;
-    if (config.verification.genderMaleRoleId && config.verification.genderFemaleRoleId) {
-        genderRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`${GENDER_PICK_PREFIX}:male`)
-                .setEmoji({ id: GENDER_MALE_EMOJI_ID })
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId(`${GENDER_PICK_PREFIX}:female`)
-                .setEmoji({ id: GENDER_FEMALE_EMOJI_ID })
-                .setStyle(ButtonStyle.Secondary)
-        );
-    }
-    try {
-        await interaction.reply({
-            embeds: [passedEmbed],
-            components: genderRow ? [genderRow] : [],
-            flags: MessageFlags.Ephemeral,
-        });
-    } catch (err) {
-        console.error('verification: не удалось показать кнопки выбора пола:', err.message);
-        if (!interaction.replied) {
-            await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral }).catch(() => {});
-        }
-    }
+    await interaction.reply({
+        embeds: [passedEmbed],
+        flags: MessageFlags.Ephemeral,
+    });
     await log(
         guild,
         baseEmbed(COLORS.success)
@@ -360,51 +412,17 @@ async function handlePick(interaction) {
     return true;
 }
 
-// Кнопки живут на том же ephemeral-сообщении, где только что показали
-// "Верификация пройдена" (см. конец handlePick) — поэтому здесь
-// interaction.update(), а не reply(): правим то же сообщение на месте
-// (убираем кнопки, показываем подтверждение), а не плодим ещё одно.
+// Шаг 2 (только если гендерные роли настроены): клик по ♂/♀ под сообщением
+// из startVerification — сам пол здесь ещё не выдаётся, только запоминается
+// в pendingGenderChoice до момента, когда участник также пройдёт капчу (см.
+// handlePick). Кнопки живут на том же ephemeral-сообщении — правим его на
+// месте через interaction.update(), сразу показывая капчу, а не плодим
+// новое сообщение.
 async function handleGenderPick(interaction) {
-    const config = await load();
     const picked = interaction.customId.slice(`${GENDER_PICK_PREFIX}:`.length);
-    const roleId = picked === 'male' ? config.verification.genderMaleRoleId : config.verification.genderFemaleRoleId;
-    const otherRoleId =
-        picked === 'male' ? config.verification.genderFemaleRoleId : config.verification.genderMaleRoleId;
-
-    if (!roleId) {
-        await interaction.update({ embeds: [errorEmbed('Эта роль сейчас не настроена.')], components: [] });
-        return true;
-    }
-
-    const guild = interaction.guild;
-    const member = interaction.member;
-    const role = guild.roles.cache.get(roleId);
-    if (!role) {
-        await interaction.update({
-            embeds: [errorEmbed('Роль не найдена на сервере, обратись к администратору.')],
-            components: [],
-        });
-        return true;
-    }
-
-    try {
-        if (otherRoleId && member.roles.cache.has(otherRoleId)) {
-            await member.roles.remove(otherRoleId, 'Смена выбора пола');
-        }
-        await member.roles.add(role, 'Выбор пола при верификации');
-    } catch (err) {
-        console.error('verification: не удалось выдать гендерную роль:', err.message);
-        await interaction.update({
-            embeds: [errorEmbed('Не получилось выдать роль, обратись к администратору.')],
-            components: [],
-        });
-        return true;
-    }
-
-    await interaction.update({
-        embeds: [baseEmbed(COLORS.success).setDescription(formatBody('Готово', `Роль ${role} выдана.`))],
-        components: [],
-    });
+    cleanupExpiredGenderChoices();
+    pendingGenderChoice.set(interaction.user.id, { gender: picked, expiresAt: Date.now() + CHALLENGE_TTL_MS });
+    await presentCaptcha(interaction, 'update');
     return true;
 }
 
