@@ -55,7 +55,12 @@ client.once('clientReady', async () => {
         }
 
         const ideaConfig = await ideaQueue.getConfig();
-        const embed = rules.buildRulesEmbed(ideaConfig.channelId);
+        // embeds: [] — старое сообщение было классическим embed'ом; без
+        // явной очистки Discord отвергает PATCH, который одновременно
+        // оставляет старый embed и включает флаг IS_COMPONENTS_V2 (тот же
+        // приём, что при переводе tickets/suggestions/voice на V2, см.
+        // scripts/setup-tickets.js).
+        const payload = { ...rules.buildRulesMessage(ideaConfig.channelId), embeds: [] };
 
         let message = null;
         if (existingChannelId === channel.id && messageId) {
@@ -63,12 +68,12 @@ client.once('clientReady', async () => {
         }
 
         if (message) {
-            await message.edit({ embeds: [embed] });
+            await message.edit(payload);
             console.log('Существующее сообщение с правилами обновлено.');
         } else if (!isBootstrap()) {
             warnMissing('Сообщение с правилами не найдено');
         } else {
-            message = await channel.send({ embeds: [embed] });
+            message = await channel.send(payload);
             await message.pin().catch(err => console.error('Не удалось закрепить сообщение:', err.message));
             await rules.savePostedLocation(channel.id, message.id);
             console.log('Правила опубликованы и закреплены.');
