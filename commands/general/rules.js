@@ -1,15 +1,14 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const rules = require('../../rules');
 const ideaQueue = require('../../ideaQueue');
+const { toEphemeralMessage } = require('../../utils/components');
 
 module.exports = {
     data: new SlashCommandBuilder().setName('rules').setDescription('Показать правила сервера'),
 
     async execute(interaction) {
         const ideaConfig = await ideaQueue.getConfig();
-        await interaction.reply({
-            embeds: [rules.buildRulesEmbed(ideaConfig.channelId)],
-            flags: MessageFlags.Ephemeral,
-        });
+        const { components } = rules.buildRulesMessage(ideaConfig.channelId);
+        await interaction.reply(toEphemeralMessage(...components));
     },
 };

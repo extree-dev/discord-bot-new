@@ -1,11 +1,11 @@
 const config = require('./config');
-const { buildRulesEmbed } = require('./model');
+const { buildRulesMessage } = require('./model');
 
 // Публичный API фичи rules/: /rules и scripts/setup-rules.js обращаются
 // только сюда, а не к rules/config.js напрямую — так же, как остальные
 // фичи (tickets/, voice/, suggestions/).
 module.exports = {
-    buildRulesEmbed,
+    buildRulesMessage,
     getPostedLocation: async () => {
         const cfg = await config.load();
         return { channelId: cfg.channelId, messageId: cfg.messageId, categoryId: cfg.categoryId };
