@@ -319,9 +319,16 @@ async function handlePick(interaction) {
     // Шаг выбора пола — только если администратор настроил обе роли
     // (scripts/setup-verification.js или /verification-role). Не блокирует
     // доступ: роли верификации уже выданы выше, это просто дополнительная
-    // ephemeral-кнопка поверх готового ответа.
+    // ephemeral-кнопка поверх готового ответа. Если Discord отклонит сборку
+    // с кастомными эмодзи (неверный/недоступный боту ID — например, эмодзи
+    // загружен на другой сервер) — ловим это здесь и всё равно подтверждаем
+    // интеракцию обычным ответом: без try/catch необработанная ошибка
+    // внутри interaction.reply() оставляла бы интеракцию без ответа
+    // (таймаут "приложение не ответило вовремя") даже после того, как роли
+    // уже успешно выданы выше.
+    let genderRow = null;
     if (config.verification.genderMaleRoleId && config.verification.genderFemaleRoleId) {
-        const genderRow = new ActionRowBuilder().addComponents(
+        genderRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`${GENDER_PICK_PREFIX}:male`)
                 .setEmoji({ id: GENDER_MALE_EMOJI_ID })
@@ -331,9 +338,18 @@ async function handlePick(interaction) {
                 .setEmoji({ id: GENDER_FEMALE_EMOJI_ID })
                 .setStyle(ButtonStyle.Secondary)
         );
-        await interaction.reply({ embeds: [passedEmbed], components: [genderRow], flags: MessageFlags.Ephemeral });
-    } else {
-        await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral });
+    }
+    try {
+        await interaction.reply({
+            embeds: [passedEmbed],
+            components: genderRow ? [genderRow] : [],
+            flags: MessageFlags.Ephemeral,
+        });
+    } catch (err) {
+        console.error('verification: не удалось показать кнопки выбора пола:', err.message);
+        if (!interaction.replied) {
+            await interaction.reply({ embeds: [passedEmbed], flags: MessageFlags.Ephemeral }).catch(() => {});
+        }
     }
     await log(
         guild,
