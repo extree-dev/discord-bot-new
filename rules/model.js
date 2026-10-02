@@ -1,16 +1,18 @@
 // Доменный слой правил сервера. История вида: сплошной embed одним
 // цветом → 7 разноцветных карточек (слишком пёстро) → 3 карточки с
-// нумерованными блоками текста внутри (всё равно читалось как стена).
-// Администратор прислал референс с другого сервера — там у каждой
-// карточки одинаковый акцентный цвет, а внутри неё заголовок отделён от
-// текста тонкой линией-разделителем (Separator), сам текст короткий
-// (1-3 предложения, не длинный список "-# "). Этот файл воспроизводит
-// именно эту структуру: много компактных карточек одного цвета, в
-// каждой — заголовок, разделитель, короткий абзац. Без эмодзи. И
-// /rules, и scripts/setup-rules.js показывают ровно это — редактировать
-// правила нужно только тут.
+// нумерованными блоками текста внутри (всё равно читалось как стена) →
+// 8 карточек с текстовым заголовком и разделителем. Администратор прислал
+// референс с другого сервера, где заголовок каждой карточки — не текст, а
+// картинка-баннер с иконкой темы, и попросил добавить такие же баннеры.
+// Теперь вместо текстового заголовка в начале карточки — MediaGallery с
+// баннером (см. rules/banners.js, рисуется кодом через canvas — готовых
+// арт-ассетов у бота нет), дальше разделитель и короткий абзац. Без
+// эмодзи. И /rules, и scripts/setup-rules.js показывают ровно это —
+// редактировать правила нужно только тут.
+const { MediaGalleryBuilder } = require('discord.js');
 const { COLORS } = require('../utils/embeds');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
+const { getBannerAttachments } = require('./banners');
 
 // Единый акцент на все карточки (как в референсе) — цвет перестаёт
 // нести смысл "опасности" конкретной темы, карточки отличаются только
@@ -69,14 +71,23 @@ function buildCards(ideaChannelId) {
 // Без него — строка про идеи остаётся статичной (только кнопка). Канал
 // подставляется упоминанием <#id>, а не именем — Discord сам рендерит
 // его актуальным названием канала.
+//
+// Каждая карточка открывается MediaGallery-баннером вместо текстового
+// заголовка (заголовок уже нарисован на самой картинке, см.
+// rules/banners.js) — поэтому в components идёт только body, а title из
+// buildCards() используется лишь в getAllRulesText() ниже. Итоговый
+// объект несёт files — вызывающий код (команда/скрипт) должен передать
+// его в send()/reply()/edit() как есть, иначе Discord не найдёт картинки
+// по attachment://.
 function buildRulesMessage(ideaChannelId) {
-    const containers = buildCards(ideaChannelId).map(({ title, body }) =>
+    const banners = getBannerAttachments();
+    const containers = buildCards(ideaChannelId).map(({ body }, i) =>
         baseContainer(ACCENT)
-            .addTextDisplayComponents(textDisplay(title))
+            .addMediaGalleryComponents(new MediaGalleryBuilder().addItems({ media: { url: banners[i].url } }))
             .addSeparatorComponents(separator())
             .addTextDisplayComponents(textDisplay(body))
     );
-    return toMessage(...containers);
+    return { ...toMessage(...containers), files: banners.map(b => b.attachment) };
 }
 
 // Весь текст правил одной строкой — только для проверок формата в

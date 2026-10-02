@@ -62,6 +62,13 @@ function toEphemeralMessage(...components) {
     return { flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral, components };
 }
 
+// Делает Ephemeral уже готовый payload toMessage()/buildRulesMessage() и
+// т.п. (может нести files, в отличие от toEphemeralMessage выше, которая
+// собирает сообщение с нуля только из components и файлы потеряла бы).
+function withEphemeral(message) {
+    return { ...message, flags: message.flags | MessageFlags.Ephemeral };
+}
+
 module.exports = {
     baseContainer,
     textDisplay,
@@ -73,4 +80,5 @@ module.exports = {
     warningContainer,
     toMessage,
     toEphemeralMessage,
+    withEphemeral,
 };
