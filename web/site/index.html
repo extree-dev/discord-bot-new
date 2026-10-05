@@ -8,21 +8,71 @@
             name="description"
             content="Extree — разработчик Discord-ботов. Делаю Extree, бота модерации для Discord."
         />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
         <link rel="stylesheet" href="styles.css" />
     </head>
     <body>
-        <main class="card">
-            <div class="badge">E</div>
-            <h1>Extree</h1>
-            <p class="tagline">Разработчик Discord-ботов</p>
-            <p class="bio">
-                Делаю и веду <a href="https://bot.extree.tech">Extree</a> — бота модерации для Discord: безопасность,
-                тикеты, временные голосовые комнаты и не только.
-            </p>
-            <div class="links">
-                <a class="link" href="https://bot.extree.tech">Мой бот →</a>
-                <span class="link link--static">Discord: .extree</span>
-            </div>
+        <div class="glow"></div>
+
+        <header class="nav">
+            <a class="nav__brand" href="#top">Extree</a>
+            <nav class="nav__links">
+                <a href="#about">Обо мне</a>
+                <a href="#project">Проект</a>
+                <a href="#contact">Контакты</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero" id="top">
+                <div class="avatar">E</div>
+                <h1>Extree</h1>
+                <p class="hero__role">Разработчик Discord-ботов</p>
+                <p class="hero__lead">
+                    Проектирую и веду продакшн-бота для Discord — от модерации и безопасности сервера до инфраструктуры
+                    и деплоя.
+                </p>
+                <div class="actions">
+                    <a class="btn btn--primary" href="https://bot.extree.tech">Посмотреть Extree →</a>
+                    <a class="btn btn--ghost" href="#contact">Связаться</a>
+                </div>
+            </section>
+
+            <section class="section" id="about">
+                <h2>Чем занимаюсь</h2>
+                <div class="chips">
+                    <span class="chip">Discord-боты</span>
+                    <span class="chip">Node.js</span>
+                    <span class="chip">PostgreSQL</span>
+                    <span class="chip">Docker</span>
+                    <span class="chip">CI/CD</span>
+                </div>
+            </section>
+
+            <section class="section" id="project">
+                <h2>Проект</h2>
+                <a class="project-card" href="https://bot.extree.tech">
+                    <div class="project-card__icon">E</div>
+                    <div class="project-card__body">
+                        <h3>Extree</h3>
+                        <p>
+                            Бот модерации для Discord: безопасность, тикеты поддержки, временные голосовые комнаты,
+                            уровни активности.
+                        </p>
+                        <span class="link-arrow">bot.extree.tech →</span>
+                    </div>
+                </a>
+            </section>
         </main>
+
+        <footer class="footer" id="contact">
+            <span>Discord: .extree</span>
+            <span>© Extree</span>
+        </footer>
     </body>
 </html>
