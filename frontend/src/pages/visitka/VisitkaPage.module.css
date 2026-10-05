@@ -1,0 +1,19 @@
+.role {
+    margin: 0 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.bio {
+    margin: 0 0 32px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+.footer {
+    margin-top: 36px;
+    color: var(--text-dim);
+    font-size: 12px;
+}

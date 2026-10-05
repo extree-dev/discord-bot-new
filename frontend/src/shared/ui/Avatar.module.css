@@ -1,0 +1,23 @@
+.large,
+.small {
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 3px solid transparent;
+    background:
+        linear-gradient(var(--bg), var(--bg)) padding-box,
+        linear-gradient(135deg, var(--accent), var(--accent-2)) border-box;
+    box-shadow: 0 10px 40px rgba(88, 101, 242, 0.35);
+}
+
+.large {
+    width: 112px;
+    height: 112px;
+    margin: 0 auto 20px;
+}
+
+.small {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+}

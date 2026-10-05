@@ -3,45 +3,35 @@
 # указывали на этот VPS и были открыты порты 80/443 (80 — для
 # ACME-challenge, 443 — сам HTTPS). Ручного certbot не требуется.
 #
-# Статика отдаётся напрямую из рабочей копии репозитория (см.
-# docker-compose.yml — каталоги web/site и web/bot-site примонтированы
-# в контейнер только на чтение) — обновление сайта не требует пересборки
-# образа, только git pull на сервере, который уже делает deploy.yml на
-# каждый push в main.
+# bot.extree.tech — статика (web/bot-site/) отдаётся напрямую из рабочей
+# копии репозитория (docker-compose.yml монтирует её в контейнер только
+# на чтение) — обновление не требует пересборки образа, только git pull,
+# который уже делает deploy.yml на каждый push в main.
+#
+# extree.tech целиком — React-SPA (frontend/, dashboard/server.js), там
+# нет больше отдельной статики: и визитка ("/"), и её редактор ("/admin")
+# рендерятся на клиенте, сервер отдаёт только собранные assets/*.js,
+# assets/*.css и JSON под /api/*.
 
 extree.tech, www.extree.tech {
-    # Визитка (dashboard/server.js) — тот же Node-процесс, что и личный
-    # кабинет на bot.extree.tech (один Express, разные роуты по Host).
-    # "/" теперь рендерится динамически из БД (редактируется на /admin),
-    # а не отдаётся статикой — поэтому index.html в web/site/ больше нет.
-    # /styles.css и /assets/* ни под один из этих префиксов не попадают
-    # и остаются чистой статикой.
-    handle / {
-        reverse_proxy dashboard:3000
-    }
-    handle /admin* {
-        reverse_proxy dashboard:3000
-    }
-    handle /auth/* {
-        reverse_proxy dashboard:3000
-    }
-    handle {
-        root * /srv/site
-        file_server
-    }
+    reverse_proxy dashboard:3000
     encode gzip
 }
 
 bot.extree.tech {
     # Личный кабинет (dashboard/server.js) — отдельный Node-процесс в
     # том же docker-compose, сервис "dashboard", порт 3000 внутри сети
-    # контейнеров. Только эти два префикса проксируются туда, остальной
-    # сайт (в т.ч. сам /styles.css, которым пользуются и страницы
-    # кабинета) по-прежнему чистая статика.
+    # контейнеров. /assets/* — собранные JS/CSS того же React-SPA, что и
+    # на extree.tech (один общий билд, frontend/dist/assets/), нужны
+    # браузеру, чтобы отрендерить /dashboard. Остальной сайт (маркетинговая
+    # статика бота) по-прежнему чистая статика из web/bot-site/.
     handle /auth/* {
         reverse_proxy dashboard:3000
     }
     handle /dashboard* {
+        reverse_proxy dashboard:3000
+    }
+    handle /assets/* {
         reverse_proxy dashboard:3000
     }
     handle {

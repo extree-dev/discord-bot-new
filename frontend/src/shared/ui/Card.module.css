@@ -1,0 +1,29 @@
+.glow {
+    position: absolute;
+    top: -260px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 900px;
+    height: 650px;
+    background: radial-gradient(circle, rgba(88, 101, 242, 0.35) 0%, rgba(235, 69, 158, 0.12) 45%, transparent 70%);
+    filter: blur(40px);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+}
+
+.wide {
+    max-width: 480px;
+    text-align: left;
+}
+
+.wide > h1 {
+    text-align: center;
+}

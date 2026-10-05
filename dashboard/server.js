@@ -10,18 +10,21 @@
 //    администратору сервера бота (GUILD_ID), сам контент визитки ("/")
 //    хранится в Postgres (../site/model.js), не в cookie.
 //
-// Запускается отдельным процессом в том же образе, что и сам бот (см.
-// docker-compose.yml, сервис dashboard — тот же Dockerfile, другая
-// command) и проксируется Caddy по путям /auth/*, /dashboard* (на
-// bot.extree.tech) и /, /admin* (на extree.tech) — см. web/Caddyfile,
-// остальное на обоих доменах остаётся статикой.
+// Сам UI — React-SPA в frontend/ (см. frontend/src/app/App.tsx), этот
+// файл отдаёт только JSON под /api/* и ведёт OAuth2-поток под /auth/* —
+// остальной GET (включая client-side роуты SPA вроде /admin и /dashboard)
+// получает собранный frontend/dist/index.html, дальше маршрутизацию берёт
+// на себя React Router. Запускается отдельным процессом в том же образе,
+// что и сам бот (см. docker-compose.yml, сервис dashboard — тот же
+// Dockerfile, другая command), проксируется Caddy по путям /auth/*,
+// /api/*, /dashboard, /admin и /assets/* (см. web/Caddyfile) — остальное
+// на обоих доменах остаётся статикой.
 require('dotenv').config({ quiet: true });
 const express = require('express');
 const crypto = require('crypto');
+const path = require('path');
 const oauth = require('./discordOAuth');
 const { encryptSession, decryptSession } = require('./session');
-const { renderLogin, renderError, renderDashboard } = require('./views');
-const { renderVisitka, renderSiteLogin, renderSiteDenied, renderSiteAdminForm } = require('./siteViews');
 const site = require('../site/model');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
@@ -60,7 +63,7 @@ function redirectUriFor(req) {
 const SESSION_COOKIE = 'extree_session';
 const STATE_COOKIE = 'extree_oauth_state';
 // Столько же живёт access_token, который Discord выдаёт на этот grant —
-// после этого /dashboard просто перекинет на повторный логин.
+// после этого API просто начнёт отвечать user: null / 401.
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Бот сейчас на одном сервере — 5 минут кэша с лихвой достаточно, чтобы
@@ -88,12 +91,25 @@ function parseCookies(header) {
     return out;
 }
 
+function avatarUrl(discordUser) {
+    if (discordUser.avatar) {
+        return `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=64`;
+    }
+    const fallbackIndex = Number(BigInt(discordUser.id) % 5n);
+    return `https://cdn.discordapp.com/embed/avatars/${fallbackIndex}.png`;
+}
+
+function getSessionFromReq(req) {
+    const raw = req.cookies[SESSION_COOKIE];
+    return raw ? decryptSession(raw, SESSION_SECRET) : null;
+}
+
 const app = express();
 // За Caddy (reverse proxy) — иначе req.secure/req.ip смотрели бы на
 // соединение с прокси, а не на исходный запрос клиента.
 app.set('trust proxy', 1);
 
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 app.use((req, _res, next) => {
     req.cookies = parseCookies(req.headers.cookie);
@@ -104,7 +120,8 @@ app.use((req, _res, next) => {
 // двух доменов (bot.extree.tech/dashboard или extree.tech/admin) пришёл
 // вход, раз redirect_uri определяется тем же Host-заголовком (см.
 // redirectUriFor выше): на bot.extree.tech возвращаем в кабинет, на
-// extree.tech/www.extree.tech — в редактор визитки.
+// extree.tech/www.extree.tech — в редактор визитки. Оба пути — обычные
+// client-side роуты SPA, отрендерит их React Router после SPA-fallback ниже.
 function defaultReturnPathFor(host) {
     return host && host.startsWith('bot.') ? '/dashboard' : '/admin';
 }
@@ -123,7 +140,7 @@ app.get('/auth/discord/login', (req, res) => {
 app.get('/auth/discord/callback', async (req, res) => {
     const { code, state } = req.query;
     if (!code || !state || state !== req.cookies[STATE_COOKIE]) {
-        res.status(400).send(renderError('Ссылка для входа устарела или повреждена — попробуй войти ещё раз.'));
+        res.redirect(`${defaultReturnPathFor(req.headers.host)}?auth_error=1`);
         return;
     }
     res.clearCookie(STATE_COOKIE);
@@ -144,7 +161,7 @@ app.get('/auth/discord/callback', async (req, res) => {
         res.redirect(defaultReturnPathFor(req.headers.host));
     } catch (err) {
         console.error('dashboard: ошибка обмена кода на токен Discord:', err);
-        res.status(502).send(renderError('Discord не ответил на запрос входа — попробуй ещё раз чуть позже.'));
+        res.redirect(`${defaultReturnPathFor(req.headers.host)}?auth_error=1`);
     }
 });
 
@@ -153,32 +170,47 @@ app.get('/auth/logout', (req, res) => {
     res.redirect('/');
 });
 
-app.get('/dashboard', async (req, res) => {
-    const raw = req.cookies[SESSION_COOKIE];
-    const session = raw ? decryptSession(raw, SESSION_SECRET) : null;
+app.get('/api/session', async (req, res) => {
+    const session = getSessionFromReq(req);
     if (!session) {
-        res.send(renderLogin());
+        res.json({ user: null });
         return;
     }
     try {
-        const [user, userGuilds, botGuilds] = await Promise.all([
-            oauth.fetchCurrentUser(session.accessToken),
-            oauth.fetchUserGuilds(session.accessToken),
-            getBotGuilds(),
-        ]);
-        const managedGuilds = oauth.intersectManagedGuilds(userGuilds, botGuilds);
-        res.send(renderDashboard(user, managedGuilds));
+        const discordUser = await oauth.fetchCurrentUser(session.accessToken);
+        res.json({ user: { id: discordUser.id, username: discordUser.username, avatarUrl: avatarUrl(discordUser) } });
     } catch (err) {
-        console.error('dashboard: не удалось загрузить данные пользователя из Discord:', err);
+        console.error('dashboard: /api/session — не удалось получить пользователя Discord:', err);
         res.clearCookie(SESSION_COOKIE);
-        res.send(renderLogin());
+        res.json({ user: null });
+    }
+});
+
+app.get('/api/guilds', async (req, res) => {
+    const session = getSessionFromReq(req);
+    if (!session) {
+        res.status(401).json({ error: 'Нужно войти через Discord.' });
+        return;
+    }
+    try {
+        const [userGuilds, botGuilds] = await Promise.all([oauth.fetchUserGuilds(session.accessToken), getBotGuilds()]);
+        const managed = oauth.intersectManagedGuilds(userGuilds, botGuilds);
+        res.json({
+            guilds: managed.map(g => ({
+                id: g.id,
+                name: g.name,
+                iconUrl: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null,
+            })),
+        });
+    } catch (err) {
+        console.error('dashboard: /api/guilds — не удалось загрузить сервера из Discord:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
     }
 });
 
 // Контент визитки читается из БД при каждом заходе — её почти никогда не
 // правят, кэшировать не нужно, а при недоступности БД лучше молча
-// показать дефолтный текст (тот же, что был в статичном index.html до
-// этой фичи), чем уронить "/" на весь extree.tech целиком.
+// показать дефолтный текст, чем уронить "/" на весь extree.tech целиком.
 async function loadSiteContent() {
     try {
         return await site.load();
@@ -188,53 +220,75 @@ async function loadSiteContent() {
     }
 }
 
+app.get('/api/site-content', async (req, res) => {
+    const content = await loadSiteContent();
+    res.json({ ...content, maxLinks: site.MAX_LINKS });
+});
+
 // "Администратор домена" = Administrator/владелец на сервере бота
 // (GUILD_ID) — та же проверка, что определяет список серверов в
-// /dashboard (oauth.isGuildAdmin), просто для одного конкретного guildId.
-async function requireSiteAdmin(req, res) {
-    const raw = req.cookies[SESSION_COOKIE];
-    const session = raw ? decryptSession(raw, SESSION_SECRET) : null;
+// /api/guilds (oauth.isGuildAdmin), просто для одного конкретного guildId.
+app.get('/api/site-admin-status', async (req, res) => {
+    const session = getSessionFromReq(req);
     if (!session) {
-        res.send(renderSiteLogin());
-        return false;
+        res.json({ isAdmin: false });
+        return;
+    }
+    try {
+        const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
+        res.json({ isAdmin: oauth.isSiteAdmin(userGuilds, GUILD_ID) });
+    } catch (err) {
+        console.error('dashboard: /api/site-admin-status — не удалось проверить права:', err);
+        res.json({ isAdmin: false });
+    }
+});
+
+app.put('/api/site-content', async (req, res) => {
+    const session = getSessionFromReq(req);
+    if (!session) {
+        res.status(401).json({ error: 'Нужно войти через Discord.' });
+        return;
     }
     try {
         const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
         if (!oauth.isSiteAdmin(userGuilds, GUILD_ID)) {
-            res.status(403).send(renderSiteDenied());
-            return false;
+            res.status(403).json({ error: 'Редактировать визитку может только администратор сервера бота.' });
+            return;
         }
-        return true;
     } catch (err) {
-        console.error('dashboard: не удалось проверить права на /admin:', err);
-        res.clearCookie(SESSION_COOKIE);
-        res.send(renderSiteLogin());
-        return false;
+        console.error('dashboard: PUT /api/site-content — не удалось проверить права:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+        return;
     }
-}
 
-app.get('/', async (req, res) => {
-    res.send(renderVisitka(await loadSiteContent()));
-});
-
-app.get('/admin', async (req, res) => {
-    if (!(await requireSiteAdmin(req, res))) return;
-    const content = await loadSiteContent();
-    res.send(renderSiteAdminForm(content, { saved: req.query.saved === '1', maxLinks: site.MAX_LINKS }));
-});
-
-app.post('/admin', async (req, res) => {
-    if (!(await requireSiteAdmin(req, res))) return;
-    const links = [];
-    for (let i = 1; i <= site.MAX_LINKS; i++) {
-        links.push({ label: req.body[`link${i}_label`] ?? '', url: req.body[`link${i}_url`] ?? '' });
-    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
     try {
-        await site.save({ name: req.body.name ?? '', role: req.body.role ?? '', bio: req.body.bio ?? '', links });
+        const saved = await site.save({
+            name: typeof body.name === 'string' ? body.name : '',
+            role: typeof body.role === 'string' ? body.role : '',
+            bio: typeof body.bio === 'string' ? body.bio : '',
+            links: Array.isArray(body.links) ? body.links : [],
+        });
+        res.json({ ...saved, maxLinks: site.MAX_LINKS });
     } catch (err) {
-        console.error('dashboard: не удалось сохранить контент визитки:', err);
+        console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);
+        res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
     }
-    res.redirect('/admin?saved=1');
+});
+
+// Собранный React-SPA (frontend/) + SPA-fallback — обязательно после
+// всех /api/* и /auth/* роутов выше, иначе catch-all перехватил бы их
+// первым. express.static сам отдаёт файлы из dist/ (index.html,
+// assets/*.js, assets/*.css, avatar.jpg); если путь не совпал ни с одним
+// файлом — значит это client-side роут (/admin, /dashboard, ?auth_error),
+// и index.html нужно отдать и для него, дальше маршрутизацию берёт на
+// себя React Router.
+const FRONTEND_DIST = path.join(__dirname, '..', 'frontend', 'dist');
+app.use(express.static(FRONTEND_DIST));
+// Express 5 (path-to-regexp v8) больше не принимает голый '*' как путь —
+// middleware без пути самый простой способ поймать "всё, что осталось".
+app.use((req, res) => {
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
 });
 
 app.listen(PORT, () => {

@@ -46,3 +46,24 @@ jobs:
 
             - name: Test
               run: npm test --if-present
+
+            # frontend/ — отдельный React/TS-проект (dashboard/, визитка),
+            # свой package-lock.json, свои node_modules, не часть npm ci
+            # выше. format:check с корня уже покрывает *.ts/*.tsx (общий
+            # .prettierrc), сборка здесь дополнительно проверяет, что
+            # результат реально компилируется в валидный бандл.
+            - name: Install frontend dependencies
+              working-directory: frontend
+              run: npm ci
+
+            - name: Frontend lint
+              working-directory: frontend
+              run: npm run lint
+
+            - name: Frontend test
+              working-directory: frontend
+              run: npm test
+
+            - name: Frontend build
+              working-directory: frontend
+              run: npm run build

@@ -1,0 +1,40 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.links {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.linkRow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.notice {
+    margin: -8px 0 4px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(88, 101, 242, 0.15);
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
+}
+
+.error {
+    margin: -8px 0 4px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(237, 66, 69, 0.15);
+    color: #ff8a8a;
+    font-size: 13px;
+    text-align: center;
+}

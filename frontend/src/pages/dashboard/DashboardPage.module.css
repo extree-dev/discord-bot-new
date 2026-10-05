@@ -1,0 +1,6 @@
+.note {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 20px;
+}
