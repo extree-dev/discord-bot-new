@@ -19,6 +19,7 @@ module.exports = {
     handleModalSubmit: handlers.handleModalSubmit,
     buildPanelMessage: model.buildPanelMessage,
     buildManagementPanelMessage: model.buildManagementPanelMessage,
+    buildReportModal: handlers.buildCreateModal,
     getConfig: config.load,
     isStaff: model.isStaff,
     countRecentReportsOn: model.countRecentReportsOn,

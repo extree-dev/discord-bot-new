@@ -23,8 +23,12 @@ const MGMT_STATS_BUTTON_ID = 'ticket_mgmt_stats';
 
 // Два текстовых поля, как на референс-сервере — тег/ID нарушителя
 // вводится текстом (не UserSelectMenu), сразу после кнопки, без
-// промежуточных шагов.
-function buildCreateModal() {
+// промежуточных шагов. prefill — для контекстного меню "Пожаловаться на
+// сообщение" (commands/contextMenu/reportMessage.js): модалка та же
+// самая (тот же CREATE_MODAL_ID, значит и обработчик ниже подхватит её
+// без отдельного пути), просто с уже заполненными полями — автором и
+// ссылкой на сообщение, которое пожаловались.
+function buildCreateModal(prefill = {}) {
     const modal = new ModalBuilder().setCustomId(CREATE_MODAL_ID).setTitle('Жалоба на игрока');
     const targetInput = new TextInputBuilder()
         .setCustomId(TARGET_INPUT_ID)
@@ -33,6 +37,7 @@ function buildCreateModal() {
         .setPlaceholder('Extree#8223 или 340773390518452227')
         .setMaxLength(100)
         .setRequired(true);
+    if (prefill.target) targetInput.setValue(prefill.target);
     const descriptionInput = new TextInputBuilder()
         .setCustomId(DESCRIPTION_INPUT_ID)
         .setLabel('Опишите ситуацию')
@@ -40,6 +45,7 @@ function buildCreateModal() {
         .setPlaceholder('Приложи ссылку на сообщение или скрин-доказательство.')
         .setMaxLength(1000)
         .setRequired(true);
+    if (prefill.description) descriptionInput.setValue(prefill.description);
     modal.addComponents(
         new ActionRowBuilder().addComponents(targetInput),
         new ActionRowBuilder().addComponents(descriptionInput)
