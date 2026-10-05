@@ -8,58 +8,190 @@
             name="description"
             content="Extree — бот модерации для Discord: безопасность, тикеты поддержки, временные голосовые комнаты, уровни активности."
         />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
         <link rel="stylesheet" href="styles.css" />
     </head>
     <body>
-        <header class="hero">
-            <div class="badge">E</div>
-            <h1>Extree</h1>
-            <p class="tagline">
-                Бот модерации для Discord — безопасность, тикеты, голосовые комнаты и активность участников в одном
-                месте.
-            </p>
-            <div class="cta">
-                <a
-                    class="btn btn--primary"
-                    href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
-                    >Добавить на сервер</a
-                >
-                <a class="btn" href="#features">Что умеет</a>
-            </div>
+        <div class="glow"></div>
+
+        <header class="nav">
+            <a class="nav__brand" href="#top"><span class="nav__badge">E</span>Extree</a>
+            <nav class="nav__links">
+                <a href="#features">Возможности</a>
+                <a href="https://extree.tech">Автор</a>
+            </nav>
+            <a
+                class="btn btn--primary btn--small"
+                href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
+                >Добавить на сервер</a
+            >
         </header>
 
         <main>
-            <section id="features" class="features">
-                <article class="feature">
-                    <h2>Безопасность</h2>
-                    <p>Anti-nuke, raid shield, automod против спама/ссылок/капса, картиночная капча при входе.</p>
-                </article>
-                <article class="feature">
-                    <h2>Модерация</h2>
-                    <p>
-                        Варны с угасанием по давности, кастомный мут, временный бан, единый журнал дел по каждому
-                        участнику.
-                    </p>
-                </article>
-                <article class="feature">
-                    <h2>Тикеты поддержки</h2>
-                    <p>
-                        Жалоба на игрока или прямо на сообщение, апелляция на мут одной кнопкой, авто-эскалация без
-                        ответа.
-                    </p>
-                </article>
-                <article class="feature">
-                    <h2>Голосовые комнаты</h2>
-                    <p>Временные личные комнаты: лок, лимит, кик, блокировка участников — всё кнопками, без команд.</p>
-                </article>
-                <article class="feature">
-                    <h2>Активность участников</h2>
-                    <p>Уровни за сообщения и время в голосовых, карточки профиля и топ сервера.</p>
-                </article>
-                <article class="feature">
-                    <h2>Панель администратора</h2>
-                    <p>Управление сервером и точечные наказания без единой слэш-команды.</p>
-                </article>
+            <section class="hero" id="top">
+                <span class="eyebrow">Бот модерации для Discord</span>
+                <h1>Extree держит сервер в порядке, пока ты занят другим</h1>
+                <p class="hero__lead">
+                    Безопасность, тикеты поддержки, временные голосовые комнаты и активность участников — в одном боте,
+                    без лишней настройки.
+                </p>
+                <div class="actions">
+                    <a
+                        class="btn btn--primary"
+                        href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
+                        >Добавить на сервер</a
+                    >
+                    <a class="btn btn--ghost" href="#features">Что умеет ↓</a>
+                </div>
+
+                <div class="mock">
+                    <div class="mock__bar">
+                        <span class="mock__dot"></span>
+                        <span class="mock__dot"></span>
+                        <span class="mock__dot"></span>
+                        <span class="mock__channel"># открыть-тикет</span>
+                    </div>
+                    <div class="mock__msg">
+                        <div class="mock__avatar">E</div>
+                        <div class="mock__msg-body">
+                            <div class="mock__name">Extree<span class="mock__tag">БОТ</span></div>
+                            <div class="mock__embed">
+                                <strong>Жалоба на игрока</strong>
+                                <p>
+                                    Нажми кнопку ниже, укажи тег/ID нарушителя и опиши ситуацию — откроется тикет с
+                                    командой поддержки.
+                                </p>
+                                <div class="mock__buttons">
+                                    <span class="mock__btn">Жалоба на игрока</span>
+                                    <span class="mock__btn">Подать апелляцию</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="features" id="features">
+                <h2>Что внутри</h2>
+                <div class="feature-grid">
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M12 2 4 5v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V5z" />
+                                <path d="m9 12 2 2 4-4" />
+                            </svg>
+                        </div>
+                        <h3>Безопасность</h3>
+                        <p>Anti-nuke, raid shield, automod против спама/ссылок/капса, картиночная капча при входе.</p>
+                    </article>
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <rect x="4" y="3" width="16" height="18" rx="2" />
+                                <path d="M8 8h8M8 12h8M8 16h5" />
+                            </svg>
+                        </div>
+                        <h3>Модерация</h3>
+                        <p>
+                            Варны с угасанием по давности, кастомный мут, временный бан, единый журнал дел по участнику.
+                        </p>
+                    </article>
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path
+                                    d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.5a1.5 1.5 0 0 0 0 3V15a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5a1.5 1.5 0 0 0 0-3Z"
+                                />
+                                <path d="M10 8v8" stroke-dasharray="2 2" />
+                            </svg>
+                        </div>
+                        <h3>Тикеты поддержки</h3>
+                        <p>
+                            Жалоба на игрока или прямо на сообщение, апелляция на мут одной кнопкой, авто-эскалация без
+                            ответа.
+                        </p>
+                    </article>
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <rect x="9" y="2" width="6" height="12" rx="3" />
+                                <path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" />
+                            </svg>
+                        </div>
+                        <h3>Голосовые комнаты</h3>
+                        <p>
+                            Временные личные комнаты: лок, лимит, кик, блокировка участников — всё кнопками, без команд.
+                        </p>
+                    </article>
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M4 20V10M12 20V4M20 20v-7" />
+                            </svg>
+                        </div>
+                        <h3>Активность участников</h3>
+                        <p>Уровни за сообщения и время в голосовых, карточки профиля и топ сервера.</p>
+                    </article>
+                    <article class="feature">
+                        <div class="feature__icon">
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <rect x="3" y="3" width="8" height="8" rx="2" />
+                                <rect x="13" y="3" width="8" height="8" rx="2" />
+                                <rect x="3" y="13" width="8" height="8" rx="2" />
+                                <rect x="13" y="13" width="8" height="8" rx="2" />
+                            </svg>
+                        </div>
+                        <h3>Панель администратора</h3>
+                        <p>Управление сервером и точечные наказания без единой слэш-команды.</p>
+                    </article>
+                </div>
             </section>
         </main>
 
