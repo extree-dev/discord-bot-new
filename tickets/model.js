@@ -21,12 +21,28 @@ const {
     StringSelectMenuOptionBuilder,
 } = require('discord.js');
 const { load, update } = require('./config');
-const { COLORS, formatBody } = require('../utils/embeds');
+const { COLORS, formatBody, baseEmbed } = require('../utils/embeds');
 const { notifyPunishment } = require('../utils/punishmentNotice');
 const moderation = require('../moderation');
+const security = require('../security');
 const { baseContainer, textDisplay, separator, toMessage } = require('../utils/components');
 
 const OPEN_BUTTON_ID = 'ticket_open';
+// Апелляция на мут — вторая кнопка на той же публичной панели (см.
+// buildPanelMessage), не отдельная слэш-команда. Раньше была команда
+// /appeal, но у роли Muted явно запрещено UseApplicationCommands на
+// КАЖДОМ канале сервера (moderation/model.js MUTE_DENY_OVERWRITE) — это
+// сделано нарочно, чтобы замученный не пользовался остальными
+// слэш-командами в обход наказания, но заодно убивало и саму апелляцию:
+// команда была физически недостижима именно тем, кому нужна. Кнопки и
+// модалки этим правом не блокируются вообще, поэтому апелляция здесь, а
+// не в commands/.
+const APPEAL_BUTTON_ID = 'ticket_appeal_open';
+// Мут считается "практически отбытым" и снимается сразу, без решения
+// стаффа — на таком коротком хвосте срока результат один и тот же
+// (участник и так почти свободен), а ручной разбор только тратит время
+// модерации на то, что через несколько минут снялось бы само по sweep.js.
+const APPEAL_AUTO_APPROVE_REMAINING_MS = 10 * 60 * 1000;
 // Кнопки-действия над конкретным тикетом теперь живут в канале
 // управления, а не в самом треде — customId обязан нести threadId явно
 // (interaction.channelId там указывает на канал управления, а не на
@@ -187,16 +203,20 @@ function buildPanelMessage() {
     const container = baseContainer(COLORS.primary).addTextDisplayComponents(
         textDisplay(
             formatBody(
-                'Жалоба на игрока',
-                'Нажми кнопку ниже, укажи тег/ID нарушителя и опиши ситуацию — откроется тикет с командой поддержки.'
+                'Обращения',
+                '«Жалоба на игрока» — укажи тег/ID нарушителя и опиши ситуацию, откроется тикет с командой поддержки.\n«Подать апелляцию» — если у тебя сейчас активен мут и ты с ним не согласен.'
             )
         )
     );
-    const button = new ButtonBuilder()
+    const reportButton = new ButtonBuilder()
         .setCustomId(OPEN_BUTTON_ID)
         .setLabel('Жалоба на игрока')
         .setStyle(ButtonStyle.Secondary);
-    return toMessage(container, new ActionRowBuilder().addComponents(button));
+    const appealButton = new ButtonBuilder()
+        .setCustomId(APPEAL_BUTTON_ID)
+        .setLabel('Подать апелляцию')
+        .setStyle(ButtonStyle.Secondary);
+    return toMessage(container, new ActionRowBuilder().addComponents(reportButton, appealButton));
 }
 
 // Первое (и единственное) сообщение в новом треде — чисто информационное,
@@ -635,6 +655,49 @@ async function submitReport(interaction, rawTarget, description, kind = 'player'
     return { ok: true, thread };
 }
 
+// Статус апелляции по клику кнопки "Подать апелляцию" — до показа модалки
+// с причиной (см. tickets/handlers.js), чтобы не заставлять участника
+// печатать объяснение, когда оно либо не нужно (мута нет), либо не имеет
+// значения (мут почти истёк — см. requiresReason() ниже, снимается без
+// разбора причины).
+// Только мут — забаненный участник теряет доступ вообще ко всем
+// каналам/слэш-командам/кнопкам гильдии, включая эту панель, так что для
+// бана эта кнопка физически недостижима (см. utils/punishmentNotice.js —
+// тот же повод, по которому забаненным не шлётся уведомление о
+// наказании).
+async function getAppealStatus(guild, userId) {
+    const mutes = await moderation.getConfig();
+    const entry = mutes[`${guild.id}_${userId}`];
+    if (!entry) return { hasMute: false };
+    const remainingMs = entry.expiresAt - Date.now();
+    return { hasMute: true, entry, remainingMs, requiresReason: remainingMs > APPEAL_AUTO_APPROVE_REMAINING_MS };
+}
+
+// Обрабатывает отправленную причину (модалка с одним полем) — повторно
+// проверяет мут (не полагаемся на результат getAppealStatus из прошлого
+// взаимодействия: участник мог заполнять модалку несколько минут, мут мог
+// за это время и так истечь/быть снят вручную).
+async function submitAppeal(guild, user, reason) {
+    const status = await getAppealStatus(guild, user.id);
+    if (!status.hasMute) return { error: 'no-mute' };
+    if (!status.requiresReason) {
+        await moderation.unmuteMember(guild, user.id);
+        return { autoApproved: true };
+    }
+    await security.log(
+        guild,
+        baseEmbed(COLORS.warning)
+            .setDescription(formatBody('Апелляция на мут'))
+            .addFields(
+                { name: 'Участник', value: `${user}`, inline: true },
+                { name: 'Осталось', value: `${Math.ceil(status.remainingMs / 60000)} мин.`, inline: true },
+                { name: 'Причина мута', value: status.entry.reason || 'не указана' },
+                { name: 'Объяснение участника', value: reason }
+            )
+    );
+    return { pending: true };
+}
+
 // "Наказать" на сообщении в треде жалобы — targetId зашит в customId
 // самой кнопки (нет отдельной записи "тикета", откуда его можно было бы
 // прочитать).
@@ -801,6 +864,8 @@ function buildIdleCloseMessage() {
 
 module.exports = {
     OPEN_BUTTON_ID,
+    APPEAL_BUTTON_ID,
+    APPEAL_AUTO_APPROVE_REMAINING_MS,
     MGMT_SELECT_ID,
     MGMT_CLAIM_PREFIX,
     MGMT_CLOSE_PREFIX,
@@ -826,6 +891,8 @@ module.exports = {
     listActiveTickets,
     getTicketStats,
     submitReport,
+    getAppealStatus,
+    submitAppeal,
     punishReportedUser,
     closeReport,
     claimTicket,

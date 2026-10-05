@@ -11,6 +11,7 @@ const {
     extractTargetId,
     resolveTargetByUsername,
     OPEN_BUTTON_ID,
+    APPEAL_BUTTON_ID,
     MGMT_SELECT_ID,
     MGMT_CLAIM_PREFIX,
     MGMT_CLOSE_PREFIX,
@@ -62,11 +63,12 @@ function extractButtonCustomIds(message) {
     return message.components.slice(1).flatMap(row => row.components.map(btn => btn.toJSON().custom_id));
 }
 
-test('buildPanelMessage: одна кнопка "Жалоба на игрока"', () => {
+test('buildPanelMessage: кнопки "Жалоба на игрока" и "Подать апелляцию"', () => {
     const message = buildPanelMessage();
-    assert.deepEqual(extractButtonCustomIds(message), [OPEN_BUTTON_ID]);
-    const button = message.components[1].components[0].toJSON();
-    assert.equal(button.label, 'Жалоба на игрока');
+    assert.deepEqual(extractButtonCustomIds(message), [OPEN_BUTTON_ID, APPEAL_BUTTON_ID]);
+    const [reportButton, appealButton] = message.components[1].components.map(c => c.toJSON());
+    assert.equal(reportButton.label, 'Жалоба на игрока');
+    assert.equal(appealButton.label, 'Подать апелляцию');
 });
 
 test('isStaff: пропускает участника с ролью поддержки', () => {
