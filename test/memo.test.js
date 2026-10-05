@@ -60,3 +60,9 @@ test('текст памятки перечисляет реальные кома
     assert.match(text, /\/level profile/);
     assert.match(text, /\/help/);
 });
+
+test('текст памятки объясняет контекстное меню "Пожаловаться на сообщение"', () => {
+    const text = getAllMemoText();
+    assert.match(text, /Пожаловаться на сообщение/);
+    assert.match(text, /Приложения/);
+});
