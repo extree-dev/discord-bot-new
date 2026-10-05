@@ -78,6 +78,18 @@ function intersectManagedGuilds(userGuilds, botGuilds) {
     return userGuilds.filter(g => isGuildAdmin(g) && botGuildIds.has(g.id));
 }
 
+// Гейт для /admin (редактирование визитки extree.tech): "администратор
+// домена" здесь — тот, у кого есть право Administrator (или кто владелец)
+// на самом сервере бота (GUILD_ID из .env), а не произвольный Discord-
+// пользователь. Тот же критерий, что уже используется для списка серверов
+// в личном кабинете (isGuildAdmin) — просто проверяем ровно один guildId
+// вместо пересечения со списком серверов бота.
+function isSiteAdmin(userGuilds, guildId) {
+    if (!guildId) return false;
+    const guild = userGuilds.find(g => g.id === guildId);
+    return guild ? isGuildAdmin(guild) : false;
+}
+
 module.exports = {
     buildAuthorizeUrl,
     exchangeCode,
@@ -86,4 +98,5 @@ module.exports = {
     fetchBotGuilds,
     isGuildAdmin,
     intersectManagedGuilds,
+    isSiteAdmin,
 };

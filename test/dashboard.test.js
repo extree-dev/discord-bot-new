@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isGuildAdmin, intersectManagedGuilds, buildAuthorizeUrl } = require('../dashboard/discordOAuth');
+const { isGuildAdmin, intersectManagedGuilds, buildAuthorizeUrl, isSiteAdmin } = require('../dashboard/discordOAuth');
 const { encryptSession, decryptSession } = require('../dashboard/session');
 
 test('isGuildAdmin: владелец сервера — всегда админ, даже без явного права', () => {
@@ -68,6 +68,29 @@ test('session: испорченная cookie (подмена байтов) — n
     const token = encryptSession({ accessToken: 'x' }, 'secret');
     const tampered = token.slice(0, -4) + 'aaaa';
     assert.equal(decryptSession(tampered, 'secret'), null);
+});
+
+test('isSiteAdmin: админ/владелец ровно на нужном guildId — true', () => {
+    const userGuilds = [
+        { id: '1', owner: false, permissions: '0' },
+        { id: '2', owner: true, permissions: '0' },
+    ];
+    assert.equal(isSiteAdmin(userGuilds, '2'), true);
+});
+
+test('isSiteAdmin: нужного guildId нет в списке серверов пользователя — false', () => {
+    const userGuilds = [{ id: '1', owner: true, permissions: '0' }];
+    assert.equal(isSiteAdmin(userGuilds, '2'), false);
+});
+
+test('isSiteAdmin: есть нужный guildId, но без прав администратора — false', () => {
+    const userGuilds = [{ id: '2', owner: false, permissions: '0' }];
+    assert.equal(isSiteAdmin(userGuilds, '2'), false);
+});
+
+test('isSiteAdmin: guildId не задан — false', () => {
+    const userGuilds = [{ id: '2', owner: true, permissions: '0' }];
+    assert.equal(isSiteAdmin(userGuilds, undefined), false);
 });
 
 test('session: мусорная строка вместо cookie — null', () => {
