@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Условия использования — Extree</title>
+        <meta name="description" content="Условия использования бота Extree и его личного кабинета." />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="glow"></div>
+
+        <header class="nav">
+            <a class="nav__brand" href="/"><span class="nav__badge">E</span>Extree</a>
+            <nav class="nav__links">
+                <a href="/">← На главную</a>
+            </nav>
+            <a
+                class="btn btn--primary btn--small"
+                href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
+                >Добавить на сервер</a
+            >
+        </header>
+
+        <main>
+            <article class="legal">
+                <p class="legal__updated">Обновлено: 5 октября 2026</p>
+                <h1>Условия использования</h1>
+
+                <p>
+                    Используя бота Extree или его личный кабинет (extree.tech, bot.extree.tech), вы соглашаетесь с
+                    условиями на этой странице.
+                </p>
+
+                <h2>Что это за сервис</h2>
+                <p>
+                    Extree — бот модерации для Discord-серверов (automod, тикеты поддержки, временные голосовые комнаты,
+                    система активности) и веб-кабинет для настройки части этих функций без команд в Discord. Сервис
+                    предоставляется бесплатно.
+                </p>
+
+                <h2>Допустимое использование</h2>
+                <ul>
+                    <li>
+                        Использование бота должно соответствовать
+                        <a href="https://discord.com/terms" target="_blank" rel="noopener"
+                            >условиям использования Discord</a
+                        >
+                        и
+                        <a href="https://discord.com/guidelines" target="_blank" rel="noopener">Community Guidelines</a
+                        >;
+                    </li>
+                    <li>
+                        запрещено использовать бота для обхода санкций Discord, спама, атак на других пользователей или
+                        серверы;
+                    </li>
+                    <li>
+                        настройки модерации (automod, anti-nuke, варны и т.д.) применяются от имени администрации
+                        сервера, который добавил бота, — ответственность за их конфигурацию несёт администрация этого
+                        сервера.
+                    </li>
+                </ul>
+
+                <h2>Доступ к кабинету</h2>
+                <p>
+                    Вход в кабинет выполняется через Discord OAuth2. Просматривать и изменять настройки сервера в
+                    кабинете может только администратор этого сервера — тот же критерий, что используется ботом в
+                    Discord.
+                </p>
+
+                <h2>Отказ от гарантий</h2>
+                <p>
+                    Бот предоставляется «как есть» (as is), без каких-либо гарантий бесперебойной работы, отсутствия
+                    ошибок или пригодности для конкретной цели. Это независимый проект, а не коммерческий SLA-сервис.
+                </p>
+
+                <h2>Ограничение ответственности</h2>
+                <p>
+                    Автор не несёт ответственности за любые убытки или потери данных, связанные с использованием или
+                    невозможностью использования бота, включая сбои Discord API, которые находятся вне контроля проекта.
+                </p>
+
+                <h2>Прекращение доступа</h2>
+                <p>
+                    Бота можно в любой момент удалить с сервера средствами самого Discord. Автор вправе ограничить
+                    работу бота на сервере при нарушении условий Discord или настоящих условий использования.
+                </p>
+
+                <h2>Изменения условий</h2>
+                <p>
+                    Условия могут обновляться по мере развития бота. Дата последнего обновления указана вверху страницы.
+                    Продолжение использования бота после изменений означает согласие с новой версией.
+                </p>
+
+                <h2>Контакты</h2>
+                <p>
+                    Вопросы по условиям — через
+                    <a href="https://github.com/extree-dev/discord-bot-new/issues" target="_blank" rel="noopener"
+                        >issue в репозитории проекта</a
+                    >. См. также <a href="/privacy.html">политику конфиденциальности</a>.
+                </p>
+            </article>
+        </main>
+
+        <footer class="footer">
+            <div class="footer__bottom">
+                <span>© <span id="year"></span> Extree</span>
+                <a href="https://extree.tech">extree.tech</a>
+            </div>
+        </footer>
+
+        <script>
+            document.getElementById('year').textContent = new Date().getFullYear();
+        </script>
+    </body>
+</html>

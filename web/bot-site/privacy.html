@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Политика конфиденциальности — Extree</title>
+        <meta
+            name="description"
+            content="Какие данные собирает бот Extree и личный кабинет, как они используются и как их удалить."
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <div class="glow"></div>
+
+        <header class="nav">
+            <a class="nav__brand" href="/"><span class="nav__badge">E</span>Extree</a>
+            <nav class="nav__links">
+                <a href="/">← На главную</a>
+            </nav>
+            <a
+                class="btn btn--primary btn--small"
+                href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
+                >Добавить на сервер</a
+            >
+        </header>
+
+        <main>
+            <article class="legal">
+                <p class="legal__updated">Обновлено: 5 октября 2026</p>
+                <h1>Политика конфиденциальности</h1>
+
+                <p>
+                    Extree — бот модерации для Discord и его сайт (extree.tech, bot.extree.tech). Эта страница
+                    объясняет, какие данные собираются при использовании бота и личного кабинета, зачем они нужны и как
+                    ими распорядиться.
+                </p>
+
+                <h2>Какие данные собираются</h2>
+                <p><strong>При входе в личный кабинет через Discord (OAuth2):</strong></p>
+                <ul>
+                    <li>Discord ID, имя пользователя и аватар — чтобы показать, кто вошёл;</li>
+                    <li>
+                        список серверов, на которых состоит аккаунт, — чтобы определить, на каких из них есть права
+                        администратора и показать только их в кабинете.
+                    </li>
+                </ul>
+                <p>
+                    Эти данные не сохраняются отдельно: они запрашиваются у Discord заново при каждом входе и живут
+                    только в рамках сессии (сессионная кука, см. ниже).
+                </p>
+
+                <p><strong>При работе бота на сервере:</strong></p>
+                <ul>
+                    <li>
+                        <strong>Модерация</strong> — предупреждения (варны) с причиной и ID модератора, история
+                        наказаний, настройки automod/raid shield/anti-nuke — привязаны к Discord ID участника и ID
+                        сервера, хранятся в базе данных бота, пока функции модерации нужны серверу;
+                    </li>
+                    <li>
+                        <strong>Тикеты поддержки</strong> — ведутся как обычные каналы/треды в самом Discord, под
+                        контролем администрации конкретного сервера, а не в отдельной базе бота;
+                    </li>
+                    <li>
+                        <strong>Активность участников</strong> — счётчики сообщений и времени в голосовых каналах для
+                        системы уровней, привязаны к Discord ID участника и ID сервера;
+                    </li>
+                    <li>
+                        <strong>Журнал аудита</strong> — если администратор сервера включил эту функцию, короткие
+                        выдержки удалённых/изменённых сообщений публикуются в канал-журнал на самом сервере; это решение
+                        и данные принадлежат администрации сервера, не Extree.
+                    </li>
+                </ul>
+                <p>
+                    Бот не хранит переписку целиком. Текст сообщения анализируется автомодерацией в момент отправки
+                    (проверка на спам/ссылки/капс) и не сохраняется, кроме случаев журнала аудита выше.
+                </p>
+
+                <p><strong>Файлы cookie:</strong></p>
+                <p>
+                    Сайт кабинета (bot.extree.tech, extree.tech) использует одну сессионную куку
+                    (<code>extree_session</code>) — она хранит факт входа через Discord, помечена
+                    <code>HttpOnly</code> и <code>Secure</code>, не читается скриптами на странице и не используется для
+                    рекламы или трекинга между сайтами.
+                </p>
+
+                <h2>Как используются данные</h2>
+                <p>
+                    Все перечисленные данные используются исключительно для работы функций бота и кабинета: модерация,
+                    тикеты, система уровней, настройки сервера. Данные не продаются и не передаются третьим лицам — за
+                    исключением Discord, через API которого бот и работает.
+                </p>
+
+                <h2>Хранение и удаление</h2>
+                <p>
+                    Данные сервера (варны, настройки, активность) хранятся, пока бот состоит на этом сервере. При
+                    удалении бота с сервера или по запросу администрации сервера данные можно удалить — напишите через
+                    <a href="https://github.com/extree-dev/discord-bot-new/issues" target="_blank" rel="noopener"
+                        >issue в репозитории проекта</a
+                    >
+                    с указанием ID сервера.
+                </p>
+
+                <h2>Дети</h2>
+                <p>
+                    Extree — надстройка над Discord и не предназначена для лиц, которым запрещено пользоваться самим
+                    Discord согласно его условиям использования.
+                </p>
+
+                <h2>Изменения политики</h2>
+                <p>
+                    Эта страница может обновляться по мере изменения функций бота. Дата последнего обновления указана
+                    вверху страницы.
+                </p>
+
+                <h2>Контакты</h2>
+                <p>
+                    Вопросы по данным — через
+                    <a href="https://github.com/extree-dev/discord-bot-new/issues" target="_blank" rel="noopener"
+                        >issue в репозитории проекта</a
+                    >.
+                </p>
+            </article>
+        </main>
+
+        <footer class="footer">
+            <div class="footer__bottom">
+                <span>© <span id="year"></span> Extree</span>
+                <a href="https://extree.tech">extree.tech</a>
+            </div>
+        </footer>
+
+        <script>
+            document.getElementById('year').textContent = new Date().getFullYear();
+        </script>
+    </body>
+</html>
