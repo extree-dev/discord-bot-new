@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const { getWarnings, clearWarnings } = require('../../utils/warnings');
+const { getWarnings, clearWarnings, isExpired } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 
 module.exports = {
@@ -34,17 +34,22 @@ module.exports = {
             return interaction.reply({ embeds: [emptyEmbed], flags: MessageFlags.Ephemeral });
         }
 
+        // Истёкшие по давности (см. WARNING_DECAY_MS в utils/warnings.js) —
+        // не считаются при эскалации, но из истории не пропадают, поэтому
+        // показываем их здесь же, просто помечая отдельно.
+        const activeCount = warnings.filter(w => !isExpired(w)).length;
+
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
             .setDescription(
                 `${formatBody('Предупреждения')}\n\n${warnings
                     .map(
                         (w, i) =>
-                            `**${i + 1}.** ${w.reason} — от ${w.moderatorTag} (${new Date(w.date).toLocaleString('ru-RU')})`
+                            `**${i + 1}.** ${w.reason} — от ${w.moderatorTag} (${new Date(w.date).toLocaleString('ru-RU')})${isExpired(w) ? ' _(истёк — не считается при эскалации)_' : ''}`
                     )
                     .join('\n')}`
             )
-            .setFooter({ text: `Всего: ${warnings.length} · ID: ${target.id}` });
+            .setFooter({ text: `Активных: ${activeCount} · Всего: ${warnings.length} · ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

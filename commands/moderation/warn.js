@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
-const { addWarning } = require('../../utils/warnings');
+const { addWarning, getActiveWarnings } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 const { notifyPunishment } = require('../../utils/punishmentNotice');
 const security = require('../../security');
@@ -16,18 +16,22 @@ module.exports = {
         const target = interaction.options.getUser('user');
         const reason = interaction.options.getString('reason');
 
-        const warnings = await addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
+        await addWarning(interaction.guild.id, target.id, reason, interaction.user.tag);
+        const activeWarnings = await getActiveWarnings(interaction.guild.id, target.id);
 
         // Общая эскалация (3 предупреждения → тайм-аут, 5 → бан) — та же
         // функция, что использует automod, применяется к общему числу
         // варнов независимо от того, что они выданы вручную, а не
-        // automod'ом (см. security/escalation.js).
+        // automod'ом (см. security/escalation.js). Считаются только
+        // активные (не истёкшие по WARNING_DECAY_MS) варны — старые,
+        // "сгоревшие" от давности не должны разом утянуть в бан за одно
+        // новое нарушение.
         const member = await interaction.guild.members.fetch(target.id).catch(() => null);
         const escalation = member
             ? await security.applyWarningEscalation(
                   interaction.guild,
                   member,
-                  warnings.length,
+                  activeWarnings.length,
                   'Накопленные предупреждения'
               )
             : null;
@@ -39,7 +43,7 @@ module.exports = {
                 { name: 'Участник', value: `${target}`, inline: true },
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason },
-                { name: 'Всего предупреждений', value: `${warnings.length}`, inline: true }
+                { name: 'Активных предупреждений', value: `${activeWarnings.length}`, inline: true }
             )
             .setFooter({ text: `ID: ${target.id}` });
         if (escalation?.action === 'timeout') {

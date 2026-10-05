@@ -2,7 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const { load, isTrusted } = require('./config');
 const { log } = require('./logger');
 const { applyWarningEscalation } = require('./escalation');
-const { addWarning } = require('../utils/warnings');
+const { addWarning, getActiveWarnings } = require('../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const messageTimestamps = new Map();
@@ -36,7 +36,8 @@ function isPhishingLink(content) {
 
 async function violate(msg, reasonText) {
     await msg.delete().catch(() => {});
-    const warnings = await addWarning(msg.guild.id, msg.author.id, `[Automod] ${reasonText}`, 'Automod');
+    await addWarning(msg.guild.id, msg.author.id, `[Automod] ${reasonText}`, 'Automod');
+    const activeWarnings = await getActiveWarnings(msg.guild.id, msg.author.id);
 
     await log(
         msg.guild,
@@ -46,13 +47,13 @@ async function violate(msg, reasonText) {
                 { name: 'Участник', value: `${msg.author.tag} (${msg.author.id})`, inline: true },
                 { name: 'Канал', value: `${msg.channel}`, inline: true },
                 { name: 'Причина', value: reasonText },
-                { name: 'Предупреждений всего', value: `${warnings.length}` }
+                { name: 'Активных предупреждений', value: `${activeWarnings.length}` }
             )
     );
 
     const member = await msg.guild.members.fetch(msg.author.id).catch(() => null);
     if (!member) return;
-    await applyWarningEscalation(msg.guild, member, warnings.length, 'Automod');
+    await applyWarningEscalation(msg.guild, member, activeWarnings.length, 'Automod');
 }
 
 async function handle(msg) {
