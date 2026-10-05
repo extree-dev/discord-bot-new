@@ -162,3 +162,105 @@ h1 {
     color: var(--text-dim);
     font-size: 12px;
 }
+
+/* /admin — вход, отказ в доступе и форма редактирования визитки
+   (dashboard/siteViews.js). Переиспользует .card/.link сверху, просто
+   добавляет то, чего не было у исходной read-only визитки: форму. */
+.admin-card {
+    text-align: left;
+}
+
+.admin-card h1 {
+    text-align: center;
+}
+
+.admin-card > .bio {
+    text-align: center;
+}
+
+.admin-card--wide {
+    max-width: 480px;
+}
+
+.admin-cta {
+    display: flex;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    width: 100%;
+}
+
+.admin-notice {
+    margin: -8px 0 20px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(88, 101, 242, 0.15);
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
+}
+
+.admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.field input,
+.field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.admin-submit {
+    margin-top: 4px;
+}
+
+.admin-back {
+    display: block;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.admin-back:hover {
+    color: var(--text);
+}

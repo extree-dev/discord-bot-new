@@ -66,18 +66,26 @@ services:
                     sleep 86400
                 done
 
-    # Личный кабинет (bot.extree.tech/dashboard) — вход через Discord
-    # OAuth2, тот же образ, что у bot (build: .), просто другая команда
-    # запуска: отдельный лёгкий процесс вместо discord.js-клиента. Без
-    # Postgres — сессия целиком в зашифрованной cookie (dashboard/
-    # session.js), БД дашборду не нужна вообще. Наружу не публикуется
-    # (нет "ports") — достучаться можно только через Caddy по имени
-    # сервиса внутри docker-сети, см. web/Caddyfile.
+    # Личный кабинет (bot.extree.tech/dashboard) + редактор визитки
+    # (extree.tech/admin) — вход через Discord OAuth2, тот же образ, что
+    # у bot (build: .), просто другая команда запуска: отдельный лёгкий
+    # процесс вместо discord.js-клиента. Сессия — в зашифрованной cookie
+    # (dashboard/session.js), а вот контент визитки уже в Postgres
+    # (site/model.js), поэтому DATABASE_URL переопределяется так же, как
+    # у bot — иначе дашборд внутри контейнера пытался бы достучаться до
+    # localhost, которого тут нет. Наружу не публикуется (нет "ports") —
+    # достучаться можно только через Caddy по имени сервиса внутри
+    # docker-сети, см. web/Caddyfile.
     dashboard:
         build: .
         restart: unless-stopped
         env_file:
             - .env
+        environment:
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+        depends_on:
+            postgres:
+                condition: service_healthy
         command: ['node', 'dashboard/server.js']
 
     # Статические сайты (extree.tech — визитка, bot.extree.tech — страница

@@ -161,20 +161,27 @@ gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U di
 
 ### Сайты (`web/`)
 
-Два статических сайта на том же VPS, что и бот — отдельный сервис `caddy` в `docker-compose.yml`:
+Два сайта на том же VPS, что и бот — отдельный сервис `caddy` в `docker-compose.yml`:
 
-- **`extree.tech`** (`web/site/`) — визитка.
-- **`bot.extree.tech`** (`web/bot-site/`) — страница бота: описание, кнопка «Добавить на сервер», список фич.
+- **`extree.tech`** (`web/site/`) — визитка. Главная страница (`/`) теперь рендерится динамически из БД (`site/model.js`), а не отдаётся статичным `index.html` — редактируется на `/admin` (см. ниже). Статикой остаются только `styles.css` и `assets/`.
+- **`bot.extree.tech`** (`web/bot-site/`) — страница бота: описание, кнопка «Добавить на сервер», список фич. Полностью статична.
 
-Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443. Файлы сайтов отдаются прямо из рабочей копии репозитория (bind-mount, не образ) — обновление сайта это тот же `git pull`, что уже делает `deploy.yml` на каждый push в `main`, без отдельного шага.
+Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443. Статика отдаётся прямо из рабочей копии репозитория (bind-mount, не образ) — обновление это тот же `git pull`, что уже делает `deploy.yml` на каждый push в `main`, без отдельного шага.
 
-#### Личный кабинет (`dashboard/`, `bot.extree.tech/dashboard`)
+#### Личный кабинет и редактор визитки (`dashboard/`)
 
-Вход через Discord OAuth2 (только Discord — кабинет управляет Discord-серверами, узнать админ ли пользователь на каком-то сервере можно только через Discord-логин, Google/Apple на этот вопрос не отвечают). Версия "только просмотр": список серверов, где у вошедшего права администратора/владельца и уже добавлен бот.
+Один Node-процесс (`dashboard/server.js`) в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`), обслуживает две независимые фичи на двух доменах — обе через вход по Discord OAuth2 (только Discord, не Google/Apple: обе фичи отвечают на вопросы про Discord-сервера, на которые другие провайдеры попросту не знают ответа):
 
-Отдельный Node-процесс в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`), без БД: сессия целиком в одной httpOnly-cookie, зашифрованной AES-256-GCM (`dashboard/session.js`) — хранить нечего, кроме Discord access_token, которым каждый раз заново запрашиваются актуальные данные. Caddy проксирует на этот процесс только `/auth/*` и `/dashboard*` на `bot.extree.tech`, остальной сайт остаётся статикой (`web/Caddyfile`).
+- **`bot.extree.tech/dashboard`** — версия "только просмотр": список серверов, где у вошедшего права администратора/владельца и уже добавлен бот. Proxy на `/auth/*` и `/dashboard*`.
+- **`extree.tech/admin`** — редактор визитки (имя, роль, био, ссылки), доступен только тому, у кого есть право Administrator (или кто владелец) на сервере бота — `GUILD_ID` из `.env` (`dashboard/discordOAuth.js` `isSiteAdmin`). Proxy на `/auth/*`, `/` и `/admin*`.
 
-Для запуска нужны три переменные в `.env` на сервере (см. `.env.example`): `DISCORD_CLIENT_SECRET` (Discord Developer Portal → OAuth2 → Client Secret), `DISCORD_REDIRECT_URI` (должен точно совпадать со значением, добавленным в Discord Developer Portal → OAuth2 → Redirects: `https://bot.extree.tech/auth/discord/callback`) и `SESSION_SECRET` (случайная строка, `openssl rand -hex 32`). Без любой из них процесс `dashboard` откажется стартовать.
+Остальной путь на каждом домене (в т.ч. `/styles.css`, которым пользуются обе фичи) по-прежнему чистая статика (`web/Caddyfile`).
+
+Сессия логина — одна httpOnly-cookie, зашифрованная AES-256-GCM (`dashboard/session.js`), отдельно на каждом домене (cookie не шарится между `bot.extree.tech` и `extree.tech`) — хранить в ней нечего, кроме Discord access_token. redirect_uri для OAuth2 дашборд определяет сам по заголовку `Host` входящего запроса, поэтому в Discord Developer Portal → OAuth2 → Redirects должны быть зарегистрированы **оба** адреса: `https://bot.extree.tech/auth/discord/callback` и `https://extree.tech/auth/discord/callback`.
+
+Контент визитки (в отличие от сессии) хранится не в cookie, а в Postgres — одна строка в `bot_stores` через `site/model.js` (`utils/pgStore.js`, тот же примитив, что у остальной конфигурации бота) — иначе правки стирались бы при каждом `git reset --hard` на деплое, если бы писались прямо в `index.html`. Если БД на момент захода недоступна, `/` молча показывает дефолтный текст вместо падения.
+
+Для запуска нужны переменные в `.env` на сервере (см. `.env.example`): `DISCORD_CLIENT_SECRET` (Discord Developer Portal → OAuth2 → Client Secret), `SESSION_SECRET` (случайная строка, `openssl rand -hex 32`) и `GUILD_ID` (уже используется остальным ботом). Без любой из них процесс `dashboard` откажется стартовать.
 
 ## Структура проекта
 
@@ -197,8 +204,9 @@ adminPanel/                — панель администратора с кн
 utils/                     — общие хелперы (embeds, components, версия, безопасное хранение конфигов в Postgres)
 scripts/                   — одноразовые скрипты первоначальной настройки сервера
 data/                      — бэкапы структуры сервера (не в git)
-web/                       — статические сайты (extree.tech, bot.extree.tech) + Caddyfile
-dashboard/                 — личный кабинет (bot.extree.tech/dashboard), вход через Discord OAuth2
+web/                       — сайты (extree.tech, bot.extree.tech) + Caddyfile
+dashboard/                 — личный кабинет (bot.extree.tech/dashboard) и редактор визитки (extree.tech/admin), вход через Discord OAuth2
+site/                      — контент визитки extree.tech (имя/роль/био/ссылки), редактируется на /admin
 ```
 
 Конфигурация каждого модуля хранится одной JSONB-строкой в таблице `bot_stores` в PostgreSQL и читается/пишется через `utils/pgStore.js` — общий примитив, который делает read-modify-write атомарным через транзакцию с `SELECT ... FOR UPDATE`, чтобы параллельные взаимодействия (например, два обращения отправляются одновременно) не теряли изменения друг друга.

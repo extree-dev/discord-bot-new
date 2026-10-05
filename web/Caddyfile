@@ -10,8 +10,25 @@
 # каждый push в main.
 
 extree.tech, www.extree.tech {
-    root * /srv/site
-    file_server
+    # Визитка (dashboard/server.js) — тот же Node-процесс, что и личный
+    # кабинет на bot.extree.tech (один Express, разные роуты по Host).
+    # "/" теперь рендерится динамически из БД (редактируется на /admin),
+    # а не отдаётся статикой — поэтому index.html в web/site/ больше нет.
+    # /styles.css и /assets/* ни под один из этих префиксов не попадают
+    # и остаются чистой статикой.
+    handle / {
+        reverse_proxy dashboard:3000
+    }
+    handle /admin* {
+        reverse_proxy dashboard:3000
+    }
+    handle /auth/* {
+        reverse_proxy dashboard:3000
+    }
+    handle {
+        root * /srv/site
+        file_server
+    }
     encode gzip
 }
 
