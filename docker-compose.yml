@@ -66,6 +66,30 @@ services:
                     sleep 86400
                 done
 
+    # Статические сайты (extree.tech — визитка, bot.extree.tech — страница
+    # бота) + автоматический TLS от Let's Encrypt. Caddy сам запрашивает и
+    # продлевает сертификаты для доменов, перечисленных в web/Caddyfile —
+    # никакого отдельного certbot. Файлы сайтов монтируются прямо из
+    # рабочей копии репозитория (read-only) — обновление сайта требует
+    # только git pull, тот же, что уже делает deploy.yml на каждый push в
+    # main, без пересборки образа. caddy_data хранит сами сертификаты —
+    # без него каждый "docker compose up" заново запрашивал бы их у Let's
+    # Encrypt и быстро упёрся бы в лимит запросов на домен.
+    caddy:
+        image: caddy:2-alpine
+        restart: unless-stopped
+        ports:
+            - '80:80'
+            - '443:443'
+        volumes:
+            - ./web/Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./web/site:/srv/site:ro
+            - ./web/bot-site:/srv/bot-site:ro
+            - caddy_data:/data
+            - caddy_config:/config
+
 volumes:
     pgdata:
     bot-data:
+    caddy_data:
+    caddy_config:

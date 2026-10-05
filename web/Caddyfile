@@ -1,0 +1,22 @@
+# Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt для
+# доменов, перечисленных ниже — достаточно, чтобы их DNS A-записи
+# указывали на этот VPS и были открыты порты 80/443 (80 — для
+# ACME-challenge, 443 — сам HTTPS). Ручного certbot не требуется.
+#
+# Статика отдаётся напрямую из рабочей копии репозитория (см.
+# docker-compose.yml — каталоги web/site и web/bot-site примонтированы
+# в контейнер только на чтение) — обновление сайта не требует пересборки
+# образа, только git pull на сервере, который уже делает deploy.yml на
+# каждый push в main.
+
+extree.tech, www.extree.tech {
+    root * /srv/site
+    file_server
+    encode gzip
+}
+
+bot.extree.tech {
+    root * /srv/bot-site
+    file_server
+    encode gzip
+}
