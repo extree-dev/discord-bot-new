@@ -4,6 +4,7 @@ import type { SiteContent } from '../../entities/site-content/types';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { TextArea, TextField } from '../../shared/ui/Field';
+import { Notice } from '../../shared/ui/Notice';
 import { addLink, canAddLink, removeLink, toPayload, updateLink } from './model';
 import styles from './SiteContentForm.module.css';
 
@@ -33,8 +34,8 @@ export function SiteContentForm({ initial, maxLinks }: SiteContentFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className={styles.form}>
-            {status.kind === 'saved' && <p className={styles.notice}>Сохранено.</p>}
-            {status.kind === 'error' && <p className={styles.error}>{status.message}</p>}
+            {status.kind === 'saved' && <Notice variant="info">Сохранено.</Notice>}
+            {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
             <TextField
                 label="Имя"

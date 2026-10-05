@@ -5,10 +5,12 @@ import { SiteContentForm } from '../../features/edit-site-content/SiteContentFor
 import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { Card } from '../../shared/ui/Card';
+import { Notice } from '../../shared/ui/Notice';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
+import { AppShell } from '../../widgets/app-shell/AppShell';
 
 export function SiteAdminPage() {
-    const gate = useSiteAdminGate();
+    const { status, authError } = useSiteAdminGate();
     const [content, setContent] = useState<SiteContentResponse | null>(null);
 
     useEffect(() => {
@@ -16,7 +18,7 @@ export function SiteAdminPage() {
     }, []);
 
     useEffect(() => {
-        if (gate !== 'admin') return;
+        if (status !== 'admin') return;
         let cancelled = false;
         getSiteContent().then(c => {
             if (!cancelled) setContent(c);
@@ -24,38 +26,37 @@ export function SiteAdminPage() {
         return () => {
             cancelled = true;
         };
-    }, [gate]);
-
-    if (gate === 'loading') return null;
-
-    if (gate === 'logged-out') {
-        return (
-            <Card>
-                <h1>Редактирование визитки</h1>
-                <p>Войди через Discord — редактировать может только администратор сервера бота.</p>
-                <LoginButton />
-            </Card>
-        );
-    }
-
-    if (gate === 'denied') {
-        return (
-            <Card>
-                <h1>Нет доступа</h1>
-                <p>Редактировать визитку может только администратор сервера, на котором работает бот.</p>
-                <LogoutButton />
-            </Card>
-        );
-    }
-
-    if (!content) return null;
+    }, [status]);
 
     return (
-        <Card wide>
-            <h1>Редактирование визитки</h1>
-            <p>Правки применяются сразу — без деплоя. Пустой URL у ссылки делает её просто текстом.</p>
-            <SiteContentForm initial={content} maxLinks={content.maxLinks} />
-            <LogoutButton />
-        </Card>
+        <AppShell>
+            {status === 'logged-out' && (
+                <Card>
+                    <h1>Редактирование визитки</h1>
+                    <p>Войди через Discord — редактировать может только администратор сервера бота.</p>
+                    {authError && (
+                        <Notice variant="error">Вход не завершился — ссылка устарела. Попробуй ещё раз.</Notice>
+                    )}
+                    <LoginButton />
+                </Card>
+            )}
+
+            {status === 'denied' && (
+                <Card>
+                    <h1>Нет доступа</h1>
+                    <p>Редактировать визитку может только администратор сервера, на котором работает бот.</p>
+                    <LogoutButton />
+                </Card>
+            )}
+
+            {status === 'admin' && content && (
+                <Card wide>
+                    <h1>Редактирование визитки</h1>
+                    <p>Правки применяются сразу — без деплоя. Пустой URL у ссылки делает её просто текстом.</p>
+                    <SiteContentForm initial={content} maxLinks={content.maxLinks} />
+                    <LogoutButton />
+                </Card>
+            )}
+        </AppShell>
     );
 }

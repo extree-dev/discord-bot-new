@@ -5,6 +5,7 @@ import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { Checkbox } from '../../shared/ui/Checkbox';
 import { TextArea, TextField } from '../../shared/ui/Field';
+import { Notice } from '../../shared/ui/Notice';
 import { formatList, parseList, toPayload } from './model';
 import styles from './SecuritySettingsForm.module.css';
 
@@ -39,9 +40,9 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
     return (
         <form onSubmit={handleSubmit} className={styles.form}>
             {status.kind === 'saved' && (
-                <p className={styles.notice}>Сохранено — применяется сразу, без перезапуска бота.</p>
+                <Notice variant="info">Сохранено — применяется сразу, без перезапуска бота.</Notice>
             )}
-            {status.kind === 'error' && <p className={styles.error}>{status.message}</p>}
+            {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
             <section className={styles.section}>
                 <h2>Automod</h2>

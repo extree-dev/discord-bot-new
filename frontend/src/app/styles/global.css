@@ -1,12 +1,50 @@
 :root {
+    /* Нейтральная шкала (а не одна пара bg/bg-elevated) — такой подход
+       даёт реальную иерархию глубины между фоном/карточкой/полем ввода,
+       а не "всё одного серого цвета с рамками". */
+    --gray-950: #0a0b0f;
+    --gray-900: #111218;
+    --gray-850: #15161d;
+    --gray-800: #1b1d26;
+    --gray-700: #262933;
+    --gray-600: #363a46;
+    --gray-500: #565c6b;
+    --gray-400: #7d8396;
+    --gray-300: #a7acbc;
+    --gray-100: #e4e5ea;
+    --gray-50: #f7f7f9;
+
+    --bg: var(--gray-950);
+    --surface: var(--gray-900);
+    --surface-2: var(--gray-800);
+    --border: var(--gray-700);
+    --border-strong: var(--gray-600);
+
+    --text: var(--gray-50);
+    --text-dim: var(--gray-300);
+    --text-faint: var(--gray-400);
+
+    /* Один уверенный акцент (фирменный Discord blurple — это бот для
+       Discord, менять его на случайный градиент незачем), а не
+       accent+accent-2 "радужный AI-стартап" дуэт. */
     --accent: #5865f2;
-    --accent-2: #eb459e;
-    --bg: #0a0b14;
-    --bg-elevated: #14151f;
-    --border: #23253a;
-    --text: #f5f6fb;
-    --text-dim: #9a9cba;
-    --radius: 16px;
+    --accent-hover: #6e78f5;
+    --accent-ink: #ffffff;
+
+    --danger: #f2495c;
+    --danger-bg: rgba(242, 73, 92, 0.12);
+    --success-bg: rgba(88, 101, 242, 0.14);
+
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 22px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
+
+    color-scheme: dark;
 }
 
 * {
@@ -21,11 +59,6 @@ body,
 
 body {
     margin: 0;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     background: var(--bg);
     color: var(--text);
     font-family:
@@ -35,11 +68,24 @@ body {
         'Segoe UI',
         Roboto,
         sans-serif;
-    position: relative;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
-    padding: 32px 20px;
+}
+
+h1,
+h2 {
+    letter-spacing: -0.015em;
 }
 
 a {
     color: inherit;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--surface-2);
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.9em;
 }
