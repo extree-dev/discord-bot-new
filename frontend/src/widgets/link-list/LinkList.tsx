@@ -1,42 +1,58 @@
+import type { ReactElement } from 'react';
 import type { SiteLink } from '../../entities/site-content/types';
-import { Button } from '../../shared/ui/Button';
-import { LinkIcon, StaticLinkIcon } from '../../shared/ui/icons';
+import {
+    DiscordIcon,
+    GithubIcon,
+    GlobeIcon,
+    InstagramIcon,
+    TelegramIcon,
+    TwitterIcon,
+    YoutubeIcon,
+} from '../../shared/ui/icons';
+import { detectPlatform, type Platform } from './platform';
 import styles from './LinkList.module.css';
 
 interface LinkListProps {
     links: SiteLink[];
 }
 
-// Первая ссылка с URL оформляется как основной CTA (градиентная заливка),
-// остальные кликабельные — обычной кнопкой, чтобы не спорили за внимание.
-// Ссылки без URL (например "Discord: .extree") рендерятся как простой
-// текст-строка, а не кнопка — у них по смыслу нет действия по клику.
-export function LinkList({ links }: LinkListProps) {
-    let primaryUsed = false;
+const PLATFORM_ICON: Record<Platform, () => ReactElement> = {
+    discord: DiscordIcon,
+    telegram: TelegramIcon,
+    instagram: InstagramIcon,
+    twitter: TwitterIcon,
+    youtube: YoutubeIcon,
+    github: GithubIcon,
+    generic: GlobeIcon,
+};
 
+// Классический вид "линк-ин-био" (Linktree и подобные): все ссылки —
+// одинаковые пилюли-кнопки без деления на "главную" и остальные, иконка
+// слева подбирается по платформе (детект по домену/тексту — см.
+// platform.ts), а не одна общая иконка на всё. Ссылка без URL (например
+// "Discord: .extree" — просто контакт, не переход) рендерится тем же
+// пилюля-стилем, но не кликабельна.
+export function LinkList({ links }: LinkListProps) {
     return (
         <div className={styles.links}>
             {links.map((link, index) => {
-                if (!link.url) {
-                    return (
-                        <Button key={index} variant="static" icon={<StaticLinkIcon />} fullWidth disabled>
-                            {link.label}
-                        </Button>
-                    );
-                }
-                const isPrimary = !primaryUsed;
-                primaryUsed = true;
-                return (
-                    <Button
-                        key={index}
-                        href={link.url}
-                        variant={isPrimary ? 'primary' : 'default'}
-                        icon={<LinkIcon />}
-                        arrow
-                        fullWidth
-                    >
-                        {link.label}
-                    </Button>
+                const Icon = PLATFORM_ICON[detectPlatform(link)];
+                const content = (
+                    <>
+                        <span className={styles.icon}>
+                            <Icon />
+                        </span>
+                        <span className={styles.label}>{link.label}</span>
+                    </>
+                );
+                return link.url ? (
+                    <a key={index} className={styles.link} href={link.url} target="_blank" rel="noreferrer">
+                        {content}
+                    </a>
+                ) : (
+                    <span key={index} className={`${styles.link} ${styles.linkStatic}`}>
+                        {content}
+                    </span>
                 );
             })}
         </div>

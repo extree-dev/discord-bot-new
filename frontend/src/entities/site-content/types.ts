@@ -13,7 +13,3 @@ export interface SiteContent {
 export interface SiteContentResponse extends SiteContent {
     maxLinks: number;
 }
-
-export interface SiteAdminStatus {
-    isAdmin: boolean;
-}
