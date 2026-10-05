@@ -3,12 +3,21 @@ const { load } = require('./config');
 const model = require('./model');
 const { toMessage } = require('../utils/components');
 const { errorEmbed } = require('../utils/embeds');
+const security = require('../security');
 
 async function handleMessageCreate(message) {
     if (!message.guild || message.author.bot) return;
     const config = await load();
     if (!model.isModerated(config.moderatedChannelIds, message.channel.id)) return;
     if (!config.reviewChannelId) return;
+
+    // Модерация и доверенные участники (см. security/config.js isTrusted —
+    // тот же критерий, что уже обходит automod) публикуют без проверки.
+    // Без этого стафф не мог бы написать вообще ничего в собственном же
+    // проверяемом канале — его сообщения удалялись и уходили на
+    // одобрение ему самому, как и у любого другого участника.
+    const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+    if ((member && canModerate(member)) || (await security.isTrusted(message.guild, message.author.id))) return;
 
     const reviewChannel =
         message.guild.channels.cache.get(config.reviewChannelId) ??

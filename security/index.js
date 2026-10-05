@@ -41,4 +41,5 @@ module.exports = {
     isInviteLink: automod.isInviteLink,
     isPhishingLink: automod.isPhishingLink,
     applyWarningEscalation: escalation.applyWarningEscalation,
+    isTrusted: config.isTrusted,
 };
