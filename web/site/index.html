@@ -19,60 +19,40 @@
     <body>
         <div class="glow"></div>
 
-        <header class="nav">
-            <a class="nav__brand" href="#top">Extree</a>
-            <nav class="nav__links">
-                <a href="#about">Обо мне</a>
-                <a href="#project">Проект</a>
-                <a href="#contact">Контакты</a>
-            </nav>
-        </header>
+        <main class="card">
+            <img class="avatar" src="assets/avatar.jpg" alt="Extree" width="112" height="112" />
+            <h1>Extree</h1>
+            <p class="role">Разработчик Discord-ботов</p>
+            <p class="bio">
+                Проектирую и веду продакшн-бота для Discord — безопасность, тикеты поддержки, голосовые комнаты,
+                активность участников.
+            </p>
 
-        <main>
-            <section class="hero" id="top">
-                <div class="avatar">E</div>
-                <h1>Extree</h1>
-                <p class="hero__role">Разработчик Discord-ботов</p>
-                <p class="hero__lead">
-                    Проектирую и веду продакшн-бота для Discord — от модерации и безопасности сервера до инфраструктуры
-                    и деплоя.
-                </p>
-                <div class="actions">
-                    <a class="btn btn--primary" href="https://bot.extree.tech">Посмотреть Extree →</a>
-                    <a class="btn btn--ghost" href="#contact">Связаться</a>
-                </div>
-            </section>
-
-            <section class="section" id="about">
-                <h2>Чем занимаюсь</h2>
-                <div class="chips">
-                    <span class="chip">Discord-боты</span>
-                    <span class="chip">Node.js</span>
-                    <span class="chip">PostgreSQL</span>
-                    <span class="chip">Docker</span>
-                    <span class="chip">CI/CD</span>
-                </div>
-            </section>
-
-            <section class="section" id="project">
-                <h2>Проект</h2>
-                <a class="project-card" href="https://bot.extree.tech">
-                    <div class="project-card__icon">E</div>
-                    <div class="project-card__body">
-                        <h3>Extree</h3>
-                        <p>
-                            Бот модерации для Discord: безопасность, тикеты поддержки, временные голосовые комнаты,
-                            уровни активности.
-                        </p>
-                        <span class="link-arrow">bot.extree.tech →</span>
-                    </div>
+            <div class="links">
+                <a class="link link--primary" href="https://bot.extree.tech">
+                    <span class="link__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm-8 13-7-5 1.2-1.6L12 14.7l5.8-4.3L19 12Z"
+                            />
+                        </svg>
+                    </span>
+                    <span class="link__label">Extree — бот модерации</span>
+                    <span class="link__arrow">→</span>
                 </a>
-            </section>
+                <span class="link link--static">
+                    <span class="link__icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M20.3 5.3A17.6 17.6 0 0 0 15.9 4l-.3.6a15 15 0 0 1 3.9 1.5 16.6 16.6 0 0 0-13 0 15 15 0 0 1 4-1.5L10.1 4a17.6 17.6 0 0 0-4.4 1.3C2.8 9 2 12.6 2.3 16.2A17.8 17.8 0 0 0 7.6 19l.8-1.3a11 11 0 0 1-1.8-.9c.2-.1.3-.2.5-.3a12.7 12.7 0 0 0 10.2 0l.5.3c-.6.3-1.2.6-1.8.9l.8 1.3a17.8 17.8 0 0 0 5.3-2.8c.4-4.1-.6-7.7-2.8-11Zm-11 9c-1 0-1.7-.9-1.7-2s.8-2 1.7-2c1 0 1.8.9 1.7 2 0 1.1-.8 2-1.7 2Zm6.4 0c-.9 0-1.7-.9-1.7-2s.8-2 1.7-2c1 0 1.8.9 1.7 2 0 1.1-.7 2-1.7 2Z"
+                            />
+                        </svg>
+                    </span>
+                    <span class="link__label">Discord: .extree</span>
+                </span>
+            </div>
         </main>
 
-        <footer class="footer" id="contact">
-            <span>Discord: .extree</span>
-            <span>© Extree</span>
-        </footer>
+        <footer class="footer">© Extree</footer>
     </body>
 </html>

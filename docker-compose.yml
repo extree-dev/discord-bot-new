@@ -66,6 +66,20 @@ services:
                     sleep 86400
                 done
 
+    # Личный кабинет (bot.extree.tech/dashboard) — вход через Discord
+    # OAuth2, тот же образ, что у bot (build: .), просто другая команда
+    # запуска: отдельный лёгкий процесс вместо discord.js-клиента. Без
+    # Postgres — сессия целиком в зашифрованной cookie (dashboard/
+    # session.js), БД дашборду не нужна вообще. Наружу не публикуется
+    # (нет "ports") — достучаться можно только через Caddy по имени
+    # сервиса внутри docker-сети, см. web/Caddyfile.
+    dashboard:
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
+        command: ['node', 'dashboard/server.js']
+
     # Статические сайты (extree.tech — визитка, bot.extree.tech — страница
     # бота) + автоматический TLS от Let's Encrypt. Caddy сам запрашивает и
     # продлевает сертификаты для доменов, перечисленных в web/Caddyfile —

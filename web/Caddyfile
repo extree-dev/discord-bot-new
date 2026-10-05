@@ -16,7 +16,20 @@ extree.tech, www.extree.tech {
 }
 
 bot.extree.tech {
-    root * /srv/bot-site
-    file_server
+    # Личный кабинет (dashboard/server.js) — отдельный Node-процесс в
+    # том же docker-compose, сервис "dashboard", порт 3000 внутри сети
+    # контейнеров. Только эти два префикса проксируются туда, остальной
+    # сайт (в т.ч. сам /styles.css, которым пользуются и страницы
+    # кабинета) по-прежнему чистая статика.
+    handle /auth/* {
+        reverse_proxy dashboard:3000
+    }
+    handle /dashboard* {
+        reverse_proxy dashboard:3000
+    }
+    handle {
+        root * /srv/bot-site
+        file_server
+    }
     encode gzip
 }
