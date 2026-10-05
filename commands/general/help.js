@@ -21,11 +21,21 @@ function isVisibleTo(command, member) {
     return member.permissions.has(BigInt(required));
 }
 
+// Контекстные команды (ApplicationCommandType.Message/User, type 2/3 —
+// "Пожаловаться на сообщение" в commands/contextMenu/) вызываются через
+// правый клик, а не вводом "/имя", и у них в принципе нет поля description
+// (Discord не позволяет его задать). Показывать их строкой "`/имя` —
+// undefined" было бы просто неверно — /help перечисляет только обычные
+// слэш-команды (type 1).
+function isSlashCommand(command) {
+    return (command.data.toJSON().type ?? 1) === 1;
+}
+
 module.exports = {
     data: new SlashCommandBuilder().setName('help').setDescription('Показать список всех доступных команд'),
 
     async execute(interaction) {
-        const allCommands = loadCommands();
+        const allCommands = loadCommands().filter(isSlashCommand);
         const commands = allCommands.filter(command => isVisibleTo(command, interaction.member));
 
         const byCategory = new Map();

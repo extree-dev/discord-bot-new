@@ -180,7 +180,13 @@ client.on('interactionCreate', async interaction => {
             return;
     }
 
-    if (!interaction.isChatInputCommand()) return;
+    // isMessageContextMenuCommand() — контекстные команды по правому клику
+    // на сообщении (commands/contextMenu/, например "Пожаловаться на
+    // сообщение"); используют тот же client.commands по имени, что и
+    // слэш-команды, просто без привязки к конкретному текстовому каналу
+    // (их и так вызывают прямо из контекста сообщения, а не вводом
+    // "/имя") — поэтому ограничение /commands-channel ниже их не касается.
+    if (!interaction.isChatInputCommand() && !interaction.isMessageContextMenuCommand()) return;
 
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
