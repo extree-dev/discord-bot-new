@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import styles from './Field.module.css';
 
 interface FieldWrapperProps {
@@ -32,6 +32,26 @@ export function TextArea({ label, id, ...rest }: TextAreaProps) {
     return (
         <FieldWrapper label={label} htmlFor={id}>
             <textarea id={id} {...rest} />
+        </FieldWrapper>
+    );
+}
+
+type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
+    label: string;
+    id: string;
+    options: { value: string; label: string }[];
+};
+
+export function SelectField({ label, id, options, ...rest }: SelectFieldProps) {
+    return (
+        <FieldWrapper label={label} htmlFor={id}>
+            <select id={id} {...rest}>
+                {options.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                    </option>
+                ))}
+            </select>
         </FieldWrapper>
     );
 }

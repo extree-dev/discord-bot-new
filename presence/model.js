@@ -72,30 +72,57 @@ async function applyActivity(client, config, item) {
     });
 }
 
+function currentItem(config) {
+    return config.rotate && config.rotateItems.length
+        ? config.rotateItems[config.rotateIndex % config.rotateItems.length]
+        : config.activity;
+}
+
+function signatureFor(config) {
+    return JSON.stringify({ status: config.status, item: currentItem(config) });
+}
+
+// Отпечаток того, что сейчас реально выставлено — чтобы в tick() заметить
+// правку, внесённую не через /status, а через дашборд (dashboard/server.js
+// пишет в ту же БД напрямую, у него нет живого discord.js-клиента, чтобы
+// вызвать setPresence сразу), и применить её без перезапуска бота.
+let lastAppliedSignature = null;
+
 // Вызывается при старте бота и сразу после любого изменения через
 // /status — применяет то, что сейчас актуально (текущий пункт ротации
 // или фиксированный статус), не дожидаясь следующего тика.
 async function applyCurrentPresence(client) {
     const config = await load();
-    if (config.rotate && config.rotateItems.length) {
-        const index = config.rotateIndex % config.rotateItems.length;
-        await applyActivity(client, config, config.rotateItems[index]);
-    } else {
-        await applyActivity(client, config, config.activity);
-    }
+    await applyActivity(client, config, currentItem(config));
+    lastAppliedSignature = signatureFor(config);
 }
 
 async function tick(client) {
     const config = await load();
-    if (!config.rotate || config.rotateItems.length < 2) return;
-    if (Date.now() - config.lastRotatedAt < config.rotateIntervalMs) return;
 
-    const nextIndex = (config.rotateIndex + 1) % config.rotateItems.length;
-    await update(cfg => {
-        cfg.rotateIndex = nextIndex;
-        cfg.lastRotatedAt = Date.now();
-    });
-    await applyActivity(client, config, config.rotateItems[nextIndex]);
+    if (
+        config.rotate &&
+        config.rotateItems.length >= 2 &&
+        Date.now() - config.lastRotatedAt >= config.rotateIntervalMs
+    ) {
+        const nextIndex = (config.rotateIndex + 1) % config.rotateItems.length;
+        await update(cfg => {
+            cfg.rotateIndex = nextIndex;
+            cfg.lastRotatedAt = Date.now();
+        });
+        await applyActivity(client, config, config.rotateItems[nextIndex]);
+        lastAppliedSignature = signatureFor({ ...config, rotateIndex: nextIndex });
+        return;
+    }
+
+    // Не время (или нечего) вращать — следим, не изменился ли сам
+    // конфиг (дашборд), и догоняем в пределах TICK_MS без ожидания
+    // следующей смены пункта ротации.
+    const signature = signatureFor(config);
+    if (signature !== lastAppliedSignature) {
+        await applyActivity(client, config, currentItem(config));
+        lastAppliedSignature = signature;
+    }
 }
 
 function start(client) {

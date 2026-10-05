@@ -148,6 +148,12 @@ body::before {
     gap: 28px;
 }
 
+.nav__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .nav__links a {
     color: var(--text-dim);
     text-decoration: none;
