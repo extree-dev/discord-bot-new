@@ -9,8 +9,9 @@
     flex-direction: column;
     gap: 14px;
     padding: 18px;
+    background: var(--surface-2);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius-md);
 }
 
 .section h2 {
@@ -23,24 +24,4 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 12px;
-}
-
-.notice {
-    margin: 0;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: rgba(88, 101, 242, 0.15);
-    color: var(--text);
-    font-size: 13px;
-    text-align: center;
-}
-
-.error {
-    margin: 0;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: rgba(237, 66, 69, 0.15);
-    color: #ff8a8a;
-    font-size: 13px;
-    text-align: center;
 }

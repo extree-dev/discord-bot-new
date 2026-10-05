@@ -1,0 +1,19 @@
+.info,
+.error {
+    margin: 0 0 16px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.info {
+    background: var(--success-bg);
+    color: var(--text);
+}
+
+.error {
+    background: var(--danger-bg);
+    color: #ff9aa6;
+}

@@ -1,29 +1,37 @@
-.glow {
-    position: absolute;
-    top: -260px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 900px;
-    height: 650px;
-    background: radial-gradient(circle, rgba(88, 101, 242, 0.35) 0%, rgba(235, 69, 158, 0.12) 45%, transparent 70%);
-    filter: blur(40px);
-    pointer-events: none;
-    z-index: 0;
-}
-
 .card {
     position: relative;
-    z-index: 1;
     width: 100%;
-    max-width: 380px;
+    max-width: 400px;
+    padding: 36px 32px;
     text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+}
+
+.card h1 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.card > p {
+    margin: 0 0 28px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
 }
 
 .wide {
-    max-width: 480px;
+    max-width: 540px;
     text-align: left;
 }
 
-.wide > h1 {
+.wide h1 {
+    text-align: center;
+}
+
+.wide > p:first-of-type {
     text-align: center;
 }

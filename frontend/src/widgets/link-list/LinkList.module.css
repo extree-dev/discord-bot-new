@@ -13,39 +13,46 @@
     gap: 10px;
     width: 100%;
     padding: 15px 20px;
-    border-radius: 999px;
-    background: var(--bg-elevated);
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     color: var(--text);
     text-decoration: none;
     font-weight: 600;
     font-size: 15px;
+    box-shadow: var(--shadow-sm);
     transition:
         transform 0.15s ease,
         border-color 0.15s ease,
-        background 0.15s ease;
+        background 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 a.link:hover {
     transform: translateY(-2px);
     border-color: var(--accent);
-    background: var(--bg-elevated);
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
 }
 
 .linkStatic {
-    color: var(--text-dim);
+    color: var(--text-faint);
     cursor: default;
 }
 
 .icon {
     position: absolute;
-    left: 20px;
+    left: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 30px;
+    height: 30px;
     flex: none;
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--text-dim);
+    padding: 7px;
 }
 
 .icon svg {

@@ -7,10 +7,5 @@ interface CardProps {
 }
 
 export function Card({ children, wide = false }: CardProps) {
-    return (
-        <>
-            <div className={styles.glow} />
-            <main className={wide ? `${styles.card} ${styles.wide}` : styles.card}>{children}</main>
-        </>
-    );
+    return <div className={wide ? `${styles.card} ${styles.wide}` : styles.card}>{children}</div>;
 }

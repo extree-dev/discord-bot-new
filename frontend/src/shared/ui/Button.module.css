@@ -1,10 +1,10 @@
 .base {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    border-radius: 14px;
-    background: var(--bg-elevated);
+    gap: 10px;
+    padding: 13px 18px;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     color: var(--text);
     text-decoration: none;
@@ -15,32 +15,54 @@
     cursor: pointer;
     transition:
         border-color 0.15s ease,
-        transform 0.15s ease;
+        background 0.15s ease,
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 .base:hover {
-    border-color: var(--accent);
-    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    background: var(--surface);
+}
+
+.base:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.base:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
 }
 
 .primary {
-    background: linear-gradient(135deg, var(--accent), #4752c4);
-    border-color: transparent;
-    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 8px 20px -8px rgba(88, 101, 242, 0.65);
+}
+
+.primary:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -8px rgba(88, 101, 242, 0.75);
 }
 
 .static {
-    color: var(--text-dim);
+    color: var(--text-faint);
     cursor: default;
 }
 
 .static:hover {
     border-color: var(--border);
-    transform: none;
+    background: var(--surface-2);
 }
 
 .ghost {
     background: transparent;
+    border-color: transparent;
     justify-content: center;
     color: var(--text-dim);
     font-size: 13px;
@@ -48,8 +70,8 @@
 
 .ghost:hover {
     color: var(--text);
+    background: var(--surface-2);
     border-color: var(--border);
-    transform: none;
 }
 
 .fullWidth {
