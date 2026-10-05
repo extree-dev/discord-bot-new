@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 const moderation = require('../../moderation');
+const cases = require('../../cases');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -58,6 +59,14 @@ module.exports = {
             });
         }
 
+        const caseId = await cases.addCase(interaction.guild.id, 'ban', {
+            targetId: target.id,
+            targetTag: target.tag,
+            moderatorTag: interaction.user.tag,
+            reason,
+            extra: durationDays ? `Временный, ${durationDays} дн.` : undefined,
+        });
+
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
             .setDescription(formatBody('Участник забанен'))
@@ -66,7 +75,7 @@ module.exports = {
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason }
             )
-            .setFooter({ text: `ID: ${target.id}` });
+            .setFooter({ text: `Дело №${caseId} · ID: ${target.id}` });
         if (durationDays) {
             embed.addFields({ name: 'Срок', value: `Авторазбан через ${durationDays} дн.` });
         }

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
+const cases = require('../../cases');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -29,6 +30,13 @@ module.exports = {
 
         await member.kick(reason);
 
+        const caseId = await cases.addCase(interaction.guild.id, 'kick', {
+            targetId: target.id,
+            targetTag: target.tag,
+            moderatorTag: interaction.user.tag,
+            reason,
+        });
+
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
             .setDescription(formatBody('Участник кикнут'))
@@ -37,7 +45,7 @@ module.exports = {
                 { name: 'Модератор', value: `${interaction.user}`, inline: true },
                 { name: 'Причина', value: reason }
             )
-            .setFooter({ text: `ID: ${target.id}` });
+            .setFooter({ text: `Дело №${caseId} · ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
