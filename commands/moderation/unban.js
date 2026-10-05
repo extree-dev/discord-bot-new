@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
+const moderation = require('../../moderation');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -19,7 +20,12 @@ module.exports = {
             });
         }
 
-        await interaction.guild.members.unban(userId);
+        // moderation.unbanMember(), а не interaction.guild.members.unban()
+        // напрямую — снимает и запись о временном бане (moderation/model.js
+        // tempBans), если она есть, иначе sweep.js потом попробовал бы
+        // разбанить уже разбаненного вручную участника по истечении срока
+        // (не ошибка сама по себе, но бессмысленный лишний вызов API).
+        await moderation.unbanMember(interaction.guild, userId);
 
         const embed = baseEmbed(COLORS.success)
             .setDescription(formatBody('Пользователь разбанен'))

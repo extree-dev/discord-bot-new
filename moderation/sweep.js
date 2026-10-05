@@ -19,6 +19,16 @@ async function runOnce(client) {
         await model.unmuteMember(guild, userId, { auto: true }).catch(err => console.error('moderation sweep:', err));
     }
 
+    // Та же форма записи (guildId_userId -> {expiresAt}), что у мутов —
+    // findExpiredMutes() одинаково годится для обоих сторов, заводить
+    // отдельную копию той же логики под другим именем незачем.
+    const tempBanData = await model.loadTempBans();
+    for (const { guildId, userId } of model.findExpiredMutes(tempBanData, now)) {
+        const guild = client.guilds.cache.get(guildId) ?? (await client.guilds.fetch(guildId).catch(() => null));
+        if (!guild) continue;
+        await model.unbanMember(guild, userId, { auto: true }).catch(err => console.error('moderation sweep:', err));
+    }
+
     await punishmentNotice.sweepExpiredNoticeThreads(client).catch(err => console.error('moderation sweep:', err));
 }
 

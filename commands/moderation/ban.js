@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
+const moderation = require('../../moderation');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -14,12 +15,20 @@ module.exports = {
                 .setMinValue(0)
                 .setMaxValue(7)
         )
+        .addIntegerOption(option =>
+            option
+                .setName('duration_days')
+                .setDescription('Снять бан автоматически через N дней (без этого — навсегда)')
+                .setMinValue(1)
+                .setMaxValue(365)
+        )
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
         const target = interaction.options.getUser('user');
         const reason = interaction.options.getString('reason') ?? 'Причина не указана';
         const deleteDays = interaction.options.getInteger('delete_days') ?? 0;
+        const durationDays = interaction.options.getInteger('duration_days');
         const member = await interaction.guild.members.fetch(target.id).catch(() => null);
 
         if (member && !member.bannable) {
@@ -34,10 +43,20 @@ module.exports = {
         // тред, а не ЛС, а забаненный участник теряет доступ вообще ко
         // всем каналам/тредам гильдии, включая тот, куда его успели бы
         // добавить до бана. Прочитать он его всё равно не сможет.
-        await interaction.guild.members.ban(target.id, {
-            deleteMessageSeconds: deleteDays * 24 * 60 * 60,
-            reason,
-        });
+        if (durationDays) {
+            await moderation.tempBanMember(
+                interaction.guild,
+                target.id,
+                durationDays * 24 * 60 * 60 * 1000,
+                deleteDays * 24 * 60 * 60,
+                reason
+            );
+        } else {
+            await interaction.guild.members.ban(target.id, {
+                deleteMessageSeconds: deleteDays * 24 * 60 * 60,
+                reason,
+            });
+        }
 
         const embed = baseEmbed(COLORS.danger)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
@@ -48,6 +67,9 @@ module.exports = {
                 { name: 'Причина', value: reason }
             )
             .setFooter({ text: `ID: ${target.id}` });
+        if (durationDays) {
+            embed.addFields({ name: 'Срок', value: `Авторазбан через ${durationDays} дн.` });
+        }
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

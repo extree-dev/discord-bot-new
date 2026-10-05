@@ -22,6 +22,14 @@ const securityConfig = require('../security/config');
 const STORE_NAME = 'mutes';
 const store = createStore(STORE_NAME, {});
 
+// Временный бан — тот же принцип, что у мута выше: нативный бан Discord
+// не хранит срок сам, поэтому держим его отдельно и снимаем по тику
+// (moderation/sweep.js), как и истёкшие муты. Отдельный стор, не тот же
+// "mutes" — разная природа записи (банить не нужно ни оверрайтов, ни
+// роли), смешивать их в одном сторе было бы просто путаницей по имени.
+const TEMP_BAN_STORE_NAME = 'tempBans';
+const tempBanStore = createStore(TEMP_BAN_STORE_NAME, {});
+
 // Набор прав, которые роль Muted запрещает — "говорить" (текст, реакции,
 // голос) и использовать слэш-команды. НЕ ViewChannel (участник должен
 // по-прежнему видеть сервер, чтобы понимать контекст своей апелляции) и
@@ -139,6 +147,36 @@ function findExpiredMutes(data, now) {
         .filter(({ entry }) => entry.expiresAt <= now);
 }
 
+// durationMs — срок, после которого sweep.js снимет бан автоматически.
+// Та же причина для разброса отсутствия лимита, что у muteMember —
+// постоянного бана это не трогает вообще, он как был вызовом
+// guild.members.ban() напрямую в commands/moderation/ban.js, так и
+// остался, этот путь используется только когда указана длительность.
+async function tempBanMember(guild, userId, durationMs, deleteMessageSeconds, reason) {
+    await guild.members.ban(userId, { deleteMessageSeconds, reason });
+    const expiresAt = Date.now() + durationMs;
+    await tempBanStore.update(data => {
+        data[muteKey(guild.id, userId)] = { expiresAt, reason, bannedAt: Date.now() };
+    });
+    return { expiresAt };
+}
+
+// auto — та же семантика, что у unmuteMember: отличает автоматическое
+// снятие по sweep.js от ручного /unban для текста аудит-лога Discord.
+// Используется и для снятия постоянных банов — запись в tempBans там
+// просто не найдётся (hadRecord останется false), это не ошибка: ручной
+// /unban должен снимать бан независимо от того, был он временным или не.
+async function unbanMember(guild, userId, { auto = false } = {}) {
+    await guild.members.unban(userId, auto ? 'Срок временного бана истёк' : 'Разбан вручную').catch(() => {});
+    let hadRecord = false;
+    await tempBanStore.update(data => {
+        const key = muteKey(guild.id, userId);
+        if (data[key]) hadRecord = true;
+        delete data[key];
+    });
+    return { wasTempBanned: hadRecord };
+}
+
 module.exports = {
     load: store.load,
     muteMember,
@@ -147,4 +185,8 @@ module.exports = {
     applyMuteOverwrite,
     findExpiredMutes,
     storeName: STORE_NAME,
+    loadTempBans: tempBanStore.load,
+    tempBanMember,
+    unbanMember,
+    tempBanStoreName: TEMP_BAN_STORE_NAME,
 };

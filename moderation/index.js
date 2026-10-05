@@ -37,4 +37,7 @@ module.exports = {
     getMutedRole: model.getMutedRole,
     applyMuteOverwrite: model.applyMuteOverwrite,
     getConfig: model.load,
+    tempBanMember: model.tempBanMember,
+    unbanMember: model.unbanMember,
+    getTempBanConfig: model.loadTempBans,
 };
