@@ -23,6 +23,7 @@
             <a class="nav__brand" href="#top"><span class="nav__badge">E</span>Extree</a>
             <nav class="nav__links">
                 <a href="#features">Возможности</a>
+                <a href="#how">Как подключить</a>
                 <a href="/dashboard">Кабинет</a>
                 <a href="https://extree.tech">Автор</a>
             </nav>
@@ -77,8 +78,9 @@
                 </div>
             </section>
 
-            <section class="features" id="features">
-                <h2>Что внутри</h2>
+            <section class="section" id="features">
+                <p class="section__kicker">Возможности</p>
+                <h2 class="section__title">Что внутри</h2>
                 <div class="feature-grid">
                     <article class="feature">
                         <div class="feature__icon">
@@ -194,11 +196,76 @@
                     </article>
                 </div>
             </section>
+
+            <section class="section" id="how">
+                <p class="section__kicker">Запуск</p>
+                <h2 class="section__title">Как подключить</h2>
+                <div class="steps">
+                    <div class="step">
+                        <span class="step__num">1</span>
+                        <h3>Добавь на сервер</h3>
+                        <p>Кнопка выше запросит права администратора — без них часть защитных функций не сработает.</p>
+                    </div>
+                    <div class="step">
+                        <span class="step__num">2</span>
+                        <h3>Открой кабинет</h3>
+                        <p>
+                            Войди через Discord в <a href="/dashboard">личном кабинете</a> — доступно администратору
+                            сервера, на котором работает бот.
+                        </p>
+                    </div>
+                    <div class="step">
+                        <span class="step__num">3</span>
+                        <h3>Настрой и забудь</h3>
+                        <p>Включи нужные модули в кабинете или командами в Discord — дальше бот работает сам.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="cta-band">
+                <h2>Готов навести порядок на сервере?</h2>
+                <p>Бесплатно, без скрытых ограничений функций. Подключается за минуту.</p>
+                <a
+                    class="btn btn--primary"
+                    href="https://discord.com/oauth2/authorize?client_id=1549120490738548737&permissions=8&scope=bot%20applications.commands"
+                    >Добавить на сервер</a
+                >
+            </div>
         </main>
 
         <footer class="footer">
-            <span>Extree</span>
-            <a href="https://extree.tech">extree.tech</a>
+            <div class="footer__top">
+                <div>
+                    <a class="footer__brand" href="#top"><span class="nav__badge">E</span>Extree</a>
+                    <p class="footer__tagline">
+                        Бот модерации для Discord: безопасность, поддержка, голосовые комнаты и активность участников в
+                        одном месте.
+                    </p>
+                </div>
+                <div>
+                    <p class="footer__heading">Навигация</p>
+                    <ul class="footer__links">
+                        <li><a href="#features">Возможности</a></li>
+                        <li><a href="#how">Как подключить</a></li>
+                        <li><a href="/dashboard">Личный кабинет</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <p class="footer__heading">Правовая информация</p>
+                    <ul class="footer__links">
+                        <li><a href="/privacy.html">Политика конфиденциальности</a></li>
+                        <li><a href="/terms.html">Условия использования</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer__bottom">
+                <span>© <span id="year"></span> Extree</span>
+                <a href="https://extree.tech">extree.tech</a>
+            </div>
         </footer>
+
+        <script>
+            document.getElementById('year').textContent = new Date().getFullYear();
+        </script>
     </body>
 </html>
