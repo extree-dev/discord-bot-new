@@ -28,6 +28,9 @@ bot.extree.tech {
     handle /auth/* {
         reverse_proxy dashboard:3000
     }
+    handle /api/* {
+        reverse_proxy dashboard:3000
+    }
     handle /dashboard* {
         reverse_proxy dashboard:3000
     }
