@@ -17,6 +17,8 @@ const CREATE_MODAL_ID = 'ticket_modal_create';
 const CREATE_MODAL_MESSAGE_ID = 'ticket_modal_create:message';
 const TARGET_INPUT_ID = 'ticket_target_input';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
+const APPEAL_MODAL_ID = 'ticket_modal_appeal';
+const APPEAL_REASON_INPUT_ID = 'ticket_appeal_reason_input';
 const PUNISH_BUTTON_PREFIX = 'ticket_punish:';
 const PUNISH_SELECT_PREFIX = 'ticket_punish_select:';
 const MGMT_LIST_BUTTON_ID = 'ticket_mgmt_list';
@@ -85,6 +87,87 @@ async function handleCreateModal(interaction, kind) {
         console.error('tickets: не удалось обработать отправку жалобы:', err);
         await interaction
             .editReply({ embeds: [errorEmbed('Не получилось открыть тикет — попробуй ещё раз чуть позже.')] })
+            .catch(() => {});
+    }
+}
+
+// Модалка апелляции — одно поле, показывается только когда до конца мута
+// ещё далеко (см. model.getAppealStatus/handleAppealButton ниже); на
+// коротком хвосте срока мут снимается сразу по клику, без набора причины.
+function buildAppealModal() {
+    const modal = new ModalBuilder().setCustomId(APPEAL_MODAL_ID).setTitle('Апелляция на мут');
+    const reasonInput = new TextInputBuilder()
+        .setCustomId(APPEAL_REASON_INPUT_ID)
+        .setLabel('Почему мут нужно снять раньше срока')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Объясни модерации, почему наказание стоит пересмотреть.')
+        .setMaxLength(1000)
+        .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+    return modal;
+}
+
+// Кнопка "Подать апелляцию" на той же панели, что "Жалоба на игрока" —
+// не слэш-команда (см. model.APPEAL_BUTTON_ID), потому что роль Muted
+// лишена UseApplicationCommands на каждом канале сервера и физически не
+// смогла бы вызвать команду. Проверяем мут ДО показа модалки — бессмысленно
+// просить причину у того, кому нечего апеллировать, или у кого мут и так
+// снимется в ближайшие минуты.
+async function handleAppealButton(interaction) {
+    const status = await model.getAppealStatus(interaction.guild, interaction.user.id);
+    if (!status.hasMute) {
+        await interaction.reply({
+            embeds: [
+                infoEmbed(
+                    'У тебя нет активного мута — апеллировать нечего. Апелляция на бан через бота недоступна: забаненный теряет доступ ко всем каналам и командам сервера, включая эту панель, — обратись к администрации напрямую.',
+                    'Нет активного мута'
+                ),
+            ],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+    if (status.requiresReason) {
+        await interaction.showModal(buildAppealModal());
+        return;
+    }
+    await model.submitAppeal(interaction.guild, interaction.user, null);
+    await interaction.reply({
+        embeds: [successEmbed('Срок мута почти истёк — снят автоматически.', 'Мут снят')],
+        flags: MessageFlags.Ephemeral,
+    });
+}
+
+async function handleAppealModal(interaction) {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    try {
+        const reason = interaction.fields.getTextInputValue(APPEAL_REASON_INPUT_ID).trim();
+        const result = await model.submitAppeal(interaction.guild, interaction.user, reason);
+        if (result.error) {
+            await interaction.editReply({
+                embeds: [infoEmbed('У тебя нет активного мута — апеллировать нечего.', 'Нет активного мута')],
+            });
+            return;
+        }
+        if (result.autoApproved) {
+            await interaction.editReply({
+                embeds: [successEmbed('Срок мута почти истёк — снят автоматически.', 'Мут снят')],
+            });
+            return;
+        }
+        await interaction.editReply({
+            embeds: [
+                infoEmbed(
+                    'Апелляция отправлена на рассмотрение модерации. Решат снять мут раньше срока — сделают это вручную.',
+                    'Отправлено'
+                ),
+            ],
+        });
+    } catch (err) {
+        console.error('tickets: не удалось обработать апелляцию:', err);
+        await interaction
+            .editReply({ embeds: [errorEmbed('Не получилось отправить апелляцию — попробуй ещё раз чуть позже.')] })
             .catch(() => {});
     }
 }
@@ -356,6 +439,10 @@ async function handleButton(interaction) {
         await handleOpenButton(interaction);
         return true;
     }
+    if (interaction.customId === model.APPEAL_BUTTON_ID) {
+        await handleAppealButton(interaction);
+        return true;
+    }
     if (interaction.customId.startsWith(PUNISH_BUTTON_PREFIX)) {
         await handlePunishButton(interaction);
         return true;
@@ -406,6 +493,10 @@ async function handleModalSubmit(interaction) {
     }
     if (interaction.customId === CREATE_MODAL_MESSAGE_ID) {
         await handleCreateModal(interaction, 'message');
+        return true;
+    }
+    if (interaction.customId === APPEAL_MODAL_ID) {
+        await handleAppealModal(interaction);
         return true;
     }
     return false;
