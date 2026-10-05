@@ -229,6 +229,38 @@ test('buildThreadWelcomeMessage: только информационный ко�
     assert.equal(withoutTarget.length, 1);
 });
 
+test('buildThreadWelcomeMessage: разный заголовок/подпись поля для жалобы на игрока и на сообщение', () => {
+    const [playerContainer] = buildThreadWelcomeMessage(
+        '354261484395560961',
+        '354261484395560961',
+        'Tag#0001',
+        'текст',
+        0,
+        'player'
+    );
+    const playerText = playerContainer
+        .toJSON()
+        .components.map(c => c.content)
+        .join('\n');
+    assert.match(playerText, /Жалоба на игрока/);
+    assert.match(playerText, /\*\*Тег\/ID:\*\*/);
+
+    const [messageContainer] = buildThreadWelcomeMessage(
+        '354261484395560961',
+        '354261484395560961',
+        'Tag#0001',
+        'текст',
+        0,
+        'message'
+    );
+    const messageText = messageContainer
+        .toJSON()
+        .components.map(c => c.content)
+        .join('\n');
+    assert.match(messageText, /Жалоба на сообщение/);
+    assert.match(messageText, /\*\*Автор сообщения:\*\*/);
+});
+
 test('buildManagementPanelMessage: кнопки "Активные тикеты" и "Статистика"', () => {
     const ids = extractButtonCustomIds(buildManagementPanelMessage());
     assert.deepEqual(ids, ['ticket_mgmt_list', 'ticket_mgmt_stats']);
@@ -252,6 +284,21 @@ test('buildTicketSelectRow: опции по активным тикетам, н�
 
     const many = Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, name: `ticket-${i}`, claimedByTag: null }));
     assert.equal(buildTicketSelectRow(many).components[0].toJSON().options.length, 25);
+});
+
+test('buildTicketSelectRow: помечает тикеты по жалобе на сообщение, игроков — не трогает', () => {
+    const tickets = [
+        { id: 't1', name: 'ticket-1', kind: 'player', claimedByTag: null },
+        { id: 't2', name: 'ticket-2', kind: 'message', claimedByTag: null },
+    ];
+    const options = buildTicketSelectRow(tickets).components[0].toJSON().options;
+    assert.deepEqual(
+        options.map(o => [o.value, o.description]),
+        [
+            ['t1', 'не взят'],
+            ['t2', '[сообщение] не взят'],
+        ]
+    );
 });
 
 test('formatTicketDetail: показывает автора/цель/claim-статус', () => {
@@ -296,6 +343,27 @@ test('formatTicketDetail: показывает, кто запросил закр
     });
     assert.match(text, /Beta#0001/);
     assert.match(text, /Запрос на закрытие/);
+});
+
+test('formatTicketDetail: показывает тип тикета — жалоба на игрока или на сообщение', () => {
+    const playerText = formatTicketDetail({
+        number: 9,
+        authorId: 'u1',
+        targetId: null,
+        targetTag: null,
+        claimedByTag: null,
+    });
+    assert.match(playerText, /\*\*Тип:\*\* Жалоба на игрока/);
+
+    const messageText = formatTicketDetail({
+        number: 10,
+        kind: 'message',
+        authorId: 'u1',
+        targetId: null,
+        targetTag: null,
+        claimedByTag: null,
+    });
+    assert.match(messageText, /\*\*Тип:\*\* Жалоба на сообщение/);
 });
 
 test('buildTicketActionRow: "Взять в работу" только пока не взят, "Наказать" — только если есть targetId', () => {
@@ -352,6 +420,18 @@ test('formatActiveTicketsList: помечает тикеты с запросом
         { name: 'ticket-3', url: 'https://discord.com/channels/1/2/5', claimedByTag: 'Mod#0001', pendingClose: true },
     ]);
     assert.match(text, /⏳ запрошено закрытие/);
+});
+
+test('formatActiveTicketsList: помечает тикеты по жалобе на сообщение, игроков — не трогает', () => {
+    const text = formatActiveTicketsList([
+        { name: 'ticket-1', url: 'https://discord.com/channels/1/2/3', kind: 'player', claimedByTag: null },
+        { name: 'ticket-2', url: 'https://discord.com/channels/1/2/4', kind: 'message', claimedByTag: null },
+    ]);
+    assert.equal(
+        text,
+        '• ticket-1 — https://discord.com/channels/1/2/3 — не взят\n' +
+            '• ticket-2 [сообщение] — https://discord.com/channels/1/2/4 — не взят'
+    );
 });
 
 test('formatTicketStats: четыре строки с числами как есть', () => {

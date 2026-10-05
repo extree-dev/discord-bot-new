@@ -2,12 +2,14 @@ const { ContextMenuCommandBuilder, ApplicationCommandType } = require('discord.j
 const tickets = require('../../tickets');
 
 // Правый клик на сообщении → "Приложения" → "Пожаловаться на сообщение" —
-// открывает ТУ ЖЕ модалку, что кнопка "Жалоба на игрока" в #открыть-тикет
-// (tickets.buildReportModal, тот же CREATE_MODAL_ID), просто с уже
-// заполненными полями: автор сообщения и ссылка на него + начало текста.
-// Дальше обработка идёт по уже существующему пути (tickets/handlers.js
-// handleModalSubmit) без единой новой строчки там — сюда новый код не
-// нужен, поля просто уже не пустые при открытии.
+// та же форма (два поля), что кнопка "Жалоба на игрока" в #открыть-тикет
+// (tickets.buildReportModal), с уже заполненными полями: автор сообщения
+// и ссылка на него + начало текста. kind: 'message' переключает модалку
+// на свой customId (CREATE_MODAL_MESSAGE_ID) — tickets/handlers.js
+// handleModalSubmit по нему узнаёт тип жалобы и прокидывает его в
+// submitReport(), которая подписывает карточку тикета (в треде и в
+// канале управления) как "Жалоба на сообщение", а не "Жалоба на игрока" —
+// иначе два разных по смыслу тикета выглядели бы одинаково.
 module.exports = {
     data: new ContextMenuCommandBuilder().setName('Пожаловаться на сообщение').setType(ApplicationCommandType.Message),
 
@@ -17,6 +19,7 @@ module.exports = {
 
         await interaction.showModal(
             tickets.buildReportModal({
+                kind: 'message',
                 target: `<@${message.author.id}>`,
                 description,
             })

@@ -14,6 +14,7 @@ const { errorEmbed, successEmbed, infoEmbed } = require('../utils/embeds');
 const model = require('./model');
 
 const CREATE_MODAL_ID = 'ticket_modal_create';
+const CREATE_MODAL_MESSAGE_ID = 'ticket_modal_create:message';
 const TARGET_INPUT_ID = 'ticket_target_input';
 const DESCRIPTION_INPUT_ID = 'ticket_description_input';
 const PUNISH_BUTTON_PREFIX = 'ticket_punish:';
@@ -23,13 +24,18 @@ const MGMT_STATS_BUTTON_ID = 'ticket_mgmt_stats';
 
 // Два текстовых поля, как на референс-сервере — тег/ID нарушителя
 // вводится текстом (не UserSelectMenu), сразу после кнопки, без
-// промежуточных шагов. prefill — для контекстного меню "Пожаловаться на
-// сообщение" (commands/contextMenu/reportMessage.js): модалка та же
-// самая (тот же CREATE_MODAL_ID, значит и обработчик ниже подхватит её
-// без отдельного пути), просто с уже заполненными полями — автором и
-// ссылкой на сообщение, которое пожаловались.
+// промежуточных шагов. prefill.kind — для контекстного меню "Пожаловаться
+// на сообщение" (commands/contextMenu/reportMessage.js): та же форма, те
+// же два поля, просто уже заполненные (автор сообщения + ссылка на него),
+// и свой customId (CREATE_MODAL_MESSAGE_ID вместо CREATE_MODAL_ID) — чтобы
+// handleModalSubmit знал, с каким типом жалобы работает, и прокинул его
+// дальше в submitReport() для разного заголовка карточки в треде и в
+// канале управления (см. tickets/model.js ticketKindTitle).
 function buildCreateModal(prefill = {}) {
-    const modal = new ModalBuilder().setCustomId(CREATE_MODAL_ID).setTitle('Жалоба на игрока');
+    const isMessageReport = prefill.kind === 'message';
+    const modal = new ModalBuilder()
+        .setCustomId(isMessageReport ? CREATE_MODAL_MESSAGE_ID : CREATE_MODAL_ID)
+        .setTitle(isMessageReport ? 'Жалоба на сообщение' : 'Жалоба на игрока');
     const targetInput = new TextInputBuilder()
         .setCustomId(TARGET_INPUT_ID)
         .setLabel('Тег или ID игрока')
@@ -57,7 +63,7 @@ async function handleOpenButton(interaction) {
     await interaction.showModal(buildCreateModal());
 }
 
-async function handleCreateModal(interaction) {
+async function handleCreateModal(interaction, kind) {
     // deferReply сразу, до любой асинхронной работы (фетч нарушителя по
     // ID, создание треда, отправка сообщения) — без него на медленной
     // сети interaction протухает за 3 секунды, хотя тикет всё равно
@@ -67,7 +73,7 @@ async function handleCreateModal(interaction) {
     try {
         const rawTarget = interaction.fields.getTextInputValue(TARGET_INPUT_ID).trim();
         const description = interaction.fields.getTextInputValue(DESCRIPTION_INPUT_ID).trim();
-        const result = await model.submitReport(interaction, rawTarget, description);
+        const result = await model.submitReport(interaction, rawTarget, description, kind);
         if (result.error) {
             await interaction.editReply({ embeds: [errorEmbed(result.error)] });
             return;
@@ -395,7 +401,11 @@ async function handleSelectMenu(interaction) {
 
 async function handleModalSubmit(interaction) {
     if (interaction.customId === CREATE_MODAL_ID) {
-        await handleCreateModal(interaction);
+        await handleCreateModal(interaction, 'player');
+        return true;
+    }
+    if (interaction.customId === CREATE_MODAL_MESSAGE_ID) {
+        await handleCreateModal(interaction, 'message');
         return true;
     }
     return false;
