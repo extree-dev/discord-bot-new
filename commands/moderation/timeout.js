@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('disc
 const { COLORS, baseEmbed, formatBody, errorEmbed } = require('../../utils/embeds');
 const { notifyPunishment } = require('../../utils/punishmentNotice');
 const moderation = require('../../moderation');
+const cases = require('../../cases');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -67,6 +68,14 @@ module.exports = {
             durationLabel: `${minutes} мин.`,
         });
 
+        const caseId = await cases.addCase(interaction.guild.id, 'mute', {
+            targetId: target.id,
+            targetTag: target.tag,
+            moderatorTag: interaction.user.tag,
+            reason,
+            extra: `${minutes} мин.`,
+        });
+
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
             .setDescription(formatBody('Участник замучен'))
@@ -76,7 +85,7 @@ module.exports = {
                 { name: 'Длительность', value: `${minutes} мин.`, inline: true },
                 { name: 'Причина', value: reason }
             )
-            .setFooter({ text: `ID: ${target.id}` });
+            .setFooter({ text: `Дело №${caseId} · ID: ${target.id}` });
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

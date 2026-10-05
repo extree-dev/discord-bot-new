@@ -3,6 +3,7 @@ const { addWarning, getActiveWarnings } = require('../../utils/warnings');
 const { COLORS, baseEmbed, formatBody } = require('../../utils/embeds');
 const { notifyPunishment } = require('../../utils/punishmentNotice');
 const security = require('../../security');
+const cases = require('../../cases');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,6 +37,13 @@ module.exports = {
               )
             : null;
 
+        const caseId = await cases.addCase(interaction.guild.id, 'warn', {
+            targetId: target.id,
+            targetTag: target.tag,
+            moderatorTag: interaction.user.tag,
+            reason,
+        });
+
         const embed = baseEmbed(COLORS.warning)
             .setAuthor({ name: target.tag, iconURL: target.displayAvatarURL() })
             .setDescription(formatBody('Предупреждение выдано'))
@@ -45,7 +53,7 @@ module.exports = {
                 { name: 'Причина', value: reason },
                 { name: 'Активных предупреждений', value: `${activeWarnings.length}`, inline: true }
             )
-            .setFooter({ text: `ID: ${target.id}` });
+            .setFooter({ text: `Дело №${caseId} · ID: ${target.id}` });
         if (escalation?.action === 'timeout') {
             embed.addFields({
                 name: 'Автоэскалация',
