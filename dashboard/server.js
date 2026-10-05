@@ -26,6 +26,7 @@ const path = require('path');
 const oauth = require('./discordOAuth');
 const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
+const security = require('../security/config');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -102,6 +103,22 @@ function avatarUrl(discordUser) {
 function getSessionFromReq(req) {
     const raw = req.cookies[SESSION_COOKIE];
     return raw ? decryptSession(raw, SESSION_SECRET) : null;
+}
+
+// "Администратор домена" = Administrator/владелец на сервере бота
+// (GUILD_ID) — единый гейт для всего, что можно менять с сайта
+// (визитка, настройки безопасности и дальше): /api/site-admin-status,
+// PUT /api/site-content, GET/PUT /api/security-settings.
+async function isRequestSiteAdmin(req) {
+    const session = getSessionFromReq(req);
+    if (!session) return false;
+    try {
+        const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
+        return oauth.isSiteAdmin(userGuilds, GUILD_ID);
+    } catch (err) {
+        console.error('dashboard: не удалось проверить права администратора:', err);
+        return false;
+    }
 }
 
 const app = express();
@@ -225,39 +242,13 @@ app.get('/api/site-content', async (req, res) => {
     res.json({ ...content, maxLinks: site.MAX_LINKS });
 });
 
-// "Администратор домена" = Administrator/владелец на сервере бота
-// (GUILD_ID) — та же проверка, что определяет список серверов в
-// /api/guilds (oauth.isGuildAdmin), просто для одного конкретного guildId.
 app.get('/api/site-admin-status', async (req, res) => {
-    const session = getSessionFromReq(req);
-    if (!session) {
-        res.json({ isAdmin: false });
-        return;
-    }
-    try {
-        const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
-        res.json({ isAdmin: oauth.isSiteAdmin(userGuilds, GUILD_ID) });
-    } catch (err) {
-        console.error('dashboard: /api/site-admin-status — не удалось проверить права:', err);
-        res.json({ isAdmin: false });
-    }
+    res.json({ isAdmin: await isRequestSiteAdmin(req) });
 });
 
 app.put('/api/site-content', async (req, res) => {
-    const session = getSessionFromReq(req);
-    if (!session) {
-        res.status(401).json({ error: 'Нужно войти через Discord.' });
-        return;
-    }
-    try {
-        const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
-        if (!oauth.isSiteAdmin(userGuilds, GUILD_ID)) {
-            res.status(403).json({ error: 'Редактировать визитку может только администратор сервера бота.' });
-            return;
-        }
-    } catch (err) {
-        console.error('dashboard: PUT /api/site-content — не удалось проверить права:', err);
-        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Редактировать визитку может только администратор сервера бота.' });
         return;
     }
 
@@ -272,6 +263,115 @@ app.put('/api/site-content', async (req, res) => {
         res.json({ ...saved, maxLinks: site.MAX_LINKS });
     } catch (err) {
         console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);
+        res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
+    }
+});
+
+// Настройки безопасности (automod/raid shield/anti-nuke/бан-слова) —
+// первый срез "управления ботом через сайт" (по запросу администратора),
+// дальше ожидаются другие модули. Та же security/config.js, что уже
+// читают /automod и остальные команды — правки отсюда применяются сразу,
+// без перезапуска бота, ровно как если бы их внесли командой в Discord.
+// Каналы/роли (verification, trusted-роль, лог-канал) сюда намеренно не
+// вынесены — их редактирование потребует подтягивать список каналов/ролей
+// сервера живьём через Discord API, это отдельная задача.
+function pickSecuritySettings(config) {
+    return {
+        automod: {
+            enabled: config.automod.enabled,
+            maxMentions: config.automod.maxMentions,
+            maxMessagesPerWindow: config.automod.maxMessagesPerWindow,
+            messageWindowMs: config.automod.messageWindowMs,
+            allowedInviteCodes: config.automod.allowedInviteCodes,
+        },
+        raidShield: {
+            enabled: config.raidShield.enabled,
+            joinThreshold: config.raidShield.joinThreshold,
+            windowMs: config.raidShield.windowMs,
+            lockdownMs: config.raidShield.lockdownMs,
+            kickNewAccounts: config.raidShield.kickNewAccounts,
+            newAccountAgeMs: config.raidShield.newAccountAgeMs,
+        },
+        antiNuke: {
+            enabled: config.antiNuke.enabled,
+            maxActions: config.antiNuke.maxActions,
+            windowMs: config.antiNuke.windowMs,
+        },
+        bannedWords: config.bannedWords,
+    };
+}
+
+function toNonNegativeInt(value, fallback) {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
+}
+
+function toStringList(value) {
+    if (!Array.isArray(value)) return [];
+    return value.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim());
+}
+
+app.get('/api/security-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const config = await security.load();
+        res.json(pickSecuritySettings(config));
+    } catch (err) {
+        console.error('dashboard: GET /api/security-settings — не удалось прочитать конфиг:', err);
+        res.status(500).json({ error: 'Не удалось загрузить настройки.' });
+    }
+});
+
+app.put('/api/security-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const automodIn = body.automod && typeof body.automod === 'object' ? body.automod : {};
+    const raidShieldIn = body.raidShield && typeof body.raidShield === 'object' ? body.raidShield : {};
+    const antiNukeIn = body.antiNuke && typeof body.antiNuke === 'object' ? body.antiNuke : {};
+
+    try {
+        await security.update(config => {
+            config.automod.enabled = Boolean(automodIn.enabled);
+            config.automod.maxMentions = toNonNegativeInt(automodIn.maxMentions, config.automod.maxMentions);
+            config.automod.maxMessagesPerWindow = toNonNegativeInt(
+                automodIn.maxMessagesPerWindow,
+                config.automod.maxMessagesPerWindow
+            );
+            config.automod.messageWindowMs = toNonNegativeInt(
+                automodIn.messageWindowMs,
+                config.automod.messageWindowMs
+            );
+            config.automod.allowedInviteCodes = toStringList(automodIn.allowedInviteCodes);
+
+            config.raidShield.enabled = Boolean(raidShieldIn.enabled);
+            config.raidShield.joinThreshold = toNonNegativeInt(
+                raidShieldIn.joinThreshold,
+                config.raidShield.joinThreshold
+            );
+            config.raidShield.windowMs = toNonNegativeInt(raidShieldIn.windowMs, config.raidShield.windowMs);
+            config.raidShield.lockdownMs = toNonNegativeInt(raidShieldIn.lockdownMs, config.raidShield.lockdownMs);
+            config.raidShield.kickNewAccounts = Boolean(raidShieldIn.kickNewAccounts);
+            config.raidShield.newAccountAgeMs = toNonNegativeInt(
+                raidShieldIn.newAccountAgeMs,
+                config.raidShield.newAccountAgeMs
+            );
+
+            config.antiNuke.enabled = Boolean(antiNukeIn.enabled);
+            config.antiNuke.maxActions = toNonNegativeInt(antiNukeIn.maxActions, config.antiNuke.maxActions);
+            config.antiNuke.windowMs = toNonNegativeInt(antiNukeIn.windowMs, config.antiNuke.windowMs);
+
+            config.bannedWords = toStringList(body.bannedWords);
+        });
+        const saved = await security.load();
+        res.json(pickSecuritySettings(saved));
+    } catch (err) {
+        console.error('dashboard: PUT /api/security-settings — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
     }
 });

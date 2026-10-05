@@ -1,0 +1,16 @@
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.row input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}

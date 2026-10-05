@@ -6,6 +6,7 @@ import type { ManagedGuild } from '../../entities/guild/types';
 import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { Avatar } from '../../shared/ui/Avatar';
+import { Button } from '../../shared/ui/Button';
 import { Card } from '../../shared/ui/Card';
 import { GuildList } from '../../widgets/guild-list/GuildList';
 import styles from './DashboardPage.module.css';
@@ -57,8 +58,12 @@ export function DashboardPage() {
             <h1>Привет, {state.user.username}</h1>
             <p>Сервера, где есть и ты (с правами администратора), и бот Extree.</p>
             <GuildList guilds={state.guilds} />
+            <Button href="/dashboard/settings" fullWidth>
+                Настройки бота
+            </Button>
             <p className={styles.note}>
-                Пока только просмотр — управление настройками бота прямо отсюда появится позже.
+                Список серверов — пока только просмотр. Настройки бота (кнопка выше) уже можно менять — доступно
+                администратору сервера, на котором работает Extree.
             </p>
             <LogoutButton />
         </Card>
