@@ -51,7 +51,9 @@ async function applyWarn(guild, target, reason, moderatorTag) {
 async function applyUnban(guild, userId) {
     const bans = await guild.bans.fetch();
     if (!bans.has(userId)) return { error: 'Этот пользователь не забанен.' };
-    await guild.members.unban(userId);
+    // moderation.unbanMember(), а не guild.members.unban() напрямую — так
+    // же, как /unban, снимает и запись о временном бане, если она есть.
+    await moderation.unbanMember(guild, userId);
     return { ok: true };
 }
 
