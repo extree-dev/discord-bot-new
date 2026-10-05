@@ -161,25 +161,24 @@ gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U di
 
 ### Сайты (`web/`)
 
-Два сайта на том же VPS, что и бот — отдельный сервис `caddy` в `docker-compose.yml`:
+- **`bot.extree.tech`** (`web/bot-site/`) — маркетинговая страница бота: описание, кнопка «Добавить на сервер», список фич. Чистая статика, отдаётся сервисом `caddy` (`docker-compose.yml`) прямо из рабочей копии репозитория (bind-mount) — обновление это тот же `git pull`, что уже делает `deploy.yml` на каждый push в `main`.
+- **`extree.tech`** — целиком React-SPA, статики там больше нет (см. «Личный кабинет, визитка и её редактор» ниже).
 
-- **`extree.tech`** (`web/site/`) — визитка. Главная страница (`/`) теперь рендерится динамически из БД (`site/model.js`), а не отдаётся статичным `index.html` — редактируется на `/admin` (см. ниже). Статикой остаются только `styles.css` и `assets/`.
-- **`bot.extree.tech`** (`web/bot-site/`) — страница бота: описание, кнопка «Добавить на сервер», список фич. Полностью статична.
+Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443.
 
-Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443. Статика отдаётся прямо из рабочей копии репозитория (bind-mount, не образ) — обновление это тот же `git pull`, что уже делает `deploy.yml` на каждый push в `main`, без отдельного шага.
+#### Личный кабинет, визитка и её редактор (`dashboard/` + `frontend/`)
 
-#### Личный кабинет и редактор визитки (`dashboard/`)
+Один Node-процесс (`dashboard/server.js`) в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`) обслуживает три страницы на двух доменах через общий React/TypeScript SPA (`frontend/`, FSD-слои `app → pages → widgets → features → entities → shared`) — сам процесс отдаёт только JSON под `/api/*`, вход через `/auth/*` и собранные `frontend/dist` статикой, вся разметка рендерится в браузере:
 
-Один Node-процесс (`dashboard/server.js`) в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`), обслуживает две независимые фичи на двух доменах — обе через вход по Discord OAuth2 (только Discord, не Google/Apple: обе фичи отвечают на вопросы про Discord-сервера, на которые другие провайдеры попросту не знают ответа):
+- **`extree.tech`** — визитка (имя, роль, био, ссылки из `GET /api/site-content`).
+- **`extree.tech/admin`** — редактор визитки, доступен только тому, у кого есть право Administrator (или кто владелец) на сервере бота — `GUILD_ID` из `.env` (`dashboard/discordOAuth.js` `isSiteAdmin`, проверяется и на чтение статуса `GET /api/site-admin-status`, и заново при каждом сохранении `PUT /api/site-content` — что думает клиент, бэкенду не доверяется).
+- **`bot.extree.tech/dashboard`** — версия "только просмотр": список серверов, где у вошедшего права администратора/владельца и уже добавлен бот (`GET /api/guilds`).
 
-- **`bot.extree.tech/dashboard`** — версия "только просмотр": список серверов, где у вошедшего права администратора/владельца и уже добавлен бот. Proxy на `/auth/*` и `/dashboard*`.
-- **`extree.tech/admin`** — редактор визитки (имя, роль, био, ссылки), доступен только тому, у кого есть право Administrator (или кто владелец) на сервере бота — `GUILD_ID` из `.env` (`dashboard/discordOAuth.js` `isSiteAdmin`). Proxy на `/auth/*`, `/` и `/admin*`.
+Вход везде через Discord OAuth2 (не Google/Apple — обе фичи отвечают на вопросы про Discord-сервера, на которые другие провайдеры не знают ответа). Сессия — одна httpOnly-cookie, зашифрованная AES-256-GCM (`dashboard/session.js`), отдельно на каждом домене (cookie не шарится между `bot.extree.tech` и `extree.tech`) — хранить в ней нечего, кроме Discord access_token. redirect_uri для OAuth2 дашборд определяет сам по заголовку `Host` входящего запроса, поэтому в Discord Developer Portal → OAuth2 → Redirects должны быть зарегистрированы **оба** адреса: `https://bot.extree.tech/auth/discord/callback` и `https://extree.tech/auth/discord/callback`.
 
-Остальной путь на каждом домене (в т.ч. `/styles.css`, которым пользуются обе фичи) по-прежнему чистая статика (`web/Caddyfile`).
+Контент визитки (в отличие от сессии) хранится не в cookie, а в Postgres — одна строка в `bot_stores` через `site/model.js` (`utils/pgStore.js`, тот же примитив, что у остальной конфигурации бота) — иначе правки стирались бы при каждом `git reset --hard` на деплое. Если БД на момент захода недоступна, визитка молча показывает дефолтный текст вместо падения.
 
-Сессия логина — одна httpOnly-cookie, зашифрованная AES-256-GCM (`dashboard/session.js`), отдельно на каждом домене (cookie не шарится между `bot.extree.tech` и `extree.tech`) — хранить в ней нечего, кроме Discord access_token. redirect_uri для OAuth2 дашборд определяет сам по заголовку `Host` входящего запроса, поэтому в Discord Developer Portal → OAuth2 → Redirects должны быть зарегистрированы **оба** адреса: `https://bot.extree.tech/auth/discord/callback` и `https://extree.tech/auth/discord/callback`.
-
-Контент визитки (в отличие от сессии) хранится не в cookie, а в Postgres — одна строка в `bot_stores` через `site/model.js` (`utils/pgStore.js`, тот же примитив, что у остальной конфигурации бота) — иначе правки стирались бы при каждом `git reset --hard` на деплое, если бы писались прямо в `index.html`. Если БД на момент захода недоступна, `/` молча показывает дефолтный текст вместо падения.
+`frontend/` — отдельный npm-проект (свой `package.json`/`package-lock.json`, не часть workspace корня): Vite + React 19 + TypeScript (strict) + React Router, стили — CSS Modules поверх общих CSS-переменных (`app/styles/global.css`). Собирается отдельным стейджем в `Dockerfile` (`frontend-build`) и копируется в финальный образ как статика — bundler и его `node_modules` в рантайм-образ не попадают. `npm run build` в `frontend/` = `tsc -b && vite build`; `npm test` там — Vitest, сейчас покрывает только чистую логику формы редактирования (`features/edit-site-content/model.ts` — добавление/удаление строк-ссылок, нормализация перед отправкой на сервер), не компоненты — для текущего объёма (3 страницы) это осознанный предел, тесты на сами компоненты можно добавить, когда/если UI усложнится.
 
 Для запуска нужны переменные в `.env` на сервере (см. `.env.example`): `DISCORD_CLIENT_SECRET` (Discord Developer Portal → OAuth2 → Client Secret), `SESSION_SECRET` (случайная строка, `openssl rand -hex 32`) и `GUILD_ID` (уже используется остальным ботом). Без любой из них процесс `dashboard` откажется стартовать.
 
@@ -204,9 +203,10 @@ adminPanel/                — панель администратора с кн
 utils/                     — общие хелперы (embeds, components, версия, безопасное хранение конфигов в Postgres)
 scripts/                   — одноразовые скрипты первоначальной настройки сервера
 data/                      — бэкапы структуры сервера (не в git)
-web/                       — сайты (extree.tech, bot.extree.tech) + Caddyfile
-dashboard/                 — личный кабинет (bot.extree.tech/dashboard) и редактор визитки (extree.tech/admin), вход через Discord OAuth2
-site/                      — контент визитки extree.tech (имя/роль/био/ссылки), редактируется на /admin
+web/                       — статика bot.extree.tech + Caddyfile (extree.tech целиком проксируется на dashboard/)
+dashboard/                 — Express: JSON API (/api/*), Discord OAuth2 (/auth/*), отдаёт собранный frontend/dist
+site/                      — контент визитки extree.tech (имя/роль/био/ссылки) в Postgres, редактируется на /admin
+frontend/                  — React/TypeScript SPA (FSD): визитка, её редактор, личный кабинет
 ```
 
 Конфигурация каждого модуля хранится одной JSONB-строкой в таблице `bot_stores` в PostgreSQL и читается/пишется через `utils/pgStore.js` — общий примитив, который делает read-modify-write атомарным через транзакцию с `SELECT ... FOR UPDATE`, чтобы параллельные взаимодействия (например, два обращения отправляются одновременно) не теряли изменения друг друга.

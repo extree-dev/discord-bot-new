@@ -1,0 +1,78 @@
+.base {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.base:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+
+.primary {
+    background: linear-gradient(135deg, var(--accent), #4752c4);
+    border-color: transparent;
+    color: #fff;
+}
+
+.static {
+    color: var(--text-dim);
+    cursor: default;
+}
+
+.static:hover {
+    border-color: var(--border);
+    transform: none;
+}
+
+.ghost {
+    background: transparent;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 13px;
+}
+
+.ghost:hover {
+    color: var(--text);
+    border-color: var(--border);
+    transform: none;
+}
+
+.fullWidth {
+    width: 100%;
+    justify-content: center;
+}
+
+.icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+}
+
+.icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.label {
+    flex: 1;
+}
+
+.arrow {
+    flex: none;
+    opacity: 0.8;
+}
