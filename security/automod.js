@@ -7,6 +7,12 @@ const { COLORS, baseEmbed, formatBody } = require('../utils/embeds');
 
 const messageTimestamps = new Map();
 const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-z0-9-]+/i;
+// Та же ссылка, но с захватом самого кода приглашения — отдельный regex,
+// а не переиспользование INVITE_REGEX с флагом /g: стейтфулный lastIndex
+// у /g-регулярки при повторных .test() (isInviteLink вызывается и из
+// voice/model.js на именах каналов) давал бы разные результаты в
+// зависимости от порядка вызовов на одном и том же regex-объекте.
+const INVITE_CODE_REGEX = /(?:discord\.gg|discord(?:app)?\.com\/invite)\/([a-z0-9-]+)/gi;
 
 // Небольшой курируемый список типичных паттернов фишинга/скама, которые
 // массово рассылают через компрометированные аккаунты и веб-хуки:
@@ -28,6 +34,13 @@ function isExcessiveCaps(content) {
 
 function isInviteLink(content) {
     return INVITE_REGEX.test(content);
+}
+
+// Коды приглашений, допускающие доверенные совпадения с allowedInviteCodes
+// (например, свои же партнёрские сервера) — список может быть пустым,
+// обычное сообщение без ссылок вернёт [].
+function extractInviteCodes(content) {
+    return [...content.matchAll(INVITE_CODE_REGEX)].map(m => m[1].toLowerCase());
 }
 
 function isPhishingLink(content) {
@@ -81,7 +94,15 @@ async function handle(msg) {
     messageTimestamps.set(msg.author.id, arr);
 
     if (isInviteLink(msg.content)) {
-        return violate(msg, 'Приглашение на сторонний сервер');
+        // Допускаем сообщение только если КАЖДЫЙ найденный код приглашения
+        // в allowlist — одно разрешённое приглашение рядом с посторонним
+        // не должно вытягивать всё сообщение из-под automod.
+        const codes = extractInviteCodes(msg.content);
+        const allowlisted = config.automod.allowedInviteCodes ?? [];
+        const allAllowed = codes.length > 0 && codes.every(code => allowlisted.includes(code));
+        if (!allAllowed) {
+            return violate(msg, 'Приглашение на сторонний сервер');
+        }
     }
 
     if (isPhishingLink(msg.content)) {
@@ -103,4 +124,4 @@ function register(client) {
     client.on('messageCreate', msg => handle(msg).catch(err => console.error('automod:', err)));
 }
 
-module.exports = { register, isInviteLink, isPhishingLink, isExcessiveCaps };
+module.exports = { register, isInviteLink, isPhishingLink, isExcessiveCaps, extractInviteCodes };

@@ -26,7 +26,17 @@ const DEFAULTS = {
         kickNewAccounts: true,
         newAccountAgeMs: 7 * 24 * 60 * 60 * 1000,
     },
-    automod: { enabled: true, maxMentions: 5, maxMessagesPerWindow: 6, messageWindowMs: 5000 },
+    automod: {
+        enabled: true,
+        maxMentions: 5,
+        maxMessagesPerWindow: 6,
+        messageWindowMs: 5000,
+        // Коды приглашений (не полные ссылки — "abc123", не
+        // "discord.gg/abc123"), которые automod не считает "приглашением на
+        // сторонний сервер" — например, свои же партнёрские сервера.
+        // Управляется через /automod allowlist (security/automod.js handle()).
+        allowedInviteCodes: [],
+    },
     auditLog: { enabled: true },
     verification: {
         enabled: false,

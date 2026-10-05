@@ -30,6 +30,34 @@ module.exports = {
                 )
                 .addSubcommand(sub => sub.setName('list').setDescription('Показать список запрещённых слов'))
         )
+        .addSubcommandGroup(group =>
+            group
+                .setName('allowlist')
+                .setDescription('Коды приглашений, не считающиеся нарушением (например, партнёрские сервера)')
+                .addSubcommand(sub =>
+                    sub
+                        .setName('add')
+                        .setDescription('Разрешить код приглашения')
+                        .addStringOption(opt =>
+                            opt
+                                .setName('code')
+                                .setDescription('Код из discord.gg/<код> (можно вставить всю ссылку)')
+                                .setRequired(true)
+                        )
+                )
+                .addSubcommand(sub =>
+                    sub
+                        .setName('remove')
+                        .setDescription('Убрать код приглашения из разрешённых')
+                        .addStringOption(opt =>
+                            opt
+                                .setName('code')
+                                .setDescription('Код из discord.gg/<код> (можно вставить всю ссылку)')
+                                .setRequired(true)
+                        )
+                )
+                .addSubcommand(sub => sub.setName('list').setDescription('Показать список разрешённых приглашений'))
+        )
         .addSubcommand(sub =>
             sub
                 .setName('toggle')
@@ -44,6 +72,11 @@ module.exports = {
 
         if (group === 'word') {
             await handleWordSubcommand(interaction);
+            return;
+        }
+
+        if (group === 'allowlist') {
+            await handleAllowlistSubcommand(interaction);
             return;
         }
 
@@ -107,6 +140,67 @@ async function handleWordSubcommand(interaction) {
             existed
                 ? successEmbed(`«${word}» убрано из списка запрещённых слов.`)
                 : errorEmbed(`«${word}» и так не было в списке.`),
+        ],
+        flags: MessageFlags.Ephemeral,
+    });
+}
+
+// Админ может вставить код приглашения как есть ("abc123") или всю ссылку
+// ("https://discord.gg/abc123") — automod.extractInviteCodes() сравнивает
+// только сами коды, поэтому нормализуем ввод до того же вида: последний
+// сегмент после "/", без query-параметров/пробелов, в нижнем регистре.
+function normalizeInviteCode(raw) {
+    const withoutQuery = raw.trim().split(/[?#]/)[0];
+    const segments = withoutQuery.split('/').filter(Boolean);
+    return (segments.at(-1) ?? '').toLowerCase();
+}
+
+async function handleAllowlistSubcommand(interaction) {
+    const sub = interaction.options.getSubcommand();
+    const config = await security.getConfig();
+
+    if (sub === 'list') {
+        const list = config.automod.allowedInviteCodes.length
+            ? config.automod.allowedInviteCodes.map(c => `\`${c}\``).join(', ')
+            : 'Список пуст.';
+        await interaction.reply({
+            embeds: [successEmbed(list, `Разрешённые приглашения (${config.automod.allowedInviteCodes.length})`)],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+
+    const code = normalizeInviteCode(interaction.options.getString('code'));
+    if (!code) {
+        await interaction.reply({ embeds: [errorEmbed('Пустой код приглашения.')], flags: MessageFlags.Ephemeral });
+        return;
+    }
+
+    if (sub === 'add') {
+        if (config.automod.allowedInviteCodes.includes(code)) {
+            await interaction.reply({ embeds: [errorEmbed(`«${code}» уже в списке.`)], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        await security.updateConfig(cfg => {
+            cfg.automod.allowedInviteCodes.push(code);
+        });
+        await interaction.reply({
+            embeds: [successEmbed(`«${code}» добавлено в список разрешённых приглашений.`)],
+            flags: MessageFlags.Ephemeral,
+        });
+        return;
+    }
+
+    // remove
+    const existed = config.automod.allowedInviteCodes.includes(code);
+    await security.updateConfig(cfg => {
+        cfg.automod.allowedInviteCodes = cfg.automod.allowedInviteCodes.filter(c => c !== code);
+    });
+    await interaction.reply({
+        embeds: [
+            existed
+                ? successEmbed(`«${code}» убрано из списка разрешённых приглашений.`)
+                : errorEmbed(`«${code}» и так не было в списке.`),
         ],
         flags: MessageFlags.Ephemeral,
     });
