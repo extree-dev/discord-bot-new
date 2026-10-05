@@ -170,6 +170,16 @@ function formatReportedUser(targetId, targetTag) {
     return targetTag ? `${targetTag} (\`${targetId}\`)` : `\`${targetId}\``;
 }
 
+// Два источника одного и того же тикета (см. submitReport) — обычная
+// кнопка "Жалоба на игрока" на панели и контекстное меню "Пожаловаться на
+// сообщение" (commands/contextMenu/reportMessage.js). Сам тикет ведётся
+// одинаково (claim/close/punish), но заголовок карточки в треде и тип в
+// карточке канала управления различаются, чтобы стафф сразу видел, с чем
+// имеет дело, не читая описание целиком.
+function ticketKindTitle(kind) {
+    return kind === 'message' ? 'Жалоба на сообщение' : 'Жалоба на игрока';
+}
+
 // Публичная панель — одна кнопка вместо сетки тем (раньше их было пять:
 // общий вопрос/баг/жалоба/апелляция/другое — по решению администратора
 // осталась только жалоба на игрока, сетка кнопок для одной темы не нужна).
@@ -193,15 +203,15 @@ function buildPanelMessage() {
 // без единой кнопки: claim/close/punish управляются только из канала
 // управления (см. buildTicketActionRow), чтобы автор жалобы не видел
 // ничего, кроме факта, что тикет принят.
-function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount) {
+function buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount, kind) {
     const container = baseContainer(COLORS.primary)
         .addTextDisplayComponents(
-            textDisplay(formatBody('Тикет открыт', 'Ожидайте, скоро мы присоединимся к вашему тикету.'))
+            textDisplay(formatBody(ticketKindTitle(kind), 'Ожидайте, скоро мы присоединимся к вашему тикету.'))
         )
         .addSeparatorComponents(separator());
 
     const infoLines = [
-        `**Тег/ID:** ${targetId ? formatReportedUser(targetId, targetTag) : `\`${rawTarget}\``}`,
+        `**${kind === 'message' ? 'Автор сообщения' : 'Тег/ID'}:** ${targetId ? formatReportedUser(targetId, targetTag) : `\`${rawTarget}\``}`,
         `**Описание:** ${description}`,
     ];
     if (reportHistoryCount > 1) {
@@ -233,12 +243,14 @@ function buildManagementPanelMessage() {
 // тикета. Discord ограничивает select-меню 25 опциями — при большем
 // числе активных тикетов показываем самые старые (первые в очереди).
 function buildTicketSelectRow(tickets) {
-    const options = tickets.slice(0, 25).map(t =>
-        new StringSelectMenuOptionBuilder()
+    const options = tickets.slice(0, 25).map(t => {
+        const status = t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят';
+        const description = t.kind === 'message' ? `[сообщение] ${status}` : status;
+        return new StringSelectMenuOptionBuilder()
             .setLabel(t.name)
-            .setDescription((t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят').slice(0, 100))
-            .setValue(t.id)
-    );
+            .setDescription(description.slice(0, 100))
+            .setValue(t.id);
+    });
     const select = new StringSelectMenuBuilder()
         .setCustomId(MGMT_SELECT_ID)
         .setPlaceholder('Выбери тикет для действия')
@@ -256,6 +268,7 @@ function formatTicketDetail(record) {
           : '—';
     const lines = [
         `**Тикет:** ticket-${record.number}`,
+        `**Тип:** ${ticketKindTitle(record.kind)}`,
         `**Автор:** \`${record.authorId}\``,
         `**Тег/ID нарушителя:** ${targetLine}`,
         `**Взял в работу:** ${record.claimedByTag ?? 'никто'}`,
@@ -337,9 +350,10 @@ function formatActiveTicketsList(threads) {
     if (!threads.length) return 'Открытых тикетов нет.';
     return threads
         .map(t => {
+            const kindTag = t.kind === 'message' ? ' [сообщение]' : '';
             const status = t.claimedByTag ? `взял ${t.claimedByTag}` : 'не взят';
             const pending = t.pendingClose ? ' ⏳ запрошено закрытие' : '';
-            return `• ${t.name} — ${t.url} — ${status}${pending}`;
+            return `• ${t.name}${kindTag} — ${t.url} — ${status}${pending}`;
         })
         .join('\n');
 }
@@ -373,6 +387,7 @@ async function listActiveTickets(guild, config) {
             id: t.id,
             name: t.name,
             url: t.url,
+            kind: config.ticketsById?.[t.id]?.kind ?? 'player',
             claimedByTag: config.ticketsById?.[t.id]?.claimedByTag ?? null,
             pendingClose: Boolean(config.ticketsById?.[t.id]?.pendingClose),
         }));
@@ -449,7 +464,7 @@ async function rejectCloseRequest(threadId) {
 // (countRecentReportsOn/config.reports), заводит приватный тред
 // "ticket-<N>" в submissionsChannel, добавляет автора участником и
 // отправляет туда стартовое сообщение с пингом Support.
-async function submitReport(interaction, rawTarget, description) {
+async function submitReport(interaction, rawTarget, description, kind = 'player') {
     const guild = interaction.guild;
     const now = Date.now();
     const authorId = interaction.user.id;
@@ -572,7 +587,14 @@ async function submitReport(interaction, rawTarget, description) {
     // submissionsChannel (см. scripts/setup-tickets.js) уже даёт роли
     // Support видеть каждый новый приватный тред без явного добавления
     // в участники и без отдельного уведомления через упоминание.
-    const bodyComponents = buildThreadWelcomeMessage(rawTarget, targetId, targetTag, description, reportHistoryCount);
+    const bodyComponents = buildThreadWelcomeMessage(
+        rawTarget,
+        targetId,
+        targetTag,
+        description,
+        reportHistoryCount,
+        kind
+    );
     await thread
         .send(toMessage(...bodyComponents))
         .catch(err => console.error('tickets: не удалось отправить сообщение в тред:', err));
@@ -595,6 +617,7 @@ async function submitReport(interaction, rawTarget, description) {
     await update(c => {
         c.ticketsById[thread.id] = {
             number,
+            kind,
             authorId,
             rawTarget,
             targetId,
