@@ -27,6 +27,7 @@ const oauth = require('./discordOAuth');
 const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
 const security = require('../security/config');
+const presence = require('../presence');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -372,6 +373,93 @@ app.put('/api/security-settings', async (req, res) => {
         res.json(pickSecuritySettings(saved));
     } catch (err) {
         console.error('dashboard: PUT /api/security-settings — не удалось сохранить:', err);
+        res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
+    }
+});
+
+// Статус бота (rich presence) — второй модуль управления через сайт
+// после настроек безопасности, та же пара GET/PUT + isRequestSiteAdmin.
+// В отличие от security-settings правки здесь не применяются мгновенно:
+// у процесса dashboard нет живого discord.js-клиента, чтобы вызвать
+// setPresence напрямую — presence/model.js tick() подхватывает изменение
+// в БД в течение TICK_MS (30 секунд), см. комментарий там.
+const ACTIVITY_KEY_BY_TYPE = Object.fromEntries(
+    Object.entries(presence.ACTIVITY_TYPES).map(([key, type]) => [type, key])
+);
+
+function toActivityKey(type) {
+    return ACTIVITY_KEY_BY_TYPE[type] ?? 'playing';
+}
+
+function toActivityType(key) {
+    return presence.ACTIVITY_TYPES[key] ?? presence.ACTIVITY_TYPES.playing;
+}
+
+function pickActivityItem(item) {
+    return {
+        type: toActivityKey(item?.type),
+        text: typeof item?.text === 'string' ? item.text : null,
+        url: typeof item?.url === 'string' ? item.url : null,
+    };
+}
+
+function pickPresenceSettings(config) {
+    return {
+        status: config.status,
+        rotate: config.rotate,
+        rotateIntervalMs: config.rotateIntervalMs,
+        activity: pickActivityItem(config.activity),
+        rotateItems: config.rotateItems.map(pickActivityItem),
+    };
+}
+
+const PRESENCE_STATUSES = new Set(['online', 'idle', 'dnd', 'invisible']);
+
+function toActivityItemInput(item) {
+    const typeKey = typeof item?.type === 'string' ? item.type : 'playing';
+    const type = toActivityType(typeKey);
+    const text = typeof item?.text === 'string' ? item.text.trim().slice(0, 128) : '';
+    const rawUrl = typeof item?.url === 'string' ? item.url.trim() : '';
+    const url = type === presence.ACTIVITY_TYPES.streaming && presence.isValidStreamUrl(rawUrl) ? rawUrl : null;
+    return { type, text: text || null, url };
+}
+
+app.get('/api/presence-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const config = await presence.getConfig();
+        res.json(pickPresenceSettings(config));
+    } catch (err) {
+        console.error('dashboard: GET /api/presence-settings — не удалось прочитать конфиг:', err);
+        res.status(500).json({ error: 'Не удалось загрузить настройки.' });
+    }
+});
+
+app.put('/api/presence-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const rotateItemsIn = Array.isArray(body.rotateItems) ? body.rotateItems : [];
+
+    try {
+        await presence.updateConfig(cfg => {
+            cfg.status = PRESENCE_STATUSES.has(body.status) ? body.status : cfg.status;
+            cfg.rotate = Boolean(body.rotate);
+            cfg.rotateIntervalMs =
+                toNonNegativeInt(body.rotateIntervalMs, cfg.rotateIntervalMs) || cfg.rotateIntervalMs;
+            cfg.activity = toActivityItemInput(body.activity);
+            cfg.rotateItems = rotateItemsIn.map(toActivityItemInput).filter(item => item.text);
+            if (cfg.rotateIndex >= cfg.rotateItems.length) cfg.rotateIndex = 0;
+        });
+        const saved = await presence.getConfig();
+        res.json(pickPresenceSettings(saved));
+    } catch (err) {
+        console.error('dashboard: PUT /api/presence-settings — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
     }
 });
