@@ -422,4 +422,4 @@ function register(client) {
     });
 }
 
-module.exports = { register, handleButton, handleSelectMenu, handleModalSubmit, handleMessageCreate };
+module.exports = { register, handleButton, handleSelectMenu, handleModalSubmit, handleMessageCreate, buildCreateModal };
