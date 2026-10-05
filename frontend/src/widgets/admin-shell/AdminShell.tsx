@@ -1,26 +1,49 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
+import { ActivityIcon, ChevronLeftIcon, GridIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
 import styles from './AdminShell.module.css';
 
 const NAV_ITEMS = [
-    { to: '/dashboard', label: 'Обзор', end: true },
-    { to: '/dashboard/settings', label: 'Безопасность' },
-    { to: '/dashboard/status', label: 'Статус бота' },
+    { to: '/dashboard', label: 'Обзор', end: true, icon: <GridIcon /> },
+    { to: '/dashboard/settings', label: 'Безопасность', icon: <ShieldIcon /> },
+    { to: '/dashboard/status', label: 'Статус бота', icon: <ActivityIcon /> },
+    { to: '/dashboard/voice', label: 'Голосовые комнаты', icon: <VoiceIcon /> },
 ];
+
+const COLLAPSE_KEY = 'extree-admin-sidebar-collapsed';
+
+function readCollapsed(): boolean {
+    try {
+        return localStorage.getItem(COLLAPSE_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
 
 // Единый гейт всего кабинета (не только отдельных страниц) — весь раздел
 // /dashboard/* это панель управления ОДНИМ конкретным ботом (GUILD_ID),
 // а не многосерверный SaaS, поэтому "залогинен" недостаточно: кабинет
 // целиком виден только администратору сервера, на котором работает
 // Extree. Раньше у каждой страницы был свой экран логина — теперь один,
-// здесь, а DashboardPage/BotSettingsPage/BotStatusPage внутри <Outlet/>
-// уже гарантированно знают, что перед ними администратор.
+// здесь, а страницы внутри <Outlet/> уже гарантированно знают, что перед
+// ними администратор.
 export function AdminShell() {
     const { status, authError } = useSiteAdminGate();
+    const [collapsed, setCollapsed] = useState(readCollapsed);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
+        } catch {
+            // приватный режим браузера и т.п. — сворачивание просто не
+            // переживёт перезагрузку страницы, не критично.
+        }
+    }, [collapsed]);
 
     if (status === 'loading') {
         return <div className={styles.shell} />;
@@ -78,22 +101,37 @@ export function AdminShell() {
                 <a className={styles.brand} href="/">
                     <span className={styles.badge}>E</span>Extree
                 </a>
-                <LogoutButton />
+                <LogoutButton fullWidth={false} />
             </header>
-            <div className={styles.body}>
+            <div className={`${styles.body} ${collapsed ? styles.bodyCollapsed : ''}`}>
                 <nav className={styles.sidebar}>
-                    {NAV_ITEMS.map(item => (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            end={item.end}
-                            className={({ isActive }) =>
-                                isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
-                            }
-                        >
-                            {item.label}
-                        </NavLink>
-                    ))}
+                    <div className={styles.navLinks}>
+                        {NAV_ITEMS.map(item => (
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end={item.end}
+                                title={collapsed ? item.label : undefined}
+                                className={({ isActive }) =>
+                                    isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
+                                }
+                            >
+                                <span className={styles.navIcon}>{item.icon}</span>
+                                <span className={styles.navLabel}>{item.label}</span>
+                            </NavLink>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        className={styles.collapseToggle}
+                        onClick={() => setCollapsed(c => !c)}
+                        title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
+                    >
+                        <span className={styles.collapseIcon} data-collapsed={collapsed}>
+                            <ChevronLeftIcon />
+                        </span>
+                        <span className={styles.navLabel}>Свернуть</span>
+                    </button>
                 </nav>
                 <main className={styles.content}>
                     <Outlet />

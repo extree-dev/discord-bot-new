@@ -64,6 +64,7 @@
     font-weight: 800;
     font-size: 13px;
     box-shadow: var(--shadow-sm);
+    flex: none;
 }
 
 .centered {
@@ -89,18 +90,34 @@
     width: 220px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 24px 14px;
+    justify-content: space-between;
+    padding: 20px 14px;
     border-right: 1px solid var(--border);
+    transition: width 0.18s ease;
+}
+
+.bodyCollapsed .sidebar {
+    width: 72px;
+}
+
+.navLinks {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .navLink {
-    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
     border-radius: var(--radius-sm);
     font-size: 14px;
     font-weight: 600;
     color: var(--text-dim);
     text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
     transition:
         background 0.15s ease,
         color 0.15s ease;
@@ -117,6 +134,74 @@
     box-shadow: inset 0 0 0 1px var(--border);
 }
 
+.navIcon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: inherit;
+}
+
+.navIcon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.navLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bodyCollapsed .navLink {
+    justify-content: center;
+}
+
+.bodyCollapsed .navLabel {
+    display: none;
+}
+
+.collapseToggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+
+.collapseToggle:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.bodyCollapsed .collapseToggle {
+    justify-content: center;
+}
+
+.collapseIcon {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    transition: transform 0.18s ease;
+}
+
+.collapseIcon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.collapseIcon[data-collapsed='true'] {
+    transform: rotate(180deg);
+}
+
 .content {
     flex: 1;
     display: flex;
@@ -127,21 +212,36 @@
 }
 
 @media (max-width: 760px) {
-    .body {
+    .body,
+    .bodyCollapsed {
         flex-direction: column;
     }
 
-    .sidebar {
+    .sidebar,
+    .bodyCollapsed .sidebar {
         width: 100%;
         flex-direction: row;
+        align-items: center;
         overflow-x: auto;
         border-right: none;
         border-bottom: 1px solid var(--border);
         padding: 12px 16px;
     }
 
+    .navLinks {
+        flex-direction: row;
+    }
+
     .navLink {
         white-space: nowrap;
+    }
+
+    .bodyCollapsed .navLabel {
+        display: inline;
+    }
+
+    .collapseToggle {
+        display: none;
     }
 
     .content {

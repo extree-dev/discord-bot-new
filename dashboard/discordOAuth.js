@@ -59,6 +59,26 @@ async function fetchBotGuilds(botToken) {
     return res.json();
 }
 
+// Живой список каналов/ролей сервера — на боте-токене (не требует живого
+// discord.js-клиента, обычный REST), нужен дашборду, чтобы вместо "вставь
+// ID канала руками" показывать нормальный выпадающий список с именами
+// (см. GET /api/guild-channels и /api/guild-roles в dashboard/server.js).
+async function fetchGuildChannels(botToken, guildId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/channels`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord guild channels failed: ${res.status}`);
+    return res.json();
+}
+
+async function fetchGuildRoles(botToken, guildId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/roles`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord guild roles failed: ${res.status}`);
+    return res.json();
+}
+
 // true, если участник — владелец сервера или у него есть право
 // Administrator. permissions приходит от Discord строкой и может
 // превышать 32 бита, поэтому сравниваем через BigInt, а не побитовыми
@@ -96,6 +116,8 @@ module.exports = {
     fetchCurrentUser,
     fetchUserGuilds,
     fetchBotGuilds,
+    fetchGuildChannels,
+    fetchGuildRoles,
     isGuildAdmin,
     intersectManagedGuilds,
     isSiteAdmin,

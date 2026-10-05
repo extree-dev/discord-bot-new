@@ -28,6 +28,7 @@ const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
 const security = require('../security/config');
 const presence = require('../presence');
+const voice = require('../voice');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -80,6 +81,37 @@ async function getBotGuilds() {
     const guilds = await oauth.fetchBotGuilds(BOT_TOKEN);
     botGuildsCache = { guilds, fetchedAt: Date.now() };
     return guilds;
+}
+
+// Короче TTL, чем у getBotGuilds выше: список серверов бота меняется
+// редко, а каналы/роли админ может создать прямо перед тем, как зайти
+// в дашборд выбрать их в форме — минута ожидания терпима, 5 нет.
+const GUILD_RESOURCES_TTL_MS = 60 * 1000;
+let guildChannelsCache = { channels: null, fetchedAt: 0 };
+async function getGuildChannels() {
+    if (guildChannelsCache.channels && Date.now() - guildChannelsCache.fetchedAt < GUILD_RESOURCES_TTL_MS) {
+        return guildChannelsCache.channels;
+    }
+    const raw = await oauth.fetchGuildChannels(BOT_TOKEN, GUILD_ID);
+    const channels = raw
+        .map(c => ({ id: c.id, name: c.name, type: c.type, parentId: c.parent_id ?? null, position: c.position ?? 0 }))
+        .sort((a, b) => a.position - b.position);
+    guildChannelsCache = { channels, fetchedAt: Date.now() };
+    return channels;
+}
+
+let guildRolesCache = { roles: null, fetchedAt: 0 };
+async function getGuildRoles() {
+    if (guildRolesCache.roles && Date.now() - guildRolesCache.fetchedAt < GUILD_RESOURCES_TTL_MS) {
+        return guildRolesCache.roles;
+    }
+    const raw = await oauth.fetchGuildRoles(BOT_TOKEN, GUILD_ID);
+    const roles = raw
+        .filter(r => !r.managed && r.id !== GUILD_ID)
+        .map(r => ({ id: r.id, name: r.name, position: r.position ?? 0 }))
+        .sort((a, b) => b.position - a.position);
+    guildRolesCache = { roles, fetchedAt: Date.now() };
+    return roles;
 }
 
 function parseCookies(header) {
@@ -460,6 +492,93 @@ app.put('/api/presence-settings', async (req, res) => {
         res.json(pickPresenceSettings(saved));
     } catch (err) {
         console.error('dashboard: PUT /api/presence-settings — не удалось сохранить:', err);
+        res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
+    }
+});
+
+// Живой список каналов/ролей сервера бота — чтобы в формах вроде
+// voice-settings ниже выбирать канал/роль из выпадающего списка по
+// имени, а не вставлять руками его ID. Та же проверка прав, что у
+// остальных настроек — список каналов/ролей не публичная информация.
+app.get('/api/guild-channels', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        res.json({ channels: await getGuildChannels() });
+    } catch (err) {
+        console.error('dashboard: GET /api/guild-channels — не удалось загрузить список из Discord:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
+});
+
+app.get('/api/guild-roles', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        res.json({ roles: await getGuildRoles() });
+    } catch (err) {
+        console.error('dashboard: GET /api/guild-roles — не удалось загрузить список из Discord:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
+});
+
+// Временные голосовые комнаты — третий модуль управления через сайт.
+// В отличие от presence-settings здесь нет лага применения: voice/
+// handlers.js и model.js читают config.load() заново на каждое
+// взаимодействие (нажатие кнопки триггер-канала, открытие панели и
+// т.д.), а не держат значение в памяти процесса — правка с сайта
+// действует с первого же следующего клика, без перезапуска бота.
+function pickVoiceSettings(config) {
+    return {
+        triggerChannelId: config.triggerChannelId,
+        categoryId: config.categoryId,
+        roomsCategoryId: config.roomsCategoryId,
+        controlChannelId: config.controlChannelId,
+        defaultLimit: config.defaultLimit,
+    };
+}
+
+function toChannelIdOrNull(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+app.get('/api/voice-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const config = await voice.getConfig();
+        res.json(pickVoiceSettings(config));
+    } catch (err) {
+        console.error('dashboard: GET /api/voice-settings — не удалось прочитать конфиг:', err);
+        res.status(500).json({ error: 'Не удалось загрузить настройки.' });
+    }
+});
+
+app.put('/api/voice-settings', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    try {
+        await voice.updateConfig(cfg => {
+            cfg.triggerChannelId = toChannelIdOrNull(body.triggerChannelId);
+            cfg.categoryId = toChannelIdOrNull(body.categoryId);
+            cfg.roomsCategoryId = toChannelIdOrNull(body.roomsCategoryId);
+            cfg.controlChannelId = toChannelIdOrNull(body.controlChannelId);
+            const limit = Number(body.defaultLimit);
+            cfg.defaultLimit = Number.isFinite(limit) ? Math.min(99, Math.max(0, Math.round(limit))) : cfg.defaultLimit;
+        });
+        const saved = await voice.getConfig();
+        res.json(pickVoiceSettings(saved));
+    } catch (err) {
+        console.error('dashboard: PUT /api/voice-settings — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
     }
 });
