@@ -1,8 +1,12 @@
 import { Button } from '../../shared/ui/Button';
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+    fullWidth?: boolean;
+}
+
+export function LogoutButton({ fullWidth = true }: LogoutButtonProps) {
     return (
-        <Button href="/auth/logout" variant="ghost" fullWidth>
+        <Button href="/auth/logout" variant="ghost" fullWidth={fullWidth}>
             Выйти
         </Button>
     );
