@@ -168,6 +168,14 @@ gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U di
 
 Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443. Файлы сайтов отдаются прямо из рабочей копии репозитория (bind-mount, не образ) — обновление сайта это тот же `git pull`, что уже делает `deploy.yml` на каждый push в `main`, без отдельного шага.
 
+#### Личный кабинет (`dashboard/`, `bot.extree.tech/dashboard`)
+
+Вход через Discord OAuth2 (только Discord — кабинет управляет Discord-серверами, узнать админ ли пользователь на каком-то сервере можно только через Discord-логин, Google/Apple на этот вопрос не отвечают). Версия "только просмотр": список серверов, где у вошедшего права администратора/владельца и уже добавлен бот.
+
+Отдельный Node-процесс в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`), без БД: сессия целиком в одной httpOnly-cookie, зашифрованной AES-256-GCM (`dashboard/session.js`) — хранить нечего, кроме Discord access_token, которым каждый раз заново запрашиваются актуальные данные. Caddy проксирует на этот процесс только `/auth/*` и `/dashboard*` на `bot.extree.tech`, остальной сайт остаётся статикой (`web/Caddyfile`).
+
+Для запуска нужны три переменные в `.env` на сервере (см. `.env.example`): `DISCORD_CLIENT_SECRET` (Discord Developer Portal → OAuth2 → Client Secret), `DISCORD_REDIRECT_URI` (должен точно совпадать со значением, добавленным в Discord Developer Portal → OAuth2 → Redirects: `https://bot.extree.tech/auth/discord/callback`) и `SESSION_SECRET` (случайная строка, `openssl rand -hex 32`). Без любой из них процесс `dashboard` откажется стартовать.
+
 ## Структура проекта
 
 ```
@@ -190,6 +198,7 @@ utils/                     — общие хелперы (embeds, components, в
 scripts/                   — одноразовые скрипты первоначальной настройки сервера
 data/                      — бэкапы структуры сервера (не в git)
 web/                       — статические сайты (extree.tech, bot.extree.tech) + Caddyfile
+dashboard/                 — личный кабинет (bot.extree.tech/dashboard), вход через Discord OAuth2
 ```
 
 Конфигурация каждого модуля хранится одной JSONB-строкой в таблице `bot_stores` в PostgreSQL и читается/пишется через `utils/pgStore.js` — общий примитив, который делает read-modify-write атомарным через транзакцию с `SELECT ... FOR UPDATE`, чтобы параллельные взаимодействия (например, два обращения отправляются одновременно) не теряли изменения друг друга.
