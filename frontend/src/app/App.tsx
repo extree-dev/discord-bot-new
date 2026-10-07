@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import { VisitkaPage } from '../pages/visitka/VisitkaPage';
 import { SiteAdminPage } from '../pages/site-admin/SiteAdminPage';
+import { LoginPage } from '../pages/login/LoginPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { BotSettingsPage } from '../pages/bot-settings/BotSettingsPage';
 import { BotStatusPage } from '../pages/bot-status/BotStatusPage';
@@ -18,6 +19,7 @@ export function App() {
         <Routes>
             <Route path="/" element={<VisitkaPage />} />
             <Route path="/admin" element={<SiteAdminPage />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route element={<AdminShell />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/dashboard/settings" element={<BotSettingsPage />} />
