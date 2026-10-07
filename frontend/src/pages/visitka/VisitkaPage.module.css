@@ -1,19 +1,69 @@
+.page {
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
+    display: flex;
+    justify-content: center;
+    background: radial-gradient(ellipse 70% 45% at 50% 0%, rgba(88, 101, 242, 0.2), transparent 70%), var(--bg);
+}
+
+.page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, black, transparent 75%);
+}
+
+.glow {
+    position: absolute;
+    top: -220px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 760px;
+    height: 460px;
+    background: radial-gradient(circle, rgba(88, 101, 242, 0.32) 0%, transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.content {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 460px;
+    padding: 72px 24px 56px;
+    text-align: center;
+}
+
+.name {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
 .role {
-    margin: 0 0 16px;
+    margin: 0 0 14px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-hover, var(--accent));
 }
 
 .bio {
-    margin: 0 0 32px;
-    font-size: 14px;
+    margin: 0 auto 32px;
+    max-width: 340px;
+    font-size: 15px;
     line-height: 1.6;
     color: var(--text-dim);
 }
 
 .footer {
-    margin-top: 36px;
-    color: var(--text-dim);
+    margin-top: 40px;
+    color: var(--text-faint);
     font-size: 12px;
 }

@@ -7,7 +7,7 @@ interface AvatarProps {
 }
 
 export function Avatar({ src, alt, size = 'large' }: AvatarProps) {
-    const dimension = size === 'large' ? 112 : 56;
+    const dimension = size === 'large' ? 120 : 56;
     return (
         <img
             className={size === 'large' ? styles.large : styles.small}

@@ -1,8 +1,8 @@
 .links {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 24px;
 }
 
 .link {
@@ -12,7 +12,7 @@
     justify-content: center;
     gap: 10px;
     width: 100%;
-    padding: 15px 20px;
+    padding: 17px 22px;
     border-radius: var(--radius-pill);
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -29,10 +29,14 @@
 }
 
 a.link:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.015);
     border-color: var(--accent);
     background: var(--surface);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 10px 24px -8px rgba(88, 101, 242, 0.45);
+}
+
+a.link:active {
+    transform: translateY(0) scale(0.99);
 }
 
 .linkStatic {
@@ -42,16 +46,16 @@ a.link:hover {
 
 .icon {
     position: absolute;
-    left: 10px;
+    left: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     flex: none;
     border-radius: 50%;
-    background: var(--surface);
-    color: var(--text-dim);
+    background: rgba(88, 101, 242, 0.14);
+    color: var(--accent-hover);
     padding: 7px;
 }
 
