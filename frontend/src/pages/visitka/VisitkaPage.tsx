@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { getSiteContent } from '../../entities/site-content/api';
 import type { SiteContent } from '../../entities/site-content/types';
 import { Avatar } from '../../shared/ui/Avatar';
-import { Card } from '../../shared/ui/Card';
-import { AppShell } from '../../widgets/app-shell/AppShell';
 import { LinkList } from '../../widgets/link-list/LinkList';
 import styles from './VisitkaPage.module.css';
 
+// Публичная link-in-bio страница (extree.tech "/") — сознательно БЕЗ
+// AppShell: его фирменный хедер с лого/названием сделан для внутренних
+// страниц продукта (кабинет, редактор), а здесь сама эта страница —
+// весь "продукт", как у Linktree и подобных сервисов: ничего, кроме
+// аватара/имени/ссылок, залитых во весь экран без рамки карточки.
 export function VisitkaPage() {
     const [content, setContent] = useState<SiteContent | null>(null);
 
@@ -19,17 +22,18 @@ export function VisitkaPage() {
     if (content) document.title = content.name;
 
     return (
-        <AppShell>
+        <div className={styles.page}>
+            <div className={styles.glow} aria-hidden="true" />
             {content && (
-                <Card>
+                <main className={styles.content}>
                     <Avatar src="/avatar.jpg" alt={content.name} size="large" />
-                    <h1>{content.name}</h1>
+                    <h1 className={styles.name}>{content.name}</h1>
                     {content.role && <p className={styles.role}>{content.role}</p>}
-                    <p className={styles.bio}>{content.bio}</p>
+                    {content.bio && <p className={styles.bio}>{content.bio}</p>}
                     <LinkList links={content.links} />
                     <footer className={styles.footer}>© {content.name}</footer>
-                </Card>
+                </main>
             )}
-        </AppShell>
+        </div>
     );
 }
