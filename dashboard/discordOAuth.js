@@ -79,6 +79,69 @@ async function fetchGuildRoles(botToken, guildId) {
     return res.json();
 }
 
+// Сырые роли сервера (с битами permissions) — в отличие от
+// fetchGuildRoles выше (которая фильтрует managed/@everyone и отдаёт
+// только id/name/position для пикера в UI), нужны для пересчёта
+// реальных прав участника в isMemberAdmin ниже.
+async function fetchRawGuildRoles(botToken, guildId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/roles`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord guild roles failed: ${res.status}`);
+    return res.json();
+}
+
+async function fetchGuild(botToken, guildId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord guild fetch failed: ${res.status}`);
+    return res.json();
+}
+
+// null, если пользователь не состоит на сервере (а не бросает —
+// 404 здесь штатный случай, не ошибка).
+async function fetchGuildMember(botToken, guildId, userId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}/members/${userId}`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Discord guild member fetch failed: ${res.status}`);
+    return res.json();
+}
+
+// Пересчитывает права участника из его role id-шников и сырых ролей
+// сервера — чистая функция (без сети), поэтому тестируется отдельно от
+// isGuildAdminById ниже, которая уже дёргает Discord API.
+function isMemberAdmin({ ownerId, member, roles }) {
+    if (!member) return false;
+    if (ownerId && member.user?.id === ownerId) return true;
+    const roleById = new Map(roles.map(r => [r.id, r]));
+    const permissions = (member.roles || []).reduce((acc, roleId) => {
+        const role = roleById.get(roleId);
+        return role ? acc | BigInt(role.permissions) : acc;
+    }, 0n);
+    return (permissions & ADMINISTRATOR) === ADMINISTRATOR;
+}
+
+// Та же проверка прав администратора, что isSiteAdmin ниже, но по
+// discordId напрямую через бот-токен — без живого OAuth access_token
+// пользователя. Это то, что позволяет правам работать одинаково вне
+// зависимости от способа входа (Discord/Telegram/email, см.
+// dashboard/accounts.js): пока у аккаунта есть привязанный discordId,
+// права каждый раз проверяются заново у Discord ботом, а не берутся из
+// токена, который мог протухнуть или которого вовсе нет (вход не через
+// Discord).
+async function isGuildAdminById(botToken, guildId, discordId) {
+    const [guild, member] = await Promise.all([
+        fetchGuild(botToken, guildId),
+        fetchGuildMember(botToken, guildId, discordId),
+    ]);
+    if (!member) return false;
+    const roles = await fetchRawGuildRoles(botToken, guildId);
+    return isMemberAdmin({ ownerId: guild.owner_id, member, roles });
+}
+
 // true, если участник — владелец сервера или у него есть право
 // Administrator. permissions приходит от Discord строкой и может
 // превышать 32 бита, поэтому сравниваем через BigInt, а не побитовыми
@@ -118,7 +181,11 @@ module.exports = {
     fetchBotGuilds,
     fetchGuildChannels,
     fetchGuildRoles,
+    fetchGuild,
+    fetchGuildMember,
     isGuildAdmin,
+    isMemberAdmin,
+    isGuildAdminById,
     intersectManagedGuilds,
     isSiteAdmin,
 };

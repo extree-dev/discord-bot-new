@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isGuildAdmin, intersectManagedGuilds, buildAuthorizeUrl, isSiteAdmin } = require('../dashboard/discordOAuth');
+const {
+    isGuildAdmin,
+    intersectManagedGuilds,
+    buildAuthorizeUrl,
+    isSiteAdmin,
+    isMemberAdmin,
+} = require('../dashboard/discordOAuth');
 const { encryptSession, decryptSession } = require('../dashboard/session');
 
 test('isGuildAdmin: владелец сервера — всегда админ, даже без явного права', () => {
@@ -96,4 +102,31 @@ test('isSiteAdmin: guildId не задан — false', () => {
 test('session: мусорная строка вместо cookie — null', () => {
     assert.equal(decryptSession('not-a-valid-token', 'secret'), null);
     assert.equal(decryptSession('', 'secret'), null);
+});
+
+test('isMemberAdmin: владелец сервера — всегда админ, даже без ролей', () => {
+    const guild = { owner_id: 'u1' };
+    const member = { user: { id: 'u1' }, roles: [] };
+    assert.equal(isMemberAdmin({ ownerId: guild.owner_id, member, roles: [] }), true);
+});
+
+test('isMemberAdmin: роль с правом Administrator (0x8) среди ролей участника — админ', () => {
+    const roles = [
+        { id: 'r1', permissions: String(0x8) },
+        { id: 'r2', permissions: String(0x400) },
+    ];
+    const member = { user: { id: 'u2' }, roles: ['r2'] };
+    assert.equal(isMemberAdmin({ ownerId: 'owner', member, roles }), false);
+    assert.equal(isMemberAdmin({ ownerId: 'owner', member: { ...member, roles: ['r1', 'r2'] }, roles }), true);
+});
+
+test('isMemberAdmin: participant не на сервере (member === null) — false', () => {
+    assert.equal(isMemberAdmin({ ownerId: 'owner', member: null, roles: [] }), false);
+});
+
+test('isMemberAdmin: право выше 32 бит складывается через BigInt корректно', () => {
+    const huge = (1n << 40n) | 0x8n;
+    const roles = [{ id: 'r1', permissions: huge.toString() }];
+    const member = { user: { id: 'u3' }, roles: ['r1'] };
+    assert.equal(isMemberAdmin({ ownerId: 'owner', member, roles }), true);
 });
