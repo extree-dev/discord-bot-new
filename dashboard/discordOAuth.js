@@ -99,6 +99,19 @@ async function fetchGuild(botToken, guildId) {
     return res.json();
 }
 
+// То же, но с approximate_member_count/approximate_presence_count — для
+// статистики на "Обзоре" дашборда (GET /api/guild-stats). Отдельная
+// функция, а не всегда-on параметр у fetchGuild: эти поля не нужны в
+// остальных вызовах (проверка прав, список серверов), а
+// with_counts=true — это лишний пересчёт на стороне Discord.
+async function fetchGuildWithCounts(botToken, guildId) {
+    const res = await fetch(`${DISCORD_API}/guilds/${guildId}?with_counts=true`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord guild fetch failed: ${res.status}`);
+    return res.json();
+}
+
 // null, если пользователь не состоит на сервере (а не бросает —
 // 404 здесь штатный случай, не ошибка).
 async function fetchGuildMember(botToken, guildId, userId) {
@@ -182,6 +195,7 @@ module.exports = {
     fetchGuildChannels,
     fetchGuildRoles,
     fetchGuild,
+    fetchGuildWithCounts,
     fetchGuildMember,
     isGuildAdmin,
     isMemberAdmin,

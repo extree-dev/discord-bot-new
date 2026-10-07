@@ -4,10 +4,12 @@
     max-width: 400px;
     padding: 36px 32px;
     text-align: center;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
 .card h1 {
@@ -24,7 +26,7 @@
 }
 
 .wide {
-    max-width: 540px;
+    max-width: 720px;
     text-align: left;
 }
 

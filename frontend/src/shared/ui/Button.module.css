@@ -4,8 +4,11 @@
     gap: 10px;
     padding: 13px 18px;
     border-radius: var(--radius-md);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
     color: var(--text);
     text-decoration: none;
     font-family: inherit;
@@ -22,7 +25,7 @@
 
 .base:hover {
     border-color: var(--border-strong);
-    background: var(--surface);
+    background: var(--glass-bg-strong);
 }
 
 .base:focus-visible {
@@ -56,13 +59,14 @@
 }
 
 .static:hover {
-    border-color: var(--border);
-    background: var(--surface-2);
+    border-color: var(--glass-border);
+    background: var(--glass-bg);
 }
 
 .ghost {
     background: transparent;
     border-color: transparent;
+    box-shadow: none;
     justify-content: center;
     color: var(--text-dim);
     font-size: 13px;
@@ -70,8 +74,8 @@
 
 .ghost:hover {
     color: var(--text);
-    background: var(--surface-2);
-    border-color: var(--border);
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
 }
 
 .fullWidth {

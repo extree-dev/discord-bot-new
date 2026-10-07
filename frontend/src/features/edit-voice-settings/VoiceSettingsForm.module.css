@@ -9,8 +9,8 @@
     flex-direction: column;
     gap: 14px;
     padding: 18px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
 }
 

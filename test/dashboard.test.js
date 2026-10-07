@@ -6,6 +6,7 @@ const {
     buildAuthorizeUrl,
     isSiteAdmin,
     isMemberAdmin,
+    fetchGuildWithCounts,
 } = require('../dashboard/discordOAuth');
 const { encryptSession, decryptSession } = require('../dashboard/session');
 
@@ -129,4 +130,25 @@ test('isMemberAdmin: право выше 32 бит складывается че
     const roles = [{ id: 'r1', permissions: huge.toString() }];
     const member = { user: { id: 'u3' }, roles: ['r1'] };
     assert.equal(isMemberAdmin({ ownerId: 'owner', member, roles }), true);
+});
+
+test('fetchGuildWithCounts: запрашивает with_counts=true и отдаёт ответ Discord как есть', async () => {
+    const realFetch = global.fetch;
+    let requestedUrl;
+    try {
+        global.fetch = async (url, init) => {
+            requestedUrl = url;
+            assert.equal(init.headers.Authorization, 'Bot test-token');
+            return {
+                ok: true,
+                json: async () => ({ id: 'g1', approximate_member_count: 42, approximate_presence_count: 7 }),
+            };
+        };
+        const guild = await fetchGuildWithCounts('test-token', 'g1');
+        assert.equal(guild.approximate_member_count, 42);
+        assert.equal(guild.approximate_presence_count, 7);
+        assert.ok(String(requestedUrl).includes('with_counts=true'));
+    } finally {
+        global.fetch = realFetch;
+    }
 });
