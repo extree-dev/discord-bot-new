@@ -34,7 +34,7 @@ bot.extree.tech {
     handle /dashboard* {
         reverse_proxy dashboard:3000
     }
-    handle /login {
+    handle /login* {
         reverse_proxy dashboard:3000
     }
     handle /assets/* {
