@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
+import { gateNoticeMessage } from '../../shared/lib/gateNotice';
 import { ActivityIcon, ChevronLeftIcon, GridIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
@@ -33,7 +34,7 @@ function readCollapsed(): boolean {
 // здесь, а страницы внутри <Outlet/> уже гарантированно знают, что перед
 // ними администратор.
 export function AdminShell() {
-    const { status, authError } = useSiteAdminGate();
+    const { status, notice } = useSiteAdminGate();
     const [collapsed, setCollapsed] = useState(readCollapsed);
 
     useEffect(() => {
@@ -64,8 +65,10 @@ export function AdminShell() {
                         <p>
                             Войди через Discord — доступ есть только у администратора сервера, на котором работает бот.
                         </p>
-                        {authError && (
-                            <Notice variant="error">Вход не завершился — ссылка устарела. Попробуй ещё раз.</Notice>
+                        {notice && (
+                            <Notice variant={gateNoticeMessage(notice).variant}>
+                                {gateNoticeMessage(notice).text}
+                            </Notice>
                         )}
                         <LoginMethods />
                     </Card>
@@ -134,7 +137,14 @@ export function AdminShell() {
                     </button>
                 </nav>
                 <main className={styles.content}>
-                    <Outlet />
+                    <div className={styles.contentInner}>
+                        {notice && (
+                            <Notice variant={gateNoticeMessage(notice).variant}>
+                                {gateNoticeMessage(notice).text}
+                            </Notice>
+                        )}
+                        <Outlet />
+                    </div>
                 </main>
             </div>
         </div>
