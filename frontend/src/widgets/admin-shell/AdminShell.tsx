@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
 import { ActivityIcon, ChevronLeftIcon, GridIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
+import { LoginMethods } from '../login-methods/LoginMethods';
 import styles from './AdminShell.module.css';
 
 const NAV_ITEMS = [
@@ -67,7 +67,7 @@ export function AdminShell() {
                         {authError && (
                             <Notice variant="error">Вход не завершился — ссылка устарела. Попробуй ещё раз.</Notice>
                         )}
-                        <LoginButton />
+                        <LoginMethods />
                     </Card>
                 </main>
             </div>

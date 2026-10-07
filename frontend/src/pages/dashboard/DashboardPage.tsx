@@ -6,6 +6,7 @@ import type { ManagedGuild } from '../../entities/guild/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { Card } from '../../shared/ui/Card';
 import { GuildList } from '../../widgets/guild-list/GuildList';
+import { LinkedAccountsCard } from '../../widgets/linked-accounts/LinkedAccountsCard';
 import styles from './DashboardPage.module.css';
 
 type ViewState = { kind: 'loading' } | { kind: 'loaded'; user: SessionUser; guilds: ManagedGuild[] };
@@ -34,14 +35,17 @@ export function DashboardPage() {
     if (state.kind === 'loading') return null;
 
     return (
-        <Card wide>
-            <Avatar src={state.user.avatarUrl} alt="" size="small" />
-            <h1>Привет, {state.user.username}</h1>
-            <p>Сервера, где есть и ты (с правами администратора), и бот Extree.</p>
-            <GuildList guilds={state.guilds} />
-            <p className={styles.note}>
-                Список серверов — пока только просмотр. Настройки и статус бота — в меню слева, применяются сразу.
-            </p>
-        </Card>
+        <div className={styles.stack}>
+            <Card wide>
+                <Avatar src={state.user.avatarUrl} alt="" size="small" />
+                <h1>Привет, {state.user.username}</h1>
+                <p>Сервера, где есть и ты (с правами администратора), и бот Extree.</p>
+                <GuildList guilds={state.guilds} />
+                <p className={styles.note}>
+                    Список серверов — пока только просмотр. Настройки и статус бота — в меню слева, применяются сразу.
+                </p>
+            </Card>
+            <LinkedAccountsCard />
+        </div>
     );
 }

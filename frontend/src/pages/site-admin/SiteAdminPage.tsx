@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { getSiteContent } from '../../entities/site-content/api';
 import type { SiteContentResponse } from '../../entities/site-content/types';
 import { SiteContentForm } from '../../features/edit-site-content/SiteContentForm';
-import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
 import { AppShell } from '../../widgets/app-shell/AppShell';
+import { LoginMethods } from '../../widgets/login-methods/LoginMethods';
 
 export function SiteAdminPage() {
     const { status, authError } = useSiteAdminGate();
@@ -37,7 +37,7 @@ export function SiteAdminPage() {
                     {authError && (
                         <Notice variant="error">Вход не завершился — ссылка устарела. Попробуй ещё раз.</Notice>
                     )}
-                    <LoginButton />
+                    <LoginMethods />
                 </Card>
             )}
 

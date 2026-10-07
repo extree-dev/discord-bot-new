@@ -1,0 +1,44 @@
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.row:last-of-type {
+    border-bottom: none;
+}
+
+.label {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.status {
+    color: var(--text-dim);
+    font-size: 13px;
+}
+
+.linked {
+    color: var(--accent-hover, var(--accent));
+}
+
+.expanded {
+    padding: 12px 0;
+}
+
+.linkButton {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--accent-hover, var(--accent));
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.linkButton:hover {
+    text-decoration: underline;
+}

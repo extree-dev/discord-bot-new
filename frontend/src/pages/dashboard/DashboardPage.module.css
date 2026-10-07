@@ -1,3 +1,11 @@
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    max-width: 560px;
+}
+
 .note {
     color: var(--text-dim);
     font-size: 13px;

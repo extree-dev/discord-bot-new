@@ -24,6 +24,8 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const oauth = require('./discordOAuth');
+const accounts = require('./accounts');
+const { verifyTelegramAuth } = require('./telegramAuth');
 const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
 const security = require('../security/config');
@@ -36,6 +38,13 @@ const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const BOT_TOKEN = process.env.DISCORD_TOKEN;
 const GUILD_ID = process.env.GUILD_ID;
+// Необязательные провайдеры входа — дашборд стартует и без них, просто
+// соответствующая кнопка не показывается (см. GET /api/auth-methods).
+// Нужны, когда Discord недоступен пользователю напрямую (блокировки и
+// т.п.): вход через Telegram/email ведёт в тот же аккаунт, что уже был
+// один раз привязан через Discord OAuth — см. dashboard/accounts.js.
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
 
 for (const [name, value] of Object.entries({
     CLIENT_ID,
@@ -142,12 +151,19 @@ function getSessionFromReq(req) {
 // (GUILD_ID) — единый гейт для всего, что можно менять с сайта
 // (визитка, настройки безопасности и дальше): /api/site-admin-status,
 // PUT /api/site-content, GET/PUT /api/security-settings.
+//
+// Проверяется через бот-токен по discordId привязанного аккаунта
+// (dashboard/accounts.js), а не через access_token самого пользователя —
+// так права работают одинаково независимо от того, как именно он вошёл
+// в этот раз (Discord/Telegram/email), и не зависят от живого доступа
+// браузера пользователя к discord.com.
 async function isRequestSiteAdmin(req) {
     const session = getSessionFromReq(req);
     if (!session) return false;
     try {
-        const userGuilds = await oauth.fetchUserGuilds(session.accessToken);
-        return oauth.isSiteAdmin(userGuilds, GUILD_ID);
+        const account = await accounts.findById(session.accountId);
+        if (!account) return false;
+        return await oauth.isGuildAdminById(BOT_TOKEN, GUILD_ID, account.discordId);
     } catch (err) {
         console.error('dashboard: не удалось проверить права администратора:', err);
         return false;
@@ -201,7 +217,12 @@ app.get('/auth/discord/callback', async (req, res) => {
             redirectUri: redirectUriFor(req),
             code,
         });
-        const session = encryptSession({ accessToken: token.access_token, issuedAt: Date.now() }, SESSION_SECRET);
+        const discordUser = await oauth.fetchCurrentUser(token.access_token);
+        const account = await accounts.findOrCreateByDiscordId(discordUser.id, {
+            username: discordUser.username,
+            avatar: discordUser.avatar,
+        });
+        const session = encryptSession({ accountId: account.id, issuedAt: Date.now() }, SESSION_SECRET);
         res.cookie(SESSION_COOKIE, session, {
             httpOnly: true,
             secure: true,
@@ -220,40 +241,223 @@ app.get('/auth/logout', (req, res) => {
     res.redirect('/');
 });
 
+// Telegram Login Widget редиректит сюда с подписанными query-параметрами
+// (см. dashboard/telegramAuth.js). Два сценария по одному и тому же
+// роуту: если уже есть валидная сессия (вошли через Discord/email) — это
+// привязка Telegram к текущему аккаунту; если сессии нет — это попытка
+// входа по уже привязанному Telegram.
+app.get('/auth/telegram/callback', async (req, res) => {
+    const returnTo = defaultReturnPathFor(req.headers.host);
+    if (!TELEGRAM_BOT_TOKEN) {
+        res.redirect(`${returnTo}?auth_error=1`);
+        return;
+    }
+    if (!verifyTelegramAuth(req.query, TELEGRAM_BOT_TOKEN)) {
+        res.redirect(`${returnTo}?auth_error=1`);
+        return;
+    }
+    const telegramId = String(req.query.id);
+    const telegramUsername = typeof req.query.username === 'string' ? req.query.username : null;
+    try {
+        const existingSession = getSessionFromReq(req);
+        if (existingSession) {
+            const account = await accounts.findById(existingSession.accountId);
+            if (!account) {
+                res.redirect(`${returnTo}?auth_error=1`);
+                return;
+            }
+            await accounts.linkTelegram(account.id, telegramId, telegramUsername);
+            res.redirect(`${returnTo}?telegram_linked=1`);
+            return;
+        }
+        const account = await accounts.findByTelegramId(telegramId);
+        if (!account) {
+            res.redirect(`${returnTo}?telegram_not_linked=1`);
+            return;
+        }
+        const session = encryptSession({ accountId: account.id, issuedAt: Date.now() }, SESSION_SECRET);
+        res.cookie(SESSION_COOKIE, session, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: SESSION_MAX_AGE_MS,
+        });
+        res.redirect(returnTo);
+    } catch (err) {
+        if (err.message === 'telegram_already_linked') {
+            res.redirect(`${returnTo}?auth_error=telegram_taken`);
+            return;
+        }
+        console.error('dashboard: /auth/telegram/callback:', err);
+        res.redirect(`${returnTo}?auth_error=1`);
+    }
+});
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Грубая защита от подбора пароля по email — ключ IP, не email: иначе
+// можно было бы перебирать разные email без ограничения с одного адреса.
+// Не замена нормальному rate-limiter перед прокси, но достаточно, чтобы
+// сам процесс дашборда не был бесплатным оракулом для брутфорса.
+const LOGIN_ATTEMPT_LIMIT = 10;
+const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const loginAttemptsByIp = new Map();
+function isLoginRateLimited(ip) {
+    const now = Date.now();
+    const attempts = (loginAttemptsByIp.get(ip) || []).filter(t => now - t < LOGIN_ATTEMPT_WINDOW_MS);
+    attempts.push(now);
+    loginAttemptsByIp.set(ip, attempts);
+    return attempts.length > LOGIN_ATTEMPT_LIMIT;
+}
+
+app.post('/auth/email/login', async (req, res) => {
+    if (isLoginRateLimited(req.ip)) {
+        res.status(429).json({ error: 'Слишком много попыток входа, попробуй через 15 минут.' });
+        return;
+    }
+    const { email, password } = req.body && typeof req.body === 'object' ? req.body : {};
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+        res.status(400).json({ error: 'Укажи email и пароль.' });
+        return;
+    }
+    try {
+        const account = await accounts.verifyEmailLogin(email.trim().toLowerCase(), password);
+        if (!account) {
+            res.status(401).json({ error: 'Неверный email или пароль.' });
+            return;
+        }
+        const session = encryptSession({ accountId: account.id, issuedAt: Date.now() }, SESSION_SECRET);
+        res.cookie(SESSION_COOKIE, session, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: SESSION_MAX_AGE_MS,
+        });
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('dashboard: /auth/email/login:', err);
+        res.status(500).json({ error: 'Не удалось войти — попробуй ещё раз.' });
+    }
+});
+
+// Задать email+пароль как дополнительный способ входа — требует уже
+// активной сессии (Discord/Telegram): это привязка, не самостоятельная
+// регистрация, иначе кто угодно мог бы завести пароль без Discord-аккаунта
+// за спиной и получить вход в чужой уже привязанный email.
+app.post('/auth/email/set-password', async (req, res) => {
+    const session = getSessionFromReq(req);
+    if (!session) {
+        res.status(401).json({ error: 'Нужно войти.' });
+        return;
+    }
+    const { email, password } = req.body && typeof req.body === 'object' ? req.body : {};
+    if (typeof email !== 'string' || !EMAIL_RE.test(email.trim())) {
+        res.status(400).json({ error: 'Некорректный email.' });
+        return;
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+        res.status(400).json({ error: 'Пароль должен быть не короче 8 символов.' });
+        return;
+    }
+    try {
+        await accounts.setPassword(session.accountId, email.trim().toLowerCase(), password);
+        res.json({ ok: true });
+    } catch (err) {
+        if (err.message === 'email_already_used') {
+            res.status(409).json({ error: 'Этот email уже используется другим аккаунтом.' });
+            return;
+        }
+        console.error('dashboard: /auth/email/set-password:', err);
+        res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
+    }
+});
+
+// Какие способы входа вообще включены на этом окружении — Telegram
+// требует TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_USERNAME, без них кнопка
+// на фронте просто не показывается (см. README/.env.example).
+app.get('/api/auth-methods', (req, res) => {
+    res.json({
+        telegram: TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_USERNAME ? { botUsername: TELEGRAM_BOT_USERNAME } : null,
+    });
+});
+
+// Какие способы входа уже привязаны к текущему аккаунту — для раздела
+// "Способы входа" в настройках (показать, что уже подключено, и дать
+// привязать остальное).
+app.get('/api/linked-accounts', async (req, res) => {
+    const session = getSessionFromReq(req);
+    if (!session) {
+        res.status(401).json({ error: 'Нужно войти.' });
+        return;
+    }
+    const account = await accounts.findById(session.accountId);
+    if (!account) {
+        res.status(401).json({ error: 'Нужно войти.' });
+        return;
+    }
+    res.json({
+        discordUsername: account.discordUsername,
+        telegramUsername: account.telegramUsername,
+        hasPassword: Boolean(account.passwordHash),
+        email: account.email,
+    });
+});
+
 app.get('/api/session', async (req, res) => {
     const session = getSessionFromReq(req);
     if (!session) {
         res.json({ user: null });
         return;
     }
-    try {
-        const discordUser = await oauth.fetchCurrentUser(session.accessToken);
-        res.json({ user: { id: discordUser.id, username: discordUser.username, avatarUrl: avatarUrl(discordUser) } });
-    } catch (err) {
-        console.error('dashboard: /api/session — не удалось получить пользователя Discord:', err);
+    const account = await accounts.findById(session.accountId);
+    if (!account) {
         res.clearCookie(SESSION_COOKIE);
         res.json({ user: null });
+        return;
     }
+    res.json({
+        user: {
+            id: account.discordId,
+            username: account.discordUsername ?? account.discordId,
+            avatarUrl: avatarUrl({ id: account.discordId, avatar: account.discordAvatar }),
+        },
+    });
 });
 
 app.get('/api/guilds', async (req, res) => {
     const session = getSessionFromReq(req);
     if (!session) {
-        res.status(401).json({ error: 'Нужно войти через Discord.' });
+        res.status(401).json({ error: 'Нужно войти.' });
         return;
     }
     try {
-        const [userGuilds, botGuilds] = await Promise.all([oauth.fetchUserGuilds(session.accessToken), getBotGuilds()]);
-        const managed = oauth.intersectManagedGuilds(userGuilds, botGuilds);
+        const account = await accounts.findById(session.accountId);
+        if (!account) {
+            res.status(401).json({ error: 'Нужно войти.' });
+            return;
+        }
+        const isAdmin = await oauth.isGuildAdminById(BOT_TOKEN, GUILD_ID, account.discordId);
+        if (!isAdmin) {
+            res.json({ guilds: [] });
+            return;
+        }
+        const botGuilds = await getBotGuilds();
+        const guild = botGuilds.find(g => g.id === GUILD_ID);
         res.json({
-            guilds: managed.map(g => ({
-                id: g.id,
-                name: g.name,
-                iconUrl: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null,
-            })),
+            guilds: guild
+                ? [
+                      {
+                          id: guild.id,
+                          name: guild.name,
+                          iconUrl: guild.icon
+                              ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`
+                              : null,
+                      },
+                  ]
+                : [],
         });
     } catch (err) {
-        console.error('dashboard: /api/guilds — не удалось загрузить сервера из Discord:', err);
+        console.error('dashboard: /api/guilds — не удалось загрузить сервер из Discord:', err);
         res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
     }
 });
