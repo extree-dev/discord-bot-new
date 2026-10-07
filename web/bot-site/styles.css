@@ -37,6 +37,17 @@
     --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
     --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
 
+    /* "Liquid Glass" — translucent panels over a colored, blurred
+       background: полупрозрачная заливка + светлая кромка сверху
+       (имитация блика на стекле) + сильный backdrop-blur. Один и тот же
+       рецепт переиспользуется на nav/карточках/CTA вместо набора
+       сплошных bordered-боксов, которые были раньше. */
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --glass-blur: blur(22px) saturate(160%);
+
     /* Палитра мокапа — те же цвета, что у настоящего Discord-клиента,
        чтобы превью в hero читалось как реальный скриншот бота. */
     --discord-bg: #313338;
@@ -75,47 +86,50 @@ body {
 h1,
 h2,
 h3 {
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
 }
 
-/* Радиальное свечение + сетка точек позади всего контента — тот же
-   фоновый приём, что в AppShell React-кабинета (widgets/app-shell). */
-body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 28px 28px;
-    mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black, transparent 75%);
-}
-
+/* Цветной размытый фон — то, что просвечивает сквозь стеклянные панели.
+   Несколько мягких пятен вместо одного пятна + сетки точек (точки убраны
+   целиком: читались как типовой dev-tool шаблон, не как минимализм). */
 .glow {
     position: absolute;
-    top: -260px;
+    top: -220px;
     left: 50%;
     transform: translateX(-50%);
-    width: 1100px;
-    height: 700px;
-    background: radial-gradient(circle, rgba(88, 101, 242, 0.32) 0%, transparent 70%);
-    filter: blur(60px);
+    width: 1500px;
+    height: 900px;
+    background:
+        radial-gradient(circle at 28% 22%, rgba(88, 101, 242, 0.4), transparent 42%),
+        radial-gradient(circle at 74% 8%, rgba(136, 94, 255, 0.24), transparent 46%),
+        radial-gradient(circle at 56% 58%, rgba(64, 170, 255, 0.14), transparent 52%);
+    filter: blur(90px);
     pointer-events: none;
     z-index: -1;
 }
 
+/* Плавающая стеклянная капсула вместо сплошной полосы во всю ширину —
+   главный узнаваемый элемент Liquid Glass (iOS 26 / visionOS tab bars):
+   не прижата к краям экрана, не на всю ширину, собственная тень и
+   световой блик сверху. */
 .nav {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    width: min(880px, calc(100% - 32px));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 18px clamp(16px, 5vw, 48px);
-    background: rgba(10, 11, 15, 0.72);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--border);
+    gap: 20px;
+    padding: 10px 10px 10px 20px;
+    border-radius: var(--radius-pill);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
 .nav__brand {
@@ -127,31 +141,33 @@ body::before {
     color: var(--text);
     text-decoration: none;
     letter-spacing: -0.01em;
+    flex: none;
 }
 
 .nav__badge {
     width: 28px;
     height: 28px;
-    border-radius: 8px;
+    border-radius: 9px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 13px;
     font-weight: 800;
     color: var(--accent-ink);
-    background: linear-gradient(135deg, var(--accent), #4046c7);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
     box-shadow: var(--shadow-sm);
 }
 
 .nav__links {
     display: flex;
-    gap: 28px;
+    gap: 26px;
 }
 
 .nav__actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex: none;
 }
 
 .nav__links a {
@@ -166,15 +182,21 @@ body::before {
     color: var(--text);
 }
 
+@media (max-width: 760px) {
+    .nav__links {
+        display: none;
+    }
+}
+
 main {
     position: relative;
     z-index: 1;
 }
 
 .hero {
-    max-width: 700px;
+    max-width: 720px;
     margin: 0 auto;
-    padding: 96px 24px 0;
+    padding: 180px 24px 0;
     text-align: center;
 }
 
@@ -182,27 +204,30 @@ main {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 14px;
-    margin-bottom: 22px;
+    padding: 7px 16px;
+    margin-bottom: 26px;
     border-radius: var(--radius-pill);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
     font-size: 13px;
     font-weight: 600;
     color: var(--accent-hover);
 }
 
 .hero h1 {
-    margin: 0 0 18px;
-    font-size: 46px;
+    margin: 0 0 20px;
+    font-size: clamp(36px, 6vw, 58px);
     font-weight: 800;
-    line-height: 1.18;
+    line-height: 1.12;
 }
 
 .hero__lead {
-    margin: 0 auto 32px;
-    max-width: 540px;
-    font-size: 17px;
+    margin: 0 auto 36px;
+    max-width: 520px;
+    font-size: 18px;
     line-height: 1.65;
     color: var(--text-dim);
 }
@@ -212,18 +237,18 @@ main {
     gap: 12px;
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 72px;
+    margin-bottom: 88px;
 }
 
 .btn {
     display: inline-flex;
     align-items: center;
-    padding: 13px 24px;
-    border-radius: var(--radius-sm);
+    padding: 14px 26px;
+    border-radius: var(--radius-pill);
     text-decoration: none;
     font-size: 15px;
     font-weight: 600;
-    border: 1px solid var(--border);
+    border: 1px solid transparent;
     color: var(--text);
     white-space: nowrap;
     cursor: pointer;
@@ -239,42 +264,50 @@ main {
 }
 
 .btn--primary {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: linear-gradient(180deg, var(--accent-hover), var(--accent));
     color: var(--accent-ink);
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 12px 28px -10px rgba(88, 101, 242, 0.6);
 }
 
 .btn--primary:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-    box-shadow: 0 8px 20px -6px rgba(88, 101, 242, 0.55);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 16px 32px -10px rgba(88, 101, 242, 0.75);
 }
 
 .btn--ghost {
-    background: var(--surface);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
 }
 
 .btn--ghost:hover {
-    border-color: var(--border-strong);
+    background: var(--glass-bg-strong);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn--small {
-    padding: 9px 16px;
+    padding: 9px 18px;
     font-size: 13px;
 }
 
 /* Мокап окна Discord с карточкой бота — статичный HTML/CSS, не
    скриншот: легче поддерживать в актуальном виде при изменении карточки
-   (tickets/model.js buildPanelMessage), чем перегенерировать картинку. */
+   (tickets/model.js buildPanelMessage), чем перегенерировать картинку.
+   Внутри — настоящие цвета Discord (не стекло, это "экран"), снаружи —
+   стеклянная рамка. */
 .mock {
     max-width: 560px;
-    margin: 0 auto 100px;
-    border-radius: var(--radius-lg);
+    margin: 0 auto 120px;
+    border-radius: 28px;
     overflow: hidden;
     background: var(--discord-bg);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
     text-align: left;
 }
 
@@ -317,7 +350,7 @@ main {
     font-weight: 800;
     font-size: 15px;
     color: var(--accent-ink);
-    background: linear-gradient(135deg, var(--accent), #4046c7);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
 }
 
 .mock__msg-body {
@@ -383,7 +416,7 @@ main {
 .section {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 0 24px 110px;
+    padding: 0 24px 130px;
 }
 
 .section__kicker {
@@ -397,10 +430,10 @@ main {
 }
 
 .section__title {
-    margin: 0 auto 48px;
+    margin: 0 auto 56px;
     max-width: 560px;
     text-align: center;
-    font-size: 30px;
+    font-size: clamp(26px, 3.4vw, 34px);
     font-weight: 800;
 }
 
@@ -411,31 +444,34 @@ main {
 }
 
 .feature {
-    padding: 26px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    padding: 30px 26px;
+    border-radius: 26px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
     transition:
-        border-color 0.15s ease,
+        background 0.15s ease,
         transform 0.15s ease,
         box-shadow 0.15s ease;
 }
 
 .feature:hover {
-    border-color: var(--border-strong);
+    background: var(--glass-bg-strong);
     transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--glass-highlight), var(--shadow-md);
 }
 
 .feature__icon {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 16px;
-    border-radius: var(--radius-sm);
+    width: 42px;
+    height: 42px;
+    margin-bottom: 18px;
+    border-radius: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(88, 101, 242, 0.15);
+    background: rgba(88, 101, 242, 0.18);
     color: var(--accent-hover);
 }
 
@@ -453,7 +489,7 @@ main {
 .feature p {
     margin: 0;
     font-size: 14px;
-    line-height: 1.55;
+    line-height: 1.6;
     color: var(--text-dim);
 }
 
@@ -468,10 +504,13 @@ main {
 
 .step {
     position: relative;
-    padding: 28px 26px;
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    padding: 30px 26px;
+    border-radius: 26px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
 }
 
 .step__num {
@@ -480,12 +519,13 @@ main {
     justify-content: center;
     width: 36px;
     height: 36px;
-    margin-bottom: 18px;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--accent), #4046c7);
+    margin-bottom: 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
     color: var(--accent-ink);
     font-size: 15px;
     font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .step h3 {
@@ -497,49 +537,7 @@ main {
 .step p {
     margin: 0;
     font-size: 14px;
-    line-height: 1.55;
-    color: var(--text-dim);
-}
-
-.step + .step::before {
-    content: '';
-    position: absolute;
-    top: 46px;
-    left: -24px;
-    width: 32px;
-    height: 1px;
-    background: var(--border-strong);
-}
-
-@media (max-width: 760px) {
-    .step + .step::before {
-        display: none;
-    }
-}
-
-/* Полоса перед футером — единственный повторный CTA на странице,
-   кроме hero; не перегружаем страницу третьим/четвёртым призывом. */
-.cta-band {
-    max-width: 1080px;
-    margin: 0 auto 110px;
-    padding: 56px 24px;
-    border-radius: var(--radius-lg);
-    text-align: center;
-    background:
-        radial-gradient(ellipse 80% 120% at 50% -20%, rgba(88, 101, 242, 0.25), transparent 70%), var(--surface);
-    border: 1px solid var(--border);
-}
-
-.cta-band h2 {
-    margin: 0 0 12px;
-    font-size: 26px;
-    font-weight: 800;
-}
-
-.cta-band p {
-    margin: 0 auto 28px;
-    max-width: 440px;
-    font-size: 15px;
+    line-height: 1.6;
     color: var(--text-dim);
 }
 
@@ -549,13 +547,38 @@ main {
         grid-template-columns: 1fr;
     }
 
-    .hero h1 {
-        font-size: 32px;
+    .hero {
+        padding-top: 128px;
     }
+}
 
-    .section__title {
-        font-size: 24px;
-    }
+/* Полоса перед футером — единственный повторный CTA на странице,
+   кроме hero; не перегружаем страницу третьим/четвёртым призывом. */
+.cta-band {
+    max-width: 1080px;
+    margin: 0 auto 130px;
+    padding: 64px 24px;
+    border-radius: 32px;
+    text-align: center;
+    background:
+        radial-gradient(ellipse 90% 140% at 50% -30%, rgba(88, 101, 242, 0.32), transparent 70%), var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
+}
+
+.cta-band h2 {
+    margin: 0 0 12px;
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.cta-band p {
+    margin: 0 auto 30px;
+    max-width: 440px;
+    font-size: 15px;
+    color: var(--text-dim);
 }
 
 .footer {
@@ -563,15 +586,15 @@ main {
     z-index: 1;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 48px 24px;
-    border-top: 1px solid var(--border);
+    padding: 56px 24px 48px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer__top {
     display: grid;
     grid-template-columns: 1.4fr 1fr 1fr;
     gap: 32px;
-    margin-bottom: 32px;
+    margin-bottom: 36px;
 }
 
 .footer__brand {
@@ -627,7 +650,7 @@ main {
     flex-wrap: wrap;
     gap: 12px;
     padding-top: 24px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-faint);
     font-size: 13px;
 }
@@ -653,7 +676,7 @@ main {
 .legal {
     max-width: 720px;
     margin: 0 auto;
-    padding: 72px 24px 100px;
+    padding: 152px 24px 100px;
 }
 
 .legal__updated {
