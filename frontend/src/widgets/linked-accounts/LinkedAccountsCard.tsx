@@ -4,6 +4,7 @@ import { getLinkedAccounts } from '../../entities/linked-accounts/api';
 import type { LinkedAccounts } from '../../entities/linked-accounts/types';
 import { SetPasswordForm } from '../../features/email-auth/SetPasswordForm';
 import { TelegramLoginButton } from '../../features/telegram-auth/TelegramLoginButton';
+import { isDashboardDomain } from '../../shared/lib/isDashboardDomain';
 import { Card } from '../../shared/ui/Card';
 import styles from './LinkedAccountsCard.module.css';
 
@@ -49,7 +50,7 @@ export function LinkedAccountsCard() {
                 <span className={styles.label}>Telegram</span>
                 {linked.telegramUsername ? (
                     <span className={`${styles.status} ${styles.linked}`}>@{linked.telegramUsername}</span>
-                ) : telegramBotUsername ? (
+                ) : telegramBotUsername && isDashboardDomain() ? (
                     <TelegramLoginButton botUsername={telegramBotUsername} />
                 ) : (
                     <span className={styles.status}>не настроено</span>

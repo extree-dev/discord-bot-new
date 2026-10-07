@@ -3,15 +3,16 @@ import { getAuthMethods } from '../../entities/auth-methods/api';
 import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { EmailLoginForm } from '../../features/email-auth/EmailLoginForm';
 import { TelegramLoginButton } from '../../features/telegram-auth/TelegramLoginButton';
+import { isDashboardDomain } from '../../shared/lib/isDashboardDomain';
 import styles from './LoginMethods.module.css';
 
 // Все способы входа на одном экране логина (AdminShell, SiteAdminPage):
 // Discord — всегда, он единственный, которым можно изначально создать
 // аккаунт (см. dashboard/accounts.js); Telegram — только если бэкенд
-// настроен (TELEGRAM_BOT_TOKEN/TELEGRAM_BOT_USERNAME), иначе кнопка
-// виджета не рендерится вообще, а не показывается сломанной; email —
-// работает только для аккаунтов, где пароль уже был привязан заранее
-// (через настройки, уже будучи вошедшим).
+// настроен И мы на bot.extree.tech (виджет в @BotFather привязывается
+// ровно к одному домену, на extree.tech он всё равно не заработает —
+// см. isDashboardDomain); email — работает только для аккаунтов, где
+// пароль уже был привязан заранее (через настройки, уже будучи вошедшим).
 export function LoginMethods() {
     const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
 
@@ -24,7 +25,7 @@ export function LoginMethods() {
     return (
         <div className={styles.wrapper}>
             <LoginButton />
-            {telegramBotUsername && (
+            {telegramBotUsername && isDashboardDomain() && (
                 <div className={styles.telegram}>
                     <TelegramLoginButton botUsername={telegramBotUsername} />
                 </div>
