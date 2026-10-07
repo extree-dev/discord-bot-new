@@ -8,8 +8,11 @@ import styles from './VisitkaPage.module.css';
 // AppShell: его фирменный хедер с лого/названием сделан для внутренних
 // страниц продукта (кабинет, редактор), а здесь сама эта страница —
 // весь "продукт", как у Linktree и подобных сервисов: фото — не круглый
-// аватар, а баннер на всю ширину экрана сверху, плавно растворяющийся
-// в фоне, а не квадрат с отступами по бокам.
+// аватар, а баннер сверху узкой карточки (.frame), плавно растворяющийся
+// в фоне. Карточка — не весь браузер: на мобильном она и так = ширине
+// экрана, а на десктопе это центрированная колонка фиксированной ширины
+// (как у настоящего Linktree), иначе баннер растягивается на весь экран
+// и дико обрезается по object-fit: cover.
 export function VisitkaPage() {
     const [content, setContent] = useState<SiteContent | null>(null);
 
@@ -24,7 +27,7 @@ export function VisitkaPage() {
     return (
         <div className={styles.page}>
             {content && (
-                <>
+                <div className={styles.frame}>
                     <div className={styles.banner}>
                         <img className={styles.bannerImg} src="/avatar.jpg" alt={content.name} />
                     </div>
@@ -35,7 +38,7 @@ export function VisitkaPage() {
                         <LinkList links={content.links} />
                         <footer className={styles.footer}>© {content.name}</footer>
                     </main>
-                </>
+                </div>
             )}
         </div>
     );
