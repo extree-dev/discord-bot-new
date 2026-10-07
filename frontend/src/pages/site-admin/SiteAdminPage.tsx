@@ -6,11 +6,12 @@ import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
+import { gateNoticeMessage } from '../../shared/lib/gateNotice';
 import { AppShell } from '../../widgets/app-shell/AppShell';
 import { LoginMethods } from '../../widgets/login-methods/LoginMethods';
 
 export function SiteAdminPage() {
-    const { status, authError } = useSiteAdminGate();
+    const { status, notice } = useSiteAdminGate();
     const [content, setContent] = useState<SiteContentResponse | null>(null);
 
     useEffect(() => {
@@ -34,8 +35,8 @@ export function SiteAdminPage() {
                 <Card>
                     <h1>Редактирование визитки</h1>
                     <p>Войди через Discord — редактировать может только администратор сервера бота.</p>
-                    {authError && (
-                        <Notice variant="error">Вход не завершился — ссылка устарела. Попробуй ещё раз.</Notice>
+                    {notice && (
+                        <Notice variant={gateNoticeMessage(notice).variant}>{gateNoticeMessage(notice).text}</Notice>
                     )}
                     <LoginMethods />
                 </Card>
