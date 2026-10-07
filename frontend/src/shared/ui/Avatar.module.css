@@ -21,3 +21,19 @@
     height: 56px;
     margin: 0 auto 16px;
 }
+
+/* Крупное фото-превью для публичной визитки (VisitkaPage) — не кружок
+   с градиентным кольцом (тот читается как UI-аватарка), а большое фото
+   со скруглёнными углами, снизу плавно растворяющееся в фон страницы
+   (mask-image), как баннер-фото в настоящем Linktree. */
+.hero {
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+    margin: 0 auto 20px;
+    border-radius: 32px;
+    box-shadow: var(--shadow-lg);
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}

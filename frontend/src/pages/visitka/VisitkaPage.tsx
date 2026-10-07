@@ -26,7 +26,7 @@ export function VisitkaPage() {
             <div className={styles.glow} aria-hidden="true" />
             {content && (
                 <main className={styles.content}>
-                    <Avatar src="/avatar.jpg" alt={content.name} size="large" />
+                    <Avatar src="/avatar.jpg" alt={content.name} size="hero" />
                     <h1 className={styles.name}>{content.name}</h1>
                     {content.role && <p className={styles.role}>{content.role}</p>}
                     {content.bio && <p className={styles.bio}>{content.bio}</p>}
