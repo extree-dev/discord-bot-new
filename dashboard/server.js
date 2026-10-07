@@ -31,6 +31,8 @@ const site = require('../site/model');
 const security = require('../security/config');
 const presence = require('../presence');
 const voice = require('../voice');
+const cases = require('../cases');
+const tickets = require('../tickets/config');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -459,6 +461,47 @@ app.get('/api/guilds', async (req, res) => {
     } catch (err) {
         console.error('dashboard: /api/guilds — не удалось загрузить сервер из Discord:', err);
         res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Реальные цифры для карточек на "Обзоре" — вместо одного приветствия и
+// списка серверов. Участники/онлайн — живой REST-запрос к Discord
+// (approximate_member_count/approximate_presence_count, см.
+// fetchGuildWithCounts), всё остальное — чтение уже существующих
+// Postgres-сторов других модулей бота (тот же приём, что
+// security-settings/presence-settings/voice-settings выше: дашборд и бот
+// — разные процессы без общей памяти, общее у них только БД и Discord
+// REST, см. docker-compose.yml).
+app.get('/api/guild-stats', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const [guild, recentCases, securityConfig, ticketsConfig] = await Promise.all([
+            oauth.fetchGuildWithCounts(BOT_TOKEN, GUILD_ID),
+            cases.countRecentCases(GUILD_ID, Date.now() - DAY_MS),
+            security.load(),
+            tickets.load(),
+        ]);
+        const securityModulesActive = [
+            securityConfig.automod.enabled,
+            securityConfig.raidShield.enabled,
+            securityConfig.antiNuke.enabled,
+        ].filter(Boolean).length;
+        res.json({
+            memberCount: guild.approximate_member_count ?? null,
+            onlineCount: guild.approximate_presence_count ?? null,
+            recentCases,
+            securityModulesActive,
+            securityModulesTotal: 3,
+            openTickets: Object.keys(ticketsConfig.ticketsById).length,
+        });
+    } catch (err) {
+        console.error('dashboard: /api/guild-stats — не удалось собрать статистику:', err);
+        res.status(502).json({ error: 'Не удалось загрузить статистику, попробуй ещё раз чуть позже.' });
     }
 });
 

@@ -19,7 +19,7 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--border);
+    background: var(--glass-border);
 }
 
 .telegram {

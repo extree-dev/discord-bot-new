@@ -39,4 +39,15 @@ async function getCasesForUser(guildId, targetId, limit = 10) {
         .slice(0, limit);
 }
 
-module.exports = { addCase, getCase, getCasesForUser, storeName: STORE_NAME };
+// Для статистики на "Обзоре" дашборда (GET /api/guild-stats) — сколько
+// ручных наказаний (warn/timeout/ban/kick) заведено через /case за
+// последние N миллисекунд. Не включает автоматические действия
+// automod/raidShield/antiNuke — они не пишут сюда (см. комментарий к
+// STORE_NAME выше), только то, что реально прошло через /warn и т.п.
+async function countRecentCases(guildId, sinceMs) {
+    const stored = await store.load();
+    const all = Object.values(stored[guildId]?.cases ?? {});
+    return all.filter(c => new Date(c.createdAt).getTime() >= sinceMs).length;
+}
+
+module.exports = { addCase, getCase, getCasesForUser, countRecentCases, storeName: STORE_NAME };

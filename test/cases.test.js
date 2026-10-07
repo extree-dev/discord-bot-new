@@ -1,7 +1,7 @@
 const test = require('node:test');
 const { after } = test;
 const assert = require('node:assert/strict');
-const { addCase, getCase, getCasesForUser, storeName } = require('../cases/model');
+const { addCase, getCase, getCasesForUser, countRecentCases, storeName } = require('../cases/model');
 const { withStoreBackup } = require('./helpers/withBackup');
 const { closePool } = require('../utils/db');
 
@@ -67,6 +67,21 @@ test('getCasesForUser: только дела этого участника, но
         assert.equal(list.length, 2);
         assert.equal(list[0].id, lastId, 'самое новое дело должно быть первым');
         assert.ok(list.every(c => c.targetId === 'target-a'));
+    });
+});
+
+test('countRecentCases: считает только дела не раньше sinceMs, по нужному серверу', async () => {
+    await withStoreBackup(storeName, async () => {
+        const guildId = 'cases-recent-guild';
+        const before = Date.now();
+
+        await addCase(guildId, 'warn', { targetId: 'u1', targetTag: 'U1', moderatorTag: 'Мод', reason: 'r1' });
+        await addCase(guildId, 'ban', { targetId: 'u2', targetTag: 'U2', moderatorTag: 'Мод', reason: 'r2' });
+        await addCase('other-guild', 'warn', { targetId: 'u3', targetTag: 'U3', moderatorTag: 'Мод', reason: 'r3' });
+
+        assert.equal(await countRecentCases(guildId, before), 2);
+        assert.equal(await countRecentCases(guildId, Date.now() + 60_000), 0, 'порог в будущем — ничего не попадает');
+        assert.equal(await countRecentCases('other-guild', before), 1);
     });
 });
 
