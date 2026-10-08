@@ -6,7 +6,7 @@ import { gateNoticeMessage } from '../../shared/lib/gateNotice';
 import { ActivityIcon, ChevronLeftIcon, GridIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
-import { LoginMethods } from '../login-methods/LoginMethods';
+import { AuthSplitScreen } from '../auth-split-screen/AuthSplitScreen';
 import styles from './AdminShell.module.css';
 
 const NAV_ITEMS = [
@@ -51,30 +51,7 @@ export function AdminShell() {
     }
 
     if (status === 'logged-out') {
-        return (
-            <div className={styles.shell}>
-                <div className={styles.glow} aria-hidden="true" />
-                <header className={styles.topbar}>
-                    <a className={styles.brand} href="/">
-                        <span className={styles.badge}>E</span>Extree
-                    </a>
-                </header>
-                <main className={styles.centered}>
-                    <Card>
-                        <h1>Панель управления</h1>
-                        <p>
-                            Войди через Discord — доступ есть только у администратора сервера, на котором работает бот.
-                        </p>
-                        {notice && (
-                            <Notice variant={gateNoticeMessage(notice).variant}>
-                                {gateNoticeMessage(notice).text}
-                            </Notice>
-                        )}
-                        <LoginMethods />
-                    </Card>
-                </main>
-            </div>
-        );
+        return <AuthSplitScreen notice={notice} />;
     }
 
     if (status === 'denied') {

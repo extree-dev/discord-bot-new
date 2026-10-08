@@ -1,0 +1,228 @@
+/* Светлая тема, локальная для экрана входа — переопределяет те же
+   CSS-переменные, которыми пользуются Card/Button/Field/Notice/Checkbox
+   из shared/ui, поэтому они автоматически рендерятся в светлых цветах
+   здесь, оставаясь тёмными (Liquid Glass) везде в остальном приложении. */
+.page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #ffffff;
+    color: #0a0a0a;
+
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --text: #0a0a0a;
+    --text-dim: #52525b;
+    --text-faint: #71717a;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #fafafa;
+    --glass-border: #e4e4e7;
+    --glass-highlight: none;
+    --glass-blur: none;
+    --field-bg: #fafafa;
+    --notice-error-text: #b42318;
+    --danger-bg: rgba(242, 73, 92, 0.08);
+    --success-bg: rgba(88, 101, 242, 0.08);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.16);
+}
+
+.marketing {
+    flex: none;
+    width: min(640px, calc(100% - 64px));
+    transition:
+        width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+        margin 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 28px;
+}
+
+.badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    color: var(--accent-ink);
+    font-weight: 800;
+    font-size: 13px;
+    box-shadow: var(--shadow-sm);
+}
+
+.marketing h1 {
+    margin: 0 0 16px;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text);
+}
+
+.lead {
+    margin: 0 0 32px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    max-width: 46ch;
+}
+
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    margin-bottom: 28px;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat span {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.stat small {
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.feature {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+}
+
+.feature strong {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.feature span {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-dim);
+}
+
+.scrollHint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--text-faint);
+    animation: bounce 1.8s ease-in-out infinite;
+    transition: opacity 0.3s ease;
+}
+
+@keyframes bounce {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(5px);
+    }
+}
+
+.signInWrap {
+    flex: none;
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateX(40px);
+    transition:
+        width 0.5s cubic-bezier(0.22, 0.61, 0.36, 1),
+        opacity 0.4s ease 0.1s,
+        transform 0.5s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.signIn h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.signIn > p {
+    margin: 0 0 24px;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+.revealed {
+    justify-content: center;
+    gap: clamp(32px, 6vw, 96px);
+}
+
+.revealed .marketing {
+    width: min(460px, 40vw);
+}
+
+.revealed .scrollHint {
+    opacity: 0;
+}
+
+.revealed .signInWrap {
+    width: min(400px, 36vw);
+    opacity: 1;
+    overflow: visible;
+    transform: translateX(0);
+}
+
+@media (max-width: 900px) {
+    .page {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        padding: 40px 20px;
+        justify-content: flex-start;
+        gap: 40px;
+    }
+
+    .marketing,
+    .revealed .marketing {
+        width: 100%;
+    }
+
+    .scrollHint {
+        display: none;
+    }
+
+    .signInWrap,
+    .revealed .signInWrap {
+        width: 100%;
+        opacity: 1;
+        overflow: visible;
+        transform: none;
+    }
+}

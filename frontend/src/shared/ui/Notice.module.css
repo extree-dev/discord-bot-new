@@ -18,5 +18,5 @@
 .error {
     background: var(--danger-bg);
     border-color: rgba(242, 73, 92, 0.3);
-    color: #ff9aa6;
+    color: var(--notice-error-text, #ff9aa6);
 }

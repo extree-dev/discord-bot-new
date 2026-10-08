@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { getSession } from '../../entities/session/api';
-import { consumeGateNotice, gateNoticeMessage, type GateNotice } from '../../shared/lib/gateNotice';
-import { Card } from '../../shared/ui/Card';
-import { Notice } from '../../shared/ui/Notice';
-import { LoginMethods } from '../../widgets/login-methods/LoginMethods';
+import { consumeGateNotice, type GateNotice } from '../../shared/lib/gateNotice';
+import { AuthSplitScreen } from '../../widgets/auth-split-screen/AuthSplitScreen';
 import styles from './LoginPage.module.css';
 
 type ViewState = 'loading' | 'logged-out' | 'logged-in';
@@ -38,27 +36,8 @@ export function LoginPage() {
         };
     }, []);
 
-    if (state === 'loading') return <div className={styles.page} />;
+    if (state === 'loading') return <div className={styles.loading} />;
     if (state === 'logged-in') return <Navigate to="/dashboard" replace />;
 
-    return (
-        <div className={styles.page}>
-            <div className={styles.glow} aria-hidden="true" />
-            <header className={styles.topbar}>
-                <a className={styles.brand} href="/">
-                    <span className={styles.badge}>E</span>Extree
-                </a>
-            </header>
-            <main className={styles.centered}>
-                <Card>
-                    <h1>Панель управления</h1>
-                    <p>Войди через Discord — доступ есть только у администратора сервера, на котором работает бот.</p>
-                    {notice && (
-                        <Notice variant={gateNoticeMessage(notice).variant}>{gateNoticeMessage(notice).text}</Notice>
-                    )}
-                    <LoginMethods />
-                </Card>
-            </main>
-        </div>
-    );
+    return <AuthSplitScreen notice={notice} />;
 }
