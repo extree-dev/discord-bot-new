@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { getSession } from '../../entities/session/api';
 import type { SessionUser } from '../../entities/session/types';
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
 import { gateNoticeMessage } from '../../shared/lib/gateNotice';
+import { useTheme } from '../../shared/lib/useTheme';
+import { useLang } from '../../shared/lib/useLang';
+import type { TranslationKey } from '../../shared/lib/i18n/translations';
 import {
     ActivityIcon,
     BanIcon,
@@ -19,18 +22,20 @@ import {
 import { Avatar } from '../../shared/ui/Avatar';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
+import { ThemeToggle } from '../../shared/ui/ThemeToggle';
+import { LanguageToggle } from '../../shared/ui/LanguageToggle';
 import { AuthSplitScreen } from '../auth-split-screen/AuthSplitScreen';
 import styles from './AdminShell.module.css';
 
-const NAV_ITEMS = [
-    { to: '/dashboard', label: 'Обзор', end: true, icon: <GridIcon /> },
-    { to: '/dashboard/members', label: 'Участники', icon: <UsersIcon /> },
-    { to: '/dashboard/muted', label: 'В муте', icon: <MuteIcon /> },
-    { to: '/dashboard/banned', label: 'Заблокированные', icon: <BanIcon /> },
-    { to: '/dashboard/leaderboard', label: 'Уровни', icon: <LevelsIcon /> },
-    { to: '/dashboard/settings', label: 'Безопасность', icon: <ShieldIcon /> },
-    { to: '/dashboard/status', label: 'Статус бота', icon: <ActivityIcon /> },
-    { to: '/dashboard/voice', label: 'Голосовые комнаты', icon: <VoiceIcon /> },
+const NAV_ITEMS: { to: string; end?: boolean; labelKey: TranslationKey; icon: ReactNode }[] = [
+    { to: '/dashboard', end: true, labelKey: 'nav.overview', icon: <GridIcon /> },
+    { to: '/dashboard/members', labelKey: 'nav.members', icon: <UsersIcon /> },
+    { to: '/dashboard/muted', labelKey: 'nav.muted', icon: <MuteIcon /> },
+    { to: '/dashboard/banned', labelKey: 'nav.banned', icon: <BanIcon /> },
+    { to: '/dashboard/leaderboard', labelKey: 'nav.leaderboard', icon: <LevelsIcon /> },
+    { to: '/dashboard/settings', labelKey: 'nav.security', icon: <ShieldIcon /> },
+    { to: '/dashboard/status', labelKey: 'nav.status', icon: <ActivityIcon /> },
+    { to: '/dashboard/voice', labelKey: 'nav.voice', icon: <VoiceIcon /> },
 ];
 
 const COLLAPSE_KEY = 'extree-admin-sidebar-collapsed';
@@ -61,6 +66,8 @@ export function AdminShell() {
     const { status, notice } = useSiteAdminGate();
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const [user, setUser] = useState<SessionUser | null>(null);
+    const { theme, toggleTheme } = useTheme();
+    const { lang, toggleLang, t } = useLang();
 
     useEffect(() => {
         try {
@@ -83,7 +90,7 @@ export function AdminShell() {
     }, [status]);
 
     if (status === 'loading') {
-        return <div className={styles.shell} />;
+        return <div className={styles.shell} data-theme={theme} />;
     }
 
     if (status === 'logged-out') {
@@ -92,7 +99,8 @@ export function AdminShell() {
 
     if (status === 'denied') {
         return (
-            <div className={styles.deniedShell}>
+            <div className={styles.deniedShell} data-theme={theme}>
+                <div className={styles.glow} />
                 <header className={styles.deniedTopbar}>
                     <a className={styles.deniedBrand} href="/">
                         <span className={styles.deniedBadge}>E</span>Extree
@@ -100,9 +108,9 @@ export function AdminShell() {
                 </header>
                 <main className={styles.deniedCentered}>
                     <Card>
-                        <h1>Нет доступа</h1>
-                        <p>Панель управления доступна только администратору сервера, на котором работает Extree.</p>
-                        <LogoutButton />
+                        <h1>{t('denied.title')}</h1>
+                        <p>{t('denied.text')}</p>
+                        <LogoutButton label={t('sidebar.logout')} />
                     </Card>
                 </main>
             </div>
@@ -110,19 +118,27 @@ export function AdminShell() {
     }
 
     return (
-        <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ''}`}>
+        <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ''}`} data-theme={theme}>
+            <div className={styles.glow} />
             <aside className={styles.sidebar}>
-                <a className={styles.brand} href="/">
-                    <span className={styles.badge}>E</span>
-                    <span className={styles.brandLabel}>Extree</span>
-                </a>
+                <div className={styles.brandRow}>
+                    <a className={styles.brand} href="/">
+                        <span className={styles.badge}>E</span>
+                        <span className={styles.brandLabel}>Extree</span>
+                    </a>
+                </div>
+
+                <div className={styles.toolsRow}>
+                    <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                    <LanguageToggle lang={lang} onToggle={toggleLang} />
+                </div>
 
                 {user && (
                     <div className={styles.profile}>
                         <Avatar src={user.avatarUrl} alt="" size="tiny" />
                         <div className={styles.profileText}>
                             <span className={styles.profileName}>{user.username}</span>
-                            <span className={styles.profileRole}>Администратор</span>
+                            <span className={styles.profileRole}>{t('profile.role')}</span>
                         </div>
                     </div>
                 )}
@@ -133,13 +149,13 @@ export function AdminShell() {
                             key={item.to}
                             to={item.to}
                             end={item.end}
-                            title={collapsed ? item.label : undefined}
+                            title={collapsed ? t(item.labelKey) : undefined}
                             className={({ isActive }) =>
                                 isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink
                             }
                         >
                             <span className={styles.navIcon}>{item.icon}</span>
-                            <span className={styles.navLabel}>{item.label}</span>
+                            <span className={styles.navLabel}>{t(item.labelKey)}</span>
                         </NavLink>
                     ))}
                 </nav>
@@ -154,9 +170,9 @@ export function AdminShell() {
                         <span className={styles.collapseIcon} data-collapsed={collapsed}>
                             <ChevronLeftIcon />
                         </span>
-                        <span className={styles.navLabel}>Свернуть</span>
+                        <span className={styles.navLabel}>{t('sidebar.collapse')}</span>
                     </button>
-                    <LogoutButton fullWidth />
+                    <LogoutButton fullWidth label={t('sidebar.logout')} />
                 </div>
             </aside>
             <main className={styles.content}>

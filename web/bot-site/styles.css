@@ -28,6 +28,14 @@
     --accent-hover: #6e78f5;
     --accent-ink: #ffffff;
 
+    /* Доп. акценты палитры бренда (purple/blue) — используются вместе
+       с blurple, а не только в фоновом glow, иначе вся страница читается
+       одним плоским синим пятном вместо многоцветной Liquid Glass схемы. */
+    --accent-purple: #885eff;
+    --accent-purple-hover: #9d79ff;
+    --accent-blue: #40aaff;
+    --accent-blue-hover: #63bbff;
+
     --radius-sm: 10px;
     --radius-md: 14px;
     --radius-lg: 22px;
@@ -100,9 +108,9 @@ h3 {
     width: 1500px;
     height: 900px;
     background:
-        radial-gradient(circle at 28% 22%, rgba(88, 101, 242, 0.4), transparent 42%),
-        radial-gradient(circle at 74% 8%, rgba(136, 94, 255, 0.24), transparent 46%),
-        radial-gradient(circle at 56% 58%, rgba(64, 170, 255, 0.14), transparent 52%);
+        radial-gradient(circle at 22% 18%, rgba(88, 101, 242, 0.46), transparent 44%),
+        radial-gradient(circle at 78% 4%, rgba(136, 94, 255, 0.34), transparent 48%),
+        radial-gradient(circle at 58% 62%, rgba(64, 170, 255, 0.24), transparent 54%);
     filter: blur(90px);
     pointer-events: none;
     z-index: -1;
@@ -307,7 +315,11 @@ main {
     overflow: hidden;
     background: var(--discord-bg);
     border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
+    box-shadow:
+        var(--glass-highlight),
+        0 0 80px -16px rgba(88, 101, 242, 0.35),
+        0 0 120px -24px rgba(136, 94, 255, 0.25),
+        var(--shadow-lg);
     text-align: left;
 }
 
@@ -480,6 +492,19 @@ main {
     height: 22px;
 }
 
+/* Три акцента бренда по кругу вместо одного плоского blurple на всех
+   шести карточках — иначе секция выглядит монотонно несмотря на
+   многоцветный фон. */
+.feature:nth-child(3n + 2) .feature__icon {
+    background: rgba(136, 94, 255, 0.18);
+    color: var(--accent-purple-hover);
+}
+
+.feature:nth-child(3n + 3) .feature__icon {
+    background: rgba(64, 170, 255, 0.18);
+    color: var(--accent-blue-hover);
+}
+
 .feature h3 {
     margin: 0 0 8px;
     font-size: 16px;
@@ -528,6 +553,14 @@ main {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
+.step:nth-child(2) .step__num {
+    background: linear-gradient(135deg, var(--accent-purple-hover), var(--accent-purple));
+}
+
+.step:nth-child(3) .step__num {
+    background: linear-gradient(135deg, var(--accent-blue-hover), var(--accent-blue));
+}
+
 .step h3 {
     margin: 0 0 8px;
     font-size: 16px;
@@ -561,7 +594,8 @@ main {
     border-radius: 32px;
     text-align: center;
     background:
-        radial-gradient(ellipse 90% 140% at 50% -30%, rgba(88, 101, 242, 0.32), transparent 70%), var(--glass-bg);
+        radial-gradient(ellipse 80% 140% at 18% -30%, rgba(88, 101, 242, 0.34), transparent 70%),
+        radial-gradient(ellipse 80% 140% at 85% 130%, rgba(136, 94, 255, 0.26), transparent 70%), var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);

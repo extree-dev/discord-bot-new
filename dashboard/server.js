@@ -26,6 +26,7 @@ const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const path = require('path');
 const oauth = require('./discordOAuth');
+const googleOAuth = require('./googleOAuth');
 const accounts = require('./accounts');
 const { verifyTelegramAuth } = require('./telegramAuth');
 const { encryptSession, decryptSession } = require('./session');
@@ -51,6 +52,8 @@ const GUILD_ID = process.env.GUILD_ID;
 // один раз привязан через Discord OAuth — см. dashboard/accounts.js.
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 for (const [name, value] of Object.entries({
     CLIENT_ID,
@@ -78,8 +81,17 @@ function redirectUriFor(req) {
     return `https://${req.headers.host}/auth/discord/callback`;
 }
 
+// Та же схема, что redirectUriFor выше, но для Google — в Google Cloud
+// Console → Credentials → OAuth client ID должны быть зарегистрированы
+// ОБА https://bot.extree.tech/auth/google/callback и
+// https://extree.tech/auth/google/callback.
+function redirectUriForGoogle(req) {
+    return `https://${req.headers.host}/auth/google/callback`;
+}
+
 const SESSION_COOKIE = 'extree_session';
 const STATE_COOKIE = 'extree_oauth_state';
+const GOOGLE_STATE_COOKIE = 'extree_oauth_state_google';
 // Столько же живёт access_token, который Discord выдаёт на этот grant —
 // после этого API просто начнёт отвечать user: null / 401.
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -127,6 +139,24 @@ async function getGuildRoles() {
         .sort((a, b) => b.position - a.position);
     guildRolesCache = { roles, fetchedAt: Date.now() };
     return roles;
+}
+
+// Полный список ролей сервера (включая managed/интеграционные — роль
+// буста, роли ботов и т.п.), БЕЗ фильтра getGuildRoles() выше: тот
+// фильтр существует для пикера ролей в формах настроек (туда managed-
+// роль руками не назначишь, нет смысла показывать), а не для отображения
+// уже существующих ролей участника на "Участниках" — там нужны имена
+// ВСЕХ ролей, иначе у роли, отфильтрованной из пикера, участнику вместо
+// имени показывался бы её сырой Discord ID (что и было багом).
+let allGuildRolesCache = { roles: null, fetchedAt: 0 };
+async function getAllGuildRolesById() {
+    if (allGuildRolesCache.roles && Date.now() - allGuildRolesCache.fetchedAt < GUILD_RESOURCES_TTL_MS) {
+        return allGuildRolesCache.roles;
+    }
+    const raw = await oauth.fetchRawGuildRoles(BOT_TOKEN, GUILD_ID);
+    const byId = new Map(raw.filter(r => r.id !== GUILD_ID).map(r => [r.id, r.name]));
+    allGuildRolesCache = { roles: byId, fetchedAt: Date.now() };
+    return byId;
 }
 
 // Полный ростер участников — тот же TTL-кэш, что у каналов/ролей выше:
@@ -301,8 +331,15 @@ app.get('/auth/discord/callback', async (req, res) => {
     }
 });
 
+// clearCookie с теми же атрибутами, что были при установке (httpOnly/
+// secure/sameSite/path) — иначе в части браузеров cookie тихо не
+// очищается: совпадать должны домен+путь (а для некоторых браузеров и
+// SameSite), это не просто стиль. Токенов для очистки на клиенте больше
+// нет: сессия только в этой httpOnly-cookie, в localStorage лежат
+// исключительно непривилегированные настройки UI (тема/язык/свёрнутый
+// сайдбар) — их намеренно не трогаем при логауте, это не секреты.
 app.get('/auth/logout', (req, res) => {
-    res.clearCookie(SESSION_COOKIE);
+    res.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
     res.redirect('/');
 });
 
@@ -354,6 +391,79 @@ app.get('/auth/telegram/callback', async (req, res) => {
             return;
         }
         console.error('dashboard: /auth/telegram/callback:', err);
+        res.redirect(`${returnTo}?auth_error=1`);
+    }
+});
+
+// Google — тот же паттерн, что Discord-логин выше (стандартный redirect
+// OAuth2, без виджета/SDK, в отличие от Telegram), поэтому работает
+// одинаково на обоих доменах без isDashboardDomain-гейта.
+app.get('/auth/google/login', (req, res) => {
+    if (!GOOGLE_CLIENT_ID) {
+        res.redirect(`${defaultReturnPathFor(req.headers.host)}?auth_error=1`);
+        return;
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    res.cookie(GOOGLE_STATE_COOKIE, state, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 10 * 60 * 1000,
+    });
+    res.redirect(
+        googleOAuth.buildAuthorizeUrl({ clientId: GOOGLE_CLIENT_ID, redirectUri: redirectUriForGoogle(req), state })
+    );
+});
+
+// Та же развилка привязка/вход, что у /auth/telegram/callback выше: с
+// активной сессией — привязка Google к текущему аккаунту, без сессии —
+// попытка входа по уже привязанному Google-аккаунту.
+app.get('/auth/google/callback', async (req, res) => {
+    const returnTo = defaultReturnPathFor(req.headers.host);
+    const { code, state } = req.query;
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !code || !state || state !== req.cookies[GOOGLE_STATE_COOKIE]) {
+        res.redirect(`${returnTo}?auth_error=1`);
+        return;
+    }
+    res.clearCookie(GOOGLE_STATE_COOKIE);
+    try {
+        const token = await googleOAuth.exchangeCode({
+            clientId: GOOGLE_CLIENT_ID,
+            clientSecret: GOOGLE_CLIENT_SECRET,
+            redirectUri: redirectUriForGoogle(req),
+            code,
+        });
+        const googleUser = await googleOAuth.fetchCurrentUser(token.access_token);
+        const existingSession = getSessionFromReq(req);
+        if (existingSession) {
+            const account = await accounts.findById(existingSession.accountId);
+            if (!account) {
+                res.redirect(`${returnTo}?auth_error=1`);
+                return;
+            }
+            await accounts.linkGoogle(account.id, googleUser.sub, googleUser.email ?? null);
+            res.redirect(`${returnTo}?google_linked=1`);
+            return;
+        }
+        const account = await accounts.findByGoogleId(googleUser.sub);
+        if (!account) {
+            res.redirect(`${returnTo}?google_not_linked=1`);
+            return;
+        }
+        const session = encryptSession({ accountId: account.id, issuedAt: Date.now() }, SESSION_SECRET);
+        res.cookie(SESSION_COOKIE, session, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: SESSION_MAX_AGE_MS,
+        });
+        res.redirect(returnTo);
+    } catch (err) {
+        if (err.message === 'google_already_linked') {
+            res.redirect(`${returnTo}?auth_error=google_taken`);
+            return;
+        }
+        console.error('dashboard: /auth/google/callback:', err);
         res.redirect(`${returnTo}?auth_error=1`);
     }
 });
@@ -443,6 +553,7 @@ app.post('/auth/email/set-password', async (req, res) => {
 app.get('/api/auth-methods', (req, res) => {
     res.json({
         telegram: TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_USERNAME ? { botUsername: TELEGRAM_BOT_USERNAME } : null,
+        google: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET ? { enabled: true } : null,
     });
 });
 
@@ -463,6 +574,7 @@ app.get('/api/linked-accounts', async (req, res) => {
     res.json({
         discordUsername: account.discordUsername,
         telegramUsername: account.telegramUsername,
+        googleEmail: account.googleEmail,
         hasPassword: Boolean(account.passwordHash),
         email: account.email,
     });
@@ -579,8 +691,7 @@ app.get('/api/guild-members', async (req, res) => {
         return;
     }
     try {
-        const [rawMembers, roles] = await Promise.all([getGuildMembersCached(), getGuildRoles()]);
-        const roleNameById = new Map(roles.map(r => [r.id, r.name]));
+        const [rawMembers, roleNameById] = await Promise.all([getGuildMembersCached(), getAllGuildRolesById()]);
         res.json({
             members: rawMembers.map(m => ({
                 id: m.user.id,

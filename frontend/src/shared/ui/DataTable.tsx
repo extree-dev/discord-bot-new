@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useLang } from '../lib/useLang';
 import { SearchIcon, SortIcon } from './icons';
+import { Select } from './Select';
 import styles from './DataTable.module.css';
 
 export interface DataTableColumn<T> {
@@ -41,12 +43,15 @@ export function DataTable<T>({
     columns,
     rows,
     getRowId,
-    searchPlaceholder = 'Поиск',
+    searchPlaceholder,
     searchKeys,
     filters,
     pageSizeOptions = DEFAULT_PAGE_SIZES,
-    emptyMessage = 'Ничего не найдено.',
+    emptyMessage,
 }: DataTableProps<T>) {
+    const { t } = useLang();
+    const resolvedSearchPlaceholder = searchPlaceholder ?? t('table.search');
+    const resolvedEmptyMessage = emptyMessage ?? t('table.empty');
     const [search, setSearch] = useState('');
     const [filterValues, setFilterValues] = useState<Record<string, string>>({});
     const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
@@ -110,7 +115,7 @@ export function DataTable<T>({
                     <SearchIcon />
                     <input
                         type="text"
-                        placeholder={searchPlaceholder}
+                        placeholder={resolvedSearchPlaceholder}
                         value={search}
                         onChange={e => {
                             setSearch(e.target.value);
@@ -119,25 +124,20 @@ export function DataTable<T>({
                     />
                 </div>
                 {filters?.map(filter => (
-                    <select
+                    <Select
                         key={filter.key}
                         className={styles.filterSelect}
                         value={filterValues[filter.key] ?? ''}
-                        onChange={e => {
-                            setFilterValues(v => ({ ...v, [filter.key]: e.target.value }));
+                        placeholder={filter.label}
+                        options={[{ value: '', label: filter.label }, ...filter.options]}
+                        onChange={value => {
+                            setFilterValues(v => ({ ...v, [filter.key]: value }));
                             setPage(1);
                         }}
-                    >
-                        <option value="">{filter.label}</option>
-                        {filter.options.map(opt => (
-                            <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                            </option>
-                        ))}
-                    </select>
+                    />
                 ))}
                 <button type="button" className={styles.clearButton} onClick={resetAll}>
-                    Очистить
+                    {t('table.clear')}
                 </button>
             </div>
 
@@ -171,7 +171,7 @@ export function DataTable<T>({
                         {pageRows.length === 0 && (
                             <tr>
                                 <td className={styles.empty} colSpan={columns.length}>
-                                    {emptyMessage}
+                                    {resolvedEmptyMessage}
                                 </td>
                             </tr>
                         )}
@@ -191,26 +191,26 @@ export function DataTable<T>({
             <div className={styles.footer}>
                 <span className={styles.summary}>
                     {filtered.length === 0
-                        ? 'Показано 0 из 0'
-                        : `Показано ${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filtered.length)} из ${filtered.length}`}
+                        ? t('table.shownEmpty')
+                        : t('table.shown', {
+                              from: (safePage - 1) * pageSize + 1,
+                              to: Math.min(safePage * pageSize, filtered.length),
+                              total: filtered.length,
+                          })}
                 </span>
                 <div className={styles.footerRight}>
                     <label className={styles.pageSize}>
-                        По
-                        <select
-                            value={pageSize}
-                            onChange={e => {
-                                setPageSize(Number(e.target.value));
+                        {t('table.perPageBefore')}
+                        <Select
+                            className={styles.pageSizeSelect}
+                            value={String(pageSize)}
+                            options={pageSizeOptions.map(size => ({ value: String(size), label: String(size) }))}
+                            onChange={value => {
+                                setPageSize(Number(value));
                                 setPage(1);
                             }}
-                        >
-                            {pageSizeOptions.map(size => (
-                                <option key={size} value={size}>
-                                    {size}
-                                </option>
-                            ))}
-                        </select>
-                        на странице
+                        />
+                        {t('table.perPageAfter')}
                     </label>
                     <div className={styles.pager}>
                         <button type="button" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}>

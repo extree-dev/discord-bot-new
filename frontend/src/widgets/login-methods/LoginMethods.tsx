@@ -3,7 +3,9 @@ import { getAuthMethods } from '../../entities/auth-methods/api';
 import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { EmailLoginForm } from '../../features/email-auth/EmailLoginForm';
 import { TelegramLoginButton } from '../../features/telegram-auth/TelegramLoginButton';
+import { GoogleLoginButton } from '../../features/google-auth/GoogleLoginButton';
 import { isDashboardDomain } from '../../shared/lib/isDashboardDomain';
+import { useLang } from '../../shared/lib/useLang';
 import styles from './LoginMethods.module.css';
 
 // Все способы входа на одном экране логина (AdminShell, SiteAdminPage):
@@ -15,22 +17,31 @@ import styles from './LoginMethods.module.css';
 // пароль уже был привязан заранее (через настройки, уже будучи вошедшим).
 export function LoginMethods() {
     const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
+    const [googleEnabled, setGoogleEnabled] = useState(false);
+    const { t } = useLang();
 
     useEffect(() => {
         getAuthMethods()
-            .then(({ telegram }) => setTelegramBotUsername(telegram?.botUsername ?? null))
-            .catch(() => setTelegramBotUsername(null));
+            .then(({ telegram, google }) => {
+                setTelegramBotUsername(telegram?.botUsername ?? null);
+                setGoogleEnabled(Boolean(google));
+            })
+            .catch(() => {
+                setTelegramBotUsername(null);
+                setGoogleEnabled(false);
+            });
     }, []);
 
     return (
         <div className={styles.wrapper}>
-            <LoginButton />
+            <LoginButton label={t('login.discord')} />
+            {googleEnabled && <GoogleLoginButton label={t('login.google')} />}
             {telegramBotUsername && isDashboardDomain() && (
                 <div className={styles.telegram}>
                     <TelegramLoginButton botUsername={telegramBotUsername} />
                 </div>
             )}
-            <div className={styles.divider}>или</div>
+            <div className={styles.divider}>{t('login.or')}</div>
             <EmailLoginForm />
         </div>
     );

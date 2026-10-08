@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { gateNoticeMessage, type GateNotice } from '../../shared/lib/gateNotice';
+import { useTheme } from '../../shared/lib/useTheme';
+import { useLang } from '../../shared/lib/useLang';
 import { Notice } from '../../shared/ui/Notice';
+import { ThemeToggle } from '../../shared/ui/ThemeToggle';
+import { LanguageToggle } from '../../shared/ui/LanguageToggle';
 import { LoginMethods } from '../login-methods/LoginMethods';
 import styles from './AuthSplitScreen.module.css';
 
@@ -24,6 +28,8 @@ interface AuthSplitScreenProps {
 // другой, сразу обе видимые.
 export function AuthSplitScreen({ notice }: AuthSplitScreenProps) {
     const [revealed, setRevealed] = useState(false);
+    const { theme, toggleTheme } = useTheme();
+    const { lang, toggleLang, t } = useLang();
 
     useEffect(() => {
         if (revealed) return;
@@ -37,48 +43,50 @@ export function AuthSplitScreen({ notice }: AuthSplitScreenProps) {
     }, [revealed]);
 
     return (
-        <div className={`${styles.page} ${revealed ? styles.revealed : ''}`}>
+        <div className={`${styles.page} ${revealed ? styles.revealed : ''}`} data-theme={theme}>
+            <div className={styles.glow} />
+            <div className={styles.themeTools}>
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
+                <LanguageToggle lang={lang} onToggle={toggleLang} />
+            </div>
             <div className={styles.marketing}>
                 <div className={styles.brand}>
                     <span className={styles.badge}>E</span>Extree
                 </div>
-                <h1>Доступ к панели управления ботом.</h1>
-                <p className={styles.lead}>
-                    Войди через Discord, Telegram или email — права каждый раз проверяются у Discord заново, какой бы
-                    способ входа ты ни выбрал.
-                </p>
+                <h1>{t('login.headline')}</h1>
+                <p className={styles.lead}>{t('login.lead')}</p>
                 <div className={styles.stats}>
                     <div className={styles.stat}>
-                        <span>Discord OAuth2</span>
-                        <small>основной вход</small>
+                        <span>{t('login.stat1Value')}</span>
+                        <small>{t('login.stat1Label')}</small>
                     </div>
                     <div className={styles.stat}>
-                        <span>AES-256</span>
-                        <small>шифрование сессии</small>
+                        <span>{t('login.stat2Value')}</span>
+                        <small>{t('login.stat2Label')}</small>
                     </div>
                     <div className={styles.stat}>
-                        <span>3 способа</span>
-                        <small>Discord / Telegram / email</small>
+                        <span>{t('login.stat3Value')}</span>
+                        <small>{t('login.stat3Label')}</small>
                     </div>
                 </div>
                 <div className={styles.features}>
                     <div className={styles.feature}>
-                        <strong>Один аккаунт</strong>
-                        <span>Discord обязателен, Telegram и email — опциональные способы входа в тот же кабинет.</span>
+                        <strong>{t('login.feature1Title')}</strong>
+                        <span>{t('login.feature1Text')}</span>
                     </div>
                     <div className={styles.feature}>
-                        <strong>Права не меняются</strong>
-                        <span>Доступ администратора проверяется у Discord по актуальным ролям сервера.</span>
+                        <strong>{t('login.feature2Title')}</strong>
+                        <span>{t('login.feature2Text')}</span>
                     </div>
                 </div>
                 <p className={styles.scrollHint} aria-hidden="true">
-                    Прокрути колесо мыши ↓
+                    {t('login.scrollHint')}
                 </p>
             </div>
             <div className={styles.signInWrap}>
                 <div className={styles.signIn}>
-                    <h2>Вход</h2>
-                    <p>Выбери способ входа в панель управления.</p>
+                    <h2>{t('login.signInTitle')}</h2>
+                    <p>{t('login.signInLead')}</p>
                     {notice && (
                         <Notice variant={gateNoticeMessage(notice).variant}>{gateNoticeMessage(notice).text}</Notice>
                     )}

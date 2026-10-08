@@ -1,9 +1,13 @@
 import { Button } from '../../shared/ui/Button';
 
-export function LoginButton() {
+interface LoginButtonProps {
+    label?: string;
+}
+
+export function LoginButton({ label = 'Войти через Discord' }: LoginButtonProps) {
     return (
         <Button href="/auth/discord/login" variant="primary" fullWidth>
-            Войти через Discord
+            {label}
         </Button>
     );
 }

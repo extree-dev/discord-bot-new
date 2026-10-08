@@ -1,17 +1,25 @@
-/* Светлая тема кабинета — локальный оверрайд тех же CSS-переменных, что
-   уже используют Card/Button/Field/Notice/DataTable из shared/ui (см.
-   AuthSplitScreen.module.css для того же приёма на экране входа). Акцент
-   остаётся фирменным Discord blurple — это по-прежнему бот для Discord,
-   просто теперь на светлом фоне, а не на тёмном Liquid Glass. */
+/* Две темы кабинета — светлая и тёмная (Liquid Glass), переключаются
+   атрибутом data-theme на корневом .shell (см. shared/lib/useTheme.ts).
+   В обеих --glass-bg полупрозрачный + --glass-blur реальный blur — это
+   и есть "стеклянный режим": Card/StatTile/DataTable/Button и т.п. из
+   shared/ui ничего не знают про тему, просто читают переменные, поэтому
+   стекло появляется сразу везде, где уже используются эти токены. */
 .shell {
     position: relative;
     min-height: 100vh;
     display: flex;
     align-items: stretch;
-    background: #f5f6fa;
+    isolation: isolate;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.shell[data-theme='light'] {
+    background: #eef0f7;
     color: #16181d;
 
-    --bg: #f5f6fa;
+    --bg: #eef0f7;
     --surface: #ffffff;
     --surface-2: #f0f1f6;
     --border: #e3e5ec;
@@ -19,18 +27,70 @@
     --text: #16181d;
     --text-dim: #565b66;
     --text-faint: #80838f;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #fafbfd;
-    --glass-border: #e3e5ec;
-    --glass-highlight: none;
-    --glass-blur: none;
-    --field-bg: #fafbfd;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+    --glass-border: rgba(16, 24, 40, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --glass-blur: blur(20px) saturate(180%);
+    --field-bg: rgba(255, 255, 255, 0.6);
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.08);
-    --success-bg: rgba(88, 101, 242, 0.08);
+    --danger-bg: rgba(242, 73, 92, 0.1);
+    --success-bg: rgba(88, 101, 242, 0.1);
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.12);
-    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.16);
+    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.14);
+    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+}
+
+.shell[data-theme='dark'] {
+    background: #0a0b0f;
+    color: #f7f7f9;
+
+    --bg: #0a0b0f;
+    --surface: #111218;
+    --surface-2: #1b1d26;
+    --border: #262933;
+    --border-strong: #363a46;
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --text-faint: #7d8396;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --glass-blur: blur(24px) saturate(160%);
+    --field-bg: rgba(255, 255, 255, 0.05);
+    --notice-error-text: #ff9aa6;
+    --danger-bg: rgba(242, 73, 92, 0.14);
+    --success-bg: rgba(88, 101, 242, 0.16);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
+}
+
+/* Цветной размытый мэш за стеклом — без него "стеклянный режим" не
+   читается: сквозь прозрачные панели должно что-то просвечивать, иначе
+   это просто полупрозрачный серый. Фиксирован относительно вьюпорта,
+   не относительно .content — чтобы не "ехал" вместе со скроллом длинных
+   таблиц и выглядел одним цельным фоном на любой странице. */
+.glow {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.shell[data-theme='light'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.22), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.16), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.14), transparent 45%);
+}
+
+.shell[data-theme='dark'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.32), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.22), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.16), transparent 45%);
 }
 
 .sidebar {
@@ -38,7 +98,7 @@
     width: 252px;
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 24px;
     padding: 22px 16px;
     background: linear-gradient(165deg, var(--accent) 0%, #4046c7 100%);
     color: #ffffff;
@@ -47,6 +107,13 @@
 
 .shellCollapsed .sidebar {
     width: 80px;
+}
+
+.brandRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .brand {
@@ -59,6 +126,7 @@
     color: #ffffff;
     text-decoration: none;
     flex: none;
+    min-width: 0;
 }
 
 .badge {
@@ -117,6 +185,17 @@
 .profileRole {
     font-size: 11px;
     color: rgba(255, 255, 255, 0.72);
+}
+
+.toolsRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.shellCollapsed .toolsRow {
+    flex-direction: column;
 }
 
 .navLinks {
@@ -240,6 +319,7 @@
 }
 
 .content {
+    position: relative;
     flex: 1;
     min-width: 0;
     padding: 28px clamp(16px, 3vw, 40px) 56px;
@@ -268,6 +348,10 @@
         gap: 12px;
         padding: 12px 16px;
         overflow-x: auto;
+    }
+
+    .brandRow {
+        flex: none;
     }
 
     .profile {
@@ -301,26 +385,49 @@
 }
 
 /* Экран "Нет доступа" — отдельный узкий кейс (залогинен, но не админ
-   сервера), не часть основного шелла с сайдбаром; та же светлая палитра
-   для консистентности с остальным кабинетом. */
+   сервера), не часть основного шелла с сайдбаром; та же тема (атрибут
+   data-theme прокидывается туда же), что и остальной кабинет. */
 .deniedShell {
     position: relative;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: #f5f6fa;
+    isolation: isolate;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.deniedShell[data-theme='light'] {
+    background: #eef0f7;
     color: #16181d;
 
-    --bg: #f5f6fa;
+    --bg: #eef0f7;
     --surface: #ffffff;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #fafbfd;
-    --glass-border: #e3e5ec;
-    --glass-highlight: none;
-    --glass-blur: none;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+    --glass-border: rgba(16, 24, 40, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --glass-blur: blur(20px) saturate(180%);
     --text: #16181d;
     --text-dim: #565b66;
-    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.16);
+    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+}
+
+.deniedShell[data-theme='dark'] {
+    background: #0a0b0f;
+    color: #f7f7f9;
+
+    --bg: #0a0b0f;
+    --surface: #111218;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --glass-blur: blur(24px) saturate(160%);
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
 }
 
 .deniedTopbar {

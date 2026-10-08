@@ -218,6 +218,61 @@ export function SortIcon() {
     );
 }
 
+export function SunIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+    );
+}
+
+export function MoonIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20.6 15.3A8.5 8.5 0 0 1 8.7 3.4a.6.6 0 0 0-.7-.8A9.5 9.5 0 1 0 21.4 16a.6.6 0 0 0-.8-.7Z" />
+        </svg>
+    );
+}
+
+export function GlobeTinyIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9s1.3-6.4 3.8-9Z" />
+        </svg>
+    );
+}
+
+export function ChevronDownIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="m6 9 6 6 6-6" />
+        </svg>
+    );
+}
+
 export function ChevronLeftIcon() {
     return (
         <svg
