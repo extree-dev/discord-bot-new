@@ -1,0 +1,18 @@
+.toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    cursor: pointer;
+    color: inherit;
+}
+
+.toggle svg {
+    width: 16px;
+    height: 16px;
+}

@@ -3,7 +3,9 @@ import type { GuildChannel } from '../../entities/guild-resources/types';
 import { updateVoiceSettings } from '../../entities/voice-settings/api';
 import type { VoiceSettings } from '../../entities/voice-settings/types';
 import { ApiError } from '../../shared/api/client';
+import { useLang } from '../../shared/lib/useLang';
 import { Button } from '../../shared/ui/Button';
+import { Card } from '../../shared/ui/Card';
 import { SelectField, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
 import { CHANNEL_TYPE, toChannelOptions, toPayload } from './model';
@@ -16,9 +18,12 @@ interface VoiceSettingsFormProps {
 
 type Status = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string };
 
+// Та же замена плоских секций на стеклянные карточки, что в
+// SecuritySettingsForm/PresenceSettingsForm — см. комментарий там.
 export function VoiceSettingsForm({ initial, channels }: VoiceSettingsFormProps) {
     const [settings, setSettings] = useState<VoiceSettings>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
+    const { t } = useLang();
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
@@ -35,47 +40,45 @@ export function VoiceSettingsForm({ initial, channels }: VoiceSettingsFormProps)
 
     return (
         <form onSubmit={handleSubmit} className={styles.form}>
-            {status.kind === 'saved' && (
-                <Notice variant="info">Сохранено — применяется сразу, без перезапуска бота.</Notice>
-            )}
+            {status.kind === 'saved' && <Notice variant="info">{t('voice.saved')}</Notice>}
             {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
-            <section className={styles.section}>
-                <h2>Каналы</h2>
+            <Card wide className={styles.section}>
+                <h2>{t('voice.channelsSection')}</h2>
                 <SelectField
-                    label="Триггер-канал (вход сюда создаёт комнату)"
+                    label={t('voice.triggerChannel')}
                     id="voice-trigger"
                     options={toChannelOptions(channels, CHANNEL_TYPE.voice)}
                     value={settings.triggerChannelId ?? ''}
                     onChange={e => setSettings({ ...settings, triggerChannelId: e.target.value || null })}
                 />
                 <SelectField
-                    label="Канал управления комнатой (текстовый, с панелью)"
+                    label={t('voice.controlChannel')}
                     id="voice-control"
                     options={toChannelOptions(channels, CHANNEL_TYPE.text)}
                     value={settings.controlChannelId ?? ''}
                     onChange={e => setSettings({ ...settings, controlChannelId: e.target.value || null })}
                 />
                 <SelectField
-                    label="Категория (триггер-канал и панель)"
+                    label={t('voice.category')}
                     id="voice-category"
                     options={toChannelOptions(channels, CHANNEL_TYPE.category)}
                     value={settings.categoryId ?? ''}
                     onChange={e => setSettings({ ...settings, categoryId: e.target.value || null })}
                 />
                 <SelectField
-                    label="Категория для созданных комнат"
+                    label={t('voice.roomsCategory')}
                     id="voice-rooms-category"
                     options={toChannelOptions(channels, CHANNEL_TYPE.category)}
                     value={settings.roomsCategoryId ?? ''}
                     onChange={e => setSettings({ ...settings, roomsCategoryId: e.target.value || null })}
                 />
-            </section>
+            </Card>
 
-            <section className={styles.section}>
-                <h2>Комнаты по умолчанию</h2>
+            <Card wide className={styles.section}>
+                <h2>{t('voice.defaultsSection')}</h2>
                 <TextField
-                    label="Лимит участников (0 — без лимита)"
+                    label={t('voice.defaultLimit')}
                     id="voice-default-limit"
                     type="number"
                     min={0}
@@ -83,10 +86,10 @@ export function VoiceSettingsForm({ initial, channels }: VoiceSettingsFormProps)
                     value={settings.defaultLimit}
                     onChange={e => setSettings({ ...settings, defaultLimit: Number(e.target.value) })}
                 />
-            </section>
+            </Card>
 
             <Button type="submit" variant="primary" fullWidth disabled={status.kind === 'saving'}>
-                {status.kind === 'saving' ? 'Сохраняю…' : 'Сохранить'}
+                {status.kind === 'saving' ? t('voice.saving') : t('voice.save')}
             </Button>
         </form>
     );

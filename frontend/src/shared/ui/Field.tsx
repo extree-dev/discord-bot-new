@@ -1,4 +1,5 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
+import { Select } from './Select';
 import styles from './Field.module.css';
 
 interface FieldWrapperProps {
@@ -36,22 +37,25 @@ export function TextArea({ label, id, ...rest }: TextAreaProps) {
     );
 }
 
-type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
+type SelectFieldProps = {
     label: string;
     id: string;
     options: { value: string; label: string }[];
+    value: string;
+    onChange: (event: { target: { value: string } }) => void;
+    disabled?: boolean;
 };
 
-export function SelectField({ label, id, options, ...rest }: SelectFieldProps) {
+export function SelectField({ label, id, options, value, onChange, disabled }: SelectFieldProps) {
     return (
         <FieldWrapper label={label} htmlFor={id}>
-            <select id={id} {...rest}>
-                {options.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                    </option>
-                ))}
-            </select>
+            <Select
+                id={id}
+                value={value}
+                options={options}
+                disabled={disabled}
+                onChange={v => onChange({ target: { value: v } })}
+            />
         </FieldWrapper>
     );
 }

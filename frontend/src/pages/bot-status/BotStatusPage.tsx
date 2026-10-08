@@ -2,14 +2,19 @@ import { useEffect, useState } from 'react';
 import { getPresenceSettings } from '../../entities/presence-settings/api';
 import type { PresenceSettings } from '../../entities/presence-settings/types';
 import { PresenceSettingsForm } from '../../features/edit-presence-settings/PresenceSettingsForm';
-import { Card } from '../../shared/ui/Card';
+import { useLang } from '../../shared/lib/useLang';
+import styles from './BotStatusPage.module.css';
 
 // Гейт — в AdminShell (см. DashboardPage для того же устройства).
 export function BotStatusPage() {
     const [settings, setSettings] = useState<PresenceSettings | null>(null);
+    const { lang, t } = useLang();
 
     useEffect(() => {
-        document.title = 'Статус бота — Extree';
+        document.title = `${t('status.title')} — Extree`;
+    }, [lang, t]);
+
+    useEffect(() => {
         let cancelled = false;
         getPresenceSettings().then(s => {
             if (!cancelled) setSettings(s);
@@ -22,13 +27,10 @@ export function BotStatusPage() {
     if (!settings) return null;
 
     return (
-        <Card wide>
-            <h1>Статус бота</h1>
-            <p>
-                Та же настройка, что команда <code>/status</code> в Discord — фиксированный статус или ротация
-                нескольких.
-            </p>
+        <div className={styles.page}>
+            <h1>{t('status.title')}</h1>
+            <p className={styles.lead}>{t('status.subtitle')}</p>
             <PresenceSettingsForm initial={settings} />
-        </Card>
+        </div>
     );
 }

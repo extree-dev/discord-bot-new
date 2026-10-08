@@ -1,7 +1,8 @@
-/* Светлая тема, локальная для экрана входа — переопределяет те же
-   CSS-переменные, которыми пользуются Card/Button/Field/Notice/Checkbox
-   из shared/ui, поэтому они автоматически рендерятся в светлых цветах
-   здесь, оставаясь тёмными (Liquid Glass) везде в остальном приложении. */
+/* Тема экрана входа переключается тем же атрибутом data-theme, что и
+   AdminShell (см. shared/lib/useTheme.ts, тот же localStorage-ключ) —
+   переопределяет CSS-переменные, которыми пользуются
+   Card/Button/Field/Notice/Checkbox из shared/ui, поэтому они
+   автоматически подхватывают цвета темы без собственной копии. */
 .page {
     position: relative;
     min-height: 100vh;
@@ -10,32 +11,97 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    background: #ffffff;
-    color: #0a0a0a;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
 
-    --bg: #ffffff;
+.page[data-theme='light'] {
+    background: #eef0f7;
+    color: #16181d;
+
+    --bg: #eef0f7;
     --surface: #ffffff;
-    --surface-2: #f4f4f5;
-    --border: #e4e4e7;
-    --border-strong: #d4d4d8;
-    --text: #0a0a0a;
-    --text-dim: #52525b;
-    --text-faint: #71717a;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #fafafa;
-    --glass-border: #e4e4e7;
-    --glass-highlight: none;
-    --glass-blur: none;
-    --field-bg: #fafafa;
+    --surface-2: #f0f1f6;
+    --border: #e3e5ec;
+    --border-strong: #d1d4de;
+    --text: #16181d;
+    --text-dim: #565b66;
+    --text-faint: #80838f;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+    --glass-border: rgba(16, 24, 40, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --glass-blur: blur(20px) saturate(180%);
+    --field-bg: rgba(255, 255, 255, 0.6);
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.08);
-    --success-bg: rgba(88, 101, 242, 0.08);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.12);
-    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.16);
+    --danger-bg: rgba(242, 73, 92, 0.1);
+    --success-bg: rgba(88, 101, 242, 0.1);
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.14);
+    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+}
+
+.page[data-theme='dark'] {
+    background: #0a0b0f;
+    color: #f7f7f9;
+
+    --bg: #0a0b0f;
+    --surface: #111218;
+    --surface-2: #1b1d26;
+    --border: #262933;
+    --border-strong: #363a46;
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --text-faint: #7d8396;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --glass-blur: blur(24px) saturate(160%);
+    --field-bg: rgba(255, 255, 255, 0.05);
+    --notice-error-text: #ff9aa6;
+    --danger-bg: rgba(242, 73, 92, 0.14);
+    --success-bg: rgba(88, 101, 242, 0.16);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
+}
+
+.glow {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.page[data-theme='light'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.22), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.16), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.14), transparent 45%);
+}
+
+.page[data-theme='dark'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.32), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.22), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.16), transparent 45%);
+}
+
+.themeTools {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 2;
+    display: flex;
+    gap: 8px;
+    color: var(--text);
 }
 
 .marketing {
+    position: relative;
+    z-index: 1;
     flex: none;
     width: min(640px, calc(100% - 64px));
     transition:
@@ -155,6 +221,8 @@
 }
 
 .signInWrap {
+    position: relative;
+    z-index: 1;
     flex: none;
     width: 0;
     opacity: 0;

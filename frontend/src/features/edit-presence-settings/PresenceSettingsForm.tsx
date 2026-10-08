@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { updatePresenceSettings } from '../../entities/presence-settings/api';
 import type { ActivityItem, PresenceSettings } from '../../entities/presence-settings/types';
 import { ApiError } from '../../shared/api/client';
+import { useLang } from '../../shared/lib/useLang';
 import { Button } from '../../shared/ui/Button';
+import { Card } from '../../shared/ui/Card';
 import { Checkbox } from '../../shared/ui/Checkbox';
 import { SelectField, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
@@ -28,22 +30,24 @@ function ActivityFields({
     item,
     idPrefix,
     onChange,
+    t,
 }: {
     item: ActivityItem;
     idPrefix: string;
     onChange: (patch: Partial<ActivityItem>) => void;
+    t: ReturnType<typeof useLang>['t'];
 }) {
     return (
         <div className={styles.activityRow}>
             <SelectField
-                label="Тип"
+                label={t('status.type')}
                 id={`${idPrefix}-type`}
                 options={ACTIVITY_TYPE_OPTIONS}
                 value={item.type}
                 onChange={e => onChange({ type: e.target.value as ActivityItem['type'] })}
             />
             <TextField
-                label="Текст (можно {members} и {uptime})"
+                label={t('status.text')}
                 id={`${idPrefix}-text`}
                 value={item.text ?? ''}
                 maxLength={128}
@@ -51,7 +55,7 @@ function ActivityFields({
             />
             {item.type === 'streaming' && (
                 <TextField
-                    label="Ссылка на трансляцию"
+                    label={t('status.streamUrl')}
                     id={`${idPrefix}-url`}
                     placeholder="https://twitch.tv/канал"
                     value={item.url ?? ''}
@@ -62,9 +66,12 @@ function ActivityFields({
     );
 }
 
+// Та же замена плоских секций на стеклянные карточки, что в
+// SecuritySettingsForm — см. комментарий там.
 export function PresenceSettingsForm({ initial }: PresenceSettingsFormProps) {
     const [settings, setSettings] = useState<PresenceSettings>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
+    const { t } = useLang();
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
@@ -81,33 +88,31 @@ export function PresenceSettingsForm({ initial }: PresenceSettingsFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className={styles.form}>
-            {status.kind === 'saved' && (
-                <Notice variant="info">Сохранено — применится в течение ~30 секунд, без перезапуска бота.</Notice>
-            )}
+            {status.kind === 'saved' && <Notice variant="info">{t('status.saved')}</Notice>}
             {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
-            <section className={styles.section}>
-                <h2>Онлайн-статус</h2>
+            <Card wide className={styles.section}>
+                <h2>{t('status.onlineStatus')}</h2>
                 <SelectField
-                    label="Статус"
+                    label={t('status.statusLabel')}
                     id="presence-status"
                     options={STATUS_OPTIONS}
                     value={settings.status}
                     onChange={e => setSettings({ ...settings, status: e.target.value as PresenceSettings['status'] })}
                 />
-            </section>
+            </Card>
 
-            <section className={styles.section}>
-                <h2>Ротация</h2>
+            <Card wide className={styles.section}>
+                <h2>{t('status.rotation')}</h2>
                 <Checkbox
-                    label="Крутить несколько статусов по очереди"
+                    label={t('status.rotationToggle')}
                     id="presence-rotate"
                     checked={settings.rotate}
                     onChange={e => setSettings({ ...settings, rotate: e.target.checked })}
                 />
                 {settings.rotate && (
                     <TextField
-                        label="Интервал смены, минут"
+                        label={t('status.intervalMinutes')}
                         id="presence-interval"
                         type="number"
                         min={1}
@@ -118,16 +123,17 @@ export function PresenceSettingsForm({ initial }: PresenceSettingsFormProps) {
                         }
                     />
                 )}
-            </section>
+            </Card>
 
             {settings.rotate ? (
-                <section className={styles.section}>
-                    <h2>Пункты ротации</h2>
+                <Card wide className={styles.section}>
+                    <h2>{t('status.rotateItemsTitle')}</h2>
                     {settings.rotateItems.map((item, index) => (
                         <div className={styles.rotateItem} key={index}>
                             <ActivityFields
                                 item={item}
                                 idPrefix={`rotate-${index}`}
+                                t={t}
                                 onChange={patch =>
                                     setSettings({
                                         ...settings,
@@ -145,7 +151,7 @@ export function PresenceSettingsForm({ initial }: PresenceSettingsFormProps) {
                                     })
                                 }
                             >
-                                Удалить пункт
+                                {t('status.remove')}
                             </Button>
                         </div>
                     ))}
@@ -154,22 +160,23 @@ export function PresenceSettingsForm({ initial }: PresenceSettingsFormProps) {
                         variant="ghost"
                         onClick={() => setSettings({ ...settings, rotateItems: addRotateItem(settings.rotateItems) })}
                     >
-                        + Добавить пункт
+                        + {t('status.addActivity')}
                     </Button>
-                </section>
+                </Card>
             ) : (
-                <section className={styles.section}>
-                    <h2>Фиксированный статус</h2>
+                <Card wide className={styles.section}>
+                    <h2>{t('status.fixedStatus')}</h2>
                     <ActivityFields
                         item={settings.activity}
                         idPrefix="activity"
+                        t={t}
                         onChange={patch => setSettings({ ...settings, activity: { ...settings.activity, ...patch } })}
                     />
-                </section>
+                </Card>
             )}
 
             <Button type="submit" variant="primary" fullWidth disabled={status.kind === 'saving'}>
-                {status.kind === 'saving' ? 'Сохраняю…' : 'Сохранить'}
+                {status.kind === 'saving' ? t('status.saving') : t('status.save')}
             </Button>
         </form>
     );

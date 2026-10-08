@@ -1,0 +1,112 @@
+.root {
+    position: relative;
+    width: 100%;
+}
+
+.trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 11px 13px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    background: var(--field-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.trigger:hover {
+    border-color: var(--border-strong);
+}
+
+.trigger:focus-visible,
+.trigger[aria-expanded='true'] {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+}
+
+.trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.triggerLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chevron {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    color: var(--text-faint);
+    transition: transform 0.15s ease;
+}
+
+.chevron svg {
+    width: 100%;
+    height: 100%;
+}
+
+.chevron[data-open='true'] {
+    transform: rotate(180deg);
+}
+
+/* Та же "стеклянная" поверхность, что у Card/DataTable — реальный blur
+   поверх цветного фона (.glow в AdminShell), а не просто полупрозрачная
+   серая панель, иначе это снова будет выглядеть как "квадратик". */
+.panel {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-lg);
+}
+
+.option {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.option:hover {
+    background: var(--surface-2);
+}
+
+.optionActive {
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--success-bg);
+}

@@ -42,6 +42,8 @@ function newAccount(discordId) {
         discordAvatar: null,
         telegramId: null,
         telegramUsername: null,
+        googleId: null,
+        googleEmail: null,
         email: null,
         passwordHash: null,
         createdAt: Date.now(),
@@ -56,6 +58,11 @@ async function findById(accountId) {
 async function findByTelegramId(telegramId) {
     const { accounts } = await store.load();
     return accounts.find(a => a.telegramId === telegramId) ?? null;
+}
+
+async function findByGoogleId(googleId) {
+    const { accounts } = await store.load();
+    return accounts.find(a => a.googleId === googleId) ?? null;
 }
 
 async function findByEmail(email) {
@@ -95,6 +102,20 @@ async function linkTelegram(accountId, telegramId, telegramUsername) {
     });
 }
 
+// Бросает 'google_already_linked' при конфликте — та же логика, что у
+// linkTelegram выше.
+async function linkGoogle(accountId, googleId, googleEmail) {
+    return store.update(config => {
+        const conflict = config.accounts.find(a => a.googleId === googleId && a.id !== accountId);
+        if (conflict) throw new Error('google_already_linked');
+        const account = config.accounts.find(a => a.id === accountId);
+        if (!account) throw new Error('account_not_found');
+        account.googleId = googleId;
+        account.googleEmail = googleEmail ?? null;
+        return account;
+    });
+}
+
 // Бросает 'email_already_used' при конфликте — та же логика, что у
 // linkTelegram выше.
 async function setPassword(accountId, email, password) {
@@ -119,9 +140,11 @@ module.exports = {
     storeName: store.name,
     findById,
     findByTelegramId,
+    findByGoogleId,
     findByEmail,
     findOrCreateByDiscordId,
     linkTelegram,
+    linkGoogle,
     setPassword,
     verifyEmailLogin,
     hashPassword,

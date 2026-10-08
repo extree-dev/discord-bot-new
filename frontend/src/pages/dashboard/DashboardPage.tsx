@@ -5,6 +5,7 @@ import { getManagedGuilds } from '../../entities/guild/api';
 import type { ManagedGuild } from '../../entities/guild/types';
 import { getGuildStats } from '../../entities/guild-stats/api';
 import type { GuildStats } from '../../entities/guild-stats/types';
+import { useLang } from '../../shared/lib/useLang';
 import { Avatar } from '../../shared/ui/Avatar';
 import { Card } from '../../shared/ui/Card';
 import { StatTile } from '../../shared/ui/StatTile';
@@ -23,10 +24,13 @@ type ViewState =
 // рендер остальной страницы, поэтому не в Promise.all с остальным.
 export function DashboardPage() {
     const [state, setState] = useState<ViewState>({ kind: 'loading' });
+    const { lang, t } = useLang();
 
     useEffect(() => {
-        document.title = 'Обзор — Extree';
+        document.title = `${t('nav.overview')} — Extree`;
+    }, [lang, t]);
 
+    useEffect(() => {
         let cancelled = false;
         (async () => {
             const [{ user }, { guilds }] = await Promise.all([getSession(), getManagedGuilds()]);
@@ -54,24 +58,30 @@ export function DashboardPage() {
         <div className={styles.stack}>
             <Card wide>
                 <Avatar src={user.avatarUrl} alt="" size="small" />
-                <h1>Привет, {user.username}</h1>
-                <p>Сервера, где есть и ты (с правами администратора), и бот Extree.</p>
+                <h1>{t('overview.greeting', { name: user.username })}</h1>
+                <p>{t('overview.subtitle')}</p>
                 <GuildList guilds={guilds} />
-                <p className={styles.note}>
-                    Список серверов — пока только просмотр. Настройки и статус бота — в меню слева, применяются сразу.
-                </p>
+                <p className={styles.note}>{t('overview.listNote')}</p>
             </Card>
 
             {stats && (
                 <div className={styles.statGrid}>
-                    <StatTile label="Участников на сервере" value={stats.memberCount} />
-                    <StatTile label="Онлайн сейчас" value={stats.onlineCount} hint="приблизительно, от Discord" />
-                    <StatTile label="Модерации за 24ч" value={stats.recentCases} hint="warn / timeout / ban / kick" />
-                    <StatTile label="Открытых тикетов" value={stats.openTickets} />
+                    <StatTile label={t('overview.statMembers')} value={stats.memberCount} />
                     <StatTile
-                        label="Модулей защиты активно"
+                        label={t('overview.statOnline')}
+                        value={stats.onlineCount}
+                        hint={t('overview.statOnlineHint')}
+                    />
+                    <StatTile
+                        label={t('overview.statModeration')}
+                        value={stats.recentCases}
+                        hint={t('overview.statModerationHint')}
+                    />
+                    <StatTile label={t('overview.statTickets')} value={stats.openTickets} />
+                    <StatTile
+                        label={t('overview.statSecurity')}
                         value={`${stats.securityModulesActive} / ${stats.securityModulesTotal}`}
-                        hint="automod, raid shield, anti-nuke"
+                        hint={t('overview.statSecurityHint')}
                     />
                 </div>
             )}

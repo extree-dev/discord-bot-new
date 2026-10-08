@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { updateSecuritySettings } from '../../entities/security-settings/api';
 import type { SecuritySettings } from '../../entities/security-settings/types';
 import { ApiError } from '../../shared/api/client';
+import { useLang } from '../../shared/lib/useLang';
+import { Badge } from '../../shared/ui/Badge';
 import { Button } from '../../shared/ui/Button';
+import { Card } from '../../shared/ui/Card';
 import { Checkbox } from '../../shared/ui/Checkbox';
 import { TextArea, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
@@ -20,9 +23,16 @@ function toNumber(value: string): number {
     return Number.isFinite(n) ? n : 0;
 }
 
+// Каждый модуль безопасности — отдельная стеклянная карточка (Card из
+// shared/ui, та же поверхность, что везде в кабинете) с бейджем
+// включён/выключен в заголовке — раньше все три модуля шли плоскими
+// секциями с хардкодным rgba-фоном внутри одной большой карты, из-за чего
+// в светлой теме фон секции был почти не виден ("квадратики"); теперь
+// фон — var(--glass-bg) с реальным blur, виден в обеих темах одинаково.
 export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
     const [settings, setSettings] = useState<SecuritySettings>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
+    const { t } = useLang();
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
@@ -39,15 +49,18 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
 
     return (
         <form onSubmit={handleSubmit} className={styles.form}>
-            {status.kind === 'saved' && (
-                <Notice variant="info">Сохранено — применяется сразу, без перезапуска бота.</Notice>
-            )}
+            {status.kind === 'saved' && <Notice variant="info">{t('security.saved')}</Notice>}
             {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
-            <section className={styles.section}>
-                <h2>Automod</h2>
+            <Card wide className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <h2>{t('security.automod')}</h2>
+                    <Badge variant={settings.automod.enabled ? 'success' : 'neutral'}>
+                        {settings.automod.enabled ? t('security.enabled') : '—'}
+                    </Badge>
+                </div>
                 <Checkbox
-                    label="Включён"
+                    label={t('security.enabled')}
                     id="automod-enabled"
                     checked={settings.automod.enabled}
                     onChange={e =>
@@ -56,7 +69,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                 />
                 <div className={styles.row}>
                     <TextField
-                        label="Макс. упоминаний в сообщении"
+                        label={t('security.maxMentions')}
                         id="automod-maxMentions"
                         type="number"
                         min={0}
@@ -69,7 +82,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Макс. сообщений в окне"
+                        label={t('security.maxMessages')}
                         id="automod-maxMessagesPerWindow"
                         type="number"
                         min={0}
@@ -82,7 +95,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Окно антиспама, мс"
+                        label={t('security.antiSpamWindow')}
                         id="automod-messageWindowMs"
                         type="number"
                         min={0}
@@ -96,7 +109,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                     />
                 </div>
                 <TextArea
-                    label="Разрешённые коды приглашений (по одному на строку, не домены)"
+                    label={t('security.allowedInvites')}
                     id="automod-allowedInviteCodes"
                     rows={3}
                     value={formatList(settings.automod.allowedInviteCodes)}
@@ -107,12 +120,17 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         })
                     }
                 />
-            </section>
+            </Card>
 
-            <section className={styles.section}>
-                <h2>Raid Shield</h2>
+            <Card wide className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <h2>{t('security.raidShield')}</h2>
+                    <Badge variant={settings.raidShield.enabled ? 'success' : 'neutral'}>
+                        {settings.raidShield.enabled ? t('security.enabled') : '—'}
+                    </Badge>
+                </div>
                 <Checkbox
-                    label="Включён"
+                    label={t('security.enabled')}
                     id="raidShield-enabled"
                     checked={settings.raidShield.enabled}
                     onChange={e =>
@@ -120,7 +138,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                     }
                 />
                 <Checkbox
-                    label="Кикать новые аккаунты при рейде"
+                    label={t('security.kickNewAccounts')}
                     id="raidShield-kickNewAccounts"
                     checked={settings.raidShield.kickNewAccounts}
                     onChange={e =>
@@ -132,7 +150,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                 />
                 <div className={styles.row}>
                     <TextField
-                        label="Порог входов для тревоги"
+                        label={t('security.joinThreshold')}
                         id="raidShield-joinThreshold"
                         type="number"
                         min={0}
@@ -145,7 +163,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Окно отслеживания, мс"
+                        label={t('security.trackingWindow')}
                         id="raidShield-windowMs"
                         type="number"
                         min={0}
@@ -158,7 +176,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Длительность lockdown, мс"
+                        label={t('security.lockdownDuration')}
                         id="raidShield-lockdownMs"
                         type="number"
                         min={0}
@@ -171,7 +189,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Мин. возраст аккаунта, мс"
+                        label={t('security.minAccountAge')}
                         id="raidShield-newAccountAgeMs"
                         type="number"
                         min={0}
@@ -184,12 +202,17 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                 </div>
-            </section>
+            </Card>
 
-            <section className={styles.section}>
-                <h2>Anti-Nuke</h2>
+            <Card wide className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <h2>{t('security.antiNuke')}</h2>
+                    <Badge variant={settings.antiNuke.enabled ? 'success' : 'neutral'}>
+                        {settings.antiNuke.enabled ? t('security.enabled') : '—'}
+                    </Badge>
+                </div>
                 <Checkbox
-                    label="Включён"
+                    label={t('security.enabled')}
                     id="antiNuke-enabled"
                     checked={settings.antiNuke.enabled}
                     onChange={e =>
@@ -198,7 +221,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                 />
                 <div className={styles.row}>
                     <TextField
-                        label="Макс. опасных действий"
+                        label={t('security.maxDangerousActions')}
                         id="antiNuke-maxActions"
                         type="number"
                         min={0}
@@ -211,7 +234,7 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                     <TextField
-                        label="Окно отслеживания, мс"
+                        label={t('security.trackingWindow')}
                         id="antiNuke-windowMs"
                         type="number"
                         min={0}
@@ -224,21 +247,23 @@ export function SecuritySettingsForm({ initial }: SecuritySettingsFormProps) {
                         }
                     />
                 </div>
-            </section>
+            </Card>
 
-            <section className={styles.section}>
-                <h2>Бан-слова</h2>
+            <Card wide className={styles.section}>
+                <div className={styles.sectionHeader}>
+                    <h2>{t('security.bannedWords')}</h2>
+                </div>
                 <TextArea
-                    label="По одному слову/фразе на строку"
+                    label={t('security.bannedWordsHint')}
                     id="bannedWords"
                     rows={4}
                     value={formatList(settings.bannedWords)}
                     onChange={e => setSettings({ ...settings, bannedWords: parseList(e.target.value) })}
                 />
-            </section>
+            </Card>
 
             <Button type="submit" variant="primary" fullWidth disabled={status.kind === 'saving'}>
-                {status.kind === 'saving' ? 'Сохраняю…' : 'Сохранить'}
+                {status.kind === 'saving' ? t('security.saving') : t('security.save')}
             </Button>
         </form>
     );

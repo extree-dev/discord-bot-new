@@ -1,4 +1,5 @@
 import type { ManagedGuild } from '../../entities/guild/types';
+import { useLang } from '../../shared/lib/useLang';
 import styles from './GuildList.module.css';
 
 interface GuildListProps {
@@ -6,8 +7,10 @@ interface GuildListProps {
 }
 
 export function GuildList({ guilds }: GuildListProps) {
+    const { t } = useLang();
+
     if (guilds.length === 0) {
-        return <p className={styles.empty}>Пока ни одного сервера, где ты администратор и уже добавлен Extree.</p>;
+        return <p className={styles.empty}>{t('guildList.empty')}</p>;
     }
 
     return (
