@@ -17,57 +17,61 @@
 }
 
 .page[data-theme='light'] {
-    background: #eef0f7;
-    color: #16181d;
+    background: #f6f7fa;
+    color: #0f1222;
 
-    --bg: #eef0f7;
+    --bg: #f6f7fa;
     --surface: #ffffff;
-    --surface-2: #f0f1f6;
+    --surface-2: #f1f2f6;
     --border: #e3e5ec;
-    --border-strong: #d1d4de;
-    --text: #16181d;
-    --text-dim: #565b66;
-    --text-faint: #80838f;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
-    --glass-border: rgba(16, 24, 40, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    --glass-blur: blur(20px) saturate(180%);
-    --field-bg: rgba(255, 255, 255, 0.6);
+    --border-strong: #cfd2dc;
+    --text: #0f1222;
+    --text-dim: #565b6e;
+    --text-faint: #868ba0;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #ffffff;
+    --glass-border: var(--border);
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --field-bg: #ffffff;
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.1);
-    --success-bg: rgba(88, 101, 242, 0.1);
-    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.14);
-    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+    --danger-bg: rgba(242, 73, 92, 0.08);
+    --success-bg: rgba(88, 101, 242, 0.08);
+    --shadow-sm: 0 1px 2px rgba(15, 18, 34, 0.05);
+    --shadow-md: 0 4px 12px -4px rgba(15, 18, 34, 0.08);
+    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
 }
 
 .page[data-theme='dark'] {
-    background: #0a0b0f;
-    color: #f7f7f9;
+    background: #0b0d12;
+    color: #f2f3f7;
 
-    --bg: #0a0b0f;
-    --surface: #111218;
-    --surface-2: #1b1d26;
+    --bg: #0b0d12;
+    --surface: #12141b;
+    --surface-2: #181b23;
     --border: #262933;
     --border-strong: #363a46;
-    --text: #f7f7f9;
-    --text-dim: #a7acbc;
-    --text-faint: #7d8396;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    --glass-blur: blur(24px) saturate(160%);
-    --field-bg: rgba(255, 255, 255, 0.05);
+    --text: #f2f3f7;
+    --text-dim: #a1a6ba;
+    --text-faint: #767c92;
+    --glass-bg: var(--surface);
+    --glass-bg-strong: var(--surface);
+    --glass-border: var(--border);
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --field-bg: #15171f;
     --notice-error-text: #ff9aa6;
     --danger-bg: rgba(242, 73, 92, 0.14);
     --success-bg: rgba(88, 101, 242, 0.16);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
-    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
 }
 
+/* Лёгкий фирменный штрих — единственное место с цветным пятном в фоне,
+   это экран входа (маркетинговая колонка), не рабочая панель; само
+   стекло (--glass-blur) при этом уже не используется нигде, включая
+   здесь — так что это просто декоративный фон, а не "глянец" на картах. */
 .glow {
     position: fixed;
     inset: 0;
@@ -76,17 +80,11 @@
 }
 
 .page[data-theme='light'] .glow {
-    background:
-        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.22), transparent 40%),
-        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.16), transparent 42%),
-        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.14), transparent 45%);
+    background: radial-gradient(circle at 10% 0%, rgba(88, 101, 242, 0.08), transparent 45%);
 }
 
 .page[data-theme='dark'] .glow {
-    background:
-        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.32), transparent 40%),
-        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.22), transparent 42%),
-        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.16), transparent 45%);
+    background: radial-gradient(circle at 10% 0%, rgba(88, 101, 242, 0.14), transparent 45%);
 }
 
 .themeTools {
