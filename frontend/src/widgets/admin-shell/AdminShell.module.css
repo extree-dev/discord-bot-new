@@ -1,9 +1,12 @@
-/* Две темы кабинета — светлая и тёмная (Liquid Glass), переключаются
-   атрибутом data-theme на корневом .shell (см. shared/lib/useTheme.ts).
-   В обеих --glass-bg полупрозрачный + --glass-blur реальный blur — это
-   и есть "стеклянный режим": Card/StatTile/DataTable/Button и т.п. из
-   shared/ui ничего не знают про тему, просто читают переменные, поэтому
-   стекло появляется сразу везде, где уже используются эти токены. */
+/* Плоская чистая панель в духе Cloudflare/Vercel — явный отказ от
+   прежнего "стеклянного" варианта (полупрозрачные карточки с blur и
+   цветныммэшем на фоне читались как размытые "квадратики", особенно в
+   светлой теме). Сайдбар и контент — на одном нейтральном фоне,
+   карточки — сплошные с тонкой границей и мягкой тенью, без
+   backdrop-filter. Переменные темы по-прежнему переопределяются на
+   корневом .shell атрибутом data-theme (см. shared/lib/useTheme.ts), так
+   что Card/StatTile/DataTable и т.п. из shared/ui ничего не знают про
+   тему — просто читают переменные. */
 .shell {
     position: relative;
     min-height: 100vh;
@@ -16,97 +19,72 @@
 }
 
 .shell[data-theme='light'] {
-    background: #eef0f7;
-    color: #16181d;
+    background: #f6f7fa;
+    color: #0f1222;
 
-    --bg: #eef0f7;
+    --bg: #f6f7fa;
     --surface: #ffffff;
-    --surface-2: #f0f1f6;
+    --surface-2: #f1f2f6;
     --border: #e3e5ec;
-    --border-strong: #d1d4de;
-    --text: #16181d;
-    --text-dim: #565b66;
-    --text-faint: #80838f;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
-    --glass-border: rgba(16, 24, 40, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    --glass-blur: blur(20px) saturate(180%);
-    --field-bg: rgba(255, 255, 255, 0.6);
+    --border-strong: #cfd2dc;
+    --text: #0f1222;
+    --text-dim: #565b6e;
+    --text-faint: #868ba0;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #ffffff;
+    --glass-border: var(--border);
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --field-bg: #ffffff;
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.1);
-    --success-bg: rgba(88, 101, 242, 0.1);
-    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.14);
-    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+    --danger-bg: rgba(242, 73, 92, 0.08);
+    --success-bg: rgba(88, 101, 242, 0.08);
+    --shadow-sm: 0 1px 2px rgba(15, 18, 34, 0.05);
+    --shadow-md: 0 4px 12px -4px rgba(15, 18, 34, 0.08);
+    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
 }
 
 .shell[data-theme='dark'] {
-    background: #0a0b0f;
-    color: #f7f7f9;
+    background: #0b0d12;
+    color: #f2f3f7;
 
-    --bg: #0a0b0f;
-    --surface: #111218;
-    --surface-2: #1b1d26;
+    --bg: #0b0d12;
+    --surface: #12141b;
+    --surface-2: #181b23;
     --border: #262933;
     --border-strong: #363a46;
-    --text: #f7f7f9;
-    --text-dim: #a7acbc;
-    --text-faint: #7d8396;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    --glass-blur: blur(24px) saturate(160%);
-    --field-bg: rgba(255, 255, 255, 0.05);
+    --text: #f2f3f7;
+    --text-dim: #a1a6ba;
+    --text-faint: #767c92;
+    --glass-bg: var(--surface);
+    --glass-bg-strong: var(--surface);
+    --glass-border: var(--border);
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --field-bg: #15171f;
     --notice-error-text: #ff9aa6;
     --danger-bg: rgba(242, 73, 92, 0.14);
     --success-bg: rgba(88, 101, 242, 0.16);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 12px 28px -12px rgba(0, 0, 0, 0.55);
-    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
-}
-
-/* Цветной размытый мэш за стеклом — без него "стеклянный режим" не
-   читается: сквозь прозрачные панели должно что-то просвечивать, иначе
-   это просто полупрозрачный серый. Фиксирован относительно вьюпорта,
-   не относительно .content — чтобы не "ехал" вместе со скроллом длинных
-   таблиц и выглядел одним цельным фоном на любой странице. */
-.glow {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-}
-
-.shell[data-theme='light'] .glow {
-    background:
-        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.22), transparent 40%),
-        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.16), transparent 42%),
-        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.14), transparent 45%);
-}
-
-.shell[data-theme='dark'] .glow {
-    background:
-        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.32), transparent 40%),
-        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.22), transparent 42%),
-        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.16), transparent 45%);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
 }
 
 .sidebar {
     flex: none;
-    width: 252px;
+    width: 256px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 22px 16px;
-    background: linear-gradient(165deg, var(--accent) 0%, #4046c7 100%);
-    color: #ffffff;
+    gap: 20px;
+    padding: 18px 14px;
+    background: var(--surface);
+    color: var(--text);
+    border-right: 1px solid var(--border);
     transition: width 0.18s ease;
 }
 
 .shellCollapsed .sidebar {
-    width: 80px;
+    width: 76px;
 }
 
 .brandRow {
@@ -114,16 +92,17 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    padding: 4px 4px 0;
 }
 
 .brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 8px;
+    padding: 0 4px;
     font-weight: 800;
-    font-size: 16px;
-    color: #ffffff;
+    font-size: 15px;
+    color: var(--text);
     text-decoration: none;
     flex: none;
     min-width: 0;
@@ -133,13 +112,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 9px;
-    background: rgba(255, 255, 255, 0.18);
-    color: #ffffff;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
     font-weight: 800;
-    font-size: 14px;
+    font-size: 13px;
     flex: none;
 }
 
@@ -157,9 +136,10 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 8px;
+    padding: 9px 8px;
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
 }
 
 .profileText {
@@ -176,7 +156,7 @@
 .profileName {
     font-size: 13px;
     font-weight: 700;
-    color: #ffffff;
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -184,14 +164,16 @@
 
 .profileRole {
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--text-faint);
 }
 
 .toolsRow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
+    padding: 0 4px;
+    color: var(--text-dim);
 }
 
 .shellCollapsed .toolsRow {
@@ -201,7 +183,7 @@
 .navLinks {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     flex: 1;
     overflow-y: auto;
 }
@@ -210,28 +192,30 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 9px 10px;
     border-radius: var(--radius-sm);
     font-size: 14px;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--text-dim);
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
+    border-left: 3px solid transparent;
     transition:
         background 0.15s ease,
-        color 0.15s ease;
+        color 0.15s ease,
+        border-color 0.15s ease;
 }
 
 .navLink:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    background: var(--surface-2);
 }
 
 .navLinkActive {
     color: var(--accent);
-    background: #ffffff;
-    box-shadow: var(--shadow-sm);
+    background: var(--success-bg);
+    border-left-color: var(--accent);
 }
 
 .navIcon {
@@ -253,6 +237,7 @@
 
 .shellCollapsed .navLink {
     justify-content: center;
+    border-left: none;
 }
 
 .shellCollapsed .navLabel {
@@ -262,19 +247,21 @@
 .sidebarFooter {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     flex: none;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
 }
 
 .collapseToggle {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 9px 10px;
     border-radius: var(--radius-sm);
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-faint);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -285,8 +272,8 @@
 }
 
 .collapseToggle:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+    background: var(--surface-2);
 }
 
 .shellCollapsed .collapseToggle {
@@ -310,20 +297,21 @@
 }
 
 .sidebarFooter :global(a) {
-    color: rgba(255, 255, 255, 0.85) !important;
+    color: var(--text-dim) !important;
 }
 
 .sidebarFooter :global(a:hover) {
-    color: #ffffff !important;
-    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text) !important;
+    background: var(--surface-2) !important;
 }
 
 .content {
     position: relative;
     flex: 1;
     min-width: 0;
-    padding: 28px clamp(16px, 3vw, 40px) 56px;
+    padding: 24px clamp(16px, 2.4vw, 36px) 56px;
     overflow-x: hidden;
+    background: var(--bg);
 }
 
 .contentInner {
@@ -331,8 +319,6 @@
     flex-direction: column;
     gap: 20px;
     width: 100%;
-    max-width: 1280px;
-    margin: 0 auto;
 }
 
 @media (max-width: 860px) {
@@ -348,10 +334,13 @@
         gap: 12px;
         padding: 12px 16px;
         overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
     }
 
     .brandRow {
         flex: none;
+        padding: 0;
     }
 
     .profile {
@@ -363,12 +352,24 @@
         overflow-y: visible;
     }
 
+    .navLink {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+    }
+
+    .navLinkActive {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent);
+    }
+
     /* "Выйти" остаётся доступной и на мобильном — просто встаёт в конец
        той же горизонтальной прокручиваемой полосы, без отдельной формы
        сворачивания (которая на мобильном и так не нужна). */
     .sidebarFooter {
         flex: none;
         flex-direction: row;
+        border-top: none;
+        padding-top: 0;
     }
 
     .collapseToggle {
@@ -399,41 +400,42 @@
 }
 
 .deniedShell[data-theme='light'] {
-    background: #eef0f7;
-    color: #16181d;
+    background: #f6f7fa;
+    color: #0f1222;
 
-    --bg: #eef0f7;
+    --bg: #f6f7fa;
     --surface: #ffffff;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
-    --glass-border: rgba(16, 24, 40, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    --glass-blur: blur(20px) saturate(180%);
-    --text: #16181d;
-    --text-dim: #565b66;
-    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.18);
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #ffffff;
+    --glass-border: #e3e5ec;
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --text: #0f1222;
+    --text-dim: #565b6e;
+    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
 }
 
 .deniedShell[data-theme='dark'] {
-    background: #0a0b0f;
-    color: #f7f7f9;
+    background: #0b0d12;
+    color: #f2f3f7;
 
-    --bg: #0a0b0f;
-    --surface: #111218;
-    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
-    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    --glass-blur: blur(24px) saturate(160%);
-    --text: #f7f7f9;
-    --text-dim: #a7acbc;
-    --shadow-lg: 0 28px 64px -20px rgba(0, 0, 0, 0.65);
+    --bg: #0b0d12;
+    --surface: #12141b;
+    --glass-bg: var(--surface);
+    --glass-bg-strong: var(--surface);
+    --glass-border: #262933;
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --text: #f2f3f7;
+    --text-dim: #a1a6ba;
+    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
 }
 
 .deniedTopbar {
     display: flex;
     align-items: center;
     padding: 20px clamp(16px, 4vw, 48px);
+    border-bottom: 1px solid var(--border);
 }
 
 .deniedBrand {
@@ -453,7 +455,7 @@
     width: 28px;
     height: 28px;
     border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    background: var(--accent);
     color: var(--accent-ink);
     font-weight: 800;
     font-size: 13px;

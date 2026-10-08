@@ -100,7 +100,6 @@ export function AdminShell() {
     if (status === 'denied') {
         return (
             <div className={styles.deniedShell} data-theme={theme}>
-                <div className={styles.glow} />
                 <header className={styles.deniedTopbar}>
                     <a className={styles.deniedBrand} href="/">
                         <span className={styles.deniedBadge}>E</span>Extree
@@ -119,7 +118,6 @@ export function AdminShell() {
 
     return (
         <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ''}`} data-theme={theme}>
-            <div className={styles.glow} />
             <aside className={styles.sidebar}>
                 <div className={styles.brandRow}>
                     <a className={styles.brand} href="/">
