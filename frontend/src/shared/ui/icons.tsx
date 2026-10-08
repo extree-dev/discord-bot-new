@@ -295,3 +295,88 @@ export function GlobeIcon() {
         </svg>
     );
 }
+
+// Иконки редактора визитки (pages/site-admin, features/edit-site-content)
+// и её шапки (widgets/app-shell) — тот же stroke-based рукописный набор,
+// что у иконок кабинета выше.
+
+export function LinkChainIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M9 17H7a5 5 0 0 1 0-10h2" />
+            <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
+            <path d="M8 12h8" />
+        </svg>
+    );
+}
+
+export function UserIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M5 21v-1a7 7 0 0 1 14 0v1" />
+        </svg>
+    );
+}
+
+export function TrashIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M4 7h16" />
+            <path d="M10 11v6M14 11v6" />
+            <path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" />
+            <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+        </svg>
+    );
+}
+
+export function PlusIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M12 5v14M5 12h14" />
+        </svg>
+    );
+}
+
+export function ArrowUpRightIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M7 17 17 7M9 7h8v8" />
+        </svg>
+    );
+}

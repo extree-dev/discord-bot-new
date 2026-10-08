@@ -7,12 +7,15 @@ import styles from './VisitkaPage.module.css';
 // Публичная link-in-bio страница (extree.tech "/") — сознательно БЕЗ
 // AppShell: его фирменный хедер с лого/названием сделан для внутренних
 // страниц продукта (кабинет, редактор), а здесь сама эта страница —
-// весь "продукт", как у Linktree и подобных сервисов: фото — не круглый
-// аватар, а баннер сверху узкой карточки (.frame), плавно растворяющийся
-// в фоне. Карточка — не весь браузер: на мобильном она и так = ширине
-// экрана, а на десктопе это центрированная колонка фиксированной ширины
-// (как у настоящего Linktree), иначе баннер растягивается на весь экран
-// и дико обрезается по object-fit: cover.
+// весь "продукт", как у Linktree и подобных сервисов.
+//
+// Макет: круглый аватар с градиентным кольцом, наполовину нависающий
+// над стеклянной карточкой профиля (классический профильный паттерн
+// Linktree/Beacons) — вместо прежнего full-bleed баннера, который на
+// нестандартных фото обрезался непредсказуемо. Карточка плавает над
+// фиксированным тёмным фоном с несколькими радиальными цветовыми
+// пятнами и точечной сеткой — тот же язык "glass", что у AppShell, но
+// доведённый здесь до собственного, самостоятельного продукта.
 export function VisitkaPage() {
     const [content, setContent] = useState<SiteContent | null>(null);
 
@@ -26,14 +29,15 @@ export function VisitkaPage() {
 
     return (
         <div className={styles.page}>
+            <div className={styles.backdrop} aria-hidden="true" />
             {content && (
                 <div className={styles.frame}>
-                    <div className={styles.banner}>
-                        <img className={styles.bannerImg} src="/avatar.jpg" alt={content.name} />
-                    </div>
-                    <main className={styles.content}>
+                    <main className={styles.card}>
+                        <div className={styles.avatarRing}>
+                            <img className={styles.avatar} src="/avatar.jpg" alt={content.name} />
+                        </div>
                         <h1 className={styles.name}>{content.name}</h1>
-                        {content.role && <p className={styles.role}>{content.role}</p>}
+                        {content.role && <span className={styles.role}>{content.role}</span>}
                         {content.bio && <p className={styles.bio}>{content.bio}</p>}
                         <LinkList links={content.links} />
                         <footer className={styles.footer}>© {content.name}</footer>

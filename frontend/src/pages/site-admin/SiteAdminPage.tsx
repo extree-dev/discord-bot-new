@@ -5,10 +5,12 @@ import { SiteContentForm } from '../../features/edit-site-content/SiteContentFor
 import { LogoutButton } from '../../features/discord-auth/LogoutButton';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
+import { LinkChainIcon, ShieldIcon } from '../../shared/ui/icons';
 import { useSiteAdminGate } from '../../shared/lib/useSiteAdminGate';
 import { gateNoticeMessage } from '../../shared/lib/gateNotice';
 import { AppShell } from '../../widgets/app-shell/AppShell';
 import { LoginMethods } from '../../widgets/login-methods/LoginMethods';
+import styles from './SiteAdminPage.module.css';
 
 export function SiteAdminPage() {
     const { status, notice } = useSiteAdminGate();
@@ -33,6 +35,9 @@ export function SiteAdminPage() {
         <AppShell>
             {status === 'logged-out' && (
                 <Card>
+                    <span className={styles.gateIcon}>
+                        <LinkChainIcon />
+                    </span>
                     <h1>Редактирование визитки</h1>
                     <p>Войди через Discord — редактировать может только администратор сервера бота.</p>
                     {notice && (
@@ -44,6 +49,9 @@ export function SiteAdminPage() {
 
             {status === 'denied' && (
                 <Card>
+                    <span className={`${styles.gateIcon} ${styles.gateIconDanger}`}>
+                        <ShieldIcon />
+                    </span>
                     <h1>Нет доступа</h1>
                     <p>Редактировать визитку может только администратор сервера, на котором работает бот.</p>
                     <LogoutButton />
@@ -52,10 +60,20 @@ export function SiteAdminPage() {
 
             {status === 'admin' && content && (
                 <Card wide>
-                    <h1>Редактирование визитки</h1>
-                    <p>Правки применяются сразу — без деплоя. Пустой URL у ссылки делает её просто текстом.</p>
+                    <div className={styles.header}>
+                        <span className={styles.headerIcon}>
+                            <LinkChainIcon />
+                        </span>
+                        <h1>Редактирование визитки</h1>
+                        <p className={styles.headerSubtitle}>
+                            Правки применяются сразу — без деплоя. Пустой URL у ссылки делает её просто текстом.
+                        </p>
+                    </div>
+                    <div className={styles.divider} />
                     <SiteContentForm initial={content} maxLinks={content.maxLinks} />
-                    <LogoutButton />
+                    <div className={styles.logout}>
+                        <LogoutButton />
+                    </div>
                 </Card>
             )}
         </AppShell>

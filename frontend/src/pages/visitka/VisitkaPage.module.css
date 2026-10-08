@@ -4,71 +4,137 @@
     isolation: isolate;
     display: flex;
     justify-content: center;
+    padding: 72px 16px 56px;
     background: var(--bg);
+    overflow-x: hidden;
+}
+
+/* Фиксированный многопятенный градиентный фон вместо одного плоского
+   .glow — на публичной странице нет хедера-якоря, поэтому сама глубина
+   фона должна сразу читаться как "продукт", а не как пустой тёмный
+   экран. fixed, а не absolute — пятна не скроллятся вместе с длинным
+   списком ссылок. */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 55% 38% at 18% 6%, rgba(88, 101, 242, 0.32), transparent 62%),
+        radial-gradient(ellipse 48% 34% at 102% 14%, rgba(139, 92, 246, 0.22), transparent 60%),
+        radial-gradient(ellipse 60% 46% at 50% 108%, rgba(61, 220, 151, 0.1), transparent 65%), var(--bg);
+}
+
+.backdrop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent 72%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent 72%);
 }
 
 .frame {
     position: relative;
+    z-index: 1;
     width: 100%;
-    max-width: 560px;
+    max-width: 440px;
 }
 
-.banner {
+.card {
     position: relative;
-    width: 100%;
-    height: min(48vh, 420px);
-    min-height: 260px;
-    overflow: hidden;
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(88, 101, 242, 0.25), transparent 70%), var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 76px 28px 40px;
+    text-align: center;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
 }
 
-.bannerImg {
+.avatarRing {
+    position: absolute;
+    top: -58px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 116px;
+    height: 116px;
+    padding: 3px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    box-shadow:
+        0 14px 34px -10px rgba(88, 101, 242, 0.65),
+        var(--shadow-lg);
+}
+
+.avatar {
     display: block;
     width: 100%;
     height: 100%;
+    border-radius: 50%;
     object-fit: cover;
-    object-position: center;
-    mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
-    -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 96%);
-}
-
-.content {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 460px;
-    padding: 0 24px 56px;
-    margin-top: -88px;
-    text-align: center;
+    border: 3px solid var(--bg);
 }
 
 .name {
     margin: 0 0 8px;
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.1;
+    line-height: 1.15;
     color: var(--text);
-    text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 .role {
-    margin: 0 0 14px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--accent-hover, var(--accent));
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0 18px;
+    padding: 5px 14px;
+    border-radius: var(--radius-pill);
+    background: rgba(88, 101, 242, 0.16);
+    color: var(--accent-hover);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .bio {
-    margin: 0 auto 36px;
-    max-width: 340px;
+    margin: 0 auto 32px;
+    max-width: 320px;
     font-size: 15px;
     line-height: 1.6;
     color: var(--text-dim);
 }
 
 .footer {
-    margin-top: 40px;
+    margin-top: 32px;
     color: var(--text-faint);
     font-size: 12px;
+}
+
+@media (max-width: 480px) {
+    .page {
+        padding: 56px 12px 40px;
+    }
+
+    .card {
+        padding: 68px 18px 32px;
+        border-radius: var(--radius-md);
+    }
+
+    .avatarRing {
+        top: -50px;
+        width: 100px;
+        height: 100px;
+    }
+
+    .name {
+        font-size: 24px;
+    }
 }
