@@ -1,123 +1,130 @@
+/* Светлая тема кабинета — локальный оверрайд тех же CSS-переменных, что
+   уже используют Card/Button/Field/Notice/DataTable из shared/ui (см.
+   AuthSplitScreen.module.css для того же приёма на экране входа). Акцент
+   остаётся фирменным Discord blurple — это по-прежнему бот для Discord,
+   просто теперь на светлом фоне, а не на тёмном Liquid Glass. */
 .shell {
     position: relative;
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
-    isolation: isolate;
-    background: var(--bg);
+    align-items: stretch;
+    background: #f5f6fa;
+    color: #16181d;
+
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-2: #f0f1f6;
+    --border: #e3e5ec;
+    --border-strong: #d1d4de;
+    --text: #16181d;
+    --text-dim: #565b66;
+    --text-faint: #80838f;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #fafbfd;
+    --glass-border: #e3e5ec;
+    --glass-highlight: none;
+    --glass-blur: none;
+    --field-bg: #fafbfd;
+    --notice-error-text: #b42318;
+    --danger-bg: rgba(242, 73, 92, 0.08);
+    --success-bg: rgba(88, 101, 242, 0.08);
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 8px 20px -8px rgba(16, 24, 40, 0.12);
+    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.16);
 }
 
-/* Тот же цветной размытый мэш, что на лендинге (web/bot-site/styles.css
-   .glow) — один визуальный язык на весь бренд, а не отдельная палитра
-   для кабинета. */
-.glow {
-    position: absolute;
-    top: -220px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 1500px;
-    height: 900px;
-    background:
-        radial-gradient(circle at 28% 22%, rgba(88, 101, 242, 0.38), transparent 42%),
-        radial-gradient(circle at 74% 8%, rgba(136, 94, 255, 0.22), transparent 46%),
-        radial-gradient(circle at 56% 58%, rgba(64, 170, 255, 0.13), transparent 52%);
-    filter: blur(90px);
-    pointer-events: none;
-    z-index: -1;
-}
-
-.topbar {
-    position: sticky;
-    top: 14px;
-    z-index: 30;
+.sidebar {
+    flex: none;
+    width: 252px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 14px clamp(14px, 3vw, 28px) 0;
-    padding: 12px 14px 12px 20px;
-    border-radius: var(--radius-pill);
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
+    flex-direction: column;
+    gap: 28px;
+    padding: 22px 16px;
+    background: linear-gradient(165deg, var(--accent) 0%, #4046c7 100%);
+    color: #ffffff;
+    transition: width 0.18s ease;
+}
+
+.shellCollapsed .sidebar {
+    width: 80px;
 }
 
 .brand {
     display: flex;
     align-items: center;
     gap: 10px;
+    padding: 0 8px;
     font-weight: 800;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-    color: var(--text);
+    font-size: 16px;
+    color: #ffffff;
     text-decoration: none;
+    flex: none;
 }
 
 .badge {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-    color: var(--accent-ink);
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
     font-weight: 800;
-    font-size: 13px;
-    box-shadow: var(--shadow-sm);
+    font-size: 14px;
     flex: none;
 }
 
-.centered {
-    position: relative;
-    z-index: 1;
-    flex: 1;
+.brandLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shellCollapsed .brandLabel {
+    display: none;
+}
+
+.profile {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 24px 20px 72px;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.body {
-    position: relative;
-    z-index: 1;
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-    min-height: 0;
-    padding: 20px clamp(14px, 3vw, 28px) 56px;
-}
-
-.sidebar {
-    flex: none;
-    width: 232px;
+.profileText {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 16px;
-    position: sticky;
-    top: 86px;
-    border-radius: var(--radius-lg);
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--shadow-md);
-    transition: width 0.18s ease;
+    min-width: 0;
+    overflow: hidden;
 }
 
-.bodyCollapsed .sidebar {
-    width: 76px;
+.shellCollapsed .profileText {
+    display: none;
+}
+
+.profileName {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.profileRole {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.72);
 }
 
 .navLinks {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .navLink {
@@ -128,7 +135,7 @@
     border-radius: var(--radius-sm);
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-dim);
+    color: rgba(255, 255, 255, 0.78);
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
@@ -138,16 +145,14 @@
 }
 
 .navLink:hover {
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .navLinkActive {
-    color: var(--text);
-    background: var(--glass-bg-strong);
-    box-shadow:
-        var(--glass-highlight),
-        inset 0 0 0 1px var(--glass-border);
+    color: var(--accent);
+    background: #ffffff;
+    box-shadow: var(--shadow-sm);
 }
 
 .navIcon {
@@ -167,12 +172,19 @@
     text-overflow: ellipsis;
 }
 
-.bodyCollapsed .navLink {
+.shellCollapsed .navLink {
     justify-content: center;
 }
 
-.bodyCollapsed .navLabel {
+.shellCollapsed .navLabel {
     display: none;
+}
+
+.sidebarFooter {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: none;
 }
 
 .collapseToggle {
@@ -183,7 +195,7 @@
     border-radius: var(--radius-sm);
     border: none;
     background: transparent;
-    color: var(--text-faint);
+    color: rgba(255, 255, 255, 0.6);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -194,11 +206,11 @@
 }
 
 .collapseToggle:hover {
-    color: var(--text);
-    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
 }
 
-.bodyCollapsed .collapseToggle {
+.shellCollapsed .collapseToggle {
     justify-content: center;
 }
 
@@ -218,9 +230,20 @@
     transform: rotate(180deg);
 }
 
+.sidebarFooter :global(a) {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.sidebarFooter :global(a:hover) {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
 .content {
     flex: 1;
     min-width: 0;
+    padding: 28px clamp(16px, 3vw, 40px) 56px;
+    overflow-x: hidden;
 }
 
 .contentInner {
@@ -228,39 +251,112 @@
     flex-direction: column;
     gap: 20px;
     width: 100%;
-    max-width: 1040px;
+    max-width: 1280px;
     margin: 0 auto;
 }
 
-@media (max-width: 760px) {
-    .body {
+@media (max-width: 860px) {
+    .shell {
         flex-direction: column;
-        padding: 16px 16px 48px;
     }
 
     .sidebar,
-    .bodyCollapsed .sidebar {
-        position: static;
+    .shellCollapsed .sidebar {
         width: 100%;
         flex-direction: row;
         align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
         overflow-x: auto;
-        padding: 10px 12px;
+    }
+
+    .profile {
+        display: none;
     }
 
     .navLinks {
         flex-direction: row;
+        overflow-y: visible;
+    }
+
+    /* "Выйти" остаётся доступной и на мобильном — просто встаёт в конец
+       той же горизонтальной прокручиваемой полосы, без отдельной формы
+       сворачивания (которая на мобильном и так не нужна). */
+    .sidebarFooter {
+        flex: none;
+        flex-direction: row;
+    }
+
+    .collapseToggle {
+        display: none;
     }
 
     .navLink {
         white-space: nowrap;
     }
 
-    .bodyCollapsed .navLabel {
-        display: inline;
+    .content {
+        padding: 20px 16px 40px;
     }
+}
 
-    .collapseToggle {
-        display: none;
-    }
+/* Экран "Нет доступа" — отдельный узкий кейс (залогинен, но не админ
+   сервера), не часть основного шелла с сайдбаром; та же светлая палитра
+   для консистентности с остальным кабинетом. */
+.deniedShell {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #f5f6fa;
+    color: #16181d;
+
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #fafbfd;
+    --glass-border: #e3e5ec;
+    --glass-highlight: none;
+    --glass-blur: none;
+    --text: #16181d;
+    --text-dim: #565b66;
+    --shadow-lg: 0 20px 48px -16px rgba(16, 24, 40, 0.16);
+}
+
+.deniedTopbar {
+    display: flex;
+    align-items: center;
+    padding: 20px clamp(16px, 4vw, 48px);
+}
+
+.deniedBrand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.deniedBadge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    color: var(--accent-ink);
+    font-weight: 800;
+    font-size: 13px;
+    box-shadow: var(--shadow-sm);
+}
+
+.deniedCentered {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 20px 72px;
 }

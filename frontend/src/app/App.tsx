@@ -6,6 +6,10 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { BotSettingsPage } from '../pages/bot-settings/BotSettingsPage';
 import { BotStatusPage } from '../pages/bot-status/BotStatusPage';
 import { VoiceSettingsPage } from '../pages/voice-settings/VoiceSettingsPage';
+import { MembersPage } from '../pages/guild-members/MembersPage';
+import { MutedPage } from '../pages/muted-members/MutedPage';
+import { BannedPage } from '../pages/banned-members/BannedPage';
+import { LeaderboardPage } from '../pages/leaderboard/LeaderboardPage';
 import { AdminShell } from '../widgets/admin-shell/AdminShell';
 
 // Один билд на оба домена: extree.tech проксирует "/" и "/admin" на этот
@@ -22,6 +26,10 @@ export function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AdminShell />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/dashboard/members" element={<MembersPage />} />
+                <Route path="/dashboard/muted" element={<MutedPage />} />
+                <Route path="/dashboard/banned" element={<BannedPage />} />
+                <Route path="/dashboard/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/dashboard/settings" element={<BotSettingsPage />} />
                 <Route path="/dashboard/status" element={<BotStatusPage />} />
                 <Route path="/dashboard/voice" element={<VoiceSettingsPage />} />

@@ -21,6 +21,8 @@
 // на обоих доменах остаётся статикой.
 require('dotenv').config({ quiet: true });
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const path = require('path');
 const oauth = require('./discordOAuth');
@@ -33,6 +35,8 @@ const presence = require('../presence');
 const voice = require('../voice');
 const cases = require('../cases');
 const tickets = require('../tickets/config');
+const moderation = require('../moderation');
+const leveling = require('../leveling');
 
 const PORT = process.env.DASHBOARD_PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -125,6 +129,20 @@ async function getGuildRoles() {
     return roles;
 }
 
+// Полный ростер участников — тот же TTL-кэш, что у каналов/ролей выше:
+// списки "Участники"/"В муте"/"Лидерборд" (см. ниже) каждый по-своему
+// используют один и тот же полный список, не нужно гонять Discord за
+// тысячами участников на каждый из них по отдельности.
+let guildMembersCache = { members: null, fetchedAt: 0 };
+async function getGuildMembersCached() {
+    if (guildMembersCache.members && Date.now() - guildMembersCache.fetchedAt < GUILD_RESOURCES_TTL_MS) {
+        return guildMembersCache.members;
+    }
+    const members = await oauth.fetchGuildMembers(BOT_TOKEN, GUILD_ID);
+    guildMembersCache = { members, fetchedAt: Date.now() };
+    return members;
+}
+
 function parseCookies(header) {
     const out = {};
     if (!header) return out;
@@ -174,8 +192,53 @@ async function isRequestSiteAdmin(req) {
 
 const app = express();
 // За Caddy (reverse proxy) — иначе req.secure/req.ip смотрели бы на
-// соединение с прокси, а не на исходный запрос клиента.
+// соединение с прокси, а не на исходный запрос клиента (и rate-limit
+// ниже считал бы все запросы с одного IP прокси).
 app.set('trust proxy', 1);
+
+// Стандартный набор security-заголовков (helmet = CSP, X-Frame-Options/
+// frame-ancestors, X-Content-Type-Options: nosniff, Referrer-Policy,
+// HSTS и т.п.) — CSP разрешает ровно то, что реально грузит фронтенд:
+// Google Fonts (styleSrc/fontSrc), официальный Telegram Login Widget
+// (scriptSrc — сам скрипт; frameSrc — его iframe с oauth.telegram.org,
+// см. features/telegram-auth/TelegramLoginButton.tsx), аватарки Discord
+// (imgSrc). crossOriginEmbedderPolicy выключен явно — иначе ломает
+// встраивание чужого (Telegram) iframe без Cross-Origin-Resource-Policy
+// на их стороне, на что мы повлиять не можем.
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", 'https://telegram.org'],
+                styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+                fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+                imgSrc: ["'self'", 'data:', 'https://cdn.discordapp.com'],
+                connectSrc: ["'self'"],
+                frameSrc: ['https://oauth.telegram.org'],
+                objectSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+                frameAncestors: ["'self'"],
+            },
+        },
+        crossOriginEmbedderPolicy: false,
+    })
+);
+
+// Общий rate-limit на все /api/* и /auth/* — защита от перебора/грубого
+// DoS на уровне процесса, в дополнение к прицельному лимитеру на
+// /auth/email/login ниже (у него лимит жёстче и ключ — IP, не email).
+// 300 запросов/5 минут с одного IP — SPA на обычном заходе делает от
+// силы десяток запросов, этого хватает с большим запасом для реальных
+// пользователей, но не для перебора.
+const apiRateLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    limit: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(['/api', '/auth'], apiRateLimiter);
 
 app.use(express.json());
 
@@ -502,6 +565,151 @@ app.get('/api/guild-stats', async (req, res) => {
     } catch (err) {
         console.error('dashboard: /api/guild-stats — не удалось собрать статистику:', err);
         res.status(502).json({ error: 'Не удалось загрузить статистику, попробуй ещё раз чуть позже.' });
+    }
+});
+
+// Полный ростер сервера — "Участники" в дашборде. Отдаём всё разом
+// (не постранично с курсором от Discord наружу): фронтенд сам фильтрует/
+// сортирует/пагинирует уже загруженный список (DataTable), сервер не
+// должен знать про текущую страницу/поиск UI — тот же подход, что уже
+// был у /api/guild-channels и /api/guild-roles.
+app.get('/api/guild-members', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const [rawMembers, roles] = await Promise.all([getGuildMembersCached(), getGuildRoles()]);
+        const roleNameById = new Map(roles.map(r => [r.id, r.name]));
+        res.json({
+            members: rawMembers.map(m => ({
+                id: m.user.id,
+                username: m.user.username,
+                globalName: m.user.global_name ?? null,
+                avatarUrl: avatarUrl(m.user),
+                roles: (m.roles || []).map(id => ({ id, name: roleNameById.get(id) ?? id })),
+                joinedAt: m.joined_at ?? null,
+            })),
+        });
+    } catch (err) {
+        console.error('dashboard: /api/guild-members — не удалось загрузить участников:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
+});
+
+// "В муте" — кастомный мут этого бота (роль Muted + запись в Postgres,
+// см. moderation/model.js), НЕ нативный Discord timeout — этот бот его
+// не использует (см. комментарий у muteMember). Запись в сторе живёт,
+// пока не истечёт expiresAt — sweep (moderation/sweep.js) чистит
+// просроченные раз в минуту, так что всё, что здесь есть, считается
+// актуальным без дополнительной проверки на фронте.
+app.get('/api/muted-members', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const [mutes, rawMembers] = await Promise.all([moderation.getConfig(), getGuildMembersCached()]);
+        const userById = new Map(rawMembers.map(m => [m.user.id, m.user]));
+        const prefix = `${GUILD_ID}_`;
+        const muted = Object.entries(mutes)
+            .filter(([key]) => key.startsWith(prefix))
+            .map(([key, entry]) => {
+                const userId = key.slice(prefix.length);
+                const user = userById.get(userId);
+                return {
+                    id: userId,
+                    username: user?.username ?? null,
+                    globalName: user?.global_name ?? null,
+                    avatarUrl: user ? avatarUrl(user) : null,
+                    reason: entry.reason ?? null,
+                    mutedBy: entry.mutedBy ?? null,
+                    mutedAt: entry.mutedAt ?? null,
+                    expiresAt: entry.expiresAt ?? null,
+                };
+            })
+            .sort((a, b) => (b.mutedAt ?? 0) - (a.mutedAt ?? 0));
+        res.json({ muted });
+    } catch (err) {
+        console.error('dashboard: /api/muted-members — не удалось загрузить список:', err);
+        res.status(502).json({ error: 'Не удалось загрузить список, попробуй ещё раз чуть позже.' });
+    }
+});
+
+// Забаненные — живой список от Discord (GET /guilds/{id}/bans), он не
+// знает ни модератора, ни когда бан выдан. Дополняем этим из
+// собственного журнала /ban (cases/) там, где он есть — бан мог быть
+// выдан и не через бота (вручную в Discord, через automod/antiNuke,
+// которые в cases/ не пишут, см. комментарий в cases/model.js), тогда
+// moderatorTag/bannedAt просто остаются null, а не падаем и не врём.
+app.get('/api/banned-members', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const [bans, caseList] = await Promise.all([
+            oauth.fetchGuildBans(BOT_TOKEN, GUILD_ID),
+            cases.getCasesForGuild(GUILD_ID),
+        ]);
+        const lastBanCaseByTarget = new Map();
+        for (const c of caseList) {
+            if (c.type === 'ban' && !lastBanCaseByTarget.has(c.targetId)) {
+                lastBanCaseByTarget.set(c.targetId, c);
+            }
+        }
+        const banned = bans.map(b => {
+            const info = lastBanCaseByTarget.get(b.user.id);
+            return {
+                id: b.user.id,
+                username: b.user.username,
+                globalName: b.user.global_name ?? null,
+                avatarUrl: avatarUrl(b.user),
+                reason: info?.reason ?? b.reason ?? null,
+                moderatorTag: info?.moderatorTag ?? null,
+                bannedAt: info?.createdAt ?? null,
+            };
+        });
+        res.json({ banned });
+    } catch (err) {
+        console.error('dashboard: /api/banned-members — не удалось загрузить список:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
+});
+
+// Лидерборд уровней — та же сортировка, что у /level leaderboard в
+// Discord (leveling.getLeaderboard), просто без рендера в PNG-карточку.
+// rank проставляется здесь же, по индексу уже отсортированного списка —
+// getLeaderboard сам ранг не считает (см. commands/general/level.js).
+app.get('/api/leaderboard', async (req, res) => {
+    if (!(await isRequestSiteAdmin(req))) {
+        res.status(403).json({ error: 'Нужны права администратора сервера бота.' });
+        return;
+    }
+    try {
+        const [top, rawMembers] = await Promise.all([
+            leveling.getLeaderboard(GUILD_ID, Infinity),
+            getGuildMembersCached(),
+        ]);
+        const userById = new Map(rawMembers.map(m => [m.user.id, m.user]));
+        const leaderboard = top.map((entry, index) => {
+            const user = userById.get(entry.userId);
+            return {
+                rank: index + 1,
+                id: entry.userId,
+                username: user?.username ?? null,
+                globalName: user?.global_name ?? null,
+                avatarUrl: user ? avatarUrl(user) : null,
+                score: entry.score,
+                messageCount: entry.messageCount,
+                voiceMinutes: entry.voiceMinutes,
+                prestige: entry.prestige,
+            };
+        });
+        res.json({ leaderboard });
+    } catch (err) {
+        console.error('dashboard: /api/leaderboard — не удалось загрузить лидерборд:', err);
+        res.status(502).json({ error: 'Не удалось загрузить лидерборд, попробуй ещё раз чуть позже.' });
     }
 });
 
