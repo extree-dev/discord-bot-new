@@ -1,68 +1,68 @@
 .wrapper {
-    margin-bottom: 20px;
+    width: 100%;
+    margin-bottom: 4px;
 }
 
 .socialRow {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 14px;
-    margin-bottom: 28px;
+    gap: 12px;
+    margin-bottom: 26px;
 }
 
 .socialIcon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
     flex: none;
     border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text-dim);
-    box-shadow: var(--shadow-sm);
     transition:
         transform 0.15s ease,
         border-color 0.15s ease,
         color 0.15s ease,
+        background 0.15s ease,
         box-shadow 0.15s ease;
 }
 
 .socialIcon svg {
-    width: 20px;
-    height: 20px;
+    width: 19px;
+    height: 19px;
 }
 
 .socialIcon:hover {
     transform: translateY(-2px) scale(1.06);
     border-color: var(--accent);
+    background: rgba(88, 101, 242, 0.14);
     color: var(--accent-hover);
-    box-shadow: 0 10px 22px -8px rgba(88, 101, 242, 0.5);
+    box-shadow: 0 10px 22px -8px rgba(88, 101, 242, 0.55);
 }
 
 .links {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
+    width: 100%;
 }
 
 .link {
-    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
     width: 100%;
-    padding: 17px 22px;
+    padding: 14px 18px;
     border-radius: var(--radius-pill);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--text);
     text-decoration: none;
     font-weight: 600;
     font-size: 15px;
-    box-shadow: var(--shadow-sm);
     transition:
         transform 0.15s ease,
         border-color 0.15s ease,
@@ -73,8 +73,8 @@
 a.link:hover {
     transform: translateY(-2px) scale(1.015);
     border-color: var(--accent);
-    background: var(--surface);
-    box-shadow: 0 10px 24px -8px rgba(88, 101, 242, 0.45);
+    background: rgba(88, 101, 242, 0.1);
+    box-shadow: 0 12px 26px -10px rgba(88, 101, 242, 0.5);
 }
 
 a.link:active {
@@ -87,8 +87,6 @@ a.link:active {
 }
 
 .icon {
-    position: absolute;
-    left: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -96,7 +94,7 @@ a.link:active {
     height: 32px;
     flex: none;
     border-radius: 50%;
-    background: rgba(88, 101, 242, 0.14);
+    background: rgba(88, 101, 242, 0.16);
     color: var(--accent-hover);
     padding: 7px;
 }
@@ -107,5 +105,19 @@ a.link:active {
 }
 
 .label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     text-align: center;
+}
+
+/* Невидимый двойник .icon справа — чтобы .label реально центрировался
+   в оставшемся пространстве пилюли, а не наезжал на круглую иконку
+   слева при длинном тексте (как было бы при центрировании по всей
+   ширине вместе с absolute-иконкой). */
+.spacer {
+    width: 32px;
+    flex: none;
 }

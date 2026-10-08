@@ -70,6 +70,7 @@ export function LinkList({ links }: LinkListProps) {
                                     <Icon />
                                 </span>
                                 <span className={styles.label}>{link.label}</span>
+                                <span className={styles.spacer} aria-hidden="true" />
                             </>
                         );
                         return link.url ? (

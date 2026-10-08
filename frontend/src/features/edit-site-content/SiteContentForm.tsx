@@ -5,6 +5,7 @@ import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { TextArea, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
+import { LinkChainIcon, TrashIcon, UserIcon } from '../../shared/ui/icons';
 import { addLink, canAddLink, removeLink, toPayload, updateLink } from './model';
 import styles from './SiteContentForm.module.css';
 
@@ -37,79 +38,109 @@ export function SiteContentForm({ initial, maxLinks }: SiteContentFormProps) {
             {status.kind === 'saved' && <Notice variant="info">Сохранено.</Notice>}
             {status.kind === 'error' && <Notice variant="error">{status.message}</Notice>}
 
-            <TextField
-                label="Имя"
-                id="name"
-                value={content.name}
-                onChange={e => setContent({ ...content, name: e.target.value })}
-                maxLength={60}
-                required
-            />
-            <TextField
-                label="Роль / тэглайн"
-                id="role"
-                value={content.role}
-                onChange={e => setContent({ ...content, role: e.target.value })}
-                maxLength={100}
-            />
-            <TextArea
-                label="Био"
-                id="bio"
-                rows={3}
-                value={content.bio}
-                onChange={e => setContent({ ...content, bio: e.target.value })}
-                maxLength={400}
-            />
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                    <span className={styles.sectionIcon}>
+                        <UserIcon />
+                    </span>
+                    Профиль
+                </h2>
 
-            <div className={styles.links}>
-                {content.links.map((link, index) => (
-                    <div className={styles.linkRow} key={index}>
-                        <TextField
-                            label={`Ссылка ${index + 1} — текст`}
-                            id={`link${index}_label`}
-                            value={link.label}
-                            onChange={e =>
-                                setContent({
-                                    ...content,
-                                    links: updateLink(content.links, index, { label: e.target.value }),
-                                })
-                            }
-                            maxLength={80}
-                        />
-                        <TextField
-                            label="URL (пусто = просто текст, без кнопки)"
-                            id={`link${index}_url`}
-                            type="url"
-                            placeholder="https://..."
-                            value={link.url}
-                            onChange={e =>
-                                setContent({
-                                    ...content,
-                                    links: updateLink(content.links, index, { url: e.target.value }),
-                                })
-                            }
-                            maxLength={300}
-                        />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setContent({ ...content, links: removeLink(content.links, index) })}
-                        >
-                            Удалить ссылку
-                        </Button>
-                    </div>
-                ))}
+                <div className={styles.profileGrid}>
+                    <TextField
+                        label="Имя"
+                        id="name"
+                        value={content.name}
+                        onChange={e => setContent({ ...content, name: e.target.value })}
+                        maxLength={60}
+                        required
+                    />
+                    <TextField
+                        label="Роль / тэглайн"
+                        id="role"
+                        value={content.role}
+                        onChange={e => setContent({ ...content, role: e.target.value })}
+                        maxLength={100}
+                    />
+                </div>
+                <TextArea
+                    label="Био"
+                    id="bio"
+                    rows={3}
+                    value={content.bio}
+                    onChange={e => setContent({ ...content, bio: e.target.value })}
+                    maxLength={400}
+                />
+            </section>
 
-                {canAddLink(content.links, maxLinks) && (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setContent({ ...content, links: addLink(content.links, maxLinks) })}
-                    >
-                        + Добавить ссылку
-                    </Button>
-                )}
-            </div>
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                    <span className={styles.sectionIcon}>
+                        <LinkChainIcon />
+                    </span>
+                    Ссылки
+                    <span className={styles.sectionCount}>
+                        {content.links.length} / {maxLinks}
+                    </span>
+                </h2>
+
+                <div className={styles.links}>
+                    {content.links.map((link, index) => (
+                        <div className={styles.linkRow} key={index}>
+                            <span className={styles.linkIndex}>{index + 1}</span>
+                            <div className={styles.linkFields}>
+                                <TextField
+                                    label={`Ссылка ${index + 1} — текст`}
+                                    id={`link${index}_label`}
+                                    value={link.label}
+                                    onChange={e =>
+                                        setContent({
+                                            ...content,
+                                            links: updateLink(content.links, index, { label: e.target.value }),
+                                        })
+                                    }
+                                    maxLength={80}
+                                />
+                                <TextField
+                                    label="URL (пусто = просто текст, без кнопки)"
+                                    id={`link${index}_url`}
+                                    type="url"
+                                    placeholder="https://..."
+                                    value={link.url}
+                                    onChange={e =>
+                                        setContent({
+                                            ...content,
+                                            links: updateLink(content.links, index, { url: e.target.value }),
+                                        })
+                                    }
+                                    maxLength={300}
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                icon={<TrashIcon />}
+                                onClick={() => setContent({ ...content, links: removeLink(content.links, index) })}
+                            >
+                                Удалить ссылку
+                            </Button>
+                        </div>
+                    ))}
+
+                    {canAddLink(content.links, maxLinks) && (
+                        <div className={styles.addRow}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                fullWidth
+                                onClick={() => setContent({ ...content, links: addLink(content.links, maxLinks) })}
+                            >
+                                + Добавить ссылку
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             <Button type="submit" variant="primary" fullWidth disabled={status.kind === 'saving'}>
                 {status.kind === 'saving' ? 'Сохраняю…' : 'Сохранить'}
