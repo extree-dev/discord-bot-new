@@ -6,6 +6,7 @@ module.exports = {
     addCase: model.addCase,
     getCase: model.getCase,
     getCasesForUser: model.getCasesForUser,
+    getCasesForGuild: model.getCasesForGuild,
     countRecentCases: model.countRecentCases,
     storeName: model.storeName,
 };

@@ -91,6 +91,56 @@ async function fetchRawGuildRoles(botToken, guildId) {
     return res.json();
 }
 
+// Полный список участников сервера — для списков "Участники"/"В муте"/
+// "Лидерборд" в дашборде (см. dashboard/server.js, GET /api/guild-members
+// и производные от него). Discord отдаёт максимум 1000 за раз, курсор —
+// id последнего участника страницы (after); останавливаемся, когда
+// страница меньше лимита (последняя) или когда упёрлись в MAX_PAGES —
+// жёсткий потолок на случай аномально большого сервера, чтобы один
+// заход в дашборд не превратился в сотни последовательных запросов к
+// Discord. GUILD_MEMBERS — привилегированный intent, но это обычный
+// REST-вызов на боте-токене, не живой gateway-кэш (см. index.js — intent
+// уже включён для самого бота, нужен был по другой причине).
+async function fetchGuildMembers(botToken, guildId) {
+    const PAGE_SIZE = 1000;
+    const MAX_PAGES = 10;
+    const members = [];
+    let after = '0';
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+        const res = await fetch(`${DISCORD_API}/guilds/${guildId}/members?limit=${PAGE_SIZE}&after=${after}`, {
+            headers: { Authorization: `Bot ${botToken}` },
+        });
+        if (!res.ok) throw new Error(`Discord guild members failed: ${res.status}`);
+        const batch = await res.json();
+        members.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        after = batch[batch.length - 1].user.id;
+    }
+    return members;
+}
+
+// Список банов сервера — та же курсорная пагинация, что и у участников
+// выше. Discord отдаёт { user, reason } без модератора/даты — это
+// дополняется в dashboard/server.js из собственного журнала /ban
+// (см. cases/).
+async function fetchGuildBans(botToken, guildId) {
+    const PAGE_SIZE = 1000;
+    const MAX_PAGES = 10;
+    const bans = [];
+    let after = '0';
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+        const res = await fetch(`${DISCORD_API}/guilds/${guildId}/bans?limit=${PAGE_SIZE}&after=${after}`, {
+            headers: { Authorization: `Bot ${botToken}` },
+        });
+        if (!res.ok) throw new Error(`Discord guild bans failed: ${res.status}`);
+        const batch = await res.json();
+        bans.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        after = batch[batch.length - 1].user.id;
+    }
+    return bans;
+}
+
 async function fetchGuild(botToken, guildId) {
     const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
         headers: { Authorization: `Bot ${botToken}` },
@@ -194,6 +244,8 @@ module.exports = {
     fetchBotGuilds,
     fetchGuildChannels,
     fetchGuildRoles,
+    fetchGuildMembers,
+    fetchGuildBans,
     fetchGuild,
     fetchGuildWithCounts,
     fetchGuildMember,

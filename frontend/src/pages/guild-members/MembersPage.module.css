@@ -1,0 +1,54 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.page h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.lead {
+    margin: 0 0 14px;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+.userCell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.userText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.userName {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.userHandle {
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.roleList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.muted {
+    color: var(--text-faint);
+}

@@ -21,3 +21,15 @@
     height: 56px;
     margin: 0 auto 16px;
 }
+
+/* Для строк таблиц (DataTable) — без центрирующих margin-auto и без
+   градиентной рамки (та в плотном ряду читается как лишний шум, не
+   акцент) — просто круглая аватарка рядом с именем. */
+.tiny {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    flex: none;
+}

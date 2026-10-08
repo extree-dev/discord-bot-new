@@ -50,4 +50,24 @@ async function countRecentCases(guildId, sinceMs) {
     return all.filter(c => new Date(c.createdAt).getTime() >= sinceMs).length;
 }
 
-module.exports = { addCase, getCase, getCasesForUser, countRecentCases, storeName: STORE_NAME };
+// Все дела сервера разом, новые первыми — для дашборда (GET
+// /api/banned-members): список банов приходит от Discord одним REST-
+// вызовом, дополнять его модератором/датой через getCasesForUser на
+// каждого забаненного значило бы грузить этот же стор целиком N раз
+// подряд (store.load() не кэширует, см. utils/pgStore.js). Один вызов
+// этой функции даёт вызывающему коду построить карту targetId → дело
+// самому.
+async function getCasesForGuild(guildId) {
+    const stored = await store.load();
+    const all = Object.values(stored[guildId]?.cases ?? {});
+    return all.sort((a, b) => b.id - a.id);
+}
+
+module.exports = {
+    addCase,
+    getCase,
+    getCasesForUser,
+    getCasesForGuild,
+    countRecentCases,
+    storeName: STORE_NAME,
+};
