@@ -44,6 +44,8 @@ function newAccount(discordId) {
         telegramUsername: null,
         googleId: null,
         googleEmail: null,
+        githubId: null,
+        githubUsername: null,
         email: null,
         passwordHash: null,
         createdAt: Date.now(),
@@ -63,6 +65,11 @@ async function findByTelegramId(telegramId) {
 async function findByGoogleId(googleId) {
     const { accounts } = await store.load();
     return accounts.find(a => a.googleId === googleId) ?? null;
+}
+
+async function findByGithubId(githubId) {
+    const { accounts } = await store.load();
+    return accounts.find(a => a.githubId === githubId) ?? null;
 }
 
 async function findByEmail(email) {
@@ -116,6 +123,20 @@ async function linkGoogle(accountId, googleId, googleEmail) {
     });
 }
 
+// Бросает 'github_already_linked' при конфликте — та же логика, что у
+// linkTelegram выше.
+async function linkGithub(accountId, githubId, githubUsername) {
+    return store.update(config => {
+        const conflict = config.accounts.find(a => a.githubId === githubId && a.id !== accountId);
+        if (conflict) throw new Error('github_already_linked');
+        const account = config.accounts.find(a => a.id === accountId);
+        if (!account) throw new Error('account_not_found');
+        account.githubId = githubId;
+        account.githubUsername = githubUsername ?? null;
+        return account;
+    });
+}
+
 // Бросает 'email_already_used' при конфликте — та же логика, что у
 // linkTelegram выше.
 async function setPassword(accountId, email, password) {
@@ -141,10 +162,12 @@ module.exports = {
     findById,
     findByTelegramId,
     findByGoogleId,
+    findByGithubId,
     findByEmail,
     findOrCreateByDiscordId,
     linkTelegram,
     linkGoogle,
+    linkGithub,
     setPassword,
     verifyEmailLogin,
     hashPassword,

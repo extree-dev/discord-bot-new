@@ -27,6 +27,7 @@ const crypto = require('crypto');
 const path = require('path');
 const oauth = require('./discordOAuth');
 const googleOAuth = require('./googleOAuth');
+const githubOAuth = require('./githubOAuth');
 const accounts = require('./accounts');
 const { verifyTelegramAuth } = require('./telegramAuth');
 const { encryptSession, decryptSession } = require('./session');
@@ -54,6 +55,8 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 
 for (const [name, value] of Object.entries({
     CLIENT_ID,
@@ -89,9 +92,21 @@ function redirectUriForGoogle(req) {
     return `https://${req.headers.host}/auth/google/callback`;
 }
 
+// Та же схема, но для GitHub — в отличие от Google, GitHub OAuth App
+// поддерживает только ОДИН Authorization callback URL при регистрации,
+// поэтому в текущей настройке (см. .env.example) GitHub-логин реально
+// работает только на основном домене; redirect_uri всё равно берём из
+// Host запроса (а не хардкодим домен), чтобы на другом домене код хотя
+// бы не ломался на несовпадении, а честно падал в auth_error от самого
+// GitHub.
+function redirectUriForGithub(req) {
+    return `https://${req.headers.host}/auth/github/callback`;
+}
+
 const SESSION_COOKIE = 'extree_session';
 const STATE_COOKIE = 'extree_oauth_state';
 const GOOGLE_STATE_COOKIE = 'extree_oauth_state_google';
+const GITHUB_STATE_COOKIE = 'extree_oauth_state_github';
 // Столько же живёт access_token, который Discord выдаёт на этот grant —
 // после этого API просто начнёт отвечать user: null / 401.
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -173,6 +188,20 @@ async function getGuildMembersCached() {
     return members;
 }
 
+// Профиль самого бота (имя + аватар) — для бренд-плашки "Extree" на
+// фронте (GET /api/bot-info ниже). Та же TTL-кэш-схема, что у
+// getBotGuilds выше: аватар/имя бота меняются даже реже, чем список его
+// серверов, но нет смысла заводить отдельную константу под них.
+let botUserCache = { user: null, fetchedAt: 0 };
+async function getBotUserCached() {
+    if (botUserCache.user && Date.now() - botUserCache.fetchedAt < BOT_GUILDS_TTL_MS) {
+        return botUserCache.user;
+    }
+    const user = await oauth.fetchBotUser(BOT_TOKEN);
+    botUserCache = { user, fetchedAt: Date.now() };
+    return user;
+}
+
 function parseCookies(header) {
     const out = {};
     if (!header) return out;
@@ -184,9 +213,13 @@ function parseCookies(header) {
     return out;
 }
 
-function avatarUrl(discordUser) {
+// size по умолчанию 64 — как и было у всех существующих вызовов
+// (аватарки пользователей в таблицах/профиле); бренд-плашка бота
+// (GET /api/bot-info) передаёт 128 — она крупнее и на retina-экранах 64
+// будет видно мыльной.
+function avatarUrl(discordUser, size = 64) {
     if (discordUser.avatar) {
-        return `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=64`;
+        return `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png?size=${size}`;
     }
     const fallbackIndex = Number(BigInt(discordUser.id) % 5n);
     return `https://cdn.discordapp.com/embed/avatars/${fallbackIndex}.png`;
@@ -468,6 +501,80 @@ app.get('/auth/google/callback', async (req, res) => {
     }
 });
 
+// GitHub — тот же паттерн, что Google выше.
+app.get('/auth/github/login', (req, res) => {
+    if (!GITHUB_CLIENT_ID) {
+        res.redirect(`${defaultReturnPathFor(req.headers.host)}?auth_error=1`);
+        return;
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    res.cookie(GITHUB_STATE_COOKIE, state, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 10 * 60 * 1000,
+    });
+    res.redirect(
+        githubOAuth.buildAuthorizeUrl({ clientId: GITHUB_CLIENT_ID, redirectUri: redirectUriForGithub(req), state })
+    );
+});
+
+// Та же развилка привязка/вход, что у /auth/google/callback выше: с
+// активной сессией — привязка GitHub к текущему аккаунту, без сессии —
+// попытка входа по уже привязанному GitHub-аккаунту.
+app.get('/auth/github/callback', async (req, res) => {
+    const returnTo = defaultReturnPathFor(req.headers.host);
+    const { code, state } = req.query;
+    if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET || !code || !state || state !== req.cookies[GITHUB_STATE_COOKIE]) {
+        res.redirect(`${returnTo}?auth_error=1`);
+        return;
+    }
+    res.clearCookie(GITHUB_STATE_COOKIE);
+    try {
+        const token = await githubOAuth.exchangeCode({
+            clientId: GITHUB_CLIENT_ID,
+            clientSecret: GITHUB_CLIENT_SECRET,
+            redirectUri: redirectUriForGithub(req),
+            code,
+        });
+        const githubUser = await githubOAuth.fetchCurrentUser(token.access_token);
+        // GitHub отдаёт id числом, а не строкой — приводим к string, как
+        // discordId/googleId в dashboard/accounts.js.
+        const githubId = String(githubUser.id);
+        const existingSession = getSessionFromReq(req);
+        if (existingSession) {
+            const account = await accounts.findById(existingSession.accountId);
+            if (!account) {
+                res.redirect(`${returnTo}?auth_error=1`);
+                return;
+            }
+            await accounts.linkGithub(account.id, githubId, githubUser.login ?? null);
+            res.redirect(`${returnTo}?github_linked=1`);
+            return;
+        }
+        const account = await accounts.findByGithubId(githubId);
+        if (!account) {
+            res.redirect(`${returnTo}?github_not_linked=1`);
+            return;
+        }
+        const session = encryptSession({ accountId: account.id, issuedAt: Date.now() }, SESSION_SECRET);
+        res.cookie(SESSION_COOKIE, session, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: SESSION_MAX_AGE_MS,
+        });
+        res.redirect(returnTo);
+    } catch (err) {
+        if (err.message === 'github_already_linked') {
+            res.redirect(`${returnTo}?auth_error=github_taken`);
+            return;
+        }
+        console.error('dashboard: /auth/github/callback:', err);
+        res.redirect(`${returnTo}?auth_error=1`);
+    }
+});
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Грубая защита от подбора пароля по email — ключ IP, не email: иначе
@@ -554,7 +661,29 @@ app.get('/api/auth-methods', (req, res) => {
     res.json({
         telegram: TELEGRAM_BOT_TOKEN && TELEGRAM_BOT_USERNAME ? { botUsername: TELEGRAM_BOT_USERNAME } : null,
         google: GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET ? { enabled: true } : null,
+        github: GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET ? { enabled: true } : null,
     });
+});
+
+// Публичный, тот же уровень доверия, что у /api/auth-methods выше: имя и
+// аватар бота — не секрет, их и так видно в самом Discord. Нужен фронту,
+// чтобы бренд-плашка "Extree" (сайдбар кабинета, denied-экран, маркетинг-
+// колонка логина) показывала настоящую аватарку бота вместо
+// захардкоженной буквы "E" (см. shared/ui/BrandMark.tsx). avatarUrl:
+// null, если у бота явно не выставлен аватар — тогда фронт сам
+// показывает буквенный фолбэк, вместо того чтобы подставлять сюда общую
+// дефолтную аватарку Discord (она никак не про бренд бота).
+app.get('/api/bot-info', async (req, res) => {
+    try {
+        const botUser = await getBotUserCached();
+        res.json({
+            name: botUser.global_name ?? botUser.username,
+            avatarUrl: botUser.avatar ? avatarUrl(botUser, 128) : null,
+        });
+    } catch (err) {
+        console.error('dashboard: /api/bot-info — не удалось загрузить профиль бота:', err);
+        res.status(502).json({ error: 'Discord не ответил, попробуй ещё раз чуть позже.' });
+    }
 });
 
 // Какие способы входа уже привязаны к текущему аккаунту — для раздела
@@ -575,6 +704,7 @@ app.get('/api/linked-accounts', async (req, res) => {
         discordUsername: account.discordUsername,
         telegramUsername: account.telegramUsername,
         googleEmail: account.googleEmail,
+        githubUsername: account.githubUsername,
         hasPassword: Boolean(account.passwordHash),
         email: account.email,
     });

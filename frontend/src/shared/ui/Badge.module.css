@@ -2,30 +2,37 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     min-width: 20px;
     padding: 3px 10px;
     border-radius: var(--radius-pill);
+    border: 1px solid transparent;
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.01em;
     white-space: nowrap;
 }
 
 .neutral {
     background: var(--surface-2);
+    border-color: var(--glass-border);
     color: var(--text-dim);
 }
 
 .accent {
     background: var(--success-bg);
+    border-color: rgba(88, 101, 242, 0.25);
     color: var(--accent-hover);
 }
 
 .danger {
     background: var(--danger-bg);
+    border-color: rgba(242, 73, 92, 0.3);
     color: var(--notice-error-text, #c0362c);
 }
 
 .success {
     background: var(--ok-bg, var(--success-bg));
+    border-color: rgba(88, 101, 242, 0.25);
     color: var(--ok, var(--accent-hover));
 }

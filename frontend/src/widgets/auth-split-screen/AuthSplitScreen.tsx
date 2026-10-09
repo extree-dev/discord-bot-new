@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { gateNoticeMessage, type GateNotice } from '../../shared/lib/gateNotice';
 import { useTheme } from '../../shared/lib/useTheme';
 import { useLang } from '../../shared/lib/useLang';
+import { BrandMark } from '../../shared/ui/BrandMark';
 import { Notice } from '../../shared/ui/Notice';
 import { ThemeToggle } from '../../shared/ui/ThemeToggle';
 import { LanguageToggle } from '../../shared/ui/LanguageToggle';
@@ -51,7 +52,8 @@ export function AuthSplitScreen({ notice }: AuthSplitScreenProps) {
             </div>
             <div className={styles.marketing}>
                 <div className={styles.brand}>
-                    <span className={styles.badge}>E</span>Extree
+                    <BrandMark className={styles.badge} />
+                    Extree
                 </div>
                 <h1>{t('login.headline')}</h1>
                 <p className={styles.lead}>{t('login.lead')}</p>

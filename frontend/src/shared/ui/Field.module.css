@@ -9,7 +9,7 @@
     font-weight: 600;
     color: var(--text-faint);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
 }
 
 .field input,
@@ -25,8 +25,15 @@
     font-size: 14px;
     resize: vertical;
     transition:
-        border-color 0.15s ease,
-        box-shadow 0.15s ease;
+        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.field input:hover,
+.field textarea:hover,
+.field select:hover {
+    border-color: var(--border-strong);
 }
 
 .field select {
@@ -48,5 +55,6 @@
 .field select:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+    background: var(--glass-bg-strong, var(--field-bg));
+    box-shadow: 0 0 0 3px var(--accent-ring, rgba(88, 101, 242, 0.2));
 }

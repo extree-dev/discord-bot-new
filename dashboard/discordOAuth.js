@@ -141,6 +141,18 @@ async function fetchGuildBans(botToken, guildId) {
     return bans;
 }
 
+// Собственный профиль бота (имя + хэш аватара) — для бренд-плашки
+// "Extree" в дашборде/логине (см. GET /api/bot-info в dashboard/server.js):
+// раньше там был захардкоженный "E", теперь реальная аватарка бота из
+// Discord с тем же фолбэком на букву, если у бота аватар не выставлен.
+async function fetchBotUser(botToken) {
+    const res = await fetch(`${DISCORD_API}/users/@me`, {
+        headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!res.ok) throw new Error(`Discord bot /users/@me failed: ${res.status}`);
+    return res.json();
+}
+
 async function fetchGuild(botToken, guildId) {
     const res = await fetch(`${DISCORD_API}/guilds/${guildId}`, {
         headers: { Authorization: `Bot ${botToken}` },
@@ -242,6 +254,7 @@ module.exports = {
     fetchCurrentUser,
     fetchUserGuilds,
     fetchBotGuilds,
+    fetchBotUser,
     fetchGuildChannels,
     fetchGuildRoles,
     fetchGuildMembers,

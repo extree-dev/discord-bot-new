@@ -1,12 +1,15 @@
-/* Плоская чистая панель в духе Cloudflare/Vercel — явный отказ от
-   прежнего "стеклянного" варианта (полупрозрачные карточки с blur и
-   цветныммэшем на фоне читались как размытые "квадратики", особенно в
-   светлой теме). Сайдбар и контент — на одном нейтральном фоне,
-   карточки — сплошные с тонкой границей и мягкой тенью, без
-   backdrop-filter. Переменные темы по-прежнему переопределяются на
-   корневом .shell атрибутом data-theme (см. shared/lib/useTheme.ts), так
-   что Card/StatTile/DataTable и т.п. из shared/ui ничего не знают про
-   тему — просто читают переменные. */
+/* Настоящий Apple Liquid Glass — не тонировка, а реальный многослойный
+   blur с цветным светом, просвечивающим сквозь стекло. Сайдбар и карточки
+   контента — полупрозрачные стеклянные поверхности над разноцветным
+   амбиентным фоном (.glow), с настоящим инсет-бликом сверху (признак
+   именно "стекла", а не просто полупрозрачной серой панели) и плотным
+   backdrop-filter(blur+saturate). Контент по-прежнему занимает всю
+   ширину (без центрирующего max-width) — это была реальная вёрстка-
+   проблема, не стилистическая, оставляем. Переменные темы по-прежнему
+   переопределяются на корневом .shell атрибутом data-theme (см.
+   shared/lib/useTheme.ts), так что Card/StatTile/DataTable/Button/Select
+   из shared/ui ничего не знают про тему — просто читают переменные,
+   поэтому стекло появляется сразу везде. */
 .shell {
     position: relative;
     min-height: 100vh;
@@ -19,68 +22,110 @@
 }
 
 .shell[data-theme='light'] {
-    background: #f6f7fa;
-    color: #0f1222;
+    background: #eef0f7;
+    color: #16181d;
 
-    --bg: #f6f7fa;
+    --bg: #eef0f7;
     --surface: #ffffff;
-    --surface-2: #f1f2f6;
+    --surface-2: #f0f1f6;
     --border: #e3e5ec;
-    --border-strong: #cfd2dc;
-    --text: #0f1222;
-    --text-dim: #565b6e;
-    --text-faint: #868ba0;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #ffffff;
-    --glass-border: var(--border);
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --field-bg: #ffffff;
+    --border-strong: #cdd1dd;
+    --text: #16181d;
+    --text-dim: #565b66;
+    --text-faint: #80838f;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
+    --glass-border: rgba(16, 24, 40, 0.1);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --glass-blur: blur(28px) saturate(190%);
+    --accent-ring: rgba(88, 101, 242, 0.28);
+    --field-bg: rgba(255, 255, 255, 0.55);
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.08);
-    --success-bg: rgba(88, 101, 242, 0.08);
-    --shadow-sm: 0 1px 2px rgba(15, 18, 34, 0.05);
-    --shadow-md: 0 4px 12px -4px rgba(15, 18, 34, 0.08);
-    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
+    --danger-bg: rgba(242, 73, 92, 0.1);
+    --success-bg: rgba(88, 101, 242, 0.1);
+    --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08);
+    --shadow-md: 0 10px 24px -10px rgba(16, 24, 40, 0.18);
+    --shadow-lg: 0 24px 56px -20px rgba(16, 24, 40, 0.24);
 }
 
 .shell[data-theme='dark'] {
-    background: #0b0d12;
-    color: #f2f3f7;
+    background: #08090d;
+    color: #f7f7f9;
 
-    --bg: #0b0d12;
-    --surface: #12141b;
-    --surface-2: #181b23;
+    --bg: #08090d;
+    --surface: #111218;
+    --surface-2: #1b1d26;
     --border: #262933;
-    --border-strong: #363a46;
-    --text: #f2f3f7;
-    --text-dim: #a1a6ba;
-    --text-faint: #767c92;
-    --glass-bg: var(--surface);
-    --glass-bg-strong: var(--surface);
-    --glass-border: var(--border);
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --field-bg: #15171f;
+    --border-strong: #3a3e4c;
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --text-faint: #7d8396;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --glass-blur: blur(32px) saturate(170%);
+    --accent-ring: rgba(119, 131, 255, 0.4);
+    --field-bg: rgba(255, 255, 255, 0.045);
     --notice-error-text: #ff9aa6;
-    --danger-bg: rgba(242, 73, 92, 0.14);
-    --success-bg: rgba(88, 101, 242, 0.16);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+    --danger-bg: rgba(242, 73, 92, 0.16);
+    --success-bg: rgba(88, 101, 242, 0.18);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 14px 32px -14px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 32px 72px -24px rgba(0, 0, 0, 0.72);
+}
+
+/* Многослойный цветной мэш за стеклом — без него "жидкое стекло" не
+   читается, сквозь прозрачные панели должно что-то живое просвечивать.
+   Фиксирован к вьюпорту (не к .content), чтобы не "ехал" при скролле
+   длинных таблиц. Доп. слой зерна поверх — та самая "фотографическая"
+   плотность настоящего матового стекла, а не плоский градиент. */
+.glow {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.shell[data-theme='light'] .glow {
+    background:
+        radial-gradient(circle at 10% 8%, rgba(88, 101, 242, 0.26), transparent 38%),
+        radial-gradient(circle at 88% 4%, rgba(136, 94, 255, 0.2), transparent 40%),
+        radial-gradient(circle at 75% 85%, rgba(64, 170, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 15% 90%, rgba(255, 143, 171, 0.12), transparent 40%);
+}
+
+.shell[data-theme='dark'] .glow {
+    background:
+        radial-gradient(circle at 10% 8%, rgba(88, 101, 242, 0.38), transparent 38%),
+        radial-gradient(circle at 88% 4%, rgba(136, 94, 255, 0.26), transparent 40%),
+        radial-gradient(circle at 75% 85%, rgba(64, 170, 255, 0.2), transparent 42%),
+        radial-gradient(circle at 15% 90%, rgba(255, 94, 143, 0.12), transparent 40%);
+}
+
+.glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
 }
 
 .sidebar {
+    position: relative;
     flex: none;
-    width: 256px;
+    width: 264px;
     display: flex;
     flex-direction: column;
     gap: 20px;
     padding: 18px 14px;
-    background: var(--surface);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     color: var(--text);
-    border-right: 1px solid var(--border);
-    transition: width 0.18s ease;
+    border-right: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
+    transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .shellCollapsed .sidebar {
@@ -112,14 +157,17 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: var(--accent);
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: linear-gradient(150deg, var(--accent-hover), var(--accent) 70%);
     color: var(--accent-ink);
     font-weight: 800;
     font-size: 13px;
     flex: none;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 4px 14px -4px rgba(88, 101, 242, 0.6);
 }
 
 .brandLabel {
@@ -138,8 +186,9 @@
     gap: 10px;
     padding: 9px 8px;
     border-radius: var(--radius-md);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight);
 }
 
 .profileText {
@@ -189,6 +238,7 @@
 }
 
 .navLink {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -200,22 +250,29 @@
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
-    border-left: 3px solid transparent;
     transition:
-        background 0.15s ease,
-        color 0.15s ease,
-        border-color 0.15s ease;
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .navLink:hover {
     color: var(--text);
-    background: var(--surface-2);
+    background: var(--glass-bg);
+    transform: translateX(2px);
 }
 
 .navLinkActive {
     color: var(--accent);
-    background: var(--success-bg);
-    border-left-color: var(--accent);
+    background: var(--glass-bg-strong);
+    box-shadow:
+        var(--glass-highlight),
+        inset 3px 0 0 var(--accent),
+        var(--shadow-sm);
+}
+
+.navLinkActive:hover {
+    transform: none;
 }
 
 .navIcon {
@@ -237,7 +294,6 @@
 
 .shellCollapsed .navLink {
     justify-content: center;
-    border-left: none;
 }
 
 .shellCollapsed .navLabel {
@@ -249,7 +305,7 @@
     flex-direction: column;
     gap: 4px;
     flex: none;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--glass-border);
     padding-top: 10px;
 }
 
@@ -267,13 +323,13 @@
     font-weight: 600;
     cursor: pointer;
     transition:
-        background 0.15s ease,
-        color 0.15s ease;
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .collapseToggle:hover {
     color: var(--text);
-    background: var(--surface-2);
+    background: var(--glass-bg);
 }
 
 .shellCollapsed .collapseToggle {
@@ -284,7 +340,7 @@
     flex: none;
     width: 16px;
     height: 16px;
-    transition: transform 0.18s ease;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .collapseIcon svg {
@@ -302,16 +358,15 @@
 
 .sidebarFooter :global(a:hover) {
     color: var(--text) !important;
-    background: var(--surface-2) !important;
+    background: var(--glass-bg) !important;
 }
 
 .content {
     position: relative;
     flex: 1;
     min-width: 0;
-    padding: 24px clamp(16px, 2.4vw, 36px) 56px;
+    padding: 28px clamp(16px, 2.6vw, 40px) 56px;
     overflow-x: hidden;
-    background: var(--bg);
 }
 
 .contentInner {
@@ -335,7 +390,7 @@
         padding: 12px 16px;
         overflow-x: auto;
         border-right: none;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid var(--glass-border);
     }
 
     .brandRow {
@@ -352,14 +407,15 @@
         overflow-y: visible;
     }
 
-    .navLink {
-        border-left: none;
-        border-bottom: 3px solid transparent;
+    .navLink:hover {
+        transform: none;
     }
 
     .navLinkActive {
-        border-left-color: transparent;
-        border-bottom-color: var(--accent);
+        box-shadow:
+            var(--glass-highlight),
+            inset 0 -3px 0 var(--accent),
+            var(--shadow-sm);
     }
 
     /* "Выйти" остаётся доступной и на мобильном — просто встаёт в конец
@@ -400,42 +456,64 @@
 }
 
 .deniedShell[data-theme='light'] {
-    background: #f6f7fa;
-    color: #0f1222;
+    background: #eef0f7;
+    color: #16181d;
 
-    --bg: #f6f7fa;
+    --bg: #eef0f7;
     --surface: #ffffff;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #ffffff;
-    --glass-border: #e3e5ec;
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --text: #0f1222;
-    --text-dim: #565b6e;
-    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
+    --glass-border: rgba(16, 24, 40, 0.1);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --glass-blur: blur(28px) saturate(190%);
+    --accent-ring: rgba(88, 101, 242, 0.28);
+    --text: #16181d;
+    --text-dim: #565b66;
+    --shadow-lg: 0 24px 56px -20px rgba(16, 24, 40, 0.24);
 }
 
 .deniedShell[data-theme='dark'] {
-    background: #0b0d12;
-    color: #f2f3f7;
+    background: #08090d;
+    color: #f7f7f9;
 
-    --bg: #0b0d12;
-    --surface: #12141b;
-    --glass-bg: var(--surface);
-    --glass-bg-strong: var(--surface);
-    --glass-border: #262933;
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --text: #f2f3f7;
-    --text-dim: #a1a6ba;
-    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+    --bg: #08090d;
+    --surface: #111218;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --glass-blur: blur(32px) saturate(170%);
+    --accent-ring: rgba(119, 131, 255, 0.4);
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --shadow-lg: 0 32px 72px -24px rgba(0, 0, 0, 0.72);
+}
+
+.deniedShell .glow {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.deniedShell[data-theme='light'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.24), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.15), transparent 45%);
+}
+
+.deniedShell[data-theme='dark'] .glow {
+    background:
+        radial-gradient(circle at 15% 10%, rgba(88, 101, 242, 0.34), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(136, 94, 255, 0.24), transparent 42%),
+        radial-gradient(circle at 60% 90%, rgba(64, 170, 255, 0.18), transparent 45%);
 }
 
 .deniedTopbar {
     display: flex;
     align-items: center;
     padding: 20px clamp(16px, 4vw, 48px);
-    border-bottom: 1px solid var(--border);
 }
 
 .deniedBrand {
@@ -455,11 +533,13 @@
     width: 28px;
     height: 28px;
     border-radius: 9px;
-    background: var(--accent);
+    background: linear-gradient(150deg, var(--accent-hover), var(--accent) 70%);
     color: var(--accent-ink);
     font-weight: 800;
     font-size: 13px;
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 4px 14px -4px rgba(88, 101, 242, 0.6);
 }
 
 .deniedCentered {

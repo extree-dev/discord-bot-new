@@ -4,6 +4,7 @@ import { LoginButton } from '../../features/discord-auth/LoginButton';
 import { EmailLoginForm } from '../../features/email-auth/EmailLoginForm';
 import { TelegramLoginButton } from '../../features/telegram-auth/TelegramLoginButton';
 import { GoogleLoginButton } from '../../features/google-auth/GoogleLoginButton';
+import { GitHubLoginButton } from '../../features/github-auth/GitHubLoginButton';
 import { isDashboardDomain } from '../../shared/lib/isDashboardDomain';
 import { useLang } from '../../shared/lib/useLang';
 import styles from './LoginMethods.module.css';
@@ -18,17 +19,20 @@ import styles from './LoginMethods.module.css';
 export function LoginMethods() {
     const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
     const [googleEnabled, setGoogleEnabled] = useState(false);
+    const [githubEnabled, setGithubEnabled] = useState(false);
     const { t } = useLang();
 
     useEffect(() => {
         getAuthMethods()
-            .then(({ telegram, google }) => {
+            .then(({ telegram, google, github }) => {
                 setTelegramBotUsername(telegram?.botUsername ?? null);
                 setGoogleEnabled(Boolean(google));
+                setGithubEnabled(Boolean(github));
             })
             .catch(() => {
                 setTelegramBotUsername(null);
                 setGoogleEnabled(false);
+                setGithubEnabled(false);
             });
     }, []);
 
@@ -36,6 +40,7 @@ export function LoginMethods() {
         <div className={styles.wrapper}>
             <LoginButton label={t('login.discord')} />
             {googleEnabled && <GoogleLoginButton label={t('login.google')} />}
+            {githubEnabled && <GitHubLoginButton label={t('login.github')} />}
             {telegramBotUsername && isDashboardDomain() && (
                 <div className={styles.telegram}>
                     <TelegramLoginButton botUsername={telegramBotUsername} />

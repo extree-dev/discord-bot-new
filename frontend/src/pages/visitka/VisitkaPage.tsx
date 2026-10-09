@@ -9,13 +9,12 @@ import styles from './VisitkaPage.module.css';
 // страниц продукта (кабинет, редактор), а здесь сама эта страница —
 // весь "продукт", как у Linktree и подобных сервисов.
 //
-// Макет: круглый аватар с градиентным кольцом, наполовину нависающий
-// над стеклянной карточкой профиля (классический профильный паттерн
-// Linktree/Beacons) — вместо прежнего full-bleed баннера, который на
-// нестандартных фото обрезался непредсказуемо. Карточка плавает над
-// фиксированным тёмным фоном с несколькими радиальными цветовыми
-// пятнами и точечной сеткой — тот же язык "glass", что у AppShell, но
-// доведённый здесь до собственного, самостоятельного продукта.
+// Макет: круглый аватар с градиентным кольцом (+ живой "online"-индикатор,
+// как у реальных bio-сервисов), наполовину нависающий над стеклянной
+// карточкой профиля. Карточка плавает над фоном с тремя независимо
+// "дышащими" цветовыми пятнами (а не статичной картинкой) и тонкой
+// зерном-текстурой сверху — вместе это даёт настоящую, а не нарисованную,
+// глубину "жидкого стекла".
 export function VisitkaPage() {
     const [content, setContent] = useState<SiteContent | null>(null);
 
@@ -30,11 +29,17 @@ export function VisitkaPage() {
     return (
         <div className={styles.page}>
             <div className={styles.backdrop} aria-hidden="true" />
+            <div className={styles.blobA} aria-hidden="true" />
+            <div className={styles.blobB} aria-hidden="true" />
+            <div className={styles.blobC} aria-hidden="true" />
+            <div className={styles.noise} aria-hidden="true" />
             {content && (
                 <div className={styles.frame}>
                     <main className={styles.card}>
+                        <div className={styles.cardSheen} aria-hidden="true" />
                         <div className={styles.avatarRing}>
                             <img className={styles.avatar} src="/avatar.jpg" alt={content.name} />
+                            <span className={styles.statusDot} aria-hidden="true" />
                         </div>
                         <h1 className={styles.name}>{content.name}</h1>
                         {content.role && <span className={styles.role}>{content.role}</span>}
