@@ -20,6 +20,7 @@ import {
     VoiceIcon,
 } from '../../shared/ui/icons';
 import { Avatar } from '../../shared/ui/Avatar';
+import { BrandMark } from '../../shared/ui/BrandMark';
 import { Card } from '../../shared/ui/Card';
 import { Notice } from '../../shared/ui/Notice';
 import { ThemeToggle } from '../../shared/ui/ThemeToggle';
@@ -102,7 +103,8 @@ export function AdminShell() {
             <div className={styles.deniedShell} data-theme={theme}>
                 <header className={styles.deniedTopbar}>
                     <a className={styles.deniedBrand} href="/">
-                        <span className={styles.deniedBadge}>E</span>Extree
+                        <BrandMark className={styles.deniedBadge} />
+                        Extree
                     </a>
                 </header>
                 <main className={styles.deniedCentered}>
@@ -121,7 +123,7 @@ export function AdminShell() {
             <aside className={styles.sidebar}>
                 <div className={styles.brandRow}>
                     <a className={styles.brand} href="/">
-                        <span className={styles.badge}>E</span>
+                        <BrandMark className={styles.badge} />
                         <span className={styles.brandLabel}>Extree</span>
                     </a>
                 </div>

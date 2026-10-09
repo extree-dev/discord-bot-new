@@ -23,6 +23,14 @@
     border: 1px solid var(--glass-border);
     background: var(--field-bg, var(--surface-2));
     color: var(--text-faint);
+    transition:
+        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.searchField:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring, rgba(88, 101, 242, 0.2));
 }
 
 .searchField svg {
@@ -60,11 +68,16 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    transition:
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .clearButton:hover {
     color: var(--text);
-    background: var(--surface-2);
+    background: var(--glass-bg-strong, var(--surface-2));
+    border-color: var(--border-strong);
 }
 
 .tableScroll {
@@ -126,8 +139,12 @@
 }
 
 .table tbody tr {
+    position: relative;
     border-bottom: 1px solid var(--glass-border);
-    transition: background 0.1s ease;
+    box-shadow: inset 3px 0 0 transparent;
+    transition:
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .table tbody tr:last-child {
@@ -136,6 +153,7 @@
 
 .table tbody tr:hover {
     background: var(--surface-2);
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .table tbody td {
@@ -203,11 +221,19 @@
     font-family: inherit;
     font-size: 13px;
     cursor: pointer;
+    transition:
+        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .pager button:hover:not(:disabled) {
     background: var(--surface-2);
     color: var(--text);
+}
+
+.pager button:active:not(:disabled) {
+    transform: scale(0.92);
 }
 
 .pager button:disabled {
@@ -219,6 +245,7 @@
     background: var(--accent) !important;
     color: var(--accent-ink) !important;
     font-weight: 700;
+    box-shadow: 0 4px 12px -4px rgba(88, 101, 242, 0.6);
 }
 
 .ellipsis {

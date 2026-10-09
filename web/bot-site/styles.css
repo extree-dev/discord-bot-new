@@ -62,8 +62,25 @@
     --discord-bar: #2b2d31;
     --discord-text: #dbdee1;
     --discord-text-dim: #949ba4;
+    --discord-green: #23a55a;
+
+    /* Дисплейный шрифт для заголовков (геометричный, с собственным
+       характером) отдельно от текстового Inter — пара шрифтов вместо
+       "один Inter везде", иначе иерархия читается монотонно. */
+    --font-display: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
     color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 * {
@@ -72,6 +89,7 @@
 
 html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
 }
 
 body {
@@ -94,7 +112,23 @@ body {
 h1,
 h2,
 h3 {
-    letter-spacing: -0.03em;
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+}
+
+/* Зернистая текстура поверх всей страницы — то, что отличает "матовое
+   стекло" от плоского градиента: едва заметный шум по всему канвасу,
+   mix-blend-mode вместо отдельной картинки. Полностью декоративно,
+   pointer-events отключены. */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    pointer-events: none;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* Цветной размытый фон — то, что просвечивает сквозь стеклянные панели.
@@ -112,8 +146,70 @@ h3 {
         radial-gradient(circle at 78% 4%, rgba(136, 94, 255, 0.34), transparent 48%),
         radial-gradient(circle at 58% 62%, rgba(64, 170, 255, 0.24), transparent 54%);
     filter: blur(90px);
+    mix-blend-mode: screen;
     pointer-events: none;
     z-index: -1;
+}
+
+/* Дополнительные пятна света привязаны к своим секциям (а не к
+   абсолютным пикселям документа), чтобы оставаться на месте на любой
+   высоте страницы и при любой ширине экрана. Каждая секция получает
+   свой оттенок из палитры бренда — это продолжает приём с
+   цикличными акцентами на иконках, только на уровне фона всей секции. */
+.section-glow {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.section-glow::before,
+.section-glow::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+}
+
+.section-glow--blue::before {
+    top: -140px;
+    left: 4%;
+    width: 480px;
+    height: 480px;
+    background: radial-gradient(circle, rgba(64, 170, 255, 0.24), transparent 70%);
+}
+
+.section-glow--blue::after {
+    bottom: -120px;
+    right: 2%;
+    width: 420px;
+    height: 420px;
+    background: radial-gradient(circle, rgba(88, 101, 242, 0.16), transparent 70%);
+}
+
+.section-glow--purple::before {
+    top: -100px;
+    right: 6%;
+    width: 460px;
+    height: 460px;
+    background: radial-gradient(circle, rgba(136, 94, 255, 0.26), transparent 70%);
+}
+
+.section-glow--purple::after {
+    bottom: -140px;
+    left: 4%;
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(64, 170, 255, 0.14), transparent 70%);
+}
+
+.section-glow--footer::before {
+    top: -60px;
+    left: 50%;
+    width: 820px;
+    height: 320px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse, rgba(88, 101, 242, 0.14), transparent 72%);
 }
 
 /* Плавающая стеклянная капсула вместо сплошной полосы во всю ширину —
@@ -138,13 +234,25 @@ h3 {
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight), var(--shadow-lg);
+    transition:
+        box-shadow 0.25s ease,
+        background 0.25s ease,
+        transform 0.25s ease;
+}
+
+.nav--scrolled {
+    background: var(--glass-bg-strong);
+    box-shadow:
+        var(--glass-highlight),
+        0 20px 48px -16px rgba(0, 0, 0, 0.7);
 }
 
 .nav__brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-weight: 800;
+    font-family: var(--font-display);
+    font-weight: 700;
     font-size: 15px;
     color: var(--text);
     text-decoration: none;
@@ -204,39 +312,50 @@ main {
 .hero {
     max-width: 720px;
     margin: 0 auto;
-    padding: 180px 24px 0;
+    padding: 196px 24px 0;
     text-align: center;
 }
 
 .eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     padding: 7px 16px;
-    margin-bottom: 26px;
+    margin-bottom: 28px;
     border-radius: var(--radius-pill);
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
+    letter-spacing: 0.02em;
     color: var(--accent-hover);
 }
 
+.eyebrow::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent-purple));
+    box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.18);
+}
+
 .hero h1 {
-    margin: 0 0 20px;
-    font-size: clamp(36px, 6vw, 58px);
-    font-weight: 800;
-    line-height: 1.12;
+    margin: 0 0 22px;
+    font-size: clamp(38px, 6.4vw, 64px);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
 }
 
 .hero__lead {
-    margin: 0 auto 36px;
+    margin: 0 auto 38px;
     max-width: 520px;
     font-size: 18px;
-    line-height: 1.65;
+    line-height: 1.7;
     color: var(--text-dim);
 }
 
@@ -245,7 +364,39 @@ main {
     gap: 12px;
     justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 88px;
+    margin-bottom: 36px;
+}
+
+/* Полоска доверия: короткие пункты из уже существующих обещаний
+   страницы (бесплатно / минута / автоэскалация), а не выдуманные
+   метрики — тактичный социальный довод вместо фейковых цифр. */
+.hero__trust {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    list-style: none;
+    margin: 0 0 72px;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-faint);
+}
+
+.hero__trust li {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.hero__trust li:not(:first-child)::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    opacity: 0.5;
 }
 
 .btn {
@@ -269,6 +420,10 @@ main {
 
 .btn:hover {
     transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0) scale(0.97);
 }
 
 .btn--primary {
@@ -307,10 +462,28 @@ main {
    скриншот: легче поддерживать в актуальном виде при изменении карточки
    (tickets/model.js buildPanelMessage), чем перегенерировать картинку.
    Внутри — настоящие цвета Discord (не стекло, это "экран"), снаружи —
-   стеклянная рамка. */
-.mock {
+   стеклянная рамка. Обёртка .mock-wrap задаёт мягкое "парение" через
+   CSS-анимацию, а сам .mock получает лёгкий 3D-наклон от курсора через
+   JS (transform: rotateX/rotateY) — две независимые трансформации на
+   разных узлах, чтобы они не конфликтовали друг с другом. */
+.mock-wrap {
     max-width: 560px;
     margin: 0 auto 120px;
+    perspective: 1400px;
+    animation: mock-float 7s ease-in-out infinite;
+}
+
+@keyframes mock-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.mock {
     border-radius: 28px;
     overflow: hidden;
     background: var(--discord-bg);
@@ -321,6 +494,9 @@ main {
         0 0 120px -24px rgba(136, 94, 255, 0.25),
         var(--shadow-lg);
     text-align: left;
+    transition: transform 0.2s ease-out;
+    transform-style: preserve-3d;
+    will-change: transform;
 }
 
 .mock__bar {
@@ -338,6 +514,20 @@ main {
     background: rgba(255, 255, 255, 0.15);
 }
 
+/* Цветные "светофорные" точки читаются как хром окна приложения —
+   частый приём премиальных лендингов для мокапов продукта. */
+.mock__dot--red {
+    background: #ff5f57;
+}
+
+.mock__dot--yellow {
+    background: #febc2e;
+}
+
+.mock__dot--green {
+    background: #28c840;
+}
+
 .mock__channel {
     margin-left: 10px;
     font-size: 13px;
@@ -351,8 +541,12 @@ main {
     padding: 20px;
 }
 
-.mock__avatar {
+.mock__avatar-wrap {
+    position: relative;
     flex: none;
+}
+
+.mock__avatar {
     width: 38px;
     height: 38px;
     border-radius: 50%;
@@ -363,6 +557,19 @@ main {
     font-size: 15px;
     color: var(--accent-ink);
     background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+}
+
+/* Статус "онлайн" на аватаре — мелкая деталь, которая убеждает, что
+   это настоящий Discord-клиент, а не абстрактная карточка. */
+.mock__status {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--discord-green);
+    border: 3px solid var(--discord-bg);
 }
 
 .mock__msg-body {
@@ -381,12 +588,27 @@ main {
 }
 
 .mock__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     padding: 1px 6px;
     border-radius: 4px;
     background: var(--accent);
     font-size: 10px;
     font-weight: 700;
     color: #fff;
+}
+
+.mock__verified {
+    width: 11px;
+    height: 11px;
+    color: #fff;
+}
+
+.mock__time {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--discord-text-dim);
 }
 
 .mock__embed {
@@ -419,36 +641,127 @@ main {
 .mock__btn {
     padding: 7px 12px;
     border-radius: 4px;
-    background: #4e5058;
     font-size: 12px;
     font-weight: 500;
     color: var(--discord-text);
 }
 
+/* Две реальные разновидности кнопок Discord — primary (blurple) и
+   secondary (серая) — вместо двух одинаковых серых чипов: раньше обе
+   кнопки выглядели как один и тот же второстепенный вариант. */
+.mock__btn--primary {
+    background: var(--accent);
+    color: #fff;
+}
+
+.mock__btn--secondary {
+    background: #4e5058;
+}
+
+.mock__reactions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.mock__reaction {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+    color: var(--discord-text-dim);
+}
+
+.mock__reaction b {
+    font-weight: 600;
+    color: var(--discord-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mock-wrap {
+        animation: none;
+    }
+}
+
 .section {
+    position: relative;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 0 24px 130px;
+    padding: 0 24px 150px;
+}
+
+/* "Как подключить" получает полноширинную подложку (выходит за
+   контейнер через 100vw/translateX) — чередование contained/full-bleed
+   секций вместо одинаковых блоков друг под другом по всей странице. */
+.section--band {
+    padding-top: 110px;
+    padding-bottom: 170px;
+}
+
+.section--band::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    background: linear-gradient(
+        180deg,
+        transparent,
+        rgba(136, 94, 255, 0.05) 35%,
+        rgba(64, 170, 255, 0.04) 70%,
+        transparent
+    );
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: -1;
 }
 
 .section__kicker {
-    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 14px;
     text-align: center;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     color: var(--accent-hover);
 }
 
-.section__title {
-    margin: 0 auto 56px;
-    max-width: 560px;
-    text-align: center;
-    font-size: clamp(26px, 3.4vw, 34px);
-    font-weight: 800;
+.section__kicker::before,
+.section__kicker::after {
+    content: '';
+    width: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-hover));
 }
 
+.section__kicker::after {
+    background: linear-gradient(90deg, var(--accent-hover), transparent);
+}
+
+.section__title {
+    margin: 0 auto 64px;
+    max-width: 560px;
+    text-align: center;
+    font-size: clamp(28px, 3.6vw, 38px);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* Бенто-раскладка вместо однородной сетки 3×2 из одинаковых плиток:
+   первая карточка — широкая "флагманская" (Безопасность — главный довод
+   бота модерации), последняя — горизонтальная закрывающая полоса.
+   Текст и порядок карточек не меняются, меняется только их форма. */
 .feature-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -464,15 +777,24 @@ main {
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight);
     transition:
-        background 0.15s ease,
-        transform 0.15s ease,
-        box-shadow 0.15s ease;
+        background 0.2s ease,
+        transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 0.3s ease,
+        border-color 0.2s ease;
+}
+
+.feature:first-child {
+    grid-column: span 2;
 }
 
 .feature:hover {
     background: var(--glass-bg-strong);
-    transform: translateY(-3px);
-    box-shadow: var(--glass-highlight), var(--shadow-md);
+    border-color: rgba(255, 255, 255, 0.22);
+    transform: translateY(-5px);
+    box-shadow:
+        var(--glass-highlight),
+        var(--shadow-md),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .feature__icon {
@@ -485,6 +807,11 @@ main {
     justify-content: center;
     background: rgba(88, 101, 242, 0.18);
     color: var(--accent-hover);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.feature:hover .feature__icon {
+    transform: scale(1.08) rotate(-4deg);
 }
 
 .feature__icon svg {
@@ -518,13 +845,55 @@ main {
     color: var(--text-dim);
 }
 
+/* Последняя карточка закрывает сетку горизонтальной полосой: иконка
+   слева, заголовок+текст справа, через grid-placement без изменения
+   HTML-порядка/разметки карточки. */
+.feature:last-child {
+    grid-column: span 3;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 20px;
+    align-items: center;
+}
+
+.feature:last-child .feature__icon {
+    grid-row: 1 / 3;
+    margin-bottom: 0;
+}
+
+.feature:last-child h3 {
+    grid-column: 2;
+    grid-row: 1;
+    margin-bottom: 4px;
+}
+
+.feature:last-child p {
+    grid-column: 2;
+    grid-row: 2;
+}
+
 /* Как подключить — три шага, тот же приём, что у большинства
    конкурентов (MEE6 и т.д.): крупный номер вместо иконки снимает
-   вопрос "а что тут вообще по порядку делать". */
+   вопрос "а что тут вообще по порядку делать". Горизонтальная линия
+   позади номеров читается как таймлайн, а не три разрозненные плитки. */
 .steps {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
+}
+
+.steps::before {
+    content: '';
+    position: absolute;
+    top: 48px;
+    left: calc(100% / 6);
+    right: calc(100% / 6);
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-hover), var(--accent-purple-hover), var(--accent-blue-hover));
+    opacity: 0.25;
+    z-index: -1;
 }
 
 .step {
@@ -536,6 +905,11 @@ main {
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-highlight);
+    transition: transform 0.3s ease;
+}
+
+.step:nth-child(2) {
+    transform: translateY(-8px);
 }
 
 .step__num {
@@ -548,8 +922,9 @@ main {
     border-radius: 12px;
     background: linear-gradient(135deg, var(--accent-hover), var(--accent));
     color: var(--accent-ink);
+    font-family: var(--font-display);
     font-size: 15px;
-    font-weight: 800;
+    font-weight: 700;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
@@ -580,17 +955,83 @@ main {
         grid-template-columns: 1fr;
     }
 
+    .feature:first-child,
+    .feature:last-child {
+        grid-column: span 1;
+    }
+
+    .feature:last-child {
+        display: block;
+    }
+
+    .feature:last-child .feature__icon {
+        margin-bottom: 18px;
+    }
+
+    .steps::before {
+        display: none;
+    }
+
+    .step:nth-child(2) {
+        transform: none;
+    }
+
     .hero {
         padding-top: 128px;
     }
+}
+
+/* Скролл-реванс: до появления в вьюпорте — скрыто и смещено вниз,
+   .is-visible навешивает JS через IntersectionObserver. Без класса
+   .reveal в разметке (т.е. без JS) всё остаётся видимым по умолчанию. */
+.reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+        opacity 0.7s ease,
+        transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reveal.is-visible {
+    opacity: 1;
+    transform: none;
+}
+
+.feature-grid .reveal:nth-child(1) {
+    transition-delay: 0.03s;
+}
+.feature-grid .reveal:nth-child(2) {
+    transition-delay: 0.08s;
+}
+.feature-grid .reveal:nth-child(3) {
+    transition-delay: 0.13s;
+}
+.feature-grid .reveal:nth-child(4) {
+    transition-delay: 0.18s;
+}
+.feature-grid .reveal:nth-child(5) {
+    transition-delay: 0.23s;
+}
+.feature-grid .reveal:nth-child(6) {
+    transition-delay: 0.28s;
+}
+
+.steps .reveal:nth-child(1) {
+    transition-delay: 0.03s;
+}
+.steps .reveal:nth-child(2) {
+    transition-delay: 0.1s;
+}
+.steps .reveal:nth-child(3) {
+    transition-delay: 0.17s;
 }
 
 /* Полоса перед футером — единственный повторный CTA на странице,
    кроме hero; не перегружаем страницу третьим/четвёртым призывом. */
 .cta-band {
     max-width: 1080px;
-    margin: 0 auto 130px;
-    padding: 64px 24px;
+    margin: 0 auto 150px;
+    padding: 72px 24px;
     border-radius: 32px;
     text-align: center;
     background:
@@ -604,8 +1045,9 @@ main {
 
 .cta-band h2 {
     margin: 0 0 12px;
-    font-size: 28px;
-    font-weight: 800;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 700;
 }
 
 .cta-band p {
@@ -636,7 +1078,8 @@ main {
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
-    font-weight: 800;
+    font-family: var(--font-display);
+    font-weight: 700;
     font-size: 15px;
     color: var(--text);
     text-decoration: none;

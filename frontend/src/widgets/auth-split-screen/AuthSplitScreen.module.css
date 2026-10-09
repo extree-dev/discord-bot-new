@@ -17,61 +17,62 @@
 }
 
 .page[data-theme='light'] {
-    background: #f6f7fa;
-    color: #0f1222;
+    background: #eef0f7;
+    color: #16181d;
 
-    --bg: #f6f7fa;
+    --bg: #eef0f7;
     --surface: #ffffff;
-    --surface-2: #f1f2f6;
+    --surface-2: #f0f1f6;
     --border: #e3e5ec;
-    --border-strong: #cfd2dc;
-    --text: #0f1222;
-    --text-dim: #565b6e;
-    --text-faint: #868ba0;
-    --glass-bg: #ffffff;
-    --glass-bg-strong: #ffffff;
-    --glass-border: var(--border);
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --field-bg: #ffffff;
+    --border-strong: #cdd1dd;
+    --text: #16181d;
+    --text-dim: #565b66;
+    --text-faint: #80838f;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.52));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
+    --glass-border: rgba(16, 24, 40, 0.1);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --glass-blur: blur(28px) saturate(190%);
+    --accent-ring: rgba(88, 101, 242, 0.28);
+    --field-bg: rgba(255, 255, 255, 0.55);
     --notice-error-text: #b42318;
-    --danger-bg: rgba(242, 73, 92, 0.08);
-    --success-bg: rgba(88, 101, 242, 0.08);
-    --shadow-sm: 0 1px 2px rgba(15, 18, 34, 0.05);
-    --shadow-md: 0 4px 12px -4px rgba(15, 18, 34, 0.08);
-    --shadow-lg: 0 12px 32px -12px rgba(15, 18, 34, 0.12);
+    --danger-bg: rgba(242, 73, 92, 0.1);
+    --success-bg: rgba(88, 101, 242, 0.1);
+    --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08);
+    --shadow-md: 0 10px 24px -10px rgba(16, 24, 40, 0.18);
+    --shadow-lg: 0 24px 56px -20px rgba(16, 24, 40, 0.24);
 }
 
 .page[data-theme='dark'] {
-    background: #0b0d12;
-    color: #f2f3f7;
+    background: #08090d;
+    color: #f7f7f9;
 
-    --bg: #0b0d12;
-    --surface: #12141b;
-    --surface-2: #181b23;
+    --bg: #08090d;
+    --surface: #111218;
+    --surface-2: #1b1d26;
     --border: #262933;
-    --border-strong: #363a46;
-    --text: #f2f3f7;
-    --text-dim: #a1a6ba;
-    --text-faint: #767c92;
-    --glass-bg: var(--surface);
-    --glass-bg-strong: var(--surface);
-    --glass-border: var(--border);
-    --glass-highlight: 0 0 #0000;
-    --glass-blur: none;
-    --field-bg: #15171f;
+    --border-strong: #3a3e4c;
+    --text: #f7f7f9;
+    --text-dim: #a7acbc;
+    --text-faint: #7d8396;
+    --glass-bg: linear-gradient(165deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025));
+    --glass-bg-strong: linear-gradient(165deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --glass-blur: blur(32px) saturate(170%);
+    --accent-ring: rgba(119, 131, 255, 0.4);
+    --field-bg: rgba(255, 255, 255, 0.045);
     --notice-error-text: #ff9aa6;
-    --danger-bg: rgba(242, 73, 92, 0.14);
-    --success-bg: rgba(88, 101, 242, 0.16);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 6px 16px -6px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 16px 40px -16px rgba(0, 0, 0, 0.55);
+    --danger-bg: rgba(242, 73, 92, 0.16);
+    --success-bg: rgba(88, 101, 242, 0.18);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 14px 32px -14px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 32px 72px -24px rgba(0, 0, 0, 0.72);
 }
 
-/* Лёгкий фирменный штрих — единственное место с цветным пятном в фоне,
-   это экран входа (маркетинговая колонка), не рабочая панель; само
-   стекло (--glass-blur) при этом уже не используется нигде, включая
-   здесь — так что это просто декоративный фон, а не "глянец" на картах. */
+/* Многослойный цветной мэш, тот же язык, что у AdminShell — экран
+   входа первым встречает пользователя, тут "жидкое стекло" должно
+   читаться сразу и однозначно. */
 .glow {
     position: fixed;
     inset: 0;
@@ -80,11 +81,17 @@
 }
 
 .page[data-theme='light'] .glow {
-    background: radial-gradient(circle at 10% 0%, rgba(88, 101, 242, 0.08), transparent 45%);
+    background:
+        radial-gradient(circle at 8% 6%, rgba(88, 101, 242, 0.24), transparent 40%),
+        radial-gradient(circle at 92% -4%, rgba(136, 94, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 70% 92%, rgba(64, 170, 255, 0.16), transparent 44%);
 }
 
 .page[data-theme='dark'] .glow {
-    background: radial-gradient(circle at 10% 0%, rgba(88, 101, 242, 0.14), transparent 45%);
+    background:
+        radial-gradient(circle at 8% 6%, rgba(88, 101, 242, 0.36), transparent 40%),
+        radial-gradient(circle at 92% -4%, rgba(136, 94, 255, 0.24), transparent 42%),
+        radial-gradient(circle at 70% 92%, rgba(64, 170, 255, 0.18), transparent 44%);
 }
 
 .themeTools {
@@ -124,11 +131,13 @@
     width: 28px;
     height: 28px;
     border-radius: 9px;
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+    background: linear-gradient(150deg, var(--accent-hover), var(--accent) 70%);
     color: var(--accent-ink);
     font-weight: 800;
     font-size: 13px;
-    box-shadow: var(--shadow-sm);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        0 4px 14px -4px rgba(88, 101, 242, 0.6);
 }
 
 .marketing h1 {
@@ -164,7 +173,10 @@
 .stat span {
     font-size: 15px;
     font-weight: 700;
-    color: var(--text);
+    background: linear-gradient(165deg, var(--text), var(--text-dim));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 .stat small {
@@ -180,13 +192,28 @@
 }
 
 .feature {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 4px;
     padding: 14px 16px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    background: var(--surface-2);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-highlight);
+    overflow: hidden;
+    transition:
+        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feature:hover {
+    transform: translateX(3px);
+    border-color: var(--border-strong);
+    box-shadow: var(--glass-highlight), var(--shadow-md);
 }
 
 .feature strong {

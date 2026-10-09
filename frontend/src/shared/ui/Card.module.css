@@ -10,6 +10,18 @@
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--glass-highlight), var(--shadow-lg);
+    overflow: hidden;
+}
+
+/* Тонкая диагональная "плёнка" поверх стекла — без неё ровный
+   полупрозрачный фон на статичной карточке читается просто как тонированный
+   бокс, а не как реальная стеклянная поверхность с бликом. */
+.card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 35%);
+    pointer-events: none;
 }
 
 .card h1 {

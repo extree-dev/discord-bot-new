@@ -5,6 +5,7 @@ import type { LinkedAccounts } from '../../entities/linked-accounts/types';
 import { SetPasswordForm } from '../../features/email-auth/SetPasswordForm';
 import { TelegramLoginButton } from '../../features/telegram-auth/TelegramLoginButton';
 import { GoogleLoginButton } from '../../features/google-auth/GoogleLoginButton';
+import { GitHubLoginButton } from '../../features/github-auth/GitHubLoginButton';
 import { isDashboardDomain } from '../../shared/lib/isDashboardDomain';
 import { useLang } from '../../shared/lib/useLang';
 import { Card } from '../../shared/ui/Card';
@@ -20,6 +21,7 @@ export function LinkedAccountsCard() {
     const [linked, setLinked] = useState<LinkedAccounts | null>(null);
     const [telegramBotUsername, setTelegramBotUsername] = useState<string | null>(null);
     const [googleEnabled, setGoogleEnabled] = useState(false);
+    const [githubEnabled, setGithubEnabled] = useState(false);
     const [settingPassword, setSettingPassword] = useState(false);
     const { t } = useLang();
 
@@ -30,6 +32,7 @@ export function LinkedAccountsCard() {
             setLinked(accounts);
             setTelegramBotUsername(methods.telegram?.botUsername ?? null);
             setGoogleEnabled(Boolean(methods.google));
+            setGithubEnabled(Boolean(methods.github));
         });
         return () => {
             cancelled = true;
@@ -65,6 +68,17 @@ export function LinkedAccountsCard() {
                     <span className={`${styles.status} ${styles.linked}`}>{linked.googleEmail}</span>
                 ) : googleEnabled ? (
                     <GoogleLoginButton label={t('linkedAccounts.connect')} fullWidth={false} />
+                ) : (
+                    <span className={styles.status}>{t('linkedAccounts.notConfigured')}</span>
+                )}
+            </div>
+
+            <div className={styles.row}>
+                <span className={styles.label}>{t('linkedAccounts.github')}</span>
+                {linked.githubUsername ? (
+                    <span className={`${styles.status} ${styles.linked}`}>@{linked.githubUsername}</span>
+                ) : githubEnabled ? (
+                    <GitHubLoginButton label={t('linkedAccounts.connect')} fullWidth={false} />
                 ) : (
                     <span className={styles.status}>{t('linkedAccounts.notConfigured')}</span>
                 )}

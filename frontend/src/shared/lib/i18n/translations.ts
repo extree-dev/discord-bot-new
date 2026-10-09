@@ -40,6 +40,7 @@ export const ru = {
     'linkedAccounts.discord': 'Discord',
     'linkedAccounts.telegram': 'Telegram',
     'linkedAccounts.google': 'Google',
+    'linkedAccounts.github': 'GitHub',
     'linkedAccounts.notConfigured': 'не настроено',
     'linkedAccounts.email': 'Email и пароль',
     'linkedAccounts.connect': 'подключить',
@@ -148,13 +149,13 @@ export const ru = {
 
     'login.headline': 'Доступ к панели управления ботом.',
     'login.lead':
-        'Войди через Discord, Telegram, Google или email — права каждый раз проверяются у Discord заново, какой бы способ входа ты ни выбрал.',
+        'Войди через Discord, Telegram, Google, GitHub или email — права каждый раз проверяются у Discord заново, какой бы способ входа ты ни выбрал.',
     'login.stat1Value': 'Discord OAuth2',
     'login.stat1Label': 'основной вход',
     'login.stat2Value': 'AES-256',
     'login.stat2Label': 'шифрование сессии',
-    'login.stat3Value': '4 способа',
-    'login.stat3Label': 'Discord / Telegram / Google / email',
+    'login.stat3Value': '5 способов',
+    'login.stat3Label': 'Discord / Telegram / Google / GitHub / email',
     'login.feature1Title': 'Один аккаунт',
     'login.feature1Text': 'Discord обязателен, остальные способы — опциональные входы в тот же кабинет.',
     'login.feature2Title': 'Права не меняются',
@@ -164,6 +165,7 @@ export const ru = {
     'login.signInLead': 'Выбери способ входа в панель управления.',
     'login.or': 'или',
     'login.google': 'Войти через Google',
+    'login.github': 'Войти через GitHub',
     'login.discord': 'Войти через Discord',
 };
 
@@ -205,6 +207,7 @@ export const en: Record<TranslationKey, string> = {
     'linkedAccounts.discord': 'Discord',
     'linkedAccounts.telegram': 'Telegram',
     'linkedAccounts.google': 'Google',
+    'linkedAccounts.github': 'GitHub',
     'linkedAccounts.notConfigured': 'not configured',
     'linkedAccounts.email': 'Email & password',
     'linkedAccounts.connect': 'connect',
@@ -314,13 +317,13 @@ export const en: Record<TranslationKey, string> = {
 
     'login.headline': 'Access to the bot dashboard.',
     'login.lead':
-        'Sign in with Discord, Telegram, Google, or email — permissions are re-checked with Discord every time, whichever method you choose.',
+        'Sign in with Discord, Telegram, Google, GitHub, or email — permissions are re-checked with Discord every time, whichever method you choose.',
     'login.stat1Value': 'Discord OAuth2',
     'login.stat1Label': 'primary sign-in',
     'login.stat2Value': 'AES-256',
     'login.stat2Label': 'session encryption',
-    'login.stat3Value': '4 methods',
-    'login.stat3Label': 'Discord / Telegram / Google / email',
+    'login.stat3Value': '5 methods',
+    'login.stat3Label': 'Discord / Telegram / Google / GitHub / email',
     'login.feature1Title': 'One account',
     'login.feature1Text': 'Discord is required; the rest are optional sign-in methods into the same dashboard.',
     'login.feature2Title': 'Permissions stay the same',
@@ -330,5 +333,6 @@ export const en: Record<TranslationKey, string> = {
     'login.signInLead': 'Choose how to sign in to the dashboard.',
     'login.or': 'or',
     'login.google': 'Sign in with Google',
+    'login.github': 'Sign in with GitHub',
     'login.discord': 'Sign in with Discord',
 };
