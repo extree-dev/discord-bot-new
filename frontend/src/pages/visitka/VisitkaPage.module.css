@@ -60,6 +60,11 @@
     display: inline-flex;
     align-items: center;
     padding: 8px;
+    /* iOS Safari: sticky + backdrop-filter без своего compositing layer
+       может подёргиваться/глючить во время скролла (особенно пока
+       анимируется скрывающаяся адресная строка) — та же причина, что и
+       у .contentPanel ниже. */
+    transform: translateZ(0);
     background: rgba(255, 255, 255, 0.45);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -114,6 +119,13 @@
     margin-top: 20px;
     border-radius: 0 0 30px 30px;
     overflow: hidden;
+    /* iOS Safari: overflow:hidden + border-radius на блоке рядом со
+       sticky-элементом и скрывающейся при скролле адресной строкой —
+       известный баг, из-за которого контент внутри на миг перерисовывается
+       без учёта границ/паддингов родителя (видно вживую: во время
+       скролла биография на секунду "прилипает" к левому краю экрана).
+       Форсируем отдельный compositing layer — стандартный фикс. */
+    transform: translateZ(0);
     background: var(--surface);
     box-shadow: var(--shadow-md);
 }
