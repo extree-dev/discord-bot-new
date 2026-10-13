@@ -23,7 +23,7 @@ function TicketIcon() {
     );
 }
 
-const CONTACT_EMAIL = 'hi@extree.tech';
+const CONTACT_EMAIL = 'support@extree.tech';
 
 type FeatureTag = 'Безопасность' | 'Поддержка' | 'Комьюнити';
 
