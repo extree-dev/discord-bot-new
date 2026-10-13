@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useEffect, useState } from 'react';
 import { getSiteContent } from '../../entities/site-content/api';
 import type { SiteContent } from '../../entities/site-content/types';
-import { LinkList } from '../../widgets/link-list/LinkList';
 import { BrandMark } from '../../shared/ui/BrandMark';
-import { ActivityIcon, BanIcon, GridIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
+import { ActivityIcon, BanIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
 import styles from './VisitkaPage.module.css';
 
 function TicketIcon() {
@@ -25,68 +23,24 @@ function TicketIcon() {
 
 const CONTACT_EMAIL = 'support@extree.tech';
 
-type FeatureTag = 'Безопасность' | 'Поддержка' | 'Комьюнити';
-
-interface Feature {
-    icon: () => ReactElement;
-    title: string;
-    description: string;
-    tag: FeatureTag;
+interface Language {
+    flag: string;
+    code: string;
+    label: string;
 }
 
-const FEATURES: Feature[] = [
-    {
-        icon: ShieldIcon,
-        title: 'Безопасность',
-        description: 'Anti-nuke, raid shield, automod против спама/ссылок/капса, картиночная капча при входе.',
-        tag: 'Безопасность',
-    },
-    {
-        icon: BanIcon,
-        title: 'Модерация',
-        description: 'Варны с угасанием по давности, кастомный мут, временный бан, единый журнал дел по участнику.',
-        tag: 'Безопасность',
-    },
-    {
-        icon: TicketIcon,
-        title: 'Тикеты поддержки',
-        description:
-            'Жалоба на игрока или прямо по сообщению, апелляция на мут одной кнопкой, автоэскалация без ответа.',
-        tag: 'Поддержка',
-    },
-    {
-        icon: GridIcon,
-        title: 'Панель администратора',
-        description: 'Управление сервером и точечные наказания без единой слэш-команды.',
-        tag: 'Поддержка',
-    },
-    {
-        icon: VoiceIcon,
-        title: 'Голосовые комнаты',
-        description: 'Временные личные комнаты: лок, лимит, кик, блокировка участников — всё кнопками, без команд.',
-        tag: 'Комьюнити',
-    },
-    {
-        icon: ActivityIcon,
-        title: 'Активность участников',
-        description: 'Уровни за сообщения и время в голосовых, карточки профиля и топ сервера.',
-        tag: 'Комьюнити',
-    },
+// Пример — настоящий список языков владелец сайта пришлёт отдельно.
+const LANGUAGES: Language[] = [
+    { flag: '🇷🇺', code: 'RU', label: 'Russian' },
+    { flag: '🇬🇧', code: 'EN', label: 'English' },
 ];
 
-const TAGS: FeatureTag[] = ['Безопасность', 'Поддержка', 'Комьюнити'];
-
-// Публичная страница продукта (extree.tech "/") — одностраничная
-// прокрутка вместо прежней плавающей карточки-визитки: шапка-навигация,
-// раздел "обо мне" (аватар/роль/био — то же редактируемое содержимое,
-// что и раньше), фильтруемые по тегу карточки возможностей, затем
-// редактируемые ссылки и контакт в конце. Структура подсмотрена у
-// личных портфолио-сайтов (скроллинг + фильтр-чипы + карточки), но
-// содержание — про сам продукт: Extree не ведёт чужие проекты, у него
-// одна витрина.
+// Публичная страница продукта (extree.tech "/"). Структура и язык —
+// под референс (frdg.work): герой — чисто декоративный баннер (вотермарк
+// + иконки), герой и контент ниже склеены в одну панель без шва,
+// повёрнутые вертикальные подписи секций, двухпанельный контактный блок.
 export function VisitkaPage() {
     const [content, setContent] = useState<SiteContent | null>(null);
-    const [activeTag, setActiveTag] = useState<FeatureTag | 'Все'>('Все');
 
     useEffect(() => {
         getSiteContent()
@@ -94,109 +48,104 @@ export function VisitkaPage() {
             .catch(() => setContent(null));
     }, []);
 
+    useEffect(() => {
+        const prevLang = document.documentElement.lang;
+        document.documentElement.lang = 'en';
+        return () => {
+            document.documentElement.lang = prevLang;
+        };
+    }, []);
+
     if (content) document.title = content.name;
 
-    const visibleFeatures = useMemo(
-        () => (activeTag === 'Все' ? FEATURES : FEATURES.filter(f => f.tag === activeTag)),
-        [activeTag]
-    );
-
     if (!content) {
-        return (
-            <div className={styles.page}>
-                <div className={styles.backdrop} aria-hidden="true" />
-                <div className={styles.blobA} aria-hidden="true" />
-                <div className={styles.blobB} aria-hidden="true" />
-                <div className={styles.blobC} aria-hidden="true" />
-                <div className={styles.noise} aria-hidden="true" />
-            </div>
-        );
+        return <div className={styles.page} />;
     }
 
     return (
         <div className={styles.page}>
-            <div className={styles.backdrop} aria-hidden="true" />
-            <div className={styles.blobA} aria-hidden="true" />
-            <div className={styles.blobB} aria-hidden="true" />
-            <div className={styles.blobC} aria-hidden="true" />
-            <div className={styles.noise} aria-hidden="true" />
-
             <nav className={styles.nav}>
-                <a className={styles.navBrand} href="#top">
-                    <BrandMark className={styles.navBadge} />
-                    <span>{content.name}</span>
-                </a>
                 <div className={styles.navLinks}>
-                    <a href="#about">Обо мне</a>
-                    <a href="#features">Возможности</a>
-                    <a href="#contact">Контакты</a>
+                    <a href="#about">About me</a>
+                    <a href="#contact">Contact</a>
                 </div>
             </nav>
 
             <main className={styles.main}>
-                <section id="top" className={styles.hero}>
-                    <div className={styles.avatarRing}>
-                        <img className={styles.avatar} src="/avatar.jpg" alt={content.name} />
-                        <span className={styles.statusDot} aria-hidden="true" />
-                    </div>
-                    <h1 className={styles.name}>{content.name}</h1>
-                    {content.role && <span className={styles.role}>{content.role}</span>}
-                    {content.bio && (
-                        <p id="about" className={styles.bio}>
-                            {content.bio}
-                        </p>
-                    )}
-                </section>
-
-                <section id="features" className={styles.featuresSection}>
-                    <h2 className={styles.sectionTitle}>Что умеет</h2>
-                    <div className={styles.tagRow}>
-                        <button
-                            className={`${styles.tag} ${activeTag === 'Все' ? styles.tagActive : ''}`}
-                            onClick={() => setActiveTag('Все')}
-                        >
-                            Все
-                        </button>
-                        {TAGS.map(tag => (
-                            <button
-                                key={tag}
-                                className={`${styles.tag} ${activeTag === tag ? styles.tagActive : ''}`}
-                                onClick={() => setActiveTag(tag)}
-                            >
-                                {tag}
-                            </button>
-                        ))}
-                    </div>
-                    <div className={styles.featureGrid}>
-                        {visibleFeatures.map(feature => (
-                            <div key={feature.title} className={styles.featureCard}>
-                                <span className={styles.featureIcon}>
-                                    <feature.icon />
-                                </span>
-                                <h3 className={styles.featureTitle}>{feature.title}</h3>
-                                <p className={styles.featureDescription}>{feature.description}</p>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-
-                {content.links.length > 0 && (
-                    <section className={styles.linksSection}>
-                        <h2 className={styles.sectionTitle}>Ссылки</h2>
-                        <LinkList links={content.links} />
+                <div className={styles.contentPanel}>
+                    <section id="top" className={styles.hero}>
+                        <div className={styles.heroBlobA} aria-hidden="true" />
+                        <div className={styles.heroBlobB} aria-hidden="true" />
+                        <div className={styles.heroNoise} aria-hidden="true" />
+                        <span className={styles.heroWordmark} aria-hidden="true">
+                            extree
+                        </span>
+                        <div className={styles.heroIcons} aria-hidden="true">
+                            <span className={`${styles.heroIcon} ${styles.heroIconA}`}>
+                                <ShieldIcon />
+                            </span>
+                            <span className={`${styles.heroIcon} ${styles.heroIconB}`}>
+                                <VoiceIcon />
+                            </span>
+                            <span className={`${styles.heroIcon} ${styles.heroIconC}`}>
+                                <TicketIcon />
+                            </span>
+                            <span className={`${styles.heroIcon} ${styles.heroIconD}`}>
+                                <ActivityIcon />
+                            </span>
+                            <span className={`${styles.heroIcon} ${styles.heroIconE}`}>
+                                <BanIcon />
+                            </span>
+                        </div>
                     </section>
-                )}
 
-                <section id="contact" className={styles.contactSection}>
-                    <h2 className={styles.contactTitle}>Нравится? Напиши</h2>
-                    <p className={styles.contactLead}>По вопросам, предложениям или багам — пиши напрямую.</p>
-                    <a className={styles.contactButton} href={`mailto:${CONTACT_EMAIL}`}>
-                        {CONTACT_EMAIL}
-                    </a>
+                    <section id="about" className={styles.section}>
+                        <span className={styles.sectionLabel}>about me</span>
+                        <div className={styles.sectionBody}>
+                            <div className={styles.aboutHeader}>
+                                <h1 className={styles.aboutName}>{content.name}</h1>
+                                {content.role && <span className={styles.aboutRole}>{content.role}</span>}
+                            </div>
+                            {content.bio && <p className={styles.bio}>{content.bio}</p>}
+                            <span className={styles.languageHeading}>talk to me in</span>
+                            <div className={styles.languageRow}>
+                                {LANGUAGES.map(lang => (
+                                    <span key={lang.code} className={styles.languagePill}>
+                                        <span className={styles.languageFlag} aria-hidden="true">
+                                            {lang.flag}
+                                        </span>
+                                        {lang.code}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <section id="contact" className={styles.section}>
+                    <div className={styles.sectionBody}>
+                        <div className={styles.contactSide}>
+                            <span className={styles.contactSideLabel}>reach out via email</span>
+                            <a className={styles.emailPill} href={`mailto:${CONTACT_EMAIL}`}>
+                                {CONTACT_EMAIL}
+                            </a>
+                        </div>
+                    </div>
+                    <span className={styles.sectionLabel}>contact</span>
                 </section>
             </main>
 
-            <footer className={styles.footer}>© {content.name}</footer>
+            <footer className={styles.footer}>
+                <a className={styles.footerBrand} href="#top">
+                    <BrandMark className={styles.footerBadge} />
+                    <span>{content.name}</span>
+                </a>
+                <div className={styles.footerLinks}>
+                    <a href="#about">About me</a>
+                    <a href="#contact">Contact</a>
+                </div>
+                <span className={styles.footerCopy}>© {content.name}</span>
+            </footer>
         </div>
     );
 }

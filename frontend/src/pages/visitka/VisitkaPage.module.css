@@ -1,266 +1,266 @@
+/* Светлая, карточная подача (подсмотрена у личных портфолио-сайтов
+   вроде frdg.work) — локальные переопределения общих токенов темы
+   прямо на .page, а не новый набор классов: все дочерние компоненты
+   читают те же var(--text)/var(--glass-bg)/и т.п., поэтому
+   автоматически становятся светлыми без собственных правок. */
 .page {
     position: relative;
     min-height: 100vh;
     isolation: isolate;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
+
+    /* Цвета и радиусы сверены с реальными computed-style значениями
+       frdg.work (фон страницы, цвет "чернил" текста, радиус карточек). */
+    --bg: #f8f8f9;
+    --surface: #ffffff;
+    --text: #252b3a;
+    --text-dim: #52525b;
+    --text-faint: #9199a8;
+    --border: #e5e7eb;
+    --border-strong: #d1d5db;
+    --accent: #5865f2;
+    --accent-hover: #4752c4;
+    --accent-ink: #ffffff;
+    --glass-bg: #ffffff;
+    --glass-bg-strong: #ffffff;
+    --glass-border: #e5e7eb;
+    --glass-highlight: 0 0 #0000;
+    --glass-blur: none;
+    --shadow-sm: 0 1px 2px rgba(15, 17, 21, 0.06);
+    --shadow-md: 0 10px 24px -10px rgba(15, 17, 21, 0.14);
+    --shadow-lg: 0 24px 48px -18px rgba(15, 17, 21, 0.16);
+    --font-display: 'Benne', Georgia, serif;
+
     background: var(--bg);
-    overflow-x: hidden;
+    color: var(--text);
+    font-family: 'Google Sans Flex', Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Фиксированный многопятенный градиентный фон вместо одного плоского
-   .glow — на публичной странице нет хедера-якоря, поэтому сама глубина
-   фона должна сразу читаться как "продукт", а не как пустой тёмный
-   экран. fixed, а не absolute — пятна не скроллятся вместе со страницей. */
-.backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(ellipse 55% 38% at 18% 6%, rgba(88, 101, 242, 0.32), transparent 62%),
-        radial-gradient(ellipse 48% 34% at 102% 14%, rgba(139, 92, 246, 0.22), transparent 60%),
-        radial-gradient(ellipse 60% 46% at 50% 108%, rgba(61, 220, 151, 0.1), transparent 65%), var(--bg);
-}
-
-.backdrop::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 28px 28px;
-    mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent 72%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent 72%);
-}
-
-/* Три независимо "дышащих" пятна поверх статичного .backdrop — разная
-   длительность/задержка на каждом, чтобы они не синхронизировались в
-   одну видимую пульсацию, а давали живой, а не нарисованный свет. */
-.blobA,
-.blobB,
-.blobC {
-    position: fixed;
-    z-index: 0;
-    pointer-events: none;
-    border-radius: 50%;
-    filter: blur(70px);
-    will-change: transform, opacity;
-}
-
-.blobA {
-    top: -120px;
-    right: -140px;
-    width: 420px;
-    height: 420px;
-    background: radial-gradient(circle, rgba(88, 101, 242, 0.38), transparent 70%);
-    animation: blob-breathe 9s ease-in-out infinite;
-}
-
-.blobB {
-    bottom: -100px;
-    left: -120px;
-    width: 380px;
-    height: 380px;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent 70%);
-    animation: blob-breathe 11s ease-in-out infinite 1.5s;
-}
-
-.blobC {
-    top: 42%;
-    left: 50%;
-    width: 320px;
-    height: 320px;
-    background: radial-gradient(circle, rgba(61, 220, 151, 0.18), transparent 70%);
-    animation: blob-breathe 13s ease-in-out infinite 3s;
-}
-
-@keyframes blob-breathe {
-    0%,
-    100% {
-        transform: scale(1) translateY(0);
-        opacity: 0.75;
-    }
-    50% {
-        transform: scale(1.18) translateY(-16px);
-        opacity: 1;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .blobA,
-    .blobB,
-    .blobC {
-        animation: none;
-    }
-}
-
-/* Тонкая зерном-текстура поверх всего — та же техника, что на
-   bot.extree.tech: едва заметный feTurbulence-шум вместо отдельной
-   картинки, mix-blend-mode вместо плоского затемнения. */
-.noise {
-    position: fixed;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    opacity: 0.05;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Шапка-навигация — то, что отличает "продукт с несколькими разделами"
-   от прежней одной статичной карточки: якоря на обо-мне/возможности/
-   контакты, sticky, чтобы ей было можно пользоваться на длинной
-   прокрутке. */
+/* Плавающая капсула-навигация — та же, что держит внимание на всю
+   прокрутку у референса, вместо прежней полноширинной статичной шапки. */
+/* Радиус и полупрозрачный "frosted" фон — как у нав-пилюли референса
+   (rgba(255,255,255,0.4) + лёгкий blur), а не сплошной непрозрачный белый. */
 .nav {
     position: sticky;
-    top: 0;
-    z-index: 10;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 16px clamp(16px, 5vw, 48px);
-    background: var(--glass-bg-strong, var(--glass-bg));
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    border-bottom: 1px solid var(--glass-border);
-}
-
-.navBrand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--text);
-    text-decoration: none;
-    font-weight: 800;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-}
-
-.navBadge {
+    top: 16px;
+    z-index: 20;
+    width: calc(100% - 32px);
+    max-width: 600px;
+    margin: 16px 0 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    color: var(--accent-ink);
-    font-weight: 800;
-    font-size: 13px;
-    box-shadow: var(--shadow-sm);
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    box-shadow: var(--shadow-md);
 }
 
 .navLinks {
     display: flex;
-    gap: 24px;
+    gap: 2px;
 }
 
 .navLinks a {
+    padding: 9px 14px;
+    border-radius: 999px;
     color: var(--text-dim);
     text-decoration: none;
     font-size: 13px;
     font-weight: 600;
-    transition: color 0.2s ease;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
 }
 
 .navLinks a:hover {
+    background: var(--bg);
     color: var(--text);
 }
 
+/* У референса контент почти во всю ширину окна (1380px из 1440px —
+   это 96%), а не узкая центрированная колонка: на широком экране их
+   сайт выглядит как настоящий десктопный лэйаут, а не блог-пост с
+   пустыми серыми полями по бокам. max-width здесь раньше был 720px —
+   отсюда и ощущение "совсем не похоже" на широких экранах. */
 .main {
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: 640px;
-    padding: 56px 20px 0;
+    max-width: 1320px;
+    padding: 24px 20px 0;
     display: flex;
     flex-direction: column;
 }
 
+/* Герой + "обо мне"/возможности/сервер/ссылки — один сплошной белый
+   блок без швов между секциями, как у референса (там это буквально
+   одна панель: герой скруглён только сверху, сама панель — только
+   снизу, и контент между ними идёт без зазора). Контакты — отдельная,
+   уже не склеенная с этим блоком панель ниже. */
+.contentPanel {
+    margin-top: 20px;
+    border-radius: 0 0 30px 30px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+}
+
+/* Чисто декоративный баннер-герой — как у референса: без аватара/имени,
+   крупный полупрозрачный вотермарк-логотип и россыпь иконок поверх
+   градиента. Личность (аватар/имя/роль/био) — в отдельной карточке
+   "обо мне" ниже. */
+/* Несколько слоёв радиальных пятен поверх базового градиента вместо
+   плоской заливки — грубая имитация бликов на их шёлковой/тканевой
+   текстуре (у референса это вообще отдельное видео, которое нельзя
+   ни скопировать, ни встроить как чужой ассет). */
 .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding-bottom: 48px;
-}
-
-.avatarRing {
     position: relative;
-    width: 108px;
-    height: 108px;
-    padding: 3px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    box-shadow:
-        0 14px 34px -10px rgba(88, 101, 242, 0.65),
-        var(--shadow-lg);
-    margin-bottom: 20px;
+    overflow: hidden;
+    border-radius: 30px 30px 0 0;
+    height: 380px;
+    background:
+        radial-gradient(55% 45% at 22% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+        radial-gradient(45% 40% at 78% 25%, rgba(255, 255, 255, 0.2), transparent 65%),
+        radial-gradient(50% 45% at 85% 80%, rgba(255, 255, 255, 0.22), transparent 60%),
+        radial-gradient(40% 35% at 15% 85%, rgba(20, 20, 50, 0.3), transparent 65%),
+        linear-gradient(155deg, #4752c4 0%, #5865f2 25%, #8b5cf6 55%, #6c7bf5 75%, #3b82f6 100%);
 }
 
-.avatar {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid var(--bg);
-}
-
-/* Живой "online"-индикатор — то, что сразу читается в сервисах типа
-   Linktree как "это настоящий, актуальный профиль", а не статичная
-   карточка. Лёгкий пульс вместо жёсткой точки. */
-.statusDot {
+.heroBlobA,
+.heroBlobB {
     position: absolute;
-    right: 2px;
-    bottom: 2px;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+}
+
+.heroBlobA {
+    top: -80px;
+    right: -60px;
+    width: 260px;
+    height: 260px;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.heroBlobB {
+    bottom: -100px;
+    left: -40px;
+    width: 220px;
+    height: 220px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.heroNoise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.heroWordmark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 0;
+    transform: translate(-50%, -50%);
+    font-family: 'Unbounded', sans-serif;
+    font-size: 130px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: rgba(255, 255, 255, 0.22);
+    white-space: nowrap;
+    user-select: none;
+}
+
+.heroIcons {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.heroIcon {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.heroIcon svg {
     width: 20px;
     height: 20px;
-    border-radius: 50%;
-    background: #3ddc97;
-    border: 3px solid var(--bg);
-    box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.55);
-    animation: status-pulse 2.4s ease-in-out infinite;
 }
 
-@keyframes status-pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.55);
-    }
-    70% {
-        box-shadow: 0 0 0 8px rgba(61, 220, 151, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(61, 220, 151, 0);
-    }
+.heroIconA {
+    top: 16%;
+    left: 10%;
+    transform: rotate(-8deg);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .statusDot {
-        animation: none;
-    }
+.heroIconB {
+    top: 68%;
+    left: 16%;
+    transform: rotate(6deg);
 }
 
-.name {
-    margin: 0 0 8px;
-    font-size: 28px;
+.heroIconC {
+    top: 20%;
+    left: 82%;
+    transform: rotate(10deg);
+}
+
+.heroIconD {
+    top: 70%;
+    left: 78%;
+    transform: rotate(-10deg);
+}
+
+.heroIconE {
+    top: 44%;
+    left: 4%;
+    transform: rotate(4deg);
+}
+
+/* "Обо мне" — как у референса, чистый текст без аватара: имя строкой,
+   роль пилюлей рядом, био абзацем ниже. */
+.aboutHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.aboutName {
+    margin: 0;
+    font-size: 24px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    line-height: 1.15;
     color: var(--text);
 }
 
-.role {
+.aboutRole {
     display: inline-flex;
     align-items: center;
-    margin: 0 0 18px;
-    padding: 5px 14px;
-    border-radius: var(--radius-pill);
-    background: rgba(88, 101, 242, 0.16);
-    color: var(--accent-hover);
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -268,197 +268,224 @@
 }
 
 .bio {
-    margin: 0 auto;
-    max-width: 420px;
+    margin: 0;
+    max-width: 560px;
     font-size: 15px;
     line-height: 1.6;
     color: var(--text-dim);
 }
 
-.sectionTitle {
-    margin: 0 0 20px;
-    text-align: center;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    color: var(--text);
-}
-
-.featuresSection {
-    padding: 32px 0 48px;
-    border-top: 1px solid var(--glass-border);
-}
-
-.tagRow {
+/* Секция = повёрнутая вертикальная подпись слева + контент справа —
+   фирменный приём референса, отличающий его от обычного "заголовок
+   сверху, контент снизу". */
+.section {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 24px;
+    gap: 24px;
+    padding: 56px 0 8px;
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
 }
 
-.tag {
-    padding: 8px 16px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--glass-border);
-    background: var(--glass-bg);
-    color: var(--text-dim);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-        border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        background 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-        color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.tag:hover {
-    border-color: var(--border-strong);
+.sectionLabel {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
     color: var(--text);
+    flex: none;
+    white-space: nowrap;
+    align-self: flex-start;
 }
 
-.tagActive,
-.tagActive:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-}
-
-.featureGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-}
-
-.featureCard {
-    position: relative;
-    padding: 20px;
-    text-align: left;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--glass-highlight), var(--shadow-sm);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    transition:
-        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-        border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.featureCard:hover {
-    transform: translateY(-2px);
-    border-color: var(--border-strong);
-    box-shadow: var(--glass-highlight), var(--shadow-md);
-}
-
-.featureIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    margin-bottom: 14px;
-    border-radius: 10px;
-    background: rgba(88, 101, 242, 0.14);
-    color: var(--accent-hover);
-}
-
-.featureIcon svg {
-    width: 18px;
-    height: 18px;
-}
-
-.featureTitle {
-    margin: 0 0 6px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-}
-
-.featureDescription {
-    margin: 0;
-    font-size: 12.5px;
-    line-height: 1.55;
-    color: var(--text-dim);
-}
-
-.linksSection {
-    padding: 0 0 48px;
-}
-
-.contactSection {
+.sectionBody {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 40px 24px 56px;
-    border-top: 1px solid var(--glass-border);
+    gap: 20px;
 }
 
-.contactTitle {
-    margin: 0 0 8px;
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -0.01em;
+/* Секция сразу после героя — без верхней линии-разделителя и без
+   отступа: герой переходит в неё без шва, как в референсе. */
+.contentPanel > .hero + .section {
+    margin-top: 0;
+    padding-top: 40px;
+    border-top: none;
+}
+
+/* Языковые пилюли — прямой перенос "talk to me in" у референса: та же
+   карточка "обо мне" (не отдельная секция), флаг + код языка в
+   скруглённой пилюле со светлой заливкой. */
+.languageHeading {
+    display: block;
+    margin-top: -4px;
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 400;
     color: var(--text);
 }
 
-.contactLead {
-    margin: 0 0 24px;
-    font-size: 14px;
-    color: var(--text-dim);
+.languageRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
-.contactButton {
+.languagePill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    height: 44px;
-    padding: 0 24px;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(165deg, var(--accent-hover), var(--accent) 60%);
-    color: var(--accent-ink);
-    text-decoration: none;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
     font-size: 14px;
-    font-weight: 700;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.25),
-        0 8px 24px -8px rgba(88, 101, 242, 0.65);
-    transition:
-        transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-        box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    font-weight: 600;
 }
 
-.contactButton:hover {
+.languageFlag {
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* Контакты — одна простая карточка с почтой, без декоративного
+   градиентного баннера (на референсе таких декоративных CTA-баннеров
+   с "продающим" текстом у контактов нет). */
+.contactSide {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    width: 320px;
+    max-width: 100%;
+    padding: 24px;
+    border-radius: 20px;
+    background: var(--bg);
+}
+
+.contactSideLabel {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--text);
+}
+
+.emailPill {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: var(--text);
+    color: var(--surface);
+    font-weight: 600;
+    font-size: 12.5px;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.emailPill:hover {
     transform: translateY(-2px);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.3),
-        0 14px 32px -10px rgba(88, 101, 242, 0.8);
 }
 
 .footer {
     position: relative;
     z-index: 1;
-    padding: 0 20px 32px;
+    width: 100%;
+    max-width: 720px;
+    margin-top: 48px;
+    padding: 28px 20px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+}
+
+.footerBrand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 800;
+    font-size: 14px;
+}
+
+.footerBadge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 12px;
+}
+
+.footerLinks {
+    display: flex;
+    gap: 16px;
+}
+
+.footerLinks a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.footerLinks a:hover {
+    color: var(--text);
+}
+
+.footerCopy {
     color: var(--text-faint);
     font-size: 12px;
 }
 
-@media (max-width: 560px) {
-    .navLinks {
-        gap: 14px;
+@media (max-width: 640px) {
+    .section {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .sectionLabel {
+        writing-mode: horizontal-tb;
+        transform: none;
+        font-size: 20px;
     }
 
     .navLinks a {
-        font-size: 12px;
+        padding: 8px 10px;
+        font-size: 11.5px;
     }
 
-    .featureGrid {
-        grid-template-columns: 1fr;
+    .footer {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
-    .name {
-        font-size: 24px;
+    .hero {
+        height: 160px;
+    }
+
+    .heroWordmark {
+        font-size: 52px;
+    }
+
+    .heroIconD,
+    .heroIconE {
+        display: none;
+    }
+
+    .aboutName {
+        font-size: 21px;
     }
 }
