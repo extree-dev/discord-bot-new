@@ -516,17 +516,17 @@
 }
 
 @media (max-width: 640px) {
-    .main,
+    .main {
+        padding: 24px 36px 0;
+    }
+
     .footer {
-        padding-left: 32px;
-        padding-right: 32px;
+        padding: 28px 36px 40px;
     }
 
     .section {
         flex-direction: column;
         gap: 12px;
-        padding-left: 4px;
-        padding-right: 4px;
     }
 
     .sectionLabel {
