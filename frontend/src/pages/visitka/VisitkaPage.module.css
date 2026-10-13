@@ -518,13 +518,15 @@
 @media (max-width: 640px) {
     .main,
     .footer {
-        padding-left: 24px;
-        padding-right: 24px;
+        padding-left: 32px;
+        padding-right: 32px;
     }
 
     .section {
         flex-direction: column;
         gap: 12px;
+        padding-left: 4px;
+        padding-right: 4px;
     }
 
     .sectionLabel {
