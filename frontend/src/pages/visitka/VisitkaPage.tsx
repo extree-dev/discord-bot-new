@@ -1,9 +1,36 @@
 import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { getSiteContent } from '../../entities/site-content/api';
 import type { SiteContent } from '../../entities/site-content/types';
+import { detectPlatform } from '../../shared/lib/platform';
+import type { Platform } from '../../shared/lib/platform';
 import { BrandMark } from '../../shared/ui/BrandMark';
-import { ActivityIcon, BanIcon, ShieldIcon, VoiceIcon } from '../../shared/ui/icons';
+import {
+    ActivityIcon,
+    BanIcon,
+    DiscordIcon,
+    FlagGbIcon,
+    FlagRuIcon,
+    GithubIcon,
+    GlobeIcon,
+    InstagramIcon,
+    ShieldIcon,
+    TelegramIcon,
+    TwitterIcon,
+    VoiceIcon,
+    YoutubeIcon,
+} from '../../shared/ui/icons';
 import styles from './VisitkaPage.module.css';
+
+const PLATFORM_ICON: Record<Platform, () => ReactElement> = {
+    discord: DiscordIcon,
+    telegram: TelegramIcon,
+    instagram: InstagramIcon,
+    twitter: TwitterIcon,
+    youtube: YoutubeIcon,
+    github: GithubIcon,
+    generic: GlobeIcon,
+};
 
 function TicketIcon() {
     return (
@@ -24,15 +51,18 @@ function TicketIcon() {
 const CONTACT_EMAIL = 'support@extree.tech';
 
 interface Language {
-    flag: string;
+    Flag: () => ReactElement;
     code: string;
     label: string;
 }
 
 // Пример — настоящий список языков владелец сайта пришлёт отдельно.
+// Флаги — свои SVG (FlagRuIcon/FlagGbIcon), не emoji: Unicode
+// regional-indicator эмодзи не рендерятся как флаги на Windows (показывают
+// буквы кода страны вместо картинки).
 const LANGUAGES: Language[] = [
-    { flag: '🇷🇺', code: 'RU', label: 'Russian' },
-    { flag: '🇬🇧', code: 'EN', label: 'English' },
+    { Flag: FlagRuIcon, code: 'RU', label: 'Russian' },
+    { Flag: FlagGbIcon, code: 'EN', label: 'English' },
 ];
 
 // Публичная страница продукта (extree.tech "/"). Структура и язык —
@@ -112,7 +142,7 @@ export function VisitkaPage() {
                                 {LANGUAGES.map(lang => (
                                     <span key={lang.code} className={styles.languagePill}>
                                         <span className={styles.languageFlag} aria-hidden="true">
-                                            {lang.flag}
+                                            <lang.Flag />
                                         </span>
                                         {lang.code}
                                     </span>
@@ -144,6 +174,27 @@ export function VisitkaPage() {
                     <a href="#about">About me</a>
                     <a href="#contact">Contact</a>
                 </div>
+                {content.links.length > 0 && (
+                    <div className={styles.footerSocial}>
+                        {content.links
+                            .filter(link => link.url)
+                            .map(link => {
+                                const Icon = PLATFORM_ICON[detectPlatform(link)];
+                                return (
+                                    <a
+                                        key={link.label}
+                                        className={styles.footerSocialIcon}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title={link.label}
+                                    >
+                                        <Icon />
+                                    </a>
+                                );
+                            })}
+                    </div>
+                )}
                 <span className={styles.footerCopy}>© {content.name}</span>
             </footer>
         </div>

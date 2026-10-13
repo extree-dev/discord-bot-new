@@ -39,25 +39,22 @@
     font-family: 'Google Sans Flex', Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Плавающая капсула-навигация — та же, что держит внимание на всю
-   прокрутку у референса, вместо прежней полноширинной статичной шапки. */
-/* Радиус и полупрозрачный "frosted" фон — как у нав-пилюли референса
-   (rgba(255,255,255,0.4) + лёгкий blur), а не сплошной непрозрачный белый. */
+/* Капсула-навигация по ширине контента (не растянута на всю доступную
+   ширину) и в обычном потоке страницы — прокручивается вместе со
+   страницей, а не прилипает к верху. Сильный "frosted glass": заметная
+   прозрачность + блюр + лёгкая обводка-блик, а не почти непрозрачный фон. */
 .nav {
-    position: sticky;
-    top: 16px;
+    position: relative;
     z-index: 20;
-    width: calc(100% - 32px);
-    max-width: 600px;
+    width: fit-content;
     margin: 16px 0 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
     padding: 8px;
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 28px;
     box-shadow: var(--shadow-md);
 }
@@ -347,8 +344,18 @@
 }
 
 .languageFlag {
-    font-size: 18px;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    width: 20px;
+    height: 14px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex: none;
+}
+
+.languageFlag svg {
+    width: 100%;
+    height: 100%;
 }
 
 /* Контакты — одна простая карточка с почтой, без декоративного
@@ -395,7 +402,7 @@
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: 720px;
+    max-width: 1320px;
     margin-top: 48px;
     padding: 28px 20px 40px;
     display: flex;
@@ -443,6 +450,38 @@
 
 .footerLinks a:hover {
     color: var(--text);
+}
+
+/* Соц-иконки в футере — реальные ссылки (content.links), платформа
+   иконки определяется по домену/подписи (shared/lib/platform). */
+.footerSocial {
+    display: flex;
+    gap: 8px;
+}
+
+.footerSocialIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.footerSocialIcon svg {
+    width: 15px;
+    height: 15px;
+}
+
+.footerSocialIcon:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
 }
 
 .footerCopy {
