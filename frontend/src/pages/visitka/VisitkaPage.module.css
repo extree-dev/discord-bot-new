@@ -266,7 +266,6 @@
 
 .bio {
     margin: 0;
-    max-width: 560px;
     font-size: 15px;
     line-height: 1.6;
     color: var(--text-dim);
@@ -360,7 +359,11 @@
 
 /* Контакты — одна простая карточка с почтой, без декоративного
    градиентного баннера (на референсе таких декоративных CTA-баннеров
-   с "продающим" текстом у контактов нет). */
+   с "продающим" текстом у контактов нет). Фон — var(--surface) (белый),
+   а не var(--bg): var(--bg) совпадает с фоном самой страницы, из-за
+   чего карточка сливалась с фоном и отступы вокруг текста выглядели
+   как будто их нет (особенно заметно на мобильной ширине, где карточка
+   растягивается на всю секцию). */
 .contactSide {
     display: flex;
     flex-direction: column;
@@ -370,7 +373,9 @@
     max-width: 100%;
     padding: 24px;
     border-radius: 20px;
-    background: var(--bg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
 }
 
 .contactSideLabel {
