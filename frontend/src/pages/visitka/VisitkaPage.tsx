@@ -92,6 +92,10 @@ export function VisitkaPage() {
         return <div className={styles.page} />;
     }
 
+    // В футере — только настоящие соцсети, не сам сайт бота (у него для
+    // этого своя ссылка в navLinks/footerLinks, а не иконка среди соцсетей).
+    const socialLinks = content.links.filter(link => link.url && detectPlatform(link) !== 'generic');
+
     return (
         <div className={styles.page}>
             <nav className={styles.nav}>
@@ -174,25 +178,23 @@ export function VisitkaPage() {
                     <a href="#about">About me</a>
                     <a href="#contact">Contact</a>
                 </div>
-                {content.links.length > 0 && (
+                {socialLinks.length > 0 && (
                     <div className={styles.footerSocial}>
-                        {content.links
-                            .filter(link => link.url)
-                            .map(link => {
-                                const Icon = PLATFORM_ICON[detectPlatform(link)];
-                                return (
-                                    <a
-                                        key={link.label}
-                                        className={styles.footerSocialIcon}
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title={link.label}
-                                    >
-                                        <Icon />
-                                    </a>
-                                );
-                            })}
+                        {socialLinks.map(link => {
+                            const Icon = PLATFORM_ICON[detectPlatform(link)];
+                            return (
+                                <a
+                                    key={link.label}
+                                    className={styles.footerSocialIcon}
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={link.label}
+                                >
+                                    <Icon />
+                                </a>
+                            );
+                        })}
                     </div>
                 )}
                 <span className={styles.footerCopy}>© {content.name}</span>
