@@ -363,6 +363,11 @@
     overflow: hidden;
 }
 
+.singleClient {
+    display: flex;
+    align-items: center;
+}
+
 .marqueeTrack {
     display: flex;
     width: max-content;
