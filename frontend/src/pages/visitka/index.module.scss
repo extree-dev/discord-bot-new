@@ -210,6 +210,14 @@
     font-family: 'Benne', serif;
     font-size: 24px;
     white-space: nowrap;
+    transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Пока видна плашка-уведомление (40px) сверху — сдвигаем панель
+   ниже неё, иначе fixed-позиционирование накладывает их друг на
+   друга в самом верху страницы, до первого скролла. */
+.navPillPushed {
+    top: 72px;
 }
 
 .navPill a {

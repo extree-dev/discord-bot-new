@@ -73,9 +73,17 @@ function Mark() {
     );
 }
 
-function Navigation() {
+interface NavigationProps {
+    /** Пока видна плашка-уведомление сверху, панель должна сидеть
+       ниже неё, иначе fixed-позиционирование накладывает их друг на
+       друга в самом верху страницы. */
+    pushDown?: boolean;
+}
+
+function Navigation({ pushDown }: NavigationProps) {
+    const navClass = pushDown ? `${styles.navPill} ${styles.navPillPushed}` : styles.navPill;
     return (
-        <div className={styles.navPill}>
+        <div className={navClass}>
             <a href="#top" aria-label="В начало">
                 <Mark />
             </a>
@@ -188,7 +196,7 @@ export function VisitkaPage() {
             </section>
 
             <div className={styles.desktopNav}>
-                <Navigation />
+                <Navigation pushDown={noticeOpen} />
             </div>
 
             <section className={styles.about} id="about">
