@@ -27,11 +27,21 @@ export function HeroBanner() {
                 extree
             </span>
             <div className={styles.icons} aria-hidden="true">
-                <span className={`${styles.icon} ${styles.iconA}`}><ShieldIcon /></span>
-                <span className={`${styles.icon} ${styles.iconB}`}><VoiceIcon /></span>
-                <span className={`${styles.icon} ${styles.iconC}`}><TicketIcon /></span>
-                <span className={`${styles.icon} ${styles.iconD}`}><ActivityIcon /></span>
-                <span className={`${styles.icon} ${styles.iconE}`}><BanIcon /></span>
+                <span className={`${styles.icon} ${styles.iconA}`}>
+                    <ShieldIcon />
+                </span>
+                <span className={`${styles.icon} ${styles.iconB}`}>
+                    <VoiceIcon />
+                </span>
+                <span className={`${styles.icon} ${styles.iconC}`}>
+                    <TicketIcon />
+                </span>
+                <span className={`${styles.icon} ${styles.iconD}`}>
+                    <ActivityIcon />
+                </span>
+                <span className={`${styles.icon} ${styles.iconE}`}>
+                    <BanIcon />
+                </span>
             </div>
         </section>
     );

@@ -103,15 +103,36 @@
     height: 20px;
 }
 
-.iconA { top: 16%; left: 10%; }
-.iconB { top: 68%; left: 16%; }
-.iconC { top: 20%; left: 82%; }
-.iconD { top: 70%; left: 78%; }
-.iconE { top: 44%; left: 4%; }
+.iconA {
+    top: 16%;
+    left: 10%;
+}
+.iconB {
+    top: 68%;
+    left: 16%;
+}
+.iconC {
+    top: 20%;
+    left: 82%;
+}
+.iconD {
+    top: 70%;
+    left: 78%;
+}
+.iconE {
+    top: 44%;
+    left: 4%;
+}
 
 @media (max-width: 640px) {
-    .hero { height: 160px; }
-    .wordmark { font-size: 52px; }
+    .hero {
+        height: 160px;
+    }
+    .wordmark {
+        font-size: 52px;
+    }
     .iconD,
-    .iconE { display: none; }
+    .iconE {
+        display: none;
+    }
 }
