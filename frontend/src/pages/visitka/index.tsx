@@ -172,9 +172,13 @@ function Mark() {
     );
 }
 
-function Navigation() {
+interface NavigationProps {
+    className?: string;
+}
+
+function Navigation({ className }: NavigationProps) {
     return (
-        <div className={styles.navPill}>
+        <div className={className ? `${styles.navPill} ${className}` : styles.navPill}>
             <a href="#top" aria-label="В начало">
                 <Mark />
             </a>
@@ -429,150 +433,160 @@ export function VisitkaPage() {
                 <h1>extree.tech</h1>
             </section>
 
-            <div className={styles.desktopNav}>
-                <Navigation />
-            </div>
+            {/* .pageBody — контейнер для sticky-позиционирования desktop-навигации:
+               position: sticky «прилипает» в пределах ближайшего родительского
+               блока, а не всей страницы, поэтому непосредственный родитель
+               панели должен быть высотой во весь остаток страницы (а не
+               короткая 110px-строка, как раньше — см. комментарий у .navPillDesktop). */}
+            <div className={styles.pageBody}>
+                <Navigation className={styles.navPillDesktop} />
 
-            <section
-                ref={aboutReveal.ref}
-                className={`${styles.about} ${aboutReveal.visible ? styles.revealed : ''}`}
-                id="about"
-            >
-                <h2 className={styles.sectionLabel}>about me</h2>
-                <div className={styles.aboutCopy}>
-                    <div className={styles.aboutHeader}>
-                        <h1 className={styles.aboutName}>{content.name}</h1>
-                        {content.role && <span className={styles.aboutRole}>{content.role}</span>}
-                    </div>
-                    {content.bio && <p>{content.bio}</p>}
-                </div>
-                {LANGUAGES.length > 0 && (
-                    <div className={styles.languages}>
-                        <span>talk to me in</span>
-                        <div className={styles.languagesRow}>
-                            {LANGUAGES.map(lang => (
-                                <span key={lang.code} className={styles.languageBox}>
-                                    {lang.code}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </section>
-
-            {clients.length > 0 && (
                 <section
-                    ref={clientsReveal.ref}
-                    className={`${styles.clients} ${clientsReveal.visible ? styles.revealed : ''}`}
-                    id="clients"
+                    ref={aboutReveal.ref}
+                    className={`${styles.about} ${aboutReveal.visible ? styles.revealed : ''}`}
+                    id="about"
                 >
-                    <h2 className={styles.sectionLabel}>clients</h2>
-                    <ClientsMarquee clients={clients} />
+                    <h2 className={styles.sectionLabel}>about me</h2>
+                    <div className={styles.aboutCopy}>
+                        <div className={styles.aboutHeader}>
+                            <h1 className={styles.aboutName}>{content.name}</h1>
+                            {content.role && <span className={styles.aboutRole}>{content.role}</span>}
+                        </div>
+                        {content.bio && <p>{content.bio}</p>}
+                    </div>
+                    {LANGUAGES.length > 0 && (
+                        <div className={styles.languages}>
+                            <span>talk to me in</span>
+                            <div className={styles.languagesRow}>
+                                {LANGUAGES.map(lang => (
+                                    <span key={lang.code} className={styles.languageBox}>
+                                        {lang.code}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </section>
-            )}
 
-            {workItems.length > 0 && (
-                <section className={styles.work} id="work">
-                    <div className={styles.workSpine} aria-hidden="true" />
-                    <h2 className={styles.workTitle}>work</h2>
-                    {workTags.length > 1 && (
-                        <div className={styles.workFilters}>
-                            {workTags.map(tag => (
-                                <span key={tag}>{tag}</span>
+                {clients.length > 0 && (
+                    <section
+                        ref={clientsReveal.ref}
+                        className={`${styles.clients} ${clientsReveal.visible ? styles.revealed : ''}`}
+                        id="clients"
+                    >
+                        <h2 className={styles.sectionLabel}>clients</h2>
+                        <ClientsMarquee clients={clients} />
+                    </section>
+                )}
+
+                {workItems.length > 0 && (
+                    <section className={styles.work} id="work">
+                        <div className={styles.workSpine} aria-hidden="true" />
+                        <h2 className={styles.workTitle}>work</h2>
+                        {workTags.length > 1 && (
+                            <div className={styles.workFilters}>
+                                {workTags.map(tag => (
+                                    <span key={tag}>{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                        <div className={styles.projects}>
+                            {workItems.map((item, index) => (
+                                <article className={styles.projectCard} key={item.key}>
+                                    {item.tags.length > 0 && (
+                                        <div className={styles.tags}>
+                                            {item.tags.map(tag => (
+                                                <span key={tag}>{tag}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <h3 className={styles.projectTitle}>{item.title}</h3>
+                                    <p className={styles.projectCopy}>{item.copy}</p>
+                                    {item.nda && (
+                                        <span className={styles.projectBlocked}>Non-disclosure agreement-bound</span>
+                                    )}
+                                    {item.upcoming && <span className={styles.projectBlocked}>To be published</span>}
+                                    {!item.nda && !item.upcoming && item.url && (
+                                        <a
+                                            className={styles.projectLink}
+                                            href={item.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            <span>Смотреть проект</span>
+                                            <ArrowUpRightIcon />
+                                        </a>
+                                    )}
+                                    <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
+                                </article>
                             ))}
                         </div>
-                    )}
-                    <div className={styles.projects}>
-                        {workItems.map((item, index) => (
-                            <article className={styles.projectCard} key={item.key}>
-                                {item.tags.length > 0 && (
-                                    <div className={styles.tags}>
-                                        {item.tags.map(tag => (
-                                            <span key={tag}>{tag}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                <h3 className={styles.projectTitle}>{item.title}</h3>
-                                <p className={styles.projectCopy}>{item.copy}</p>
-                                {item.nda && (
-                                    <span className={styles.projectBlocked}>Non-disclosure agreement-bound</span>
-                                )}
-                                {item.upcoming && <span className={styles.projectBlocked}>To be published</span>}
-                                {!item.nda && !item.upcoming && item.url && (
-                                    <a className={styles.projectLink} href={item.url} target="_blank" rel="noreferrer">
-                                        <span>Смотреть проект</span>
-                                        <ArrowUpRightIcon />
-                                    </a>
-                                )}
-                                <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
-                            </article>
-                        ))}
+                    </section>
+                )}
+
+                <section
+                    ref={contactReveal.ref}
+                    className={`${styles.contact} ${contactReveal.visible ? styles.revealed : ''}`}
+                    id="contact"
+                >
+                    <h2 className={styles.sectionLabel}>contact</h2>
+                    <div className={styles.contactCard}>
+                        <p>Есть проект или просто хорошая идея?</p>
+                        <a className={styles.contactLink} href={`mailto:${CONTACT_EMAIL}`}>
+                            {CONTACT_EMAIL}
+                        </a>
                     </div>
                 </section>
-            )}
 
-            <section
-                ref={contactReveal.ref}
-                className={`${styles.contact} ${contactReveal.visible ? styles.revealed : ''}`}
-                id="contact"
-            >
-                <h2 className={styles.sectionLabel}>contact</h2>
-                <div className={styles.contactCard}>
-                    <p>Есть проект или просто хорошая идея?</p>
-                    <a className={styles.contactLink} href={`mailto:${CONTACT_EMAIL}`}>
-                        {CONTACT_EMAIL}
-                    </a>
-                </div>
-            </section>
+                <footer
+                    ref={footerReveal.ref}
+                    className={`${styles.siteFooter} ${footerReveal.visible ? styles.revealed : ''}`}
+                >
+                    <div className={styles.footerRow}>
+                        <div className={styles.footerBrand}>
+                            <Mark />
+                            <span className={styles.footerBrandName}>extree.tech</span>
+                        </div>
 
-            <footer
-                ref={footerReveal.ref}
-                className={`${styles.siteFooter} ${footerReveal.visible ? styles.revealed : ''}`}
-            >
-                <div className={styles.footerRow}>
-                    <div className={styles.footerBrand}>
-                        <Mark />
-                        <span className={styles.footerBrandName}>extree.tech</span>
+                        <nav className={styles.footerNav} aria-label="Карта сайта">
+                            <a href="#about">about me</a>
+                            <a href="#clients">clients</a>
+                            <a href="#work">work</a>
+                            <a href="#contact">contact</a>
+                        </nav>
+
+                        {socialLinks.length > 0 && (
+                            <div className={styles.footerSocial}>
+                                {socialLinks.map(link => {
+                                    const platform = detectPlatform(link);
+                                    const Icon = PLATFORM_ICON[platform];
+                                    const colorClass = PLATFORM_ICON_CLASS[platform];
+                                    const className = colorClass
+                                        ? `${styles.footerSocialIcon} ${styles[colorClass]}`
+                                        : styles.footerSocialIcon;
+                                    return (
+                                        <a
+                                            key={link.url}
+                                            className={className}
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title={link.label}
+                                        >
+                                            <Icon />
+                                        </a>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
-                    <nav className={styles.footerNav} aria-label="Карта сайта">
-                        <a href="#about">about me</a>
-                        <a href="#clients">clients</a>
-                        <a href="#work">work</a>
-                        <a href="#contact">contact</a>
-                    </nav>
-
-                    {socialLinks.length > 0 && (
-                        <div className={styles.footerSocial}>
-                            {socialLinks.map(link => {
-                                const platform = detectPlatform(link);
-                                const Icon = PLATFORM_ICON[platform];
-                                const colorClass = PLATFORM_ICON_CLASS[platform];
-                                const className = colorClass
-                                    ? `${styles.footerSocialIcon} ${styles[colorClass]}`
-                                    : styles.footerSocialIcon;
-                                return (
-                                    <a
-                                        key={link.url}
-                                        className={className}
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title={link.label}
-                                    >
-                                        <Icon />
-                                    </a>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                <div className={styles.footerBar} aria-hidden="true" />
-                <a className={styles.footerCta} href="#top">
-                    extree.tech
-                </a>
-            </footer>
+                    <div className={styles.footerBar} aria-hidden="true" />
+                    <a className={styles.footerCta} href="#top">
+                        extree.tech
+                    </a>
+                </footer>
+            </div>
         </div>
     );
 }

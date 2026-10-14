@@ -244,13 +244,15 @@
     bottom: 13%;
 }
 
-.desktopNav {
+// Обёртка для всего, что идёт после hero (desktop-навигация + все секции) —
+// именно она, а не короткая строка нава сама по себе, служит containing
+// block для .navPillDesktop (position: sticky): элемент может "прилипать"
+// только в пределах высоты своего непосредственного родителя, а .pageBody
+// высотой во весь остаток страницы, так что панель остаётся прилипшей
+// до самого низа (в отличие от прежней короткой 110px-строки — см.
+// комментарий у .navPillDesktop и историю в PR #248).
+.pageBody {
     position: relative;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    height: 110px;
-    justify-content: center;
 }
 
 .navPill {
@@ -275,14 +277,19 @@
     white-space: nowrap;
 }
 
-/* На десктопе панель — обычный элемент потока, сразу под hero
-   (.desktopNav центрирует её flex'ом), а не fixed/sticky: на
-   frdg.work (референс) она и видна только под картинкой, и при
-   скролле просто уезжает вместе со страницей, не прилипая к верху
-   — пользователь явно описал именно такое поведение. На мобильной
-   раскладке (.mobileNav, перед hero) панель остаётся fixed. */
-.desktopNav .navPill {
-    position: static;
+/* На десктопе панель — sticky: на frdg.work (референс) она стартует
+   обычным элементом потока сразу под hero, а когда верхняя граница
+   страницы при скролле доходит до неё — "прилипает" к верху и дальше
+   едет вместе со страницей (сама остаётся на месте, контент уходит
+   под неё). margin: 0 auto вместо left:50%+transform — тот трюк
+   работает только для fixed/absolute, а sticky до "прилипания" ведёт
+   себя как обычный блочный элемент потока. На мобильной раскладке
+   (.mobileNav, перед hero) панель остаётся fixed — не трогаем. */
+.navPillDesktop {
+    position: sticky;
+    top: 16px;
+    z-index: 20;
+    margin: 56px auto 0;
 }
 
 .navPill a {
@@ -856,7 +863,7 @@
 
 @media (max-width: 799px) {
     .notice,
-    .desktopNav {
+    .navPillDesktop {
         display: none;
     }
 
@@ -873,8 +880,8 @@
     //
     // На мобильной раскладке панель — единственная, что всегда рендерится
     // перед hero (.mobileNav), поэтому для неё position: fixed задаётся
-    // здесь явно (на десктопе .desktopNav .navPill переопределяет это
-    // обратно в static — см. базовое правило .navPill).
+    // здесь явно (на десктопе .navPillDesktop переопределяет это в
+    // sticky — см. правило .navPillDesktop выше).
     .navPill {
         position: fixed;
         top: 16px;
