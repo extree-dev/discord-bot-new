@@ -225,20 +225,36 @@ export function VisitkaPage() {
             {clients.length > 0 && (
                 <section className={styles.clients} id="clients">
                     <h2 className={styles.sectionLabel}>clients</h2>
-                    <div className={styles.marquee}>
-                        <div className={styles.marqueeTrack}>
-                            {[...clients, ...clients].map((client, index) => (
-                                <img
-                                    key={`${client.name}-${index}`}
-                                    className={styles.marqueeLogo}
-                                    src={client.logoUrl}
-                                    alt={client.name}
-                                    title={client.name}
-                                    loading="lazy"
-                                />
-                            ))}
+                    {clients.length === 1 ? (
+                        // Бегущая строка дублирует список ([...clients, ...clients])
+                        // и анимацией сдвигает дорожку на -50%, чтобы зацикливание было
+                        // бесшовным — с единственным клиентом это даёт тот же логотип
+                        // дважды подряд, что выглядит как "двоится". При одном клиенте
+                        // просто показываем его статично, без дублирования и анимации.
+                        <div className={styles.singleClient}>
+                            <img
+                                className={styles.marqueeLogo}
+                                src={clients[0].logoUrl}
+                                alt={clients[0].name}
+                                title={clients[0].name}
+                            />
                         </div>
-                    </div>
+                    ) : (
+                        <div className={styles.marquee}>
+                            <div className={styles.marqueeTrack}>
+                                {[...clients, ...clients].map((client, index) => (
+                                    <img
+                                        key={`${client.name}-${index}`}
+                                        className={styles.marqueeLogo}
+                                        src={client.logoUrl}
+                                        alt={client.name}
+                                        title={client.name}
+                                        loading="lazy"
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </section>
             )}
 
