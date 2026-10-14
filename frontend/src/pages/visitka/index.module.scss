@@ -141,14 +141,33 @@
     line-height: 1;
 }
 
+// Раньше hero был отдельной плавающей карточкой со своим скруглением и
+// отступом от .pageBody снизу. На референсе (frdg.work, по присланному
+// DOM-снапшоту) hero — верх ОДНОЙ сквозной рамки: левая/правая граница
+// (rgba(0,0,0,.1) 1px) и закруглённый низ (30px) идут от hero и до конца
+// .contact без разрывов/теней между секциями — см. .contentFrame ниже.
+// Поэтому у hero больше нет своего radius/margin — это даёт .contentFrame.
 .heroCard {
     position: relative;
     height: 700px;
-    margin: 24px 30px;
     overflow: hidden;
-    border-radius: 34px;
     color: white;
     background: var(--blue);
+}
+
+// Сквозная рамка hero+about+clients+work+contact (см. комментарий у
+// .heroCard) — единственный источник внешних отступов (30px по бокам),
+// левой/правой границы и скругления нижних углов для всего этого блока;
+// секции внутри — .about/.clients/.contact — больше не рисуют свою рамку/
+// фон/тень, только внутренние паддинги.
+.contentFrame {
+    position: relative;
+    margin: 0 30px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    border-radius: 0 0 30px 30px;
+    background: #fff;
 }
 
 // Атласная текстура hero (вместо плоского CSS-градиента) — перенесена
@@ -183,9 +202,9 @@
     color: #f8f8f9;
     font-family: 'Unbounded', sans-serif;
     font-size: clamp(64px, 8vw, 112px);
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1;
-    letter-spacing: -0.055em;
+    letter-spacing: 0;
     transform: translate(-50%, -50%);
     white-space: nowrap;
 }
@@ -366,12 +385,7 @@
     grid-template-columns: 190px minmax(500px, 760px) 1fr;
     min-height: 710px;
     align-items: center;
-    margin: 0 30px 24px;
     padding: 50px 7vw 100px;
-    border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
 }
 
 .sectionLabel {
@@ -481,12 +495,8 @@
     min-height: 280px;
     align-items: center;
     overflow: hidden;
-    margin: 0 30px 24px;
     padding: 30px 7vw;
-    border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
+    border-top: 1px solid var(--line);
 }
 
 .marquee {
@@ -577,6 +587,7 @@
 .work {
     position: relative;
     padding: 100px 7vw 180px;
+    border-top: 1px solid var(--line);
 }
 
 .workSpine {
@@ -731,12 +742,8 @@
     display: grid;
     grid-template-columns: 190px 1fr;
     align-items: center;
-    margin: 0 30px 24px;
-    padding: 60px 7vw;
-    border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
+    padding: 60px 7vw 120px;
+    border-top: 1px solid var(--line);
 }
 
 .contactCard {
@@ -930,10 +937,13 @@
         border-width: 3px;
     }
 
+    .contentFrame {
+        margin: 10px 16px;
+        border-radius: 0 0 20px 20px;
+    }
+
     .heroCard {
         height: 440px;
-        margin: 10px 16px 20px;
-        border-radius: 20px;
     }
 
     .heroCard h1 {
@@ -950,9 +960,7 @@
         grid-template-columns: 48px 1fr;
         min-height: 0;
         align-items: start;
-        margin: 0 16px 16px;
         padding: 30px 12px 50px;
-        border-radius: 20px;
     }
 
     .sectionLabel,
@@ -974,9 +982,7 @@
     .clients {
         grid-template-columns: 48px 1fr;
         min-height: 150px;
-        margin: 0 16px 16px;
         padding: 20px 12px;
-        border-radius: 20px;
     }
 
     .marqueeTrack,
@@ -996,10 +1002,7 @@
     }
 
     .work {
-        margin: 0 16px;
         padding: 70px 8px 90px;
-        border-right: 1px solid var(--line);
-        border-left: 1px solid var(--line);
     }
 
     .workTitle {
@@ -1041,9 +1044,7 @@
 
     .contact {
         grid-template-columns: 48px 1fr;
-        margin: 0 16px 16px;
-        padding: 40px 12px;
-        border-radius: 20px;
+        padding: 40px 12px 70px;
     }
 
     .contactLink {
