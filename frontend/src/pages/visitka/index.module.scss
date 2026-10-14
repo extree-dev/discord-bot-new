@@ -38,6 +38,57 @@
     text-decoration: none;
 }
 
+/* Курсор — только там, где есть мышь (pointer: fine): на тач-устройствах
+   свайпы не наводятся, кастомный курсор там просто не отрисуется. */
+@media (pointer: fine) {
+    .page {
+        cursor:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M3 2 L21 12 L12 14 L8 21 Z' fill='%231768ef'/></svg>")
+                3 2,
+            auto;
+    }
+
+    /* Без этого ссылки/кнопки откатывались бы на системный pointer-курсор. */
+    .page a,
+    .page button {
+        cursor: inherit;
+    }
+}
+
+.scrollProgress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 30;
+    width: 100%;
+    height: 3px;
+    background: var(--blue);
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    will-change: transform;
+}
+
+/* Скрыто до пересечения вьюпорта (useReveal) — без этого секции (особенно
+   .clients) резко выскакивают при скролле, см. запрос пользователя. */
+.about,
+.clients,
+.contact,
+.siteFooter {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+}
+
+.about.revealed,
+.clients.revealed,
+.contact.revealed,
+.siteFooter.revealed {
+    opacity: 1;
+    transform: none;
+}
+
 .skeleton {
     width: 100%;
     max-width: 1320px;
@@ -154,6 +205,7 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.7;
+    transition: transform 0.3s ease;
 }
 
 .heroIcon1 {
@@ -225,7 +277,7 @@
     padding: 0 30px;
     transform: translateX(-50%);
     border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 999px;
+    border-radius: 20px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
     box-shadow:
         0 8px 28px rgba(15, 23, 42, 0.14),
@@ -248,10 +300,43 @@
 
 .navPill a {
     transition: opacity 200ms ease;
+    animation: navLinkIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.navPill a:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.navPill a:nth-child(2) {
+    animation-delay: 0.06s;
+}
+
+.navPill a:nth-child(3) {
+    animation-delay: 0.12s;
+}
+
+.navPill a:nth-child(4) {
+    animation-delay: 0.18s;
+}
+
+.navPill a:nth-child(5) {
+    animation-delay: 0.24s;
 }
 
 .navPill a:hover {
     opacity: 0.5;
+}
+
+@keyframes navLinkIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .mark {
@@ -665,17 +750,21 @@
 // референс-скриншотам фактического сайта — в extree-dev/testing-site
 // такого футера нет, там только имя + копирайт в одну строку).
 .siteFooter {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 28px;
     padding: 56px 7vw 60px;
     border-top: 1px solid var(--line);
-    text-align: center;
+}
+
+// Десктоп — один ряд (бренд + навигация слева, иконки справа), мобильная
+// версия ниже (@media max-width: 799px) перестраивает его в столбик.
+.footerRow {
+    display: flex;
+    align-items: center;
+    gap: 40px;
 }
 
 .footerBrand {
     display: flex;
+    flex: none;
     align-items: center;
     gap: 12px;
 }
@@ -690,12 +779,12 @@
 
 .footerNav {
     display: flex;
-    flex-direction: column;
-    gap: 18px;
+    align-items: center;
+    gap: 28px;
 }
 
 .footerNav a {
-    font-size: 17px;
+    font-size: 15px;
     color: rgba(37, 43, 58, 0.55);
     transition: color 0.2s ease;
 }
@@ -706,7 +795,9 @@
 
 .footerSocial {
     display: flex;
+    flex: none;
     gap: 10px;
+    margin-left: auto;
 }
 
 .footerSocialIcon {
@@ -758,15 +849,16 @@
 
 .footerBar {
     width: 100%;
-    max-width: 560px;
     height: 4px;
-    margin-top: 4px;
+    margin-top: 32px;
     border-radius: 999px;
     background: var(--blue);
 }
 
 .footerCta {
-    display: inline-flex;
+    display: flex;
+    width: fit-content;
+    margin: 24px auto 0;
     padding: 14px 30px;
     border-radius: 999px;
     background: var(--ink);
@@ -800,7 +892,7 @@
         gap: 14px;
         padding: 0 16px;
         transform: translateX(-50%);
-        border-radius: 999px;
+        border-radius: 20px;
         font-size: 13px;
     }
 
@@ -937,16 +1029,26 @@
     }
 
     .siteFooter {
-        gap: 22px;
         padding: 40px 16px 44px;
+        text-align: center;
+    }
+
+    .footerRow {
+        flex-direction: column;
+        gap: 22px;
     }
 
     .footerNav {
+        flex-direction: column;
         gap: 14px;
     }
 
     .footerNav a {
         font-size: 15px;
+    }
+
+    .footerSocial {
+        margin-left: 0;
     }
 
     .mark {
@@ -962,5 +1064,22 @@
 
     .skeleton {
         animation: none;
+    }
+
+    .navPill a {
+        animation: none;
+    }
+
+    .heroIcon {
+        transition: none;
+    }
+
+    .about,
+    .clients,
+    .contact,
+    .siteFooter {
+        opacity: 1;
+        transform: none;
+        transition: none;
     }
 }
