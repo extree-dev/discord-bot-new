@@ -28,11 +28,7 @@ export function ToolsSection({ items }: ToolsSectionProps) {
                             )}
                         </header>
                         <p className={styles.description}>{tool.description}</p>
-                        <CardAction
-                            url={tool.url}
-                            nda={tool.nda}
-                            upcoming={tool.upcoming}
-                        />
+                        <CardAction url={tool.url} nda={tool.nda} upcoming={tool.upcoming} />
                     </Card>
                 ))}
             </div>

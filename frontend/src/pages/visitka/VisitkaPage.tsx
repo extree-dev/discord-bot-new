@@ -49,12 +49,7 @@ export function VisitkaPage() {
                 {/* Панель 1: hero + about, белая. */}
                 <div className={styles.panel}>
                     <HeroBanner />
-                    <AboutSection
-                        name={content.name}
-                        role={content.role}
-                        bio={content.bio}
-                        flush
-                    />
+                    <AboutSection name={content.name} role={content.role} bio={content.bio} flush />
                 </div>
 
                 {/* Панель 2: clients — тонкая, на фоне. */}

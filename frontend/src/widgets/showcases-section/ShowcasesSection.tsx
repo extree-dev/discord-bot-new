@@ -30,11 +30,7 @@ export function ShowcasesSection({ id, label, items }: ShowcasesSectionProps) {
                             )}
                         </header>
                         <p className={styles.description}>{item.description}</p>
-                        <CardAction
-                            url={item.url}
-                            nda={item.nda}
-                            upcoming={item.upcoming}
-                        />
+                        <CardAction url={item.url} nda={item.nda} upcoming={item.upcoming} />
                     </Card>
                 ))}
             </div>

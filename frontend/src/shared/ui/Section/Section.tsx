@@ -14,10 +14,7 @@ interface SectionProps {
 // секциями-списками (tools, clients, communities).
 export function Section({ id, label, flush, children }: SectionProps) {
     return (
-        <section
-            id={id}
-            className={flush ? `${styles.section} ${styles.flush}` : styles.section}
-        >
+        <section id={id} className={flush ? `${styles.section} ${styles.flush}` : styles.section}>
             <span className={styles.label}>{label}</span>
             <div className={styles.body}>{children}</div>
         </section>
