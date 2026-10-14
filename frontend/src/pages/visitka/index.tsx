@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Client } from '../../entities/site-content/types';
 import {
     selectClients,
@@ -69,11 +69,98 @@ const heroIconPaths = [
     <path key="10" d="M3 6h8v8H3zM13 6h8v8h-8M3 17h18" />,
 ];
 
-function HeroIcon({ index }: { index: number }) {
+interface IconOffset {
+    x: number;
+    y: number;
+}
+
+const ZERO_OFFSET: IconOffset = { x: 0, y: 0 };
+
+interface HeroIconProps {
+    index: number;
+    offset: IconOffset;
+    onPointerEnter: () => void;
+    onPointerLeave: () => void;
+}
+
+// forwardRef — родитель (HeroIconsLayer) меряет расстояния между иконками
+// через getBoundingClientRect(), а не хранит координаты отдельно в JS:
+// позиции и так заданы в CSS (top/left в процентах), дублировать их
+// в коде — источник рассинхрона при любой правке вёрстки.
+const HeroIcon = forwardRef<SVGSVGElement, HeroIconProps>(function HeroIcon(
+    { index, offset, onPointerEnter, onPointerLeave },
+    ref
+) {
     return (
-        <svg className={`${styles.heroIcon} ${styles[`heroIcon${index + 1}`]}`} viewBox="0 0 24 24" aria-hidden="true">
+        <svg
+            ref={ref}
+            className={`${styles.heroIcon} ${styles[`heroIcon${index + 1}`]}`}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            style={offset.x || offset.y ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
+            onPointerEnter={onPointerEnter}
+            onPointerLeave={onPointerLeave}
+        >
             {heroIconPaths[index]}
         </svg>
+    );
+});
+
+// Лёгкий "магнитный" ховер по референс-скриншотам фактического сайта:
+// при наведении на иконку соседние чуть смещаются в её сторону (не от
+// неё) — реагируют только те, что физически рядом (дальше MAX_DIST —
+// без сдвига). Считаем через getBoundingClientRect() только по events
+// наведения (не на каждый mousemove) — дешевле и этого достаточно для
+// едва заметного эффекта.
+function HeroIconsLayer() {
+    const iconRefs = useRef<Array<SVGSVGElement | null>>([]);
+    const [offsets, setOffsets] = useState<IconOffset[]>(() => heroIconPaths.map(() => ZERO_OFFSET));
+
+    const handleEnter = useCallback((index: number) => {
+        const icons = iconRefs.current;
+        const hovered = icons[index];
+        if (!hovered) return;
+        const hoveredRect = hovered.getBoundingClientRect();
+        const hoveredCenter = {
+            x: hoveredRect.left + hoveredRect.width / 2,
+            y: hoveredRect.top + hoveredRect.height / 2,
+        };
+        const MAX_DIST = 220;
+        const MAX_SHIFT = 7;
+        setOffsets(
+            icons.map((el, i) => {
+                if (!el || i === index) return ZERO_OFFSET;
+                const rect = el.getBoundingClientRect();
+                const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                const dx = hoveredCenter.x - center.x;
+                const dy = hoveredCenter.y - center.y;
+                const dist = Math.hypot(dx, dy) || 1;
+                if (dist > MAX_DIST) return ZERO_OFFSET;
+                const strength = (1 - dist / MAX_DIST) * MAX_SHIFT;
+                return { x: (dx / dist) * strength, y: (dy / dist) * strength };
+            })
+        );
+    }, []);
+
+    const handleLeave = useCallback(() => {
+        setOffsets(heroIconPaths.map(() => ZERO_OFFSET));
+    }, []);
+
+    return (
+        <>
+            {heroIconPaths.map((_, index) => (
+                <HeroIcon
+                    index={index}
+                    key={index}
+                    ref={el => {
+                        iconRefs.current[index] = el;
+                    }}
+                    offset={offsets[index]}
+                    onPointerEnter={() => handleEnter(index)}
+                    onPointerLeave={handleLeave}
+                />
+            ))}
+        </>
     );
 }
 
@@ -119,6 +206,74 @@ interface WorkItem {
 
 function formatIndex(n: number): string {
     return n < 10 ? `0${n}` : `${n}`;
+}
+
+// Полоска прогресса прокрутки — ширина через transform: scaleX на ref,
+// а не через React state/setState на каждый scroll (дорого при частых
+// событиях); requestAnimationFrame схлопывает несколько scroll-событий
+// одного кадра в одно обновление стиля.
+function ScrollProgressBar() {
+    const barRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        let frame = 0;
+        function update() {
+            frame = 0;
+            const doc = document.documentElement;
+            const scrollable = doc.scrollHeight - doc.clientHeight;
+            const progress = scrollable > 0 ? doc.scrollTop / scrollable : 0;
+            if (barRef.current) barRef.current.style.transform = `scaleX(${progress})`;
+        }
+        function onScroll() {
+            if (!frame) frame = requestAnimationFrame(update);
+        }
+        update();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
+            if (frame) cancelAnimationFrame(frame);
+        };
+    }, []);
+
+    return <div className={styles.scrollProgress} ref={barRef} aria-hidden="true" />;
+}
+
+// Секции не должны "резко" появляться при первом скролле к ним — лёгкий
+// fade+slide через IntersectionObserver, один раз на секцию (отключаем
+// наблюдение сразу после первого пересечения — дальше не нужно).
+function useReveal<T extends HTMLElement>() {
+    const [visible, setVisible] = useState(false);
+    const observerRef = useRef<IntersectionObserver | null>(null);
+
+    // Колбэк-реф вместо useEffect(..., []) — пока content === null, страница
+    // рендерит скелетон без секций, и нужный DOM-узел появляется только
+    // на следующем рендере; эффект с пустым массивом зависимостей к тому
+    // моменту уже отработал бы на ref.current === null и больше не
+    // перезапустился бы. Колбэк-реф вызывается при каждом монтировании узла.
+    const ref = useCallback((el: T | null) => {
+        observerRef.current?.disconnect();
+        observerRef.current = null;
+        if (!el) return;
+        if (typeof IntersectionObserver === 'undefined') {
+            setVisible(true);
+            return;
+        }
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setVisible(true);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.15 }
+        );
+        observer.observe(el);
+        observerRef.current = observer;
+    }, []);
+
+    return { ref, visible };
 }
 
 // Бесшовная прокрутка строится дублированием ряда ([...clients, ...clients])
@@ -207,6 +362,13 @@ export function VisitkaPage() {
         };
     }, []);
 
+    // До раннего return (!content) — хуки должны вызываться в одном и том
+    // же порядке на каждый рендер, иначе React теряет их состояние.
+    const aboutReveal = useReveal<HTMLElement>();
+    const clientsReveal = useReveal<HTMLElement>();
+    const contactReveal = useReveal<HTMLElement>();
+    const footerReveal = useReveal<HTMLElement>();
+
     if (!content) {
         return (
             <div className={styles.page}>
@@ -252,6 +414,7 @@ export function VisitkaPage() {
 
     return (
         <div className={styles.page} id="top">
+            <ScrollProgressBar />
             {noticeOpen && (
                 <aside className={styles.notice}>
                     <span>
@@ -270,9 +433,7 @@ export function VisitkaPage() {
 
             <section className={styles.heroCard}>
                 <div className={styles.heroCardTexture} />
-                {heroIconPaths.map((_, index) => (
-                    <HeroIcon index={index} key={index} />
-                ))}
+                <HeroIconsLayer />
                 <h1>extree.tech</h1>
             </section>
 
@@ -280,7 +441,11 @@ export function VisitkaPage() {
                 <Navigation pushDown={noticeOpen} />
             </div>
 
-            <section className={styles.about} id="about">
+            <section
+                ref={aboutReveal.ref}
+                className={`${styles.about} ${aboutReveal.visible ? styles.revealed : ''}`}
+                id="about"
+            >
                 <h2 className={styles.sectionLabel}>about me</h2>
                 <div className={styles.aboutCopy}>
                     <div className={styles.aboutHeader}>
@@ -304,7 +469,11 @@ export function VisitkaPage() {
             </section>
 
             {clients.length > 0 && (
-                <section className={styles.clients} id="clients">
+                <section
+                    ref={clientsReveal.ref}
+                    className={`${styles.clients} ${clientsReveal.visible ? styles.revealed : ''}`}
+                    id="clients"
+                >
                     <h2 className={styles.sectionLabel}>clients</h2>
                     <ClientsMarquee clients={clients} />
                 </section>
@@ -350,7 +519,11 @@ export function VisitkaPage() {
                 </section>
             )}
 
-            <section className={styles.contact} id="contact">
+            <section
+                ref={contactReveal.ref}
+                className={`${styles.contact} ${contactReveal.visible ? styles.revealed : ''}`}
+                id="contact"
+            >
                 <h2 className={styles.sectionLabel}>contact</h2>
                 <div className={styles.contactCard}>
                     <p>Есть проект или просто хорошая идея?</p>
@@ -360,43 +533,48 @@ export function VisitkaPage() {
                 </div>
             </section>
 
-            <footer className={styles.siteFooter}>
-                <div className={styles.footerBrand}>
-                    <Mark />
-                    <span className={styles.footerBrandName}>extree.tech</span>
-                </div>
-
-                <nav className={styles.footerNav} aria-label="Карта сайта">
-                    <a href="#about">about me</a>
-                    <a href="#clients">clients</a>
-                    <a href="#work">work</a>
-                    <a href="#contact">contact</a>
-                </nav>
-
-                {socialLinks.length > 0 && (
-                    <div className={styles.footerSocial}>
-                        {socialLinks.map(link => {
-                            const platform = detectPlatform(link);
-                            const Icon = PLATFORM_ICON[platform];
-                            const colorClass = PLATFORM_ICON_CLASS[platform];
-                            const className = colorClass
-                                ? `${styles.footerSocialIcon} ${styles[colorClass]}`
-                                : styles.footerSocialIcon;
-                            return (
-                                <a
-                                    key={link.url}
-                                    className={className}
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    title={link.label}
-                                >
-                                    <Icon />
-                                </a>
-                            );
-                        })}
+            <footer
+                ref={footerReveal.ref}
+                className={`${styles.siteFooter} ${footerReveal.visible ? styles.revealed : ''}`}
+            >
+                <div className={styles.footerRow}>
+                    <div className={styles.footerBrand}>
+                        <Mark />
+                        <span className={styles.footerBrandName}>extree.tech</span>
                     </div>
-                )}
+
+                    <nav className={styles.footerNav} aria-label="Карта сайта">
+                        <a href="#about">about me</a>
+                        <a href="#clients">clients</a>
+                        <a href="#work">work</a>
+                        <a href="#contact">contact</a>
+                    </nav>
+
+                    {socialLinks.length > 0 && (
+                        <div className={styles.footerSocial}>
+                            {socialLinks.map(link => {
+                                const platform = detectPlatform(link);
+                                const Icon = PLATFORM_ICON[platform];
+                                const colorClass = PLATFORM_ICON_CLASS[platform];
+                                const className = colorClass
+                                    ? `${styles.footerSocialIcon} ${styles[colorClass]}`
+                                    : styles.footerSocialIcon;
+                                return (
+                                    <a
+                                        key={link.url}
+                                        className={className}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        title={link.label}
+                                    >
+                                        <Icon />
+                                    </a>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
 
                 <div className={styles.footerBar} aria-hidden="true" />
                 <a className={styles.footerCta} href="#top">
