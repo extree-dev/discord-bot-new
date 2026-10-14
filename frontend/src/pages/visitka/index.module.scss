@@ -141,15 +141,10 @@
     line-height: 1;
 }
 
-/* margin-top зарезервирован под плавающую (fixed) nav-панель + зазоры
-   по 16px с обеих сторон от неё (16 + высота панели 80px + 16 = 112px),
-   чтобы hero начинался чисто ниже панели, а не под ней — её margin-top
-   не завязан на видимость плашки-уведомления (см. .navPill/.navPillPushed
-   ниже): тот же отступ работает и когда плашка видна, и когда скрыта. */
 .heroCard {
     position: relative;
     height: 700px;
-    margin: 112px 30px 24px;
+    margin: 24px 30px;
     overflow: hidden;
     border-radius: 34px;
     color: white;
@@ -253,20 +248,12 @@
     position: relative;
     z-index: 10;
     display: flex;
+    align-items: center;
     height: 110px;
     justify-content: center;
 }
 
-/* fixed, а не sticky — обёртка (.desktopNav/.mobileNav) всего
-   110/80px высотой, и у sticky почти нет пространства "прилипнуть":
-   контейнер проскальзывает мимо почти сразу же, так что панель
-   выглядит как обычный, не закреплённый элемент. fixed не зависит
-   от высоты родителя — панель остаётся на месте на любой прокрутке. */
 .navPill {
-    position: fixed;
-    top: 16px;
-    left: 50%;
-    z-index: 20;
     display: flex;
     width: fit-content;
     max-width: calc(100% - 40px);
@@ -275,7 +262,6 @@
     justify-content: center;
     gap: 32px;
     padding: 0 30px;
-    transform: translateX(-50%);
     border: 1px solid rgba(255, 255, 255, 0.4);
     border-radius: 20px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
@@ -287,15 +273,16 @@
     font-family: 'Benne', serif;
     font-size: 18px;
     white-space: nowrap;
-    transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Пока видна плашка-уведомление (40px) сверху — сдвигаем панель
-   ниже неё с тем же 16px-зазором, что и у обычной top: 16px (от
-   верха страницы), иначе fixed-позиционирование накладывает их
-   друг на друга в самом верху страницы, до первого скролла. */
-.navPillPushed {
-    top: 56px;
+/* На десктопе панель — обычный элемент потока, сразу под hero
+   (.desktopNav центрирует её flex'ом), а не fixed/sticky: на
+   frdg.work (референс) она и видна только под картинкой, и при
+   скролле просто уезжает вместе со страницей, не прилипая к верху
+   — пользователь явно описал именно такое поведение. На мобильной
+   раскладке (.mobileNav, перед hero) панель остаётся fixed. */
+.desktopNav .navPill {
+    position: static;
 }
 
 .navPill a {
@@ -883,9 +870,17 @@
     // телефоне это выглядело как широкая плашка "по границе экрана",
     // а не компактная капсула. Вместо этого — тот же приём, что на
     // десктопе: ширина по контенту, по центру, с запасом по бокам.
+    //
+    // На мобильной раскладке панель — единственная, что всегда рендерится
+    // перед hero (.mobileNav), поэтому для неё position: fixed задаётся
+    // здесь явно (на десктопе .desktopNav .navPill переопределяет это
+    // обратно в static — см. базовое правило .navPill).
     .navPill {
+        position: fixed;
+        top: 16px;
         left: 50%;
         right: auto;
+        z-index: 20;
         width: fit-content;
         max-width: calc(100% - 32px);
         height: 48px;
