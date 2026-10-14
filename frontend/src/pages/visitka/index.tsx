@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { Client } from '../../entities/site-content/types';
 import {
     selectClients,
     selectCommunities,
@@ -107,6 +108,69 @@ interface WorkItem {
 
 function formatIndex(n: number): string {
     return n < 10 ? `0${n}` : `${n}`;
+}
+
+// Бесшовная прокрутка строится дублированием ряда ([...clients, ...clients])
+// и сдвигом на -50% — это ломается визуально, если сам ряд логотипов (без
+// дублирования) короче контейнера: вместо прокрутки видно сразу оба
+// повтора рядом, и кажется, что логотип "двоится" (особенно заметно при
+// одном клиенте или при нескольких, но с узкими логотипами). Поэтому
+// дублирование и анимацию включаем только когда реальная ширина ряда
+// превышает ширину контейнера — меряем скрытым "пробником" с тем же
+// списком логотипов.
+function ClientsMarquee({ clients }: { clients: Client[] }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const probeRef = useRef<HTMLDivElement>(null);
+    const [shouldLoop, setShouldLoop] = useState(false);
+
+    const measure = useCallback(() => {
+        const container = containerRef.current;
+        const probe = probeRef.current;
+        if (!container || !probe) return;
+        setShouldLoop(probe.scrollWidth > container.clientWidth);
+    }, []);
+
+    useLayoutEffect(() => {
+        measure();
+    }, [measure, clients]);
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        const observer = new ResizeObserver(measure);
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [measure]);
+
+    const items = shouldLoop ? [...clients, ...clients] : clients;
+
+    return (
+        <div className={styles.marquee} ref={containerRef}>
+            <div className={styles.marqueeProbe} ref={probeRef} aria-hidden="true">
+                {clients.map((client, index) => (
+                    <img
+                        key={`probe-${client.name}-${index}`}
+                        className={styles.marqueeLogo}
+                        src={client.logoUrl}
+                        alt=""
+                        onLoad={measure}
+                    />
+                ))}
+            </div>
+            <div className={shouldLoop ? styles.marqueeTrack : styles.marqueeTrackStatic}>
+                {items.map((client, index) => (
+                    <img
+                        key={`${client.name}-${index}`}
+                        className={styles.marqueeLogo}
+                        src={client.logoUrl}
+                        alt={client.name}
+                        title={client.name}
+                        loading="lazy"
+                    />
+                ))}
+            </div>
+        </div>
+    );
 }
 
 export function VisitkaPage() {
@@ -225,36 +289,7 @@ export function VisitkaPage() {
             {clients.length > 0 && (
                 <section className={styles.clients} id="clients">
                     <h2 className={styles.sectionLabel}>clients</h2>
-                    {clients.length === 1 ? (
-                        // Бегущая строка дублирует список ([...clients, ...clients])
-                        // и анимацией сдвигает дорожку на -50%, чтобы зацикливание было
-                        // бесшовным — с единственным клиентом это даёт тот же логотип
-                        // дважды подряд, что выглядит как "двоится". При одном клиенте
-                        // просто показываем его статично, без дублирования и анимации.
-                        <div className={styles.singleClient}>
-                            <img
-                                className={styles.marqueeLogo}
-                                src={clients[0].logoUrl}
-                                alt={clients[0].name}
-                                title={clients[0].name}
-                            />
-                        </div>
-                    ) : (
-                        <div className={styles.marquee}>
-                            <div className={styles.marqueeTrack}>
-                                {[...clients, ...clients].map((client, index) => (
-                                    <img
-                                        key={`${client.name}-${index}`}
-                                        className={styles.marqueeLogo}
-                                        src={client.logoUrl}
-                                        alt={client.name}
-                                        title={client.name}
-                                        loading="lazy"
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    <ClientsMarquee clients={clients} />
                 </section>
             )}
 
