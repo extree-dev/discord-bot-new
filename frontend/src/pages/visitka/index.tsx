@@ -42,6 +42,17 @@ const PLATFORM_ICON: Record<Platform, () => React.ReactElement> = {
     generic: GlobeIcon,
 };
 
+// Брендовый цвет иконки в футере (CSS-модуль, см. index.module.scss) —
+// 'generic' намеренно без записи, у него нейтральный цвет по умолчанию.
+const PLATFORM_ICON_CLASS: Partial<Record<Platform, string>> = {
+    discord: 'footerSocialIconDiscord',
+    telegram: 'footerSocialIconTelegram',
+    instagram: 'footerSocialIconInstagram',
+    twitter: 'footerSocialIconTwitter',
+    youtube: 'footerSocialIconYoutube',
+    github: 'footerSocialIconGithub',
+};
+
 const heroIconPaths = [
     <path key="1" d="M3 14.5h18M6 14.5V7h10v7.5M17.5 8h3v8h-3z" />,
     <path key="2" d="M6 3v18M10 3h8v18h-8M13 7h2M13 11h2M13 15h2" />,
@@ -118,6 +129,24 @@ function formatIndex(n: number): string {
 // дублирование и анимацию включаем только когда реальная ширина ряда
 // превышает ширину контейнера — меряем скрытым "пробником" с тем же
 // списком логотипов.
+// Карточка клиента — лого + название + период работы (вместо монохромного
+// лого в бегущей строке — см. index.module.scss для источника).
+function ClientCard({ client, onLogoLoad }: { client: Client; onLogoLoad?: () => void }) {
+    return (
+        <div className={styles.clientCard}>
+            <img
+                className={styles.clientLogoImg}
+                src={client.logoUrl}
+                alt={client.name}
+                loading="lazy"
+                onLoad={onLogoLoad}
+            />
+            <span className={styles.clientName}>{client.name}</span>
+            {client.period && <span className={styles.clientPeriod}>{client.period}</span>}
+        </div>
+    );
+}
+
 function ClientsMarquee({ clients }: { clients: Client[] }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const probeRef = useRef<HTMLDivElement>(null);
@@ -148,25 +177,12 @@ function ClientsMarquee({ clients }: { clients: Client[] }) {
         <div className={styles.marquee} ref={containerRef}>
             <div className={styles.marqueeProbe} ref={probeRef} aria-hidden="true">
                 {clients.map((client, index) => (
-                    <img
-                        key={`probe-${client.name}-${index}`}
-                        className={styles.marqueeLogo}
-                        src={client.logoUrl}
-                        alt=""
-                        onLoad={measure}
-                    />
+                    <ClientCard client={client} key={`probe-${client.name}-${index}`} onLogoLoad={measure} />
                 ))}
             </div>
             <div className={shouldLoop ? styles.marqueeTrack : styles.marqueeTrackStatic}>
                 {items.map((client, index) => (
-                    <img
-                        key={`${client.name}-${index}`}
-                        className={styles.marqueeLogo}
-                        src={client.logoUrl}
-                        alt={client.name}
-                        title={client.name}
-                        loading="lazy"
-                    />
+                    <ClientCard client={client} key={`${client.name}-${index}`} />
                 ))}
             </div>
         </div>
@@ -342,31 +358,51 @@ export function VisitkaPage() {
                         {CONTACT_EMAIL}
                     </a>
                 </div>
-                <footer className={styles.footer}>
-                    <Mark />
-                    <span>{content.name}</span>
-                    {socialLinks.length > 0 && (
-                        <div className={styles.footerSocial}>
-                            {socialLinks.map(link => {
-                                const Icon = PLATFORM_ICON[detectPlatform(link)];
-                                return (
-                                    <a
-                                        key={link.url}
-                                        className={styles.footerSocialIcon}
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title={link.label}
-                                    >
-                                        <Icon />
-                                    </a>
-                                );
-                            })}
-                        </div>
-                    )}
-                    <span className={styles.footerCopy}>© {content.name}</span>
-                </footer>
             </section>
+
+            <footer className={styles.siteFooter}>
+                <div className={styles.footerBrand}>
+                    <Mark />
+                    <span className={styles.footerBrandName}>extree.tech</span>
+                </div>
+
+                <nav className={styles.footerNav} aria-label="Карта сайта">
+                    <a href="#about">about me</a>
+                    <a href="#clients">clients</a>
+                    <a href="#work">work</a>
+                    <a href="#contact">contact</a>
+                </nav>
+
+                {socialLinks.length > 0 && (
+                    <div className={styles.footerSocial}>
+                        {socialLinks.map(link => {
+                            const platform = detectPlatform(link);
+                            const Icon = PLATFORM_ICON[platform];
+                            const colorClass = PLATFORM_ICON_CLASS[platform];
+                            const className = colorClass
+                                ? `${styles.footerSocialIcon} ${styles[colorClass]}`
+                                : styles.footerSocialIcon;
+                            return (
+                                <a
+                                    key={link.url}
+                                    className={className}
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={link.label}
+                                >
+                                    <Icon />
+                                </a>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div className={styles.footerBar} aria-hidden="true" />
+                <a className={styles.footerCta} href="#top">
+                    extree.tech
+                </a>
+            </footer>
         </div>
     );
 }

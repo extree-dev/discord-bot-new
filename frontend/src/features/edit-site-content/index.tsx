@@ -216,6 +216,20 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
                                             }
                                             maxLength={60}
                                         />
+                                        <TextField
+                                            label="Период (необязательно) — например, 2024 – Present"
+                                            id={`client${index}_period`}
+                                            value={client.period}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    clients: updateClient(content.clients ?? [], index, {
+                                                        period: e.target.value,
+                                                    }),
+                                                })
+                                            }
+                                            maxLength={40}
+                                        />
                                         <div className={styles.logoUploadRow}>
                                             <label className={styles.fileButton} htmlFor={`client${index}_file`}>
                                                 {upload?.kind === 'uploading'

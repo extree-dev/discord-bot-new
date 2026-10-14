@@ -49,7 +49,13 @@ function normalizeClients(rawClients) {
             c => c && typeof c.name === 'string' && c.name.trim() && typeof c.logoUrl === 'string' && c.logoUrl.trim()
         )
         .slice(0, MAX_CLIENTS)
-        .map(c => ({ name: c.name.trim(), logoUrl: c.logoUrl.trim() }));
+        .map(c => ({
+            name: c.name.trim(),
+            logoUrl: c.logoUrl.trim(),
+            // Необязательное — просто подпись под логотипом ("2024 – Present"),
+            // в отличие от name/logoUrl не влияет на то, рендерится ли клиент.
+            period: typeof c.period === 'string' ? c.period.trim() : '',
+        }));
 }
 
 function normalize(data) {

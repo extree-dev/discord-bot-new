@@ -98,9 +98,9 @@
 .heroCard {
     position: relative;
     height: 700px;
-    margin: 112px 30px 0;
+    margin: 112px 30px 24px;
     overflow: hidden;
-    border-radius: 34px 34px 0 0;
+    border-radius: 34px;
     color: white;
     background: var(--blue);
 }
@@ -276,13 +276,22 @@
     display: none;
 }
 
+// Каждая секция (about/clients/contact) — отдельная плавающая карточка
+// с рамкой, скруглением и тенью (как у .heroCard/.projectCard), а не
+// один большой блок с внутренними тонкими разделителями: тот же приём,
+// что и во фронтовой версии дизайна (по референс-скриншотам сайта).
 .about {
     position: relative;
     display: grid;
     grid-template-columns: 190px minmax(500px, 760px) 1fr;
     min-height: 710px;
     align-items: center;
+    margin: 0 30px 24px;
     padding: 50px 7vw 100px;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: #fff;
+    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
 }
 
 .sectionLabel {
@@ -373,9 +382,12 @@
     min-height: 280px;
     align-items: center;
     overflow: hidden;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    margin: 0 30px 24px;
     padding: 30px 7vw;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: #fff;
+    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
 }
 
 .marquee {
@@ -384,14 +396,14 @@
 }
 
 // Невидимый пробник (см. ClientsMarquee в index.tsx) — тот же недублированный
-// ряд логотипов, нужен только чтобы измерить его реальную ширину.
+// ряд карточек клиентов, нужен только чтобы измерить его реальную ширину.
 .marqueeProbe {
     position: absolute;
     top: 0;
     left: 0;
     display: flex;
-    align-items: center;
-    gap: 90px;
+    align-items: stretch;
+    gap: 20px;
     width: max-content;
     visibility: hidden;
     pointer-events: none;
@@ -400,37 +412,61 @@
 .marqueeTrack {
     display: flex;
     width: max-content;
-    align-items: center;
-    gap: 90px;
-    animation: marquee 22s linear infinite;
+    align-items: stretch;
+    gap: 20px;
+    animation: marquee 26s linear infinite;
 }
 
-// Ряд логотипов помещается в контейнер целиком — прокрутка не нужна,
+// Ряд карточек помещается в контейнер целиком — прокрутка не нужна,
 // показываем статично (иначе дублирование для бесшовной прокрутки
 // выглядит как "логотип двоится").
 .marqueeTrackStatic {
     display: flex;
-    align-items: center;
-    gap: 90px;
+    align-items: stretch;
+    gap: 20px;
     width: max-content;
 }
 
-.marqueeLogo {
+// Карточка клиента — лого + название + период работы (вместо монохромного
+// лого в бегущей строке) — по референс-скриншотам фактического сайта,
+// которых нет в extree-dev/testing-site (там клиентов нет вовсе).
+.clientCard {
+    display: flex;
     flex: none;
-    height: 36px;
-    width: auto;
-    max-width: 160px;
-    object-fit: contain;
-    filter: grayscale(1);
-    opacity: 0.55;
-    transition:
-        opacity 0.2s ease,
-        filter 0.2s ease;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 180px;
+    padding: 22px 16px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 16px 40px rgba(37, 43, 58, 0.05);
+    transition: transform 0.2s ease;
 }
 
-.marqueeLogo:hover {
-    filter: grayscale(0);
-    opacity: 1;
+.clientCard:hover {
+    transform: translateY(-4px);
+}
+
+.clientLogoImg {
+    max-width: 130px;
+    max-height: 34px;
+    object-fit: contain;
+}
+
+.clientName {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    text-align: center;
+}
+
+.clientPeriod {
+    font-size: 12px;
+    color: rgba(37, 43, 58, 0.5);
 }
 
 @keyframes marquee {
@@ -595,10 +631,13 @@
     position: relative;
     display: grid;
     grid-template-columns: 190px 1fr;
-    min-height: 610px;
     align-items: center;
-    padding: 70px 7vw 0;
-    border-top: 1px solid var(--line);
+    margin: 0 30px 24px;
+    padding: 60px 7vw;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: #fff;
+    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
 }
 
 .contactCard {
@@ -619,45 +658,121 @@
     line-height: 1.1;
 }
 
-.footer {
-    position: absolute;
-    right: 7vw;
-    bottom: 30px;
-    left: 7vw;
+// Раньше footer был absolute-позиционирован внутри .contact (отдельная
+// "подвальная" полоса в самом низу высокой секции) — теперь это
+// самостоятельная секция ниже contact, с повтором навигации списком,
+// цветными иконками соцсетей и акцентной плашкой снизу (по
+// референс-скриншотам фактического сайта — в extree-dev/testing-site
+// такого футера нет, там только имя + копирайт в одну строку).
+.siteFooter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 56px 7vw 60px;
+    border-top: 1px solid var(--line);
+    text-align: center;
+}
+
+.footerBrand {
     display: flex;
     align-items: center;
-    gap: 24px;
-    padding-top: 24px;
-    border-top: 1px solid var(--line);
-    color: rgba(37, 43, 58, 0.62);
-    font-size: 12px;
+    gap: 12px;
+}
+
+.footerBrandName {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--blue);
+}
+
+.footerNav {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.footerNav a {
+    font-size: 17px;
+    color: rgba(37, 43, 58, 0.55);
+    transition: color 0.2s ease;
+}
+
+.footerNav a:hover {
+    color: var(--ink);
 }
 
 .footerSocial {
     display: flex;
-    gap: 8px;
-    margin-left: auto;
+    gap: 10px;
 }
 
 .footerSocialIcon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 1px solid var(--line);
-    color: inherit;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(37, 43, 58, 0.06);
+    color: var(--ink);
+    transition: transform 0.2s ease;
+}
+
+.footerSocialIcon:hover {
+    transform: translateY(-2px);
 }
 
 .footerSocialIcon svg {
-    width: 13px;
-    height: 13px;
+    width: 20px;
+    height: 20px;
 }
 
-.footerCopy {
-    margin-left: auto;
-    white-space: nowrap;
+// Брендовые цвета платформ (иконки рисуются через currentColor) —
+// вместо монохромной заливки под ink.
+.footerSocialIconDiscord {
+    color: #5865f2;
+}
+
+.footerSocialIconTelegram {
+    color: #26a5e4;
+}
+
+.footerSocialIconInstagram {
+    color: #e1306c;
+}
+
+.footerSocialIconTwitter {
+    color: #15202b;
+}
+
+.footerSocialIconYoutube {
+    color: #ff0000;
+}
+
+.footerSocialIconGithub {
+    color: #181717;
+}
+
+.footerBar {
+    width: 100%;
+    max-width: 560px;
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--blue);
+}
+
+.footerCta {
+    display: inline-flex;
+    padding: 14px 30px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 @media (max-width: 799px) {
@@ -703,8 +818,8 @@
 
     .heroCard {
         height: 440px;
-        margin: 10px 16px 0;
-        border-radius: 20px 20px 0 0;
+        margin: 10px 16px 20px;
+        border-radius: 20px;
     }
 
     .heroCard h1 {
@@ -721,10 +836,9 @@
         grid-template-columns: 48px 1fr;
         min-height: 0;
         align-items: start;
-        margin: 0 16px;
+        margin: 0 16px 16px;
         padding: 30px 12px 50px;
-        border-right: 1px solid var(--line);
-        border-left: 1px solid var(--line);
+        border-radius: 20px;
     }
 
     .sectionLabel,
@@ -746,19 +860,25 @@
     .clients {
         grid-template-columns: 48px 1fr;
         min-height: 150px;
-        margin: 0 16px;
+        margin: 0 16px 16px;
         padding: 20px 12px;
-        border-right: 1px solid var(--line);
-        border-left: 1px solid var(--line);
+        border-radius: 20px;
     }
 
-    .marqueeTrack {
-        gap: 45px;
+    .marqueeTrack,
+    .marqueeTrackStatic,
+    .marqueeProbe {
+        gap: 14px;
     }
 
-    .marqueeLogo {
-        height: 24px;
-        max-width: 110px;
+    .clientCard {
+        width: 140px;
+        padding: 16px 12px;
+    }
+
+    .clientLogoImg {
+        max-width: 100px;
+        max-height: 28px;
     }
 
     .work {
@@ -807,23 +927,26 @@
 
     .contact {
         grid-template-columns: 48px 1fr;
-        min-height: 420px;
-        margin: 0 16px;
-        padding: 50px 12px 0;
-        border-right: 1px solid var(--line);
-        border-left: 1px solid var(--line);
+        margin: 0 16px 16px;
+        padding: 40px 12px;
+        border-radius: 20px;
     }
 
     .contactLink {
         font-size: 26px;
     }
 
-    .footer {
-        flex-wrap: wrap;
-        right: 12px;
-        bottom: 16px;
-        left: 12px;
-        font-size: 10px;
+    .siteFooter {
+        gap: 22px;
+        padding: 40px 16px 44px;
+    }
+
+    .footerNav {
+        gap: 14px;
+    }
+
+    .footerNav a {
+        font-size: 15px;
     }
 
     .mark {
