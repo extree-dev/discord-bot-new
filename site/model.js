@@ -46,12 +46,7 @@ function normalizeClients(rawClients) {
     if (!Array.isArray(rawClients)) return DEFAULTS.clients;
     return rawClients
         .filter(
-            c =>
-                c &&
-                typeof c.name === 'string' &&
-                c.name.trim() &&
-                typeof c.logoUrl === 'string' &&
-                c.logoUrl.trim()
+            c => c && typeof c.name === 'string' && c.name.trim() && typeof c.logoUrl === 'string' && c.logoUrl.trim()
         )
         .slice(0, MAX_CLIENTS)
         .map(c => ({ name: c.name.trim(), logoUrl: c.logoUrl.trim() }));
