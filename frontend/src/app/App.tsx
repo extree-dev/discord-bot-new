@@ -1,16 +1,16 @@
 import { Route, Routes } from 'react-router-dom';
-import { VisitkaPage } from '../pages/visitka/VisitkaPage';
-import { SiteAdminPage } from '../pages/site-admin/SiteAdminPage';
-import { LoginPage } from '../pages/login/LoginPage';
-import { DashboardPage } from '../pages/dashboard/DashboardPage';
-import { BotSettingsPage } from '../pages/bot-settings/BotSettingsPage';
-import { BotStatusPage } from '../pages/bot-status/BotStatusPage';
-import { VoiceSettingsPage } from '../pages/voice-settings/VoiceSettingsPage';
-import { MembersPage } from '../pages/guild-members/MembersPage';
-import { MutedPage } from '../pages/muted-members/MutedPage';
-import { BannedPage } from '../pages/banned-members/BannedPage';
-import { LeaderboardPage } from '../pages/leaderboard/LeaderboardPage';
-import { AdminShell } from '../widgets/admin-shell/AdminShell';
+import { VisitkaPage } from '../pages/visitka';
+import { SiteAdminPage } from '../pages/site-admin';
+import { LoginPage } from '../pages/login';
+import { DashboardPage } from '../pages/dashboard';
+import { BotSettingsPage } from '../pages/bot-settings';
+import { BotStatusPage } from '../pages/bot-status';
+import { VoiceSettingsPage } from '../pages/voice-settings';
+import { MembersPage } from '../pages/guild-members';
+import { MutedPage } from '../pages/muted-members';
+import { BannedPage } from '../pages/banned-members';
+import { LeaderboardPage } from '../pages/leaderboard';
+import { AdminShell } from '../widgets/admin-shell';
 
 // Один билд на оба домена: extree.tech проксирует "/" и "/admin" на этот
 // процесс, bot.extree.tech — "/dashboard*" целиком (см. web/Caddyfile),
