@@ -253,10 +253,11 @@ export function VisitkaPage() {
             </div>
 
             <section className={styles.heroCard}>
+                <div className={styles.heroCardTexture} />
                 {heroIconPaths.map((_, index) => (
                     <HeroIcon index={index} key={index} />
                 ))}
-                <h1>extree</h1>
+                <h1>extree.tech</h1>
             </section>
 
             <div className={styles.desktopNav}>

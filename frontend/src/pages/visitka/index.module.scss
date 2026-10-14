@@ -102,14 +102,30 @@
     overflow: hidden;
     border-radius: 34px 34px 0 0;
     color: white;
-    background: linear-gradient(155deg, #4752c4 0%, #5865f2 25%, #8b5cf6 55%, #6c7bf5 75%, #3b82f6 100%);
+    background: var(--blue);
+}
+
+// Атласная текстура hero (вместо плоского CSS-градиента) — перенесена
+// из extree-dev/testing-site: тот же приём (фото + лёгкий цветной
+// градиент поверх + saturate/contrast), только сама картинка — наш
+// собственный статический ассет (public/hero-texture.jpg), а не внешний
+// хотлинк на Unsplash: CSP (img-src 'self') всё равно блокирует любой
+// внешний хост для картинок, см. uploads/ и причину в PR #253.
+.heroCardTexture {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(19, 87, 234, 0.4), rgba(22, 102, 255, 0.08)),
+        url('/hero-texture.jpg') center / cover;
+    filter: saturate(1.65) contrast(1.05);
+    transform: scale(1.03);
 }
 
 .heroCard::after {
     position: absolute;
     inset: 0;
     content: '';
-    background: radial-gradient(circle at center, transparent 20%, rgba(0, 20, 90, 0.2));
+    background: radial-gradient(circle at center, transparent 20%, rgba(0, 65, 205, 0.16));
 }
 
 .heroCard h1 {
