@@ -50,18 +50,16 @@ test('normalize: не-массив в links откатывается к дефо
     assert.deepEqual(result.links, DEFAULTS.links);
 });
 
-test('normalize: клиенты без name отбрасываются, остальные обрезаются по пробелам', () => {
+test('normalize: клиенты без name или logoUrl отбрасываются, остальные обрезаются по пробелам', () => {
     const result = normalize({
         clients: [
-            { name: '  Nebula  ', period: '  2023 – Present  ' },
-            { name: '   ', period: '2022' },
-            { name: 'Без периода', period: '' },
+            { name: '  Nebula  ', logoUrl: '  https://example.com/nebula.png  ' },
+            { name: '   ', logoUrl: 'https://example.com/ignored.png' },
+            { name: 'Без лого', logoUrl: '' },
+            { name: '', logoUrl: '' },
         ],
     });
-    assert.deepEqual(result.clients, [
-        { name: 'Nebula', period: '2023 – Present' },
-        { name: 'Без периода', period: '' },
-    ]);
+    assert.deepEqual(result.clients, [{ name: 'Nebula', logoUrl: 'https://example.com/nebula.png' }]);
 });
 
 test('normalize: пустой список клиентов остаётся пустым (бегущая строка выключена, а не фейковая)', () => {
@@ -70,7 +68,10 @@ test('normalize: пустой список клиентов остаётся п�
 });
 
 test('normalize: лишние клиенты сверх MAX_CLIENTS обрезаются', () => {
-    const clients = Array.from({ length: MAX_CLIENTS + 3 }, (_, i) => ({ name: `Клиент ${i}`, period: '' }));
+    const clients = Array.from({ length: MAX_CLIENTS + 3 }, (_, i) => ({
+        name: `Клиент ${i}`,
+        logoUrl: `https://example.com/${i}.png`,
+    }));
     const result = normalize({ clients });
     assert.equal(result.clients.length, MAX_CLIENTS);
 });

@@ -45,9 +45,16 @@ function normalizeLinks(rawLinks) {
 function normalizeClients(rawClients) {
     if (!Array.isArray(rawClients)) return DEFAULTS.clients;
     return rawClients
-        .filter(c => c && typeof c.name === 'string' && c.name.trim())
+        .filter(
+            c =>
+                c &&
+                typeof c.name === 'string' &&
+                c.name.trim() &&
+                typeof c.logoUrl === 'string' &&
+                c.logoUrl.trim()
+        )
         .slice(0, MAX_CLIENTS)
-        .map(c => ({ name: c.name.trim(), period: typeof c.period === 'string' ? c.period.trim() : '' }));
+        .map(c => ({ name: c.name.trim(), logoUrl: c.logoUrl.trim() }));
 }
 
 function normalize(data) {

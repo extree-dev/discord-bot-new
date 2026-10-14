@@ -1,7 +1,7 @@
 import type { Client, SiteContent, SiteLink } from '../../entities/site-content/types';
 
 export const EMPTY_LINK: SiteLink = { label: '', url: '' };
-export const EMPTY_CLIENT: Client = { name: '', period: '' };
+export const EMPTY_CLIENT: Client = { name: '', logoUrl: '' };
 
 export function canAddLink(links: SiteLink[], maxLinks: number): boolean {
     return links.length < maxLinks;
@@ -49,7 +49,7 @@ export function toPayload(content: SiteContent): SiteContent {
             .filter(link => link.label.trim())
             .map(link => ({ label: link.label.trim(), url: link.url.trim() })),
         clients: (content.clients ?? [])
-            .filter(client => client.name.trim())
-            .map(client => ({ name: client.name.trim(), period: client.period.trim() })),
+            .filter(client => client.name.trim() && client.logoUrl.trim())
+            .map(client => ({ name: client.name.trim(), logoUrl: client.logoUrl.trim() })),
     };
 }

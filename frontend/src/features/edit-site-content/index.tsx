@@ -164,43 +164,50 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
                     </span>
                 </h2>
                 <p className={styles.sectionHint}>
-                    Бегущая строка на визитке. Пока список пуст, блок на сайте не показывается.
+                    Бегущая строка логотипов на визитке. Нужны и название, и ссылка на картинку — без них клиент не
+                    сохранится. Пока список пуст, блок на сайте не показывается.
                 </p>
 
                 <div className={styles.links}>
                     {(content.clients ?? []).map((client, index) => (
                         <div className={styles.linkRow} key={index}>
                             <span className={styles.linkIndex}>{index + 1}</span>
-                            <div className={styles.linkFields}>
-                                <TextField
-                                    label={`Клиент ${index + 1} — название`}
-                                    id={`client${index}_name`}
-                                    value={client.name}
-                                    onChange={e =>
-                                        setContent({
-                                            ...content,
-                                            clients: updateClient(content.clients ?? [], index, {
-                                                name: e.target.value,
-                                            }),
-                                        })
-                                    }
-                                    maxLength={60}
-                                />
-                                <TextField
-                                    label="Период (необязательно)"
-                                    id={`client${index}_period`}
-                                    placeholder="2023 – Present"
-                                    value={client.period}
-                                    onChange={e =>
-                                        setContent({
-                                            ...content,
-                                            clients: updateClient(content.clients ?? [], index, {
-                                                period: e.target.value,
-                                            }),
-                                        })
-                                    }
-                                    maxLength={40}
-                                />
+                            <div className={styles.clientFields}>
+                                <span className={styles.clientLogoPreview}>
+                                    {client.logoUrl.trim() ? <img src={client.logoUrl} alt="" /> : <UsersIcon />}
+                                </span>
+                                <div className={styles.linkFields}>
+                                    <TextField
+                                        label={`Клиент ${index + 1} — название`}
+                                        id={`client${index}_name`}
+                                        value={client.name}
+                                        onChange={e =>
+                                            setContent({
+                                                ...content,
+                                                clients: updateClient(content.clients ?? [], index, {
+                                                    name: e.target.value,
+                                                }),
+                                            })
+                                        }
+                                        maxLength={60}
+                                    />
+                                    <TextField
+                                        label="URL логотипа"
+                                        id={`client${index}_logoUrl`}
+                                        type="url"
+                                        placeholder="https://..."
+                                        value={client.logoUrl}
+                                        onChange={e =>
+                                            setContent({
+                                                ...content,
+                                                clients: updateClient(content.clients ?? [], index, {
+                                                    logoUrl: e.target.value,
+                                                }),
+                                            })
+                                        }
+                                        maxLength={300}
+                                    />
+                                </div>
                             </div>
                             <Button
                                 type="button"

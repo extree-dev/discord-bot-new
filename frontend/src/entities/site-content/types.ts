@@ -17,9 +17,10 @@ export interface Tool {
 }
 
 export interface Client {
+    /** Используется как alt-текст логотипа и ключ для бегущей строки. */
     name: string;
-    /** Годы: '2024 – Present' и т.п. */
-    period: string;
+    /** URL картинки логотипа — без него клиент не рендерится. */
+    logoUrl: string;
 }
 
 export interface Community {
