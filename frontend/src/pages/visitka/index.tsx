@@ -460,6 +460,9 @@ export function VisitkaPage() {
                             <div className={styles.languagesRow}>
                                 {LANGUAGES.map(lang => (
                                     <span key={lang.code} className={styles.languageBox}>
+                                        <span className={styles.languageFlag} aria-hidden="true">
+                                            <lang.Flag />
+                                        </span>
                                         {lang.code}
                                     </span>
                                 ))}
