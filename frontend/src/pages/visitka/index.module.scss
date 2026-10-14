@@ -360,12 +360,22 @@
 }
 
 .marquee {
+    position: relative;
     overflow: hidden;
 }
 
-.singleClient {
+// Невидимый пробник (см. ClientsMarquee в index.tsx) — тот же недублированный
+// ряд логотипов, нужен только чтобы измерить его реальную ширину.
+.marqueeProbe {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: flex;
     align-items: center;
+    gap: 90px;
+    width: max-content;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .marqueeTrack {
@@ -374,6 +384,16 @@
     align-items: center;
     gap: 90px;
     animation: marquee 22s linear infinite;
+}
+
+// Ряд логотипов помещается в контейнер целиком — прокрутка не нужна,
+// показываем статично (иначе дублирование для бесшовной прокрутки
+// выглядит как "логотип двоится").
+.marqueeTrackStatic {
+    display: flex;
+    align-items: center;
+    gap: 90px;
+    width: max-content;
 }
 
 .marqueeLogo {
