@@ -45,3 +45,9 @@ export function postJson<T>(path: string, body: unknown): Promise<T> {
         body: JSON.stringify(body),
     });
 }
+
+// Content-Type не выставляем сами — браузер сам ставит multipart/form-data
+// с нужным boundary при теле-FormData, вручную это легко сломать.
+export function postForm<T>(path: string, body: FormData): Promise<T> {
+    return request<T>(path, { method: 'POST', body });
+}
