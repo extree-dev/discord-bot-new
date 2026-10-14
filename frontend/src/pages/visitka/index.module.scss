@@ -183,7 +183,16 @@
     justify-content: center;
 }
 
+/* fixed, а не sticky — обёртка (.desktopNav/.mobileNav) всего
+   110/80px высотой, и у sticky почти нет пространства "прилипнуть":
+   контейнер проскальзывает мимо почти сразу же, так что панель
+   выглядит как обычный, не закреплённый элемент. fixed не зависит
+   от высоты родителя — панель остаётся на месте на любой прокрутке. */
 .navPill {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    z-index: 20;
     display: flex;
     width: 580px;
     max-width: calc(100% - 40px);
@@ -191,7 +200,7 @@
     align-items: center;
     justify-content: center;
     gap: 44px;
-    margin-top: 28px;
+    transform: translateX(-50%);
     border: 1px solid var(--line);
     border-radius: 28px;
     background: rgba(248, 248, 249, 0.9);
@@ -242,15 +251,7 @@
     padding: 50px 7vw 100px;
 }
 
-/* sticky, а не обычный поток — иначе подпись секции (длинной в
-   несколько экранов, особенно about/work) уезжает вверх и пропадает
-   из вида уже после пары свайпов, вместо того чтобы остаться на
-   виду и проскроллиться вниз вместе с остальным контентом секции. */
 .sectionLabel {
-    position: sticky;
-    top: 24px;
-    z-index: 5;
-    align-self: start;
     margin: 0;
     font-family: 'Benne', serif;
     font-size: 42px;
@@ -603,11 +604,13 @@
     }
 
     .navPill {
-        width: 100%;
+        left: 16px;
+        right: 16px;
+        width: auto;
         max-width: none;
         height: 60px;
         gap: 22px;
-        margin: 0;
+        transform: none;
         border-radius: 20px;
         font-size: 14px;
     }
