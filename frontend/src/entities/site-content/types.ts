@@ -21,6 +21,8 @@ export interface Client {
     name: string;
     /** URL картинки логотипа — без него клиент не рендерится. */
     logoUrl: string;
+    /** Необязательная подпись под карточкой клиента, например "2024 – Present". */
+    period: string;
 }
 
 export interface Community {

@@ -59,7 +59,7 @@ test('normalize: клиенты без name или logoUrl отбрасываю�
             { name: '', logoUrl: '' },
         ],
     });
-    assert.deepEqual(result.clients, [{ name: 'Nebula', logoUrl: 'https://example.com/nebula.png' }]);
+    assert.deepEqual(result.clients, [{ name: 'Nebula', logoUrl: 'https://example.com/nebula.png', period: '' }]);
 });
 
 test('normalize: пустой список клиентов остаётся пустым (бегущая строка выключена, а не фейковая)', () => {
