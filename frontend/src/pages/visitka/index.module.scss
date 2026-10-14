@@ -656,16 +656,33 @@
         padding: 10px 16px;
     }
 
+    // Раньше нав был растянут от края до края (left/right: 16px) — на
+    // телефоне это выглядело как широкая плашка "по границе экрана",
+    // а не компактная капсула. Вместо этого — тот же приём, что на
+    // десктопе: ширина по контенту, по центру, с запасом по бокам.
     .navPill {
-        left: 16px;
-        right: 16px;
-        width: auto;
-        max-width: none;
-        height: 60px;
-        gap: 22px;
-        transform: none;
-        border-radius: 20px;
-        font-size: 14px;
+        left: 50%;
+        right: auto;
+        width: fit-content;
+        max-width: calc(100% - 32px);
+        height: 48px;
+        gap: 14px;
+        padding: 0 16px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        font-size: 13px;
+    }
+
+    .navPill .mark {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+    }
+
+    .navPill .markRing {
+        width: 11px;
+        height: 11px;
+        border-width: 3px;
     }
 
     .heroCard {
