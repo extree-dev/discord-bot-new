@@ -371,12 +371,22 @@
     animation: marquee 22s linear infinite;
 }
 
-.marqueeTrack span {
-    color: rgba(37, 43, 58, 0.68);
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    white-space: nowrap;
+.marqueeLogo {
+    flex: none;
+    height: 36px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
+    filter: grayscale(1);
+    opacity: 0.55;
+    transition:
+        opacity 0.2s ease,
+        filter 0.2s ease;
+}
+
+.marqueeLogo:hover {
+    filter: grayscale(0);
+    opacity: 1;
 }
 
 @keyframes marquee {
@@ -685,8 +695,9 @@
         gap: 45px;
     }
 
-    .marqueeTrack span {
-        font-size: 20px;
+    .marqueeLogo {
+        height: 24px;
+        max-width: 110px;
     }
 
     .work {

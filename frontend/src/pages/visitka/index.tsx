@@ -228,7 +228,14 @@ export function VisitkaPage() {
                     <div className={styles.marquee}>
                         <div className={styles.marqueeTrack}>
                             {[...clients, ...clients].map((client, index) => (
-                                <span key={`${client.name}-${index}`}>{client.name}</span>
+                                <img
+                                    key={`${client.name}-${index}`}
+                                    className={styles.marqueeLogo}
+                                    src={client.logoUrl}
+                                    alt={client.name}
+                                    title={client.name}
+                                    loading="lazy"
+                                />
                             ))}
                         </div>
                     </div>

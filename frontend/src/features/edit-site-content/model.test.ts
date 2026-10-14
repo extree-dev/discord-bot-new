@@ -57,15 +57,15 @@ describe('updateLink', () => {
 
 describe('canAddClient / addClient', () => {
     it('позволяет добавить клиента, пока не достигнут maxClients', () => {
-        const clients = [{ name: 'A', period: '' }];
+        const clients = [{ name: 'A', logoUrl: '' }];
         expect(canAddClient(clients, 5)).toBe(true);
         expect(addClient(clients, 5)).toHaveLength(2);
     });
 
     it('не добавляет сверх maxClients', () => {
         const clients = [
-            { name: 'A', period: '' },
-            { name: 'B', period: '' },
+            { name: 'A', logoUrl: '' },
+            { name: 'B', logoUrl: '' },
         ];
         expect(canAddClient(clients, 2)).toBe(false);
         expect(addClient(clients, 2)).toBe(clients);
@@ -75,13 +75,13 @@ describe('canAddClient / addClient', () => {
 describe('removeClient', () => {
     it('удаляет клиента по индексу, не трогая остальных', () => {
         const clients = [
-            { name: 'A', period: '' },
-            { name: 'B', period: '' },
-            { name: 'C', period: '' },
+            { name: 'A', logoUrl: '' },
+            { name: 'B', logoUrl: '' },
+            { name: 'C', logoUrl: '' },
         ];
         expect(removeClient(clients, 1)).toEqual([
-            { name: 'A', period: '' },
-            { name: 'C', period: '' },
+            { name: 'A', logoUrl: '' },
+            { name: 'C', logoUrl: '' },
         ]);
     });
 });
@@ -89,12 +89,12 @@ describe('removeClient', () => {
 describe('updateClient', () => {
     it('меняет поле только у клиента с нужным индексом', () => {
         const clients = [
-            { name: 'A', period: '' },
-            { name: 'B', period: '' },
+            { name: 'A', logoUrl: '' },
+            { name: 'B', logoUrl: '' },
         ];
-        const result = updateClient(clients, 1, { period: '2023 – Present' });
-        expect(result[0]).toEqual({ name: 'A', period: '' });
-        expect(result[1]).toEqual({ name: 'B', period: '2023 – Present' });
+        const result = updateClient(clients, 1, { logoUrl: 'https://example.com/b.png' });
+        expect(result[0]).toEqual({ name: 'A', logoUrl: '' });
+        expect(result[1]).toEqual({ name: 'B', logoUrl: 'https://example.com/b.png' });
     });
 });
 
@@ -119,18 +119,19 @@ describe('toPayload', () => {
         });
     });
 
-    it('обрезает пробелы и отбрасывает клиентов без названия', () => {
+    it('обрезает пробелы и отбрасывает клиентов без названия или без логотипа', () => {
         const content: SiteContent = {
             name: 'Имя',
             role: 'Роль',
             bio: 'Био',
             links: [],
             clients: [
-                { name: '  Nebula  ', period: '  2023 – Present  ' },
-                { name: '   ', period: '2022' },
+                { name: '  Nebula  ', logoUrl: '  https://example.com/nebula.png  ' },
+                { name: '   ', logoUrl: 'https://example.com/ignored.png' },
+                { name: 'Без логотипа', logoUrl: '' },
             ],
         };
-        expect(toPayload(content).clients).toEqual([{ name: 'Nebula', period: '2023 – Present' }]);
+        expect(toPayload(content).clients).toEqual([{ name: 'Nebula', logoUrl: 'https://example.com/nebula.png' }]);
     });
 
     it('без поля clients в исходном content отдаёт пустой список', () => {
