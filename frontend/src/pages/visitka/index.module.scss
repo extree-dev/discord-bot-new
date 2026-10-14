@@ -6,6 +6,7 @@
    extree вместо чужого Unsplash-снимка. */
 .page {
     position: relative;
+    display: flow-root;
     min-height: 100vh;
     isolation: isolate;
     overflow-x: clip;
@@ -89,10 +90,15 @@
     line-height: 1;
 }
 
+/* margin-top зарезервирован под плавающую (fixed) nav-панель + зазоры
+   по 16px с обеих сторон от неё (16 + высота панели 80px + 16 = 112px),
+   чтобы hero начинался чисто ниже панели, а не под ней — её margin-top
+   не завязан на видимость плашки-уведомления (см. .navPill/.navPillPushed
+   ниже): тот же отступ работает и когда плашка видна, и когда скрыта. */
 .heroCard {
     position: relative;
     height: 700px;
-    margin: 30px 30px 0;
+    margin: 112px 30px 0;
     overflow: hidden;
     border-radius: 34px 34px 0 0;
     color: white;
@@ -214,10 +220,11 @@
 }
 
 /* Пока видна плашка-уведомление (40px) сверху — сдвигаем панель
-   ниже неё, иначе fixed-позиционирование накладывает их друг на
-   друга в самом верху страницы, до первого скролла. */
+   ниже неё с тем же 16px-зазором, что и у обычной top: 16px (от
+   верха страницы), иначе fixed-позиционирование накладывает их
+   друг на друга в самом верху страницы, до первого скролла. */
 .navPillPushed {
-    top: 72px;
+    top: 56px;
 }
 
 .navPill a {
