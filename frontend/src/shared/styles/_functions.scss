@@ -1,0 +1,12 @@
+// Чистые SCSS-функции общего назначения.
+@use 'sass:math';
+
+// px -> rem при базовом font-size 16px (стандарт браузера).
+@function rem($px) {
+    @return math.div($px, 16px) * 1rem;
+}
+
+// Убрать единицу измерения у числа (нужно для вычислений с math.div и т.п.).
+@function strip-unit($value) {
+    @return math.div($value, ($value * 0 + 1));
+}
