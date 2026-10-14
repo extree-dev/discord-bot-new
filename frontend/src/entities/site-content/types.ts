@@ -57,4 +57,5 @@ export interface SiteContent {
 
 export interface SiteContentResponse extends SiteContent {
     maxLinks: number;
+    maxClients: number;
 }

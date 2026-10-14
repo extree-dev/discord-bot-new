@@ -70,7 +70,7 @@ export function SiteAdminPage() {
                         </p>
                     </div>
                     <div className={styles.divider} />
-                    <SiteContentForm initial={content} maxLinks={content.maxLinks} />
+                    <SiteContentForm initial={content} maxLinks={content.maxLinks} maxClients={content.maxClients} />
                     <div className={styles.logout}>
                         <LogoutButton />
                     </div>

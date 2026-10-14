@@ -52,6 +52,12 @@
     text-transform: none;
 }
 
+.sectionHint {
+    margin: -8px 0 0;
+    color: var(--text-faint);
+    font-size: 13px;
+}
+
 .profileGrid {
     display: grid;
     grid-template-columns: 1.3fr 1fr;
