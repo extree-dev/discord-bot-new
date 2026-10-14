@@ -44,6 +44,7 @@ function createStore(name, defaults, normalize = data => ({ ...defaults, ...data
              ON CONFLICT (name) DO UPDATE SET data = EXCLUDED.data`,
             [name, JSON.stringify(config)]
         );
+        return config;
     }
 
     /**

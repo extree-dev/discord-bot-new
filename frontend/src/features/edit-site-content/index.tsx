@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateSiteContent } from '../../entities/site-content/api';
+import { updateSiteContent, uploadImage } from '../../entities/site-content/api';
 import type { SiteContent } from '../../entities/site-content/types';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
@@ -27,9 +27,16 @@ interface SiteContentFormProps {
 
 type Status = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string };
 
+type LogoUploadStatus = { kind: 'uploading' } | { kind: 'error'; message: string };
+
+const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
+
 export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFormProps) {
     const [content, setContent] = useState<SiteContent>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
+    // По индексу клиента — асинхронная загрузка логотипа идёт отдельно
+    // от остального состояния формы (не блокирует другие поля/сохранение).
+    const [logoUploads, setLogoUploads] = useState<Record<number, LogoUploadStatus>>({});
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
@@ -41,6 +48,22 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
         } catch (err) {
             const message = err instanceof ApiError ? err.message : 'Не удалось сохранить — попробуй ещё раз.';
             setStatus({ kind: 'error', message });
+        }
+    }
+
+    async function handleLogoFile(index: number, file: File) {
+        setLogoUploads(prev => ({ ...prev, [index]: { kind: 'uploading' } }));
+        try {
+            const { url } = await uploadImage(file);
+            setContent(prev => ({ ...prev, clients: updateClient(prev.clients ?? [], index, { logoUrl: url }) }));
+            setLogoUploads(prev => {
+                const next = { ...prev };
+                delete next[index];
+                return next;
+            });
+        } catch (err) {
+            const message = err instanceof ApiError ? err.message : 'Не удалось загрузить файл.';
+            setLogoUploads(prev => ({ ...prev, [index]: { kind: 'error', message } }));
         }
     }
 
@@ -164,63 +187,77 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
                     </span>
                 </h2>
                 <p className={styles.sectionHint}>
-                    Бегущая строка логотипов на визитке. Нужны и название, и ссылка на картинку — без них клиент не
-                    сохранится. Пока список пуст, блок на сайте не показывается.
+                    Бегущая строка логотипов на визитке. Нужны и название, и загруженный файл логотипа — без них клиент
+                    не сохранится. Пока список пуст, блок на сайте не показывается.
                 </p>
 
                 <div className={styles.links}>
-                    {(content.clients ?? []).map((client, index) => (
-                        <div className={styles.linkRow} key={index}>
-                            <span className={styles.linkIndex}>{index + 1}</span>
-                            <div className={styles.clientFields}>
-                                <span className={styles.clientLogoPreview}>
-                                    {client.logoUrl.trim() ? <img src={client.logoUrl} alt="" /> : <UsersIcon />}
-                                </span>
-                                <div className={styles.linkFields}>
-                                    <TextField
-                                        label={`Клиент ${index + 1} — название`}
-                                        id={`client${index}_name`}
-                                        value={client.name}
-                                        onChange={e =>
-                                            setContent({
-                                                ...content,
-                                                clients: updateClient(content.clients ?? [], index, {
-                                                    name: e.target.value,
-                                                }),
-                                            })
-                                        }
-                                        maxLength={60}
-                                    />
-                                    <TextField
-                                        label="URL логотипа"
-                                        id={`client${index}_logoUrl`}
-                                        type="url"
-                                        placeholder="https://..."
-                                        value={client.logoUrl}
-                                        onChange={e =>
-                                            setContent({
-                                                ...content,
-                                                clients: updateClient(content.clients ?? [], index, {
-                                                    logoUrl: e.target.value,
-                                                }),
-                                            })
-                                        }
-                                        maxLength={300}
-                                    />
+                    {(content.clients ?? []).map((client, index) => {
+                        const upload = logoUploads[index];
+                        return (
+                            <div className={styles.linkRow} key={index}>
+                                <span className={styles.linkIndex}>{index + 1}</span>
+                                <div className={styles.clientFields}>
+                                    <span className={styles.clientLogoPreview}>
+                                        {client.logoUrl.trim() ? <img src={client.logoUrl} alt="" /> : <UsersIcon />}
+                                    </span>
+                                    <div className={styles.linkFields}>
+                                        <TextField
+                                            label={`Клиент ${index + 1} — название`}
+                                            id={`client${index}_name`}
+                                            value={client.name}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    clients: updateClient(content.clients ?? [], index, {
+                                                        name: e.target.value,
+                                                    }),
+                                                })
+                                            }
+                                            maxLength={60}
+                                        />
+                                        <div className={styles.logoUploadRow}>
+                                            <label className={styles.fileButton} htmlFor={`client${index}_file`}>
+                                                {upload?.kind === 'uploading'
+                                                    ? 'Загружаю…'
+                                                    : client.logoUrl.trim()
+                                                      ? 'Заменить логотип'
+                                                      : 'Загрузить логотип'}
+                                                <input
+                                                    className={styles.fileInput}
+                                                    type="file"
+                                                    id={`client${index}_file`}
+                                                    accept={LOGO_ACCEPT}
+                                                    disabled={upload?.kind === 'uploading'}
+                                                    onChange={e => {
+                                                        const file = e.target.files?.[0];
+                                                        e.target.value = '';
+                                                        if (file) void handleLogoFile(index, file);
+                                                    }}
+                                                />
+                                            </label>
+                                            {upload?.kind === 'error' && (
+                                                <span className={styles.fileError}>{upload.message}</span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    icon={<TrashIcon />}
+                                    onClick={() =>
+                                        setContent({
+                                            ...content,
+                                            clients: removeClient(content.clients ?? [], index),
+                                        })
+                                    }
+                                >
+                                    Удалить клиента
+                                </Button>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                icon={<TrashIcon />}
-                                onClick={() =>
-                                    setContent({ ...content, clients: removeClient(content.clients ?? [], index) })
-                                }
-                            >
-                                Удалить клиента
-                            </Button>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {canAddClient(content.clients ?? [], maxClients) && (
                         <div className={styles.addRow}>
