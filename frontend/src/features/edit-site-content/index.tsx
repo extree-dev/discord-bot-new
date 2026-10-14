@@ -5,18 +5,29 @@ import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { TextArea, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
-import { LinkChainIcon, TrashIcon, UserIcon } from '../../shared/ui/icons';
-import { addLink, canAddLink, removeLink, toPayload, updateLink } from './model';
+import { LinkChainIcon, TrashIcon, UserIcon, UsersIcon } from '../../shared/ui/icons';
+import {
+    addClient,
+    addLink,
+    canAddClient,
+    canAddLink,
+    removeClient,
+    removeLink,
+    toPayload,
+    updateClient,
+    updateLink,
+} from './model';
 import styles from './index.module.scss';
 
 interface SiteContentFormProps {
     initial: SiteContent;
     maxLinks: number;
+    maxClients: number;
 }
 
 type Status = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string };
 
-export function SiteContentForm({ initial, maxLinks }: SiteContentFormProps) {
+export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFormProps) {
     const [content, setContent] = useState<SiteContent>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
@@ -136,6 +147,85 @@ export function SiteContentForm({ initial, maxLinks }: SiteContentFormProps) {
                                 onClick={() => setContent({ ...content, links: addLink(content.links, maxLinks) })}
                             >
                                 + Добавить ссылку
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                    <span className={styles.sectionIcon}>
+                        <UsersIcon />
+                    </span>
+                    Клиенты
+                    <span className={styles.sectionCount}>
+                        {(content.clients ?? []).length} / {maxClients}
+                    </span>
+                </h2>
+                <p className={styles.sectionHint}>
+                    Бегущая строка на визитке. Пока список пуст, блок на сайте не показывается.
+                </p>
+
+                <div className={styles.links}>
+                    {(content.clients ?? []).map((client, index) => (
+                        <div className={styles.linkRow} key={index}>
+                            <span className={styles.linkIndex}>{index + 1}</span>
+                            <div className={styles.linkFields}>
+                                <TextField
+                                    label={`Клиент ${index + 1} — название`}
+                                    id={`client${index}_name`}
+                                    value={client.name}
+                                    onChange={e =>
+                                        setContent({
+                                            ...content,
+                                            clients: updateClient(content.clients ?? [], index, {
+                                                name: e.target.value,
+                                            }),
+                                        })
+                                    }
+                                    maxLength={60}
+                                />
+                                <TextField
+                                    label="Период (необязательно)"
+                                    id={`client${index}_period`}
+                                    placeholder="2023 – Present"
+                                    value={client.period}
+                                    onChange={e =>
+                                        setContent({
+                                            ...content,
+                                            clients: updateClient(content.clients ?? [], index, {
+                                                period: e.target.value,
+                                            }),
+                                        })
+                                    }
+                                    maxLength={40}
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                icon={<TrashIcon />}
+                                onClick={() =>
+                                    setContent({ ...content, clients: removeClient(content.clients ?? [], index) })
+                                }
+                            >
+                                Удалить клиента
+                            </Button>
+                        </div>
+                    ))}
+
+                    {canAddClient(content.clients ?? [], maxClients) && (
+                        <div className={styles.addRow}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                fullWidth
+                                onClick={() =>
+                                    setContent({ ...content, clients: addClient(content.clients ?? [], maxClients) })
+                                }
+                            >
+                                + Добавить клиента
                             </Button>
                         </div>
                     )}

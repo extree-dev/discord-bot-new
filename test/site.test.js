@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalize, DEFAULTS, MAX_LINKS } = require('../site/model');
+const { normalize, DEFAULTS, MAX_LINKS, MAX_CLIENTS } = require('../site/model');
 
 test('normalize: пустой объект — все поля заменяются дефолтами', () => {
     assert.deepEqual(normalize({}), DEFAULTS);
@@ -48,4 +48,34 @@ test('normalize: лишние ссылки сверх MAX_LINKS обрезают
 test('normalize: не-массив в links откатывается к дефолту', () => {
     const result = normalize({ links: 'не массив' });
     assert.deepEqual(result.links, DEFAULTS.links);
+});
+
+test('normalize: клиенты без name отбрасываются, остальные обрезаются по пробелам', () => {
+    const result = normalize({
+        clients: [
+            { name: '  Nebula  ', period: '  2023 – Present  ' },
+            { name: '   ', period: '2022' },
+            { name: 'Без периода', period: '' },
+        ],
+    });
+    assert.deepEqual(result.clients, [
+        { name: 'Nebula', period: '2023 – Present' },
+        { name: 'Без периода', period: '' },
+    ]);
+});
+
+test('normalize: пустой список клиентов остаётся пустым (бегущая строка выключена, а не фейковая)', () => {
+    const result = normalize({ clients: [] });
+    assert.deepEqual(result.clients, []);
+});
+
+test('normalize: лишние клиенты сверх MAX_CLIENTS обрезаются', () => {
+    const clients = Array.from({ length: MAX_CLIENTS + 3 }, (_, i) => ({ name: `Клиент ${i}`, period: '' }));
+    const result = normalize({ clients });
+    assert.equal(result.clients.length, MAX_CLIENTS);
+});
+
+test('normalize: не-массив в clients откатывается к дефолту (пустому списку)', () => {
+    const result = normalize({ clients: 'не массив' });
+    assert.deepEqual(result.clients, DEFAULTS.clients);
 });

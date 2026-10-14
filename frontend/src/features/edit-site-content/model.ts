@@ -1,6 +1,7 @@
-import type { SiteContent, SiteLink } from '../../entities/site-content/types';
+import type { Client, SiteContent, SiteLink } from '../../entities/site-content/types';
 
 export const EMPTY_LINK: SiteLink = { label: '', url: '' };
+export const EMPTY_CLIENT: Client = { name: '', period: '' };
 
 export function canAddLink(links: SiteLink[], maxLinks: number): boolean {
     return links.length < maxLinks;
@@ -18,6 +19,22 @@ export function updateLink(links: SiteLink[], index: number, patch: Partial<Site
     return links.map((link, i) => (i === index ? { ...link, ...patch } : link));
 }
 
+export function canAddClient(clients: Client[], maxClients: number): boolean {
+    return clients.length < maxClients;
+}
+
+export function addClient(clients: Client[], maxClients: number): Client[] {
+    return canAddClient(clients, maxClients) ? [...clients, { ...EMPTY_CLIENT }] : clients;
+}
+
+export function removeClient(clients: Client[], index: number): Client[] {
+    return clients.filter((_, i) => i !== index);
+}
+
+export function updateClient(clients: Client[], index: number, patch: Partial<Client>): Client[] {
+    return clients.map((client, i) => (i === index ? { ...client, ...patch } : client));
+}
+
 // Та же нормализация, что и на бэкенде (site/model.js normalize()) —
 // дублирование оправдано: это не единственный источник истины (сервер
 // всё равно перепроверит), а мгновенная обратная связь в форме до
@@ -31,5 +48,8 @@ export function toPayload(content: SiteContent): SiteContent {
         links: content.links
             .filter(link => link.label.trim())
             .map(link => ({ label: link.label.trim(), url: link.url.trim() })),
+        clients: (content.clients ?? [])
+            .filter(client => client.name.trim())
+            .map(client => ({ name: client.name.trim(), period: client.period.trim() })),
     };
 }
