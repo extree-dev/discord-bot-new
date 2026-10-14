@@ -242,7 +242,15 @@
     padding: 50px 7vw 100px;
 }
 
+/* sticky, а не обычный поток — иначе подпись секции (длинной в
+   несколько экранов, особенно about/work) уезжает вверх и пропадает
+   из вида уже после пары свайпов, вместо того чтобы остаться на
+   виду и проскроллиться вниз вместе с остальным контентом секции. */
 .sectionLabel {
+    position: sticky;
+    top: 24px;
+    z-index: 5;
+    align-self: start;
     margin: 0;
     font-family: 'Benne', serif;
     font-size: 42px;
