@@ -37,6 +37,9 @@ export interface Community {
     url?: string;
 }
 
+/** Вкладки секции "work" на визитке — как на референсе (frdg.work). */
+export type ShowcaseCategory = 'tools' | 'communities' | 'websites' | 'branding';
+
 export interface Showcase {
     title: string;
     /** Теги: 'App' | 'Bot' | 'Branding' | ... */
@@ -47,6 +50,8 @@ export interface Showcase {
     url?: string;
     nda?: boolean;
     upcoming?: boolean;
+    /** Вкладка, под которой карточка показывается в секции work. */
+    category?: ShowcaseCategory;
 }
 
 export interface SiteContent {
@@ -64,4 +69,5 @@ export interface SiteContentResponse extends SiteContent {
     maxLinks: number;
     maxClients: number;
     maxShowcases: number;
+    showcaseCategories: ShowcaseCategory[];
 }

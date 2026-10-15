@@ -1,5 +1,5 @@
-import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Client } from '../../entities/site-content/types';
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Client, ShowcaseCategory } from '../../entities/site-content/types';
 import {
     selectClients,
     selectCommunities,
@@ -199,7 +199,20 @@ interface WorkItem {
     url?: string;
     nda?: boolean;
     upcoming?: boolean;
+    category: ShowcaseCategory;
 }
+
+// Вкладки секции "work" — как на референсе (frdg.work): Tools/
+// Communities/Websites/Branding, в этом порядке. Рендерится только
+// вкладка, в которой реально есть хотя бы одна карточка — см.
+// groupedWork ниже.
+const WORK_CATEGORY_ORDER: ShowcaseCategory[] = ['tools', 'communities', 'websites', 'branding'];
+const WORK_CATEGORY_LABELS: Record<ShowcaseCategory, string> = {
+    tools: 'Tools',
+    communities: 'Communities',
+    websites: 'Websites',
+    branding: 'Branding',
+};
 
 function formatIndex(n: number): string {
     return n < 10 ? `0${n}` : `${n}`;
@@ -271,6 +284,44 @@ function useReveal<T extends HTMLElement>() {
     }, []);
 
     return { ref, visible };
+}
+
+// Какая вкладка секции work сейчас "активна" при скролле — как на
+// референсе (frdg.work): сама панель вкладок sticky и остаётся на месте
+// (см. .workFilters), а подсветка переключается на ту вкладку, чья
+// группа карточек ближе всего к верху вьюпорта. rootMargin сдвигает
+// зону срабатывания под sticky-шапку (нав + вкладки) и не даёт переходу
+// сработать раньше времени — триггерим задолго до того, как группа
+// полностью уйдёт из вида (-60% снизу), а не только у самого верха.
+function useScrollSpy(ids: string[]): string | null {
+    const idsKey = ids.join('|');
+    const [active, setActive] = useState<string | null>(ids[0] ?? null);
+
+    useEffect(() => {
+        if (ids.length <= 1) return undefined;
+        if (typeof IntersectionObserver === 'undefined') return undefined;
+
+        const elements = ids.map(id => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
+        if (elements.length === 0) return undefined;
+
+        const observer = new IntersectionObserver(
+            entries => {
+                const visible = entries.filter(entry => entry.isIntersecting);
+                if (visible.length === 0) return;
+                const topMost = visible.reduce((a, b) =>
+                    a.boundingClientRect.top <= b.boundingClientRect.top ? a : b
+                );
+                setActive(topMost.target.id);
+            },
+            { rootMargin: '-140px 0px -60% 0px', threshold: 0 }
+        );
+        elements.forEach(el => observer.observe(el));
+        return () => observer.disconnect();
+        // idsKey — стабильное сравнение вместо ids (новый массив на каждый рендер).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idsKey]);
+
+    return active;
 }
 
 // Бесшовная прокрутка строится дублированием ряда ([...clients, ...clients])
@@ -360,11 +411,61 @@ export function VisitkaPage() {
     }, []);
 
     // До раннего return (!content) — хуки должны вызываться в одном и том
-    // же порядке на каждый рендер, иначе React теряет их состояние.
+    // же порядке на каждый рендер, иначе React теряет их состояние. Поэтому
+    // workItems/groupedWork тоже считаются здесь (с content ? guard'ом на
+    // каждый селектор), а не после return — useScrollSpy ниже их использует.
     const aboutReveal = useReveal<HTMLElement>();
     const clientsReveal = useReveal<HTMLElement>();
     const contactReveal = useReveal<HTMLElement>();
     const footerReveal = useReveal<HTMLElement>();
+
+    const tools = content ? selectTools(content) : [];
+    const showcases = content ? selectShowcases(content) : [];
+    const communities = content ? selectCommunities(content) : [];
+
+    const workItems: WorkItem[] = [
+        ...tools.map(tool => ({
+            key: `tool-${tool.title}`,
+            title: tool.title,
+            tags: tool.tags,
+            copy: tool.description,
+            url: tool.url,
+            nda: tool.nda,
+            upcoming: tool.upcoming,
+            category: 'tools' as const,
+        })),
+        ...showcases.map(showcase => ({
+            key: `showcase-${showcase.title}`,
+            title: showcase.title,
+            tags: showcase.tags,
+            copy: showcase.description,
+            imageUrl: showcase.imageUrl,
+            url: showcase.url,
+            nda: showcase.nda,
+            upcoming: showcase.upcoming,
+            category: showcase.category ?? ('websites' as const),
+        })),
+        ...communities.map(community => ({
+            key: `community-${community.name}`,
+            title: community.title,
+            tags: ['Community'],
+            copy: `${community.members.toLocaleString('en-US')} участников, ${community.online.toLocaleString('en-US')} онлайн — ${community.responsibilities.join(', ')}`,
+            url: community.url,
+            category: 'communities' as const,
+        })),
+    ];
+    const groupedWork = useMemo(
+        () =>
+            WORK_CATEGORY_ORDER.map(category => ({
+                id: category,
+                label: WORK_CATEGORY_LABELS[category],
+                items: workItems.filter(item => item.category === category),
+            })).filter(group => group.items.length > 0),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tools, showcases, communities]
+    );
+    const workCategoryIds = useMemo(() => groupedWork.map(group => `work-${group.id}`), [groupedWork]);
+    const activeWorkCategory = useScrollSpy(workCategoryIds);
 
     if (!content) {
         return (
@@ -376,42 +477,9 @@ export function VisitkaPage() {
 
     const socialLinks = selectSocialLinks(content);
     const clients = selectClients(content);
-    const tools = selectTools(content);
-    const showcases = selectShowcases(content);
-    const communities = selectCommunities(content);
-
-    const workItems: WorkItem[] = [
-        ...tools.map(tool => ({
-            key: `tool-${tool.title}`,
-            title: tool.title,
-            tags: tool.tags,
-            copy: tool.description,
-            url: tool.url,
-            nda: tool.nda,
-            upcoming: tool.upcoming,
-        })),
-        ...showcases.map(showcase => ({
-            key: `showcase-${showcase.title}`,
-            title: showcase.title,
-            tags: showcase.tags,
-            copy: showcase.description,
-            imageUrl: showcase.imageUrl,
-            url: showcase.url,
-            nda: showcase.nda,
-            upcoming: showcase.upcoming,
-        })),
-        ...communities.map(community => ({
-            key: `community-${community.name}`,
-            title: community.title,
-            tags: ['Community'],
-            copy: `${community.members.toLocaleString('en-US')} участников, ${community.online.toLocaleString('en-US')} онлайн — ${community.responsibilities.join(', ')}`,
-            url: community.url,
-        })),
-    ];
-    const workTags = Array.from(new Set(workItems.flatMap(item => item.tags)));
 
     return (
-        <div className={styles.page} id="top">
+        <div className={noticeOpen ? `${styles.page} ${styles.hasNotice}` : styles.page} id="top">
             <ScrollProgressBar />
             {noticeOpen && (
                 <aside className={styles.notice}>
@@ -488,47 +556,68 @@ export function VisitkaPage() {
                     <section className={styles.work} id="work">
                         <div className={styles.workSpine} aria-hidden="true" />
                         <h2 className={styles.workTitle}>work</h2>
-                        {workTags.length > 1 && (
+                        {groupedWork.length > 1 && (
                             <div className={styles.workFilters}>
-                                {workTags.map(tag => (
-                                    <span key={tag}>{tag}</span>
+                                {groupedWork.map(group => (
+                                    <a
+                                        key={group.id}
+                                        href={`#work-${group.id}`}
+                                        className={
+                                            activeWorkCategory === `work-${group.id}`
+                                                ? styles.workFilterActive
+                                                : undefined
+                                        }
+                                    >
+                                        {group.label}
+                                    </a>
                                 ))}
                             </div>
                         )}
-                        <div className={styles.projects}>
-                            {workItems.map((item, index) => (
-                                <article className={styles.projectCard} key={item.key}>
-                                    {item.imageUrl && (
-                                        <img className={styles.projectImage} src={item.imageUrl} alt="" />
-                                    )}
-                                    {item.tags.length > 0 && (
-                                        <div className={styles.tags}>
-                                            {item.tags.map(tag => (
-                                                <span key={tag}>{tag}</span>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <h3 className={styles.projectTitle}>{item.title}</h3>
-                                    <p className={styles.projectCopy}>{item.copy}</p>
-                                    {item.nda && (
-                                        <span className={styles.projectBlocked}>Non-disclosure agreement-bound</span>
-                                    )}
-                                    {item.upcoming && <span className={styles.projectBlocked}>To be published</span>}
-                                    {!item.nda && !item.upcoming && item.url && (
-                                        <a
-                                            className={styles.projectLink}
-                                            href={item.url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            <span>Смотреть проект</span>
-                                            <ArrowUpRightIcon />
-                                        </a>
-                                    )}
-                                    <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
-                                </article>
-                            ))}
-                        </div>
+                        {groupedWork.map(group => (
+                            <div
+                                className={styles.projects}
+                                id={`work-${group.id}`}
+                                key={group.id}
+                                data-work-category={group.id}
+                            >
+                                {group.items.map((item, index) => (
+                                    <article className={styles.projectCard} key={item.key}>
+                                        {item.imageUrl && (
+                                            <img className={styles.projectImage} src={item.imageUrl} alt="" />
+                                        )}
+                                        {item.tags.length > 0 && (
+                                            <div className={styles.tags}>
+                                                {item.tags.map(tag => (
+                                                    <span key={tag}>{tag}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <h3 className={styles.projectTitle}>{item.title}</h3>
+                                        <p className={styles.projectCopy}>{item.copy}</p>
+                                        {item.nda && (
+                                            <span className={styles.projectBlocked}>
+                                                Non-disclosure agreement-bound
+                                            </span>
+                                        )}
+                                        {item.upcoming && (
+                                            <span className={styles.projectBlocked}>To be published</span>
+                                        )}
+                                        {!item.nda && !item.upcoming && item.url && (
+                                            <a
+                                                className={styles.projectLink}
+                                                href={item.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <span>Смотреть проект</span>
+                                                <ArrowUpRightIcon />
+                                            </a>
+                                        )}
+                                        <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
+                                    </article>
+                                ))}
+                            </div>
+                        ))}
                     </section>
                 )}
 

@@ -970,7 +970,13 @@ async function loadSiteContent() {
 
 app.get('/api/site-content', async (req, res) => {
     const content = await loadSiteContent();
-    res.json({ ...content, maxLinks: site.MAX_LINKS, maxClients: site.MAX_CLIENTS, maxShowcases: site.MAX_SHOWCASES });
+    res.json({
+        ...content,
+        maxLinks: site.MAX_LINKS,
+        maxClients: site.MAX_CLIENTS,
+        maxShowcases: site.MAX_SHOWCASES,
+        showcaseCategories: site.SHOWCASE_CATEGORIES,
+    });
 });
 
 app.get('/api/site-admin-status', async (req, res) => {
@@ -998,6 +1004,7 @@ app.put('/api/site-content', async (req, res) => {
             maxLinks: site.MAX_LINKS,
             maxClients: site.MAX_CLIENTS,
             maxShowcases: site.MAX_SHOWCASES,
+            showcaseCategories: site.SHOWCASE_CATEGORIES,
         });
     } catch (err) {
         console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);

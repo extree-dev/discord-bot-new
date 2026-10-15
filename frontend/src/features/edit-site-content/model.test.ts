@@ -161,6 +161,7 @@ describe('toPayload', () => {
                     url: '  https://example.com  ',
                     nda: true,
                     upcoming: false,
+                    category: 'tools',
                 },
                 { title: '   ', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
             ],
@@ -174,8 +175,30 @@ describe('toPayload', () => {
                 url: 'https://example.com',
                 nda: true,
                 upcoming: false,
+                category: 'tools',
             },
         ]);
+    });
+
+    it('проект без category получает category: "websites" по умолчанию', () => {
+        const content: SiteContent = {
+            name: 'Имя',
+            role: 'Роль',
+            bio: 'Био',
+            links: [],
+            showcases: [
+                {
+                    title: 'Без категории',
+                    tags: [],
+                    description: '',
+                    imageUrl: '',
+                    url: '',
+                    nda: false,
+                    upcoming: false,
+                },
+            ],
+        };
+        expect(toPayload(content).showcases?.[0]?.category).toBe('websites');
     });
 
     it('без поля showcases в исходном content отдаёт пустой список', () => {
