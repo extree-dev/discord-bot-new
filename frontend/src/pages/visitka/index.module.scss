@@ -365,9 +365,7 @@
     height: var(--nav-height);
     border: 1px solid var(--line);
     border-radius: 30px;
-    background:
-        linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%),
-        var(--glass);
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
     color: #000;
@@ -826,9 +824,7 @@
     border: 1px solid var(--line);
     border-top: 0;
     border-radius: 0 0 24px 24px;
-    background:
-        linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%),
-        var(--glass);
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
     pointer-events: auto;
