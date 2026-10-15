@@ -3,19 +3,24 @@ import { updateSiteContent, uploadImage } from '../../entities/site-content/api'
 import type { SiteContent } from '../../entities/site-content/types';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
+import { Checkbox } from '../../shared/ui/Checkbox';
 import { TextArea, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
-import { LinkChainIcon, TrashIcon, UserIcon, UsersIcon } from '../../shared/ui/icons';
+import { GridIcon, LinkChainIcon, TrashIcon, UserIcon, UsersIcon } from '../../shared/ui/icons';
 import {
     addClient,
     addLink,
+    addShowcase,
     canAddClient,
     canAddLink,
+    canAddShowcase,
     removeClient,
     removeLink,
+    removeShowcase,
     toPayload,
     updateClient,
     updateLink,
+    updateShowcase,
 } from './model';
 import styles from './index.module.scss';
 
@@ -23,6 +28,7 @@ interface SiteContentFormProps {
     initial: SiteContent;
     maxLinks: number;
     maxClients: number;
+    maxShowcases: number;
 }
 
 type Status = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string };
@@ -31,12 +37,18 @@ type LogoUploadStatus = { kind: 'uploading' } | { kind: 'error'; message: string
 
 const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
 
-export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFormProps) {
+export function SiteContentForm({ initial, maxLinks, maxClients, maxShowcases }: SiteContentFormProps) {
     const [content, setContent] = useState<SiteContent>(initial);
     const [status, setStatus] = useState<Status>({ kind: 'idle' });
     // По индексу клиента — асинхронная загрузка логотипа идёт отдельно
     // от остального состояния формы (не блокирует другие поля/сохранение).
     const [logoUploads, setLogoUploads] = useState<Record<number, LogoUploadStatus>>({});
+    const [showcaseImageUploads, setShowcaseImageUploads] = useState<Record<number, LogoUploadStatus>>({});
+    // Теги проекта редактируются одной строкой через запятую — пока поле
+    // в фокусе, храним сырой текст отдельно (иначе промежуточное "App,"
+    // сразу схлопывалось бы в массив ["App"] и съедало бы запятую при
+    // наборе следующего тега).
+    const [tagsDraft, setTagsDraft] = useState<Record<number, string>>({});
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
@@ -65,6 +77,44 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
             const message = err instanceof ApiError ? err.message : 'Не удалось загрузить файл.';
             setLogoUploads(prev => ({ ...prev, [index]: { kind: 'error', message } }));
         }
+    }
+
+    async function handleShowcaseImageFile(index: number, file: File) {
+        setShowcaseImageUploads(prev => ({ ...prev, [index]: { kind: 'uploading' } }));
+        try {
+            const { url } = await uploadImage(file);
+            setContent(prev => ({
+                ...prev,
+                showcases: updateShowcase(prev.showcases ?? [], index, { imageUrl: url }),
+            }));
+            setShowcaseImageUploads(prev => {
+                const next = { ...prev };
+                delete next[index];
+                return next;
+            });
+        } catch (err) {
+            const message = err instanceof ApiError ? err.message : 'Не удалось загрузить файл.';
+            setShowcaseImageUploads(prev => ({ ...prev, [index]: { kind: 'error', message } }));
+        }
+    }
+
+    function commitTagsDraft(index: number) {
+        const raw = tagsDraft[index];
+        if (raw === undefined) return;
+        setContent(prev => ({
+            ...prev,
+            showcases: updateShowcase(prev.showcases ?? [], index, {
+                tags: raw
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(Boolean),
+            }),
+        }));
+        setTagsDraft(prev => {
+            const next = { ...prev };
+            delete next[index];
+            return next;
+        });
     }
 
     return (
@@ -284,6 +334,176 @@ export function SiteContentForm({ initial, maxLinks, maxClients }: SiteContentFo
                                 }
                             >
                                 + Добавить клиента
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>
+                    <span className={styles.sectionIcon}>
+                        <GridIcon />
+                    </span>
+                    Проекты (секция «work»)
+                    <span className={styles.sectionCount}>
+                        {(content.showcases ?? []).length} / {maxShowcases}
+                    </span>
+                </h2>
+                <p className={styles.sectionHint}>
+                    Карточки в секции work на визитке. Нужен только заголовок — без него проект не сохранится. Картинка
+                    необязательна (карточка без неё просто текстовая), теги — через запятую. Пока список пуст, секция на
+                    сайте не показывается.
+                </p>
+
+                <div className={styles.links}>
+                    {(content.showcases ?? []).map((showcase, index) => {
+                        const upload = showcaseImageUploads[index];
+                        const imageUrl = showcase.imageUrl ?? '';
+                        return (
+                            <div className={styles.linkRow} key={index}>
+                                <span className={styles.linkIndex}>{index + 1}</span>
+                                <div className={styles.clientFields}>
+                                    <span className={styles.clientLogoPreview}>
+                                        {imageUrl.trim() ? <img src={imageUrl} alt="" /> : <GridIcon />}
+                                    </span>
+                                    <div className={styles.linkFields}>
+                                        <TextField
+                                            label={`Проект ${index + 1} — заголовок`}
+                                            id={`showcase${index}_title`}
+                                            value={showcase.title}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        title: e.target.value,
+                                                    }),
+                                                })
+                                            }
+                                            maxLength={80}
+                                        />
+                                        <TextArea
+                                            label="Описание"
+                                            id={`showcase${index}_description`}
+                                            rows={2}
+                                            value={showcase.description}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        description: e.target.value,
+                                                    }),
+                                                })
+                                            }
+                                            maxLength={400}
+                                        />
+                                        <TextField
+                                            label="Теги через запятую — например, Bot, Discord"
+                                            id={`showcase${index}_tags`}
+                                            value={tagsDraft[index] ?? showcase.tags.join(', ')}
+                                            onChange={e => setTagsDraft(prev => ({ ...prev, [index]: e.target.value }))}
+                                            onBlur={() => commitTagsDraft(index)}
+                                            maxLength={200}
+                                        />
+                                        <TextField
+                                            label="Ссылка «Смотреть проект» (пусто, если не нужна)"
+                                            id={`showcase${index}_url`}
+                                            type="url"
+                                            placeholder="https://..."
+                                            value={showcase.url ?? ''}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        url: e.target.value,
+                                                    }),
+                                                })
+                                            }
+                                            maxLength={300}
+                                        />
+                                        <div className={styles.logoUploadRow}>
+                                            <label className={styles.fileButton} htmlFor={`showcase${index}_file`}>
+                                                {upload?.kind === 'uploading'
+                                                    ? 'Загружаю…'
+                                                    : imageUrl.trim()
+                                                      ? 'Заменить картинку'
+                                                      : 'Загрузить картинку'}
+                                                <input
+                                                    className={styles.fileInput}
+                                                    type="file"
+                                                    id={`showcase${index}_file`}
+                                                    accept={LOGO_ACCEPT}
+                                                    disabled={upload?.kind === 'uploading'}
+                                                    onChange={e => {
+                                                        const file = e.target.files?.[0];
+                                                        e.target.value = '';
+                                                        if (file) void handleShowcaseImageFile(index, file);
+                                                    }}
+                                                />
+                                            </label>
+                                            {upload?.kind === 'error' && (
+                                                <span className={styles.fileError}>{upload.message}</span>
+                                            )}
+                                        </div>
+                                        <Checkbox
+                                            label="Под NDA — вместо ссылки показывается «Non-disclosure agreement-bound»"
+                                            id={`showcase${index}_nda`}
+                                            checked={Boolean(showcase.nda)}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        nda: e.target.checked,
+                                                    }),
+                                                })
+                                            }
+                                        />
+                                        <Checkbox
+                                            label="Скоро — вместо ссылки показывается «To be published»"
+                                            id={`showcase${index}_upcoming`}
+                                            checked={Boolean(showcase.upcoming)}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        upcoming: e.target.checked,
+                                                    }),
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    icon={<TrashIcon />}
+                                    onClick={() =>
+                                        setContent({
+                                            ...content,
+                                            showcases: removeShowcase(content.showcases ?? [], index),
+                                        })
+                                    }
+                                >
+                                    Удалить проект
+                                </Button>
+                            </div>
+                        );
+                    })}
+
+                    {canAddShowcase(content.showcases ?? [], maxShowcases) && (
+                        <div className={styles.addRow}>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                fullWidth
+                                onClick={() =>
+                                    setContent({
+                                        ...content,
+                                        showcases: addShowcase(content.showcases ?? [], maxShowcases),
+                                    })
+                                }
+                            >
+                                + Добавить проект
                             </Button>
                         </div>
                     )}

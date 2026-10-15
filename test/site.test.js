@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalize, DEFAULTS, MAX_LINKS, MAX_CLIENTS } = require('../site/model');
+const { normalize, DEFAULTS, MAX_LINKS, MAX_CLIENTS, MAX_SHOWCASES, MAX_SHOWCASE_TAGS } = require('../site/model');
 
 test('normalize: пустой объект — все поля заменяются дефолтами', () => {
     assert.deepEqual(normalize({}), DEFAULTS);
@@ -79,4 +79,61 @@ test('normalize: лишние клиенты сверх MAX_CLIENTS обреза
 test('normalize: не-массив в clients откатывается к дефолту (пустому списку)', () => {
     const result = normalize({ clients: 'не массив' });
     assert.deepEqual(result.clients, DEFAULTS.clients);
+});
+
+test('normalize: проекты без title отбрасываются, остальные поля обрезаются/нормализуются', () => {
+    const result = normalize({
+        showcases: [
+            {
+                title: '  The Kitchen  ',
+                tags: ['  Bot  ', '', 'Discord', '   '],
+                description: '  Описание  ',
+                imageUrl: '  https://example.com/kitchen.png  ',
+                url: '  https://example.com  ',
+                nda: 'truthy-but-not-boolean',
+            },
+            { title: '   ' },
+            { title: '', tags: ['Ignored'] },
+        ],
+    });
+    assert.deepEqual(result.showcases, [
+        {
+            title: 'The Kitchen',
+            tags: ['Bot', 'Discord'],
+            description: 'Описание',
+            imageUrl: 'https://example.com/kitchen.png',
+            url: 'https://example.com',
+            nda: true,
+            upcoming: false,
+        },
+    ]);
+});
+
+test('normalize: проект без картинки/тегов/url сохраняется с пустыми значениями (не ломается)', () => {
+    const result = normalize({ showcases: [{ title: 'Unik' }] });
+    assert.deepEqual(result.showcases, [
+        { title: 'Unik', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+    ]);
+});
+
+test('normalize: пустой список проектов остаётся пустым (секция work скрыта, а не фейковая)', () => {
+    const result = normalize({ showcases: [] });
+    assert.deepEqual(result.showcases, []);
+});
+
+test('normalize: лишние проекты сверх MAX_SHOWCASES обрезаются', () => {
+    const showcases = Array.from({ length: MAX_SHOWCASES + 3 }, (_, i) => ({ title: `Проект ${i}` }));
+    const result = normalize({ showcases });
+    assert.equal(result.showcases.length, MAX_SHOWCASES);
+});
+
+test('normalize: лишние теги сверх MAX_SHOWCASE_TAGS обрезаются', () => {
+    const tags = Array.from({ length: MAX_SHOWCASE_TAGS + 3 }, (_, i) => `Тег ${i}`);
+    const result = normalize({ showcases: [{ title: 'Проект', tags }] });
+    assert.equal(result.showcases[0].tags.length, MAX_SHOWCASE_TAGS);
+});
+
+test('normalize: не-массив в showcases откатывается к дефолту (пустому списку)', () => {
+    const result = normalize({ showcases: 'не массив' });
+    assert.deepEqual(result.showcases, DEFAULTS.showcases);
 });

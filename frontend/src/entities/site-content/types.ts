@@ -42,6 +42,8 @@ export interface Showcase {
     /** Теги: 'App' | 'Bot' | 'Branding' | ... */
     tags: string[];
     description: string;
+    /** URL баннера карточки в секции work. Пусто = карточка без картинки. */
+    imageUrl?: string;
     url?: string;
     nda?: boolean;
     upcoming?: boolean;
@@ -61,4 +63,5 @@ export interface SiteContent {
 export interface SiteContentResponse extends SiteContent {
     maxLinks: number;
     maxClients: number;
+    maxShowcases: number;
 }

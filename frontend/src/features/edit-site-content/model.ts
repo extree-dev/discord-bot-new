@@ -1,7 +1,16 @@
-import type { Client, SiteContent, SiteLink } from '../../entities/site-content/types';
+import type { Client, Showcase, SiteContent, SiteLink } from '../../entities/site-content/types';
 
 export const EMPTY_LINK: SiteLink = { label: '', url: '' };
 export const EMPTY_CLIENT: Client = { name: '', logoUrl: '', period: '' };
+export const EMPTY_SHOWCASE: Showcase = {
+    title: '',
+    tags: [],
+    description: '',
+    imageUrl: '',
+    url: '',
+    nda: false,
+    upcoming: false,
+};
 
 export function canAddLink(links: SiteLink[], maxLinks: number): boolean {
     return links.length < maxLinks;
@@ -35,6 +44,22 @@ export function updateClient(clients: Client[], index: number, patch: Partial<Cl
     return clients.map((client, i) => (i === index ? { ...client, ...patch } : client));
 }
 
+export function canAddShowcase(showcases: Showcase[], maxShowcases: number): boolean {
+    return showcases.length < maxShowcases;
+}
+
+export function addShowcase(showcases: Showcase[], maxShowcases: number): Showcase[] {
+    return canAddShowcase(showcases, maxShowcases) ? [...showcases, { ...EMPTY_SHOWCASE }] : showcases;
+}
+
+export function removeShowcase(showcases: Showcase[], index: number): Showcase[] {
+    return showcases.filter((_, i) => i !== index);
+}
+
+export function updateShowcase(showcases: Showcase[], index: number, patch: Partial<Showcase>): Showcase[] {
+    return showcases.map((showcase, i) => (i === index ? { ...showcase, ...patch } : showcase));
+}
+
 // Та же нормализация, что и на бэкенде (site/model.js normalize()) —
 // дублирование оправдано: это не единственный источник истины (сервер
 // всё равно перепроверит), а мгновенная обратная связь в форме до
@@ -54,6 +79,17 @@ export function toPayload(content: SiteContent): SiteContent {
                 name: client.name.trim(),
                 logoUrl: client.logoUrl.trim(),
                 period: client.period.trim(),
+            })),
+        showcases: (content.showcases ?? [])
+            .filter(showcase => showcase.title.trim())
+            .map(showcase => ({
+                title: showcase.title.trim(),
+                tags: showcase.tags.map(tag => tag.trim()).filter(Boolean),
+                description: showcase.description.trim(),
+                imageUrl: (showcase.imageUrl ?? '').trim(),
+                url: (showcase.url ?? '').trim(),
+                nda: Boolean(showcase.nda),
+                upcoming: Boolean(showcase.upcoming),
             })),
     };
 }

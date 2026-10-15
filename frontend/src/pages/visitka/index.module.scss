@@ -687,6 +687,17 @@
     transform: translateY(52px);
 }
 
+// Без скругления — по референс-фото карточки "work" у них картинка с
+// прямыми углами, хотя сама карточка (.projectCard) скруглена.
+.projectImage {
+    display: block;
+    width: 100%;
+    height: 180px;
+    margin-bottom: 16px;
+    object-fit: cover;
+    border-radius: 0;
+}
+
 .tags {
     display: flex;
     flex-wrap: wrap;
