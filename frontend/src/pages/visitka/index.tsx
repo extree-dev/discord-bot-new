@@ -24,11 +24,11 @@ import {
 } from '../../shared/ui/icons';
 import styles from './index.module.scss';
 
-// Перенос визуального языка с extree-dev/testing-site (экспорт из
-// Figma Make, редизайн визитки от фирмы) — структура и CSS взяты
-// практически как есть, вместо демо-контента подставлен реальный
-// с /api/site-content. Один файл, без промежуточных виджетов —
-// как и в оригинальном App.tsx.
+// Layout and styles mirror frdg.work (Figma Sites), using values taken
+// from the saved page: glass navigation over a white hero → about column,
+// a client marquee with a label panel on the right, a work section with
+// sticky tabs and side group labels, a contact block and a footer.
+// Content is ours, from /api/site-content.
 
 const CONTACT_EMAIL = 'support@extree.tech';
 
@@ -42,8 +42,6 @@ const PLATFORM_ICON: Record<Platform, () => React.ReactElement> = {
     generic: GlobeIcon,
 };
 
-// Брендовый цвет иконки в футере (CSS-модуль, см. index.module.scss) —
-// 'generic' намеренно без записи, у него нейтральный цвет по умолчанию.
 const PLATFORM_ICON_CLASS: Partial<Record<Platform, string>> = {
     discord: 'footerSocialIconDiscord',
     telegram: 'footerSocialIconTelegram',
@@ -52,6 +50,17 @@ const PLATFORM_ICON_CLASS: Partial<Record<Platform, string>> = {
     youtube: 'footerSocialIconYoutube',
     github: 'footerSocialIconGithub',
 };
+
+const NAV_LINKS = [
+    { href: '#about', label: 'about me' },
+    { href: '#clients', label: 'clients' },
+    { href: '#work', label: 'work' },
+    { href: '#contact', label: 'contact' },
+];
+
+function cx(...names: Array<string | false | null | undefined>): string {
+    return names.filter(Boolean).join(' ');
+}
 
 const heroIconPaths = [
     <path key="1" d="M3 14.5h18M6 14.5V7h10v7.5M17.5 8h3v8h-3z" />,
@@ -83,10 +92,6 @@ interface HeroIconProps {
     onPointerLeave: () => void;
 }
 
-// forwardRef — родитель (HeroIconsLayer) меряет расстояния между иконками
-// через getBoundingClientRect(), а не хранит координаты отдельно в JS:
-// позиции и так заданы в CSS (top/left в процентах), дублировать их
-// в коде — источник рассинхрона при любой правке вёрстки.
 const HeroIcon = forwardRef<SVGSVGElement, HeroIconProps>(function HeroIcon(
     { index, offset, onPointerEnter, onPointerLeave },
     ref
@@ -106,12 +111,7 @@ const HeroIcon = forwardRef<SVGSVGElement, HeroIconProps>(function HeroIcon(
     );
 });
 
-// Лёгкий "магнитный" ховер по референс-скриншотам фактического сайта:
-// при наведении на иконку соседние чуть смещаются в её сторону (не от
-// неё) — реагируют только те, что физически рядом (дальше MAX_DIST —
-// без сдвига). Считаем через getBoundingClientRect() только по events
-// наведения (не на каждый mousemove) — дешевле и этого достаточно для
-// едва заметного эффекта.
+// "Magnetic" hover: nearby icons shift slightly towards the hovered one.
 function HeroIconsLayer() {
     const iconRefs = useRef<Array<SVGSVGElement | null>>([]);
     const [offsets, setOffsets] = useState<IconOffset[]>(() => heroIconPaths.map(() => ZERO_OFFSET));
@@ -172,21 +172,23 @@ function Mark() {
     );
 }
 
-interface NavigationProps {
-    className?: string;
-}
-
-function Navigation({ className }: NavigationProps) {
+// Same markup for desktop and mobile: on desktop the logo and links are
+// absolutely positioned inside the 580×80 pill (as on frdg.work); on
+// mobile the CSS turns them into a regular flex row.
+function Navigation() {
     return (
-        <div className={className ? `${styles.navPill} ${className}` : styles.navPill}>
-            <a href="#top" aria-label="В начало">
+        <nav className={styles.navPill} aria-label="Navigation">
+            <a className={styles.navLogo} href="#top" aria-label="Back to top">
                 <Mark />
             </a>
-            <a href="#about">about me</a>
-            <a href="#clients">clients</a>
-            <a href="#work">work</a>
-            <a href="#contact">contact</a>
-        </div>
+            <div className={styles.navLinks}>
+                {NAV_LINKS.map(link => (
+                    <a key={link.href} href={link.href}>
+                        {link.label}
+                    </a>
+                ))}
+            </div>
+        </nav>
     );
 }
 
@@ -202,10 +204,6 @@ interface WorkItem {
     category: ShowcaseCategory;
 }
 
-// Вкладки секции "work" — как на референсе (frdg.work): Tools/
-// Communities/Websites/Branding, в этом порядке. Рендерится только
-// вкладка, в которой реально есть хотя бы одна карточка — см.
-// groupedWork ниже.
 const WORK_CATEGORY_ORDER: ShowcaseCategory[] = ['tools', 'communities', 'websites', 'branding'];
 const WORK_CATEGORY_LABELS: Record<ShowcaseCategory, string> = {
     tools: 'Tools',
@@ -214,16 +212,11 @@ const WORK_CATEGORY_LABELS: Record<ShowcaseCategory, string> = {
     branding: 'Branding',
 };
 
-function formatIndex(n: number): string {
-    return n < 10 ? `0${n}` : `${n}`;
-}
-
-// Полоска прогресса прокрутки — ширина через transform: scaleX на ref,
-// а не через React state/setState на каждый scroll (дорого при частых
-// событиях); requestAnimationFrame схлопывает несколько scroll-событий
-// одного кадра в одно обновление стиля.
+// Scroll progress, as on frdg.work: the inner bar grows in width (not
+// scaleX), so its rounded right edge doesn't get squashed.
+// requestAnimationFrame batches all scroll events within one frame.
 function ScrollProgressBar() {
-    const barRef = useRef<HTMLDivElement>(null);
+    const innerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         let frame = 0;
@@ -232,7 +225,7 @@ function ScrollProgressBar() {
             const doc = document.documentElement;
             const scrollable = doc.scrollHeight - doc.clientHeight;
             const progress = scrollable > 0 ? doc.scrollTop / scrollable : 0;
-            if (barRef.current) barRef.current.style.transform = `scaleX(${progress})`;
+            if (innerRef.current) innerRef.current.style.width = `${(progress * 100).toFixed(2)}%`;
         }
         function onScroll() {
             if (!frame) frame = requestAnimationFrame(update);
@@ -247,21 +240,20 @@ function ScrollProgressBar() {
         };
     }, []);
 
-    return <div className={styles.scrollProgress} ref={barRef} aria-hidden="true" />;
+    return (
+        <div className={styles.scrollProgress} aria-hidden="true">
+            <div className={styles.scrollProgressInner} ref={innerRef} />
+        </div>
+    );
 }
 
-// Секции не должны "резко" появляться при первом скролле к ним — лёгкий
-// fade+slide через IntersectionObserver, один раз на секцию (отключаем
-// наблюдение сразу после первого пересечения — дальше не нужно).
+// Fade + slide (24px) the first time an element enters the viewport,
+// same values as frdg.work. A callback ref rather than useEffect: the
+// node only appears once the content has loaded.
 function useReveal<T extends HTMLElement>() {
     const [visible, setVisible] = useState(false);
     const observerRef = useRef<IntersectionObserver | null>(null);
 
-    // Колбэк-реф вместо useEffect(..., []) — пока content === null, страница
-    // рендерит скелетон без секций, и нужный DOM-узел появляется только
-    // на следующем рендере; эффект с пустым массивом зависимостей к тому
-    // моменту уже отработал бы на ref.current === null и больше не
-    // перезапустился бы. Колбэк-реф вызывается при каждом монтировании узла.
     const ref = useCallback((el: T | null) => {
         observerRef.current?.disconnect();
         observerRef.current = null;
@@ -277,7 +269,7 @@ function useReveal<T extends HTMLElement>() {
                     observer.disconnect();
                 }
             },
-            { threshold: 0.15 }
+            { threshold: 0.12 }
         );
         observer.observe(el);
         observerRef.current = observer;
@@ -286,13 +278,8 @@ function useReveal<T extends HTMLElement>() {
     return { ref, visible };
 }
 
-// Какая вкладка секции work сейчас "активна" при скролле — как на
-// референсе (frdg.work): сама панель вкладок sticky и остаётся на месте
-// (см. .workFilters), а подсветка переключается на ту вкладку, чья
-// группа карточек ближе всего к верху вьюпорта. rootMargin сдвигает
-// зону срабатывания под sticky-шапку (нав + вкладки) и не даёт переходу
-// сработать раньше времени — триггерим задолго до того, как группа
-// полностью уйдёт из вида (-60% снизу), а не только у самого верха.
+// Active work tab: the group closest to the top of the viewport, below
+// the sticky header (nav + tabs).
 function useScrollSpy(ids: string[]): string | null {
     const idsKey = ids.join('|');
     const [active, setActive] = useState<string | null>(ids[0] ?? null);
@@ -317,19 +304,14 @@ function useScrollSpy(ids: string[]): string | null {
         );
         elements.forEach(el => observer.observe(el));
         return () => observer.disconnect();
-        // idsKey — стабильное сравнение вместо ids (новый массив на каждый рендер).
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idsKey]);
 
     return active;
 }
 
-// На мобильной раскладке навигационная панель — position: fixed, и по
-// умолчанию она «висит» до конца страницы. Просили скрывать её, когда
-// секция work уходит за верх экрана. Отслеживаем положение .work через
-// IntersectionObserver: пока она хоть частично в вьюпорте (или ещё ниже
-// его), панель видна; когда секция уехала выше вьюпорта — панель гаснет
-// (opacity 0 + pointer-events: none).
+// The mobile navigation (position: fixed) fades out once the work
+// section has scrolled above the viewport.
 function useMobileNavVisible(workRef: React.RefObject<HTMLElement | null>, enabled: boolean) {
     const [visible, setVisible] = useState(true);
 
@@ -344,8 +326,6 @@ function useMobileNavVisible(workRef: React.RefObject<HTMLElement | null>, enabl
 
         const observer = new IntersectionObserver(
             ([entry]) => {
-                // Показываем, если work пересекается со вьюпортом ИЛИ ещё
-                // не дошёл до него (top > 0 — секция ниже области видимости).
                 setVisible(entry.isIntersecting || entry.boundingClientRect.top > 0);
             },
             { threshold: 0 }
@@ -357,35 +337,29 @@ function useMobileNavVisible(workRef: React.RefObject<HTMLElement | null>, enabl
     return visible;
 }
 
-// Бесшовная прокрутка строится дублированием ряда ([...clients, ...clients])
-// и сдвигом на -50% — это ломается визуально, если сам ряд логотипов (без
-// дублирования) короче контейнера: вместо прокрутки видно сразу оба
-// повтора рядом, и кажется, что логотип "двоится" (особенно заметно при
-// одном клиенте или при нескольких, но с узкими логотипами). Поэтому
-// дублирование и анимацию включаем только когда реальная ширина ряда
-// превышает ширину контейнера — меряем скрытым "пробником" с тем же
-// списком логотипов.
-// Карточка клиента — лого + название + период работы (вместо монохромного
-// лого в бегущей строке — см. index.module.scss для источника).
 function ClientCard({ client, onLogoLoad }: { client: Client; onLogoLoad?: () => void }) {
     return (
-        <div className={styles.clientCard}>
-            <img
-                className={styles.clientLogoImg}
-                src={client.logoUrl}
-                alt={client.name}
-                loading="lazy"
-                onLoad={onLogoLoad}
-            />
-            <span className={styles.clientName}>{client.name}</span>
+        <li className={styles.clientCard}>
+            <div className={styles.clientHead}>
+                <img
+                    className={styles.clientLogoImg}
+                    src={client.logoUrl}
+                    alt={`${client.name} logo`}
+                    loading="lazy"
+                    onLoad={onLogoLoad}
+                />
+                <span className={styles.clientName}>{client.name}</span>
+            </div>
             {client.period && <span className={styles.clientPeriod}>{client.period}</span>}
-        </div>
+        </li>
     );
 }
 
+// Seamless looping (duplicate the row + shift by -50%) is only enabled
+// when the row is wider than its container, measured with a hidden probe.
 function ClientsMarquee({ clients }: { clients: Client[] }) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const probeRef = useRef<HTMLDivElement>(null);
+    const probeRef = useRef<HTMLUListElement>(null);
     const [shouldLoop, setShouldLoop] = useState(false);
 
     const measure = useCallback(() => {
@@ -410,18 +384,49 @@ function ClientsMarquee({ clients }: { clients: Client[] }) {
     const items = shouldLoop ? [...clients, ...clients] : clients;
 
     return (
-        <div className={styles.marquee} ref={containerRef}>
-            <div className={styles.marqueeProbe} ref={probeRef} aria-hidden="true">
+        <div className={styles.marquee} ref={containerRef} role="marquee" aria-label="Clients">
+            <ul className={styles.marqueeProbe} ref={probeRef} aria-hidden="true">
                 {clients.map((client, index) => (
                     <ClientCard client={client} key={`probe-${client.name}-${index}`} onLogoLoad={measure} />
                 ))}
-            </div>
-            <div className={shouldLoop ? styles.marqueeTrack : styles.marqueeTrackStatic}>
+            </ul>
+            <ul className={shouldLoop ? styles.marqueeTrack : styles.marqueeTrackStatic}>
                 {items.map((client, index) => (
                     <ClientCard client={client} key={`${client.name}-${index}`} />
                 ))}
-            </div>
+            </ul>
         </div>
+    );
+}
+
+function ProjectCard({ item }: { item: WorkItem }) {
+    const reveal = useReveal<HTMLElement>();
+
+    return (
+        <article ref={reveal.ref} className={cx(styles.projectCard, reveal.visible && styles.revealed)}>
+            <div className={styles.projectBody}>
+                {item.imageUrl && <img className={styles.projectImage} src={item.imageUrl} alt="" loading="lazy" />}
+                <div className={styles.projectText}>
+                    {item.tags.length > 0 && (
+                        <div className={styles.tags}>
+                            {item.tags.map(tag => (
+                                <span key={tag}>{tag}</span>
+                            ))}
+                        </div>
+                    )}
+                    <h3 className={styles.projectTitle}>{item.title}</h3>
+                    <p className={styles.projectCopy}>{item.copy}</p>
+                </div>
+            </div>
+            {item.nda && <span className={styles.projectBlocked}>Non-disclosure agreement-bound</span>}
+            {!item.nda && item.upcoming && <span className={styles.projectBlocked}>To be published</span>}
+            {!item.nda && !item.upcoming && item.url && (
+                <a className={styles.projectLink} href={item.url} target="_blank" rel="noreferrer">
+                    <span>View website</span>
+                    <ArrowUpRightIcon />
+                </a>
+            )}
+        </article>
     );
 }
 
@@ -443,12 +448,10 @@ export function VisitkaPage() {
         };
     }, []);
 
-    // До раннего return (!content) — хуки должны вызываться в одном и том
-    // же порядке на каждый рендер, иначе React теряет их состояние. Поэтому
-    // workItems/groupedWork тоже считаются здесь (с content ? guard'ом на
-    // каждый селектор), а не после return — useScrollSpy ниже их использует.
+    // Hooks go before the early return so their call order never changes.
     const aboutReveal = useReveal<HTMLElement>();
     const clientsReveal = useReveal<HTMLElement>();
+    const workReveal = useReveal<HTMLElement>();
     const contactReveal = useReveal<HTMLElement>();
     const footerReveal = useReveal<HTMLElement>();
 
@@ -482,17 +485,14 @@ export function VisitkaPage() {
             key: `community-${community.name}`,
             title: community.title,
             tags: ['Community'],
-            copy: `${community.members.toLocaleString('en-US')} участников, ${community.online.toLocaleString('en-US')} онлайн — ${community.responsibilities.join(', ')}`,
+            copy: `${community.members.toLocaleString('en-US')} members, ${community.online.toLocaleString('en-US')} online — ${community.responsibilities.join(', ')}`,
             url: community.url,
             category: 'communities' as const,
         })),
     ];
-    // Все 4 вкладки показываются всегда (как на референсе frdg.work), даже
-    // если в части категорий пока нет ни одной карточки — иначе, пока
-    // заполнена только одна категория (как сейчас на проде), панель вкладок
-    // пропадала бы целиком и выглядело так, будто вкладок вообще нет.
-    // Карточки же рендерятся (и участвуют в scrollspy) только для реально
-    // заполненных категорий — populatedWorkGroups.
+
+    // All 4 tabs are always shown (as on frdg.work); cards and scrollspy
+    // only cover categories that actually have items.
     const groupedWork = useMemo(
         () =>
             WORK_CATEGORY_ORDER.map(category => ({
@@ -507,13 +507,18 @@ export function VisitkaPage() {
     const workCategoryIds = useMemo(() => populatedWorkGroups.map(group => `work-${group.id}`), [populatedWorkGroups]);
     const activeWorkCategory = useScrollSpy(workCategoryIds);
 
-    // Скрытие мобильной навигации, когда секция work уехала выше вьюпорта.
-    // Observer подключён всегда — CSS сам решает, что .mobileNav виден
-    // только на мобильной раскладке (display: none на десктопе). Внутри
-    // хука enabled = true (активно только на мобилке — media-query
-    // здесь не нужен, т.к. сам элемент на десктопе скрыт).
     const workRef = useRef<HTMLElement | null>(null);
     const mobileNavVisible = useMobileNavVisible(workRef, true);
+
+    // .work needs both workRef (for the mobile nav) and the reveal ref.
+    const setWorkNode = useCallback(
+        (el: HTMLElement | null) => {
+            workRef.current = el;
+            workReveal.ref(el);
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        []
+    );
 
     if (!content) {
         return (
@@ -527,25 +532,27 @@ export function VisitkaPage() {
     const clients = selectClients(content);
 
     return (
-        <div className={noticeOpen ? `${styles.page} ${styles.hasNotice}` : styles.page} id="top">
+        <div className={styles.page} id="top">
             <ScrollProgressBar />
+
             {noticeOpen && (
                 <aside className={styles.notice}>
-                    <span>
-                        Есть вопрос или интересный проект? Напишите на{' '}
-                        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-                    </span>
-                    <button type="button" aria-label="Закрыть" onClick={() => setNoticeOpen(false)}>
-                        ×
+                    <span>Have a question or an interesting project? Email us at</span>
+                    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                    <span>!</span>
+                    <button
+                        className={styles.noticeClose}
+                        type="button"
+                        aria-label="Close"
+                        onClick={() => setNoticeOpen(false)}
+                    >
+                        <svg viewBox="0 0 10 10" aria-hidden="true">
+                            <path d="M1 1l8 8M9 1l-8 8" />
+                        </svg>
                     </button>
                 </aside>
             )}
 
-            {/* .mobileNav — единственный владелец навигации на мобилке.
-                style.opacity управляет видимостью: пока секция work
-                в вьюпорте (или ещё ниже) — нав виден, когда work уехал
-                выше — гаснет. На десктопе .mobileNav скрыт через CSS,
-                поэтому эта логика не влияет. */}
             <div
                 className={styles.mobileNav}
                 style={{
@@ -557,25 +564,30 @@ export function VisitkaPage() {
                 <Navigation />
             </div>
 
-            <section className={styles.heroCard}>
-                <div className={styles.heroCardTexture} />
-                <HeroIconsLayer />
-                <h1>extree.tech</h1>
-            </section>
+            <header className={styles.hero}>
+                <section className={styles.heroCard}>
+                    <div className={styles.heroCardTexture} />
+                    <HeroIconsLayer />
+                    <p className={styles.heroTitle}>extree.tech</p>
+                </section>
+            </header>
 
-            {/* .pageBody — контейнер для sticky-позиционирования desktop-навигации:
-               position: sticky «прилипает» в пределах ближайшего родительского
-               блока, а не всей страницы, поэтому непосредственный родитель
-               панели должен быть высотой во весь остаток страницы (а не
-               короткая 110px-строка, как раньше — см. комментарий у .navPillDesktop). */}
             <div className={styles.pageBody}>
-                <Navigation className={styles.navPillDesktop} />
+                {/* Sticky navigation rail: from the bottom of the hero to the end of the page */}
+                <div className={styles.navRail}>
+                    <div className={styles.navSticky}>
+                        <Navigation />
+                    </div>
+                </div>
+
+                <div className={styles.navStrip} aria-hidden="true" />
+
                 <section
                     ref={aboutReveal.ref}
-                    className={`${styles.about} ${aboutReveal.visible ? styles.revealed : ''}`}
+                    className={cx(styles.about, aboutReveal.visible && styles.revealed)}
                     id="about"
                 >
-                    <h2 className={styles.sectionLabel}>about me</h2>
+                    <h2 className={cx(styles.sectionLabel, styles.labelUp)}>about me</h2>
                     <div className={styles.aboutCopy}>
                         <div className={styles.aboutHeader}>
                             <h1 className={styles.aboutName}>{content.name}</h1>
@@ -585,7 +597,7 @@ export function VisitkaPage() {
                     </div>
                     {LANGUAGES.length > 0 && (
                         <div className={styles.languages}>
-                            <span>talk to me in</span>
+                            <span className={styles.languagesLabel}>talk to me in</span>
                             <div className={styles.languagesRow}>
                                 {LANGUAGES.map(lang => (
                                     <span key={lang.code} className={styles.languageBox}>
@@ -603,94 +615,73 @@ export function VisitkaPage() {
                 {clients.length > 0 && (
                     <section
                         ref={clientsReveal.ref}
-                        className={`${styles.clients} ${clientsReveal.visible ? styles.revealed : ''}`}
+                        className={cx(styles.clients, clientsReveal.visible && styles.revealed)}
                         id="clients"
                     >
-                        <h2 className={styles.sectionLabel}>clients</h2>
                         <ClientsMarquee clients={clients} />
+                        <div className={styles.clientsFadeLeft} aria-hidden="true" />
+                        <div className={styles.clientsPanel}>
+                            <h2 className={cx(styles.sectionLabel, styles.labelDown)}>clients</h2>
+                        </div>
                     </section>
                 )}
 
                 {workItems.length > 0 && (
-                    <section className={styles.work} id="work" ref={workRef}>
-                        {/* Левая колонка: вертикальный заголовок "work". */}
-                        <div className={styles.TitleWork}>
-                            <h2 className={styles.workTitle}>work</h2>
-                        </div>
-
-                        {/* Фильтры — прямой ребёнок .work, растянуты на обе
-                            колонки (grid-column: 1 / -1), центрируются по всей
-                            ширине секции, а не по правой колонке. */}
-                        <div className={styles.workFiltersSticky}>
-                            <div className={styles.workFilters}>
-                                {groupedWork.map(group =>
-                                    group.items.length > 0 ? (
-                                        <a
-                                            key={group.id}
-                                            href={`#work-${group.id}`}
-                                            className={
-                                                activeWorkCategory === `work-${group.id}`
-                                                    ? styles.workFilterActive
-                                                    : undefined
-                                            }
-                                        >
-                                            {group.label}
-                                        </a>
-                                    ) : (
-                                        <span key={group.id} className={styles.workFilterEmpty}>
-                                            {group.label}
-                                        </span>
-                                    )
-                                )}
+                    <section
+                        ref={setWorkNode}
+                        className={cx(styles.work, workReveal.visible && styles.revealed)}
+                        id="work"
+                    >
+                        <div className={styles.workFiltersRail}>
+                            <div className={styles.workFiltersSticky}>
+                                <nav className={styles.workFilters} aria-label="Work categories">
+                                    {groupedWork.map(group =>
+                                        group.items.length > 0 ? (
+                                            <a
+                                                key={group.id}
+                                                href={`#work-${group.id}`}
+                                                className={
+                                                    activeWorkCategory === `work-${group.id}`
+                                                        ? styles.workFilterActive
+                                                        : undefined
+                                                }
+                                            >
+                                                {group.label}
+                                            </a>
+                                        ) : (
+                                            <span key={group.id} className={styles.workFilterEmpty}>
+                                                {group.label}
+                                            </span>
+                                        )
+                                    )}
+                                </nav>
                             </div>
                         </div>
 
-                        {/* Карточки — во второй колонке, внутри .workContent,
-                            чтобы grid видел их как один элемент. */}
-                        <div className={styles.workContent}>
+                        <div className={styles.workLabelRail}>
+                            <a className={styles.workLabel} href="#work">
+                                <h2 className={cx(styles.sectionLabel, styles.labelUp)}>work</h2>
+                            </a>
+                        </div>
+
+                        <div className={styles.workGroups}>
                             {populatedWorkGroups.map(group => (
                                 <div
-                                    className={styles.projects}
+                                    className={styles.workGroup}
                                     id={`work-${group.id}`}
                                     key={group.id}
                                     data-work-category={group.id}
                                 >
-                                    {group.items.map((item, index) => (
-                                        <article className={styles.projectCard} key={item.key}>
-                                            {item.imageUrl && (
-                                                <img className={styles.projectImage} src={item.imageUrl} alt="" />
-                                            )}
-                                            {item.tags.length > 0 && (
-                                                <div className={styles.tags}>
-                                                    {item.tags.map(tag => (
-                                                        <span key={tag}>{tag}</span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <h3 className={styles.projectTitle}>{item.title}</h3>
-                                            <p className={styles.projectCopy}>{item.copy}</p>
-                                            {item.nda && (
-                                                <span className={styles.projectBlocked}>
-                                                    Non-disclosure agreement-bound
-                                                </span>
-                                            )}
-                                            {item.upcoming && (
-                                                <span className={styles.projectBlocked}>To be published</span>
-                                            )}
-                                            {!item.nda && !item.upcoming && item.url && (
-                                                <a
-                                                    className={styles.projectLink}
-                                                    href={item.url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    <span>Смотреть проект</span>
-                                                    <ArrowUpRightIcon />
-                                                </a>
-                                            )}
-                                            <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
-                                        </article>
-                                    ))}
+                                    <div className={styles.workGroupLabelRail}>
+                                        <div className={styles.workGroupLabel}>
+                                            <span className={styles.labelUp}>{group.id}</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.projects}>
+                                        {group.items.map(item => (
+                                            <ProjectCard item={item} key={item.key} />
+                                        ))}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -699,35 +690,40 @@ export function VisitkaPage() {
 
                 <section
                     ref={contactReveal.ref}
-                    className={`${styles.contact} ${contactReveal.visible ? styles.revealed : ''}`}
+                    className={cx(styles.contact, contactReveal.visible && styles.revealed)}
                     id="contact"
                 >
-                    <h2 className={styles.sectionLabel}>contact</h2>
-                    <div className={styles.contactCard}>
-                        <p>Есть проект или просто хорошая идея?</p>
-                        <a className={styles.contactLink} href={`mailto:${CONTACT_EMAIL}`}>
-                            {CONTACT_EMAIL}
-                        </a>
+                    <div className={styles.contactInner}>
+                        <p className={styles.contactLead}>Got a project or just a good idea?</p>
+                        <div className={styles.contactBox}>
+                            <span className={styles.contactBoxLabel}>or reach out via email</span>
+                            <a className={styles.contactLink} href={`mailto:${CONTACT_EMAIL}`}>
+                                {CONTACT_EMAIL}
+                            </a>
+                        </div>
+                    </div>
+                    <div className={styles.contactLabel}>
+                        <h2 className={cx(styles.sectionLabel, styles.labelDown)}>contact</h2>
                     </div>
                 </section>
             </div>
 
-            <footer
-                ref={footerReveal.ref}
-                className={`${styles.siteFooter} ${footerReveal.visible ? styles.revealed : ''}`}
-            >
+            <footer ref={footerReveal.ref} className={cx(styles.siteFooter, footerReveal.visible && styles.revealed)}>
                 <div className={styles.footerRow}>
                     <div className={styles.footerBrand}>
-                        <Mark />
-                        <span className={styles.footerBrandName}>extree.tech</span>
-                    </div>
+                        <a className={styles.footerLogo} href="#top" aria-label="Back to top">
+                            <Mark />
+                            <span className={styles.footerBrandName}>extree.tech</span>
+                        </a>
 
-                    <nav className={styles.footerNav} aria-label="Карта сайта">
-                        <a href="#about">about me</a>
-                        <a href="#clients">clients</a>
-                        <a href="#work">work</a>
-                        <a href="#contact">contact</a>
-                    </nav>
+                        <nav className={styles.footerNav} aria-label="Sitemap">
+                            {NAV_LINKS.map(link => (
+                                <a key={link.href} href={link.href}>
+                                    {link.label}
+                                </a>
+                            ))}
+                        </nav>
+                    </div>
 
                     {socialLinks.length > 0 && (
                         <div className={styles.footerSocial}>
@@ -735,13 +731,10 @@ export function VisitkaPage() {
                                 const platform = detectPlatform(link);
                                 const Icon = PLATFORM_ICON[platform];
                                 const colorClass = PLATFORM_ICON_CLASS[platform];
-                                const className = colorClass
-                                    ? `${styles.footerSocialIcon} ${styles[colorClass]}`
-                                    : styles.footerSocialIcon;
                                 return (
                                     <a
                                         key={link.url}
-                                        className={className}
+                                        className={cx(styles.footerSocialIcon, colorClass && styles[colorClass])}
                                         href={link.url}
                                         target="_blank"
                                         rel="noreferrer"
