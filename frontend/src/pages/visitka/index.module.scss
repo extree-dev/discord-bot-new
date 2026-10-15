@@ -16,6 +16,11 @@
     --line: rgba(0, 0, 0, 0.1);
     --blue: #1768ef;
 
+    --nav-top: 16px;
+    --nav-height: 65px;
+    --nav-gap: 12px;
+    --nav-stack-top: calc(var(--nav-top) + var(--nav-height) + var(--nav-gap));
+
     color: var(--ink);
     background: var(--background);
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -106,6 +111,7 @@
     from {
         background-position: 200% 0;
     }
+
     to {
         background-position: -200% 0;
     }
@@ -141,21 +147,6 @@
     line-height: 1;
 }
 
-// Живые скриншоты реального мобильного frdg.work (прислал пользователь)
-// опровергли более раннюю "сквозную рамку" (PR #266): DOM-снапшот, судя
-// по всему, содержал разметку НЕСКОЛЬКИХ breakpoint-вариантов Framer
-// в одном HTML, и тогда была по ошибке взята не та версия. На фактическом
-// сайте hero/about/clients/work/contact — отдельные плавающие карточки
-// каждая со своим отступом, рамкой, скруглением и тенью, разделённые
-// зазором фона страницы (видно на скриншотах пользователя: карточка
-// about заканчивается скруглённым низом, затем серый зазор, затем
-// отдельная карточка clients и т.д.) — возвращено к этому виду.
-// Десктоп: hero скруглён только сверху и без отступа снизу — .about
-// идёт сразу следом, без зазора и собственного фона/рамки, так что
-// визуально это один непрерывный блок (по живому фото референса, где
-// между текстурой hero и текстом "about me" нет шва). На мобильном
-// это переопределяется ниже — там hero остаётся отдельной плавающей
-// карточкой (по фото реального мобильного сайта, см. PR #270).
 .heroCard {
     position: relative;
     height: 700px;
@@ -166,12 +157,6 @@
     background: var(--blue);
 }
 
-// Атласная текстура hero (вместо плоского CSS-градиента) — перенесена
-// из extree-dev/testing-site: тот же приём (фото + лёгкий цветной
-// градиент поверх + saturate/contrast), только сама картинка — наш
-// собственный статический ассет (public/hero-texture.jpg), а не внешний
-// хотлинк на Unsplash: CSP (img-src 'self') всё равно блокирует любой
-// внешний хост для картинок, см. uploads/ и причину в PR #253.
 .heroCardTexture {
     position: absolute;
     inset: 0;
@@ -222,38 +207,47 @@
     top: 9%;
     left: 10%;
 }
+
 .heroIcon2 {
     top: 14%;
     left: 23%;
 }
+
 .heroIcon3 {
     top: 10%;
     left: 40%;
 }
+
 .heroIcon4 {
     top: 14%;
     right: 27%;
 }
+
 .heroIcon5 {
     top: 8%;
     right: 11%;
 }
+
 .heroIcon6 {
     top: 35%;
     left: 9%;
 }
+
 .heroIcon7 {
     top: 30%;
     right: 8%;
 }
+
 .heroIcon8 {
     bottom: 13%;
     left: 55%;
 }
+
 .heroIcon9 {
     bottom: 12%;
     right: 24%;
 }
+
 .heroIcon10 {
     right: 11%;
     bottom: 13%;
@@ -286,24 +280,16 @@
     white-space: nowrap;
 }
 
-/* На десктопе панель — sticky, а не fixed: по реальным фото референса
-   (frdg.work) в состоянии покоя она лежит поверх нижней части hero (чуть
-   перекрывая картинку), а не прибита к самому верху вьюпорта. Это именно
-   обычный sticky-элемент потока: .navPillDesktop — первый ребёнок
-   .pageBody, который идёт сразу после .heroCard, так что без отступа
-   его статичная позиция и так оказалась бы ровно на шве hero/.about;
-   отрицательный margin-top поднимает её внутрь hero, в нижнюю треть
-   картинки. top: 16px — порог, после которого при скролле панель
-   "прилипает" к верху вьюпорта и остаётся видимой до конца страницы
-   (.pageBody высотой во весь остаток страницы — её containing block).
-   Hero и .about всё равно стыкуются впритык (margin/border-radius на
-   них самих) — нав просто плавает поверх шва, не занимая место в их
-   раскладке. */
+/* На десктопе панель — sticky, а не fixed. Родитель — .pageBody (высотой
+   во весь остаток страницы), поэтому sticky «доживает» до конца страницы.
+   margin-top: -40px поднимает панель внутрь нижней части hero, чтобы она
+   визуально лежала на шве hero/.about. */
 .navPillDesktop {
     position: sticky;
-    top: 16px;
+    top: var(--nav-top);
     z-index: 20;
-    margin: -64px auto 0;
+    width: fit-content;
+    margin: -90px auto;
 }
 
 .navPill a {
@@ -369,14 +355,6 @@
     display: none;
 }
 
-// На десктопе — без рамки/тени и без скругления сверху: продолжение
-// hero без шва (см. комментарий у .heroCard), но фон остаётся белым —
-// на референсе у этого блока есть заливка, просто без отдельной
-// плавающей карточки. Скругление только снизу, чтобы вся связка
-// hero+about читалась как одна фигура с одним общим скруглённым краем.
-// На мобильном это переопределяется ниже — там .about снова отдельная
-// карточка со своим border/box-shadow, как .clients/.contact
-// (подтверждено реальным скриншотом мобильного сайта, PR #270).
 .about {
     position: relative;
     display: grid;
@@ -490,9 +468,6 @@
     height: 100%;
 }
 
-// Без фона-карточки и с подписью справа — в отличие от .about/.contact,
-// у frdg.work секция clients не оформлена белой карточкой, а подпись
-// "clients" стоит у правого края, а не у левого (см. референс-фото).
 .clients {
     position: relative;
     display: grid;
@@ -518,8 +493,6 @@
     overflow: hidden;
 }
 
-// Невидимый пробник (см. ClientsMarquee в index.tsx) — тот же недублированный
-// ряд карточек клиентов, нужен только чтобы измерить его реальную ширину.
 .marqueeProbe {
     position: absolute;
     top: 0;
@@ -540,9 +513,6 @@
     animation: marquee 26s linear infinite;
 }
 
-// Ряд карточек помещается в контейнер целиком — прокрутка не нужна,
-// показываем статично (иначе дублирование для бесшовной прокрутки
-// выглядит как "логотип двоится").
 .marqueeTrackStatic {
     display: flex;
     align-items: stretch;
@@ -550,9 +520,6 @@
     width: max-content;
 }
 
-// Карточка клиента — лого + название + период работы (вместо монохромного
-// лого в бегущей строке) — по референс-скриншотам фактического сайта,
-// которых нет в extree-dev/testing-site (там клиентов нет вовсе).
 .clientCard {
     display: flex;
     flex: none;
@@ -598,28 +565,35 @@
     }
 }
 
-// Та же карточка, что у .about — белый фон, рамка, скругление, отступ от
-// края страницы: раньше у .work не было ни одного из них, секция просто
-// сидела на сером фоне страницы впритык к .about снизу.
+/* Секция work — grid 190px 1fr, как .contact. Левая колонка — заголовок
+   "work" (sticky), правая — фильтры и карточки. Фильтры вынесены отдельным
+   grid-item на обе колонки (grid-column: 1 / -1), чтобы центрироваться по
+   всей ширине секции, а не по правой колонке. */
 .work {
     position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    column-gap: 10px;
     margin: 0 30px 24px;
-    padding: 100px 7vw 180px;
+    padding: 0 7vw;
     border: 1px solid var(--line);
     border-radius: 28px;
     background: #fff;
 }
 
-// Оба sticky-элемента ниже "прилипают" под .navPillDesktop, когда тот сам
-// уже прилип к верху (top: 16px, высота 80px → нижний край ~96px) — top:
-// 136px оставляет заметный зазор (нав полупрозрачный, с blur — вплотную
-// выглядело бы как наложение), вместо прежних 120/30px, подобранных ещё
-// под первую версию sticky-нава (PR #248), который перекрывал
-// .workFilters при top: 30.
-.workTitle {
+/* Заголовок — в левой колонке, sticky: прилипает под навом. align-self:
+   start не даёт ему растянуться на всю высоту grid-строки — без этого
+   sticky не работал бы. */
+.TitleWork {
+    grid-column: 1;
+    align-self: start;
     position: sticky;
+    top: var(--nav-stack-top);
     z-index: 5;
-    top: 136px;
+}
+
+.workTitle {
     margin: 0;
     font-family: 'Benne', serif;
     font-size: 64px;
@@ -629,27 +603,41 @@
     transform: rotate(180deg);
 }
 
-// Вкладки Tools/Communities/Websites/Branding — как на референсе
-// (frdg.work): та же sticky-панель, что была (.workFilters существовала
-// и раньше, просто показывала теги как инертные бейджи), но теперь это
-// настоящие вкладки — клик скроллит к группе (href="#work-<id>"),
-// активная подсвечивается через useScrollSpy (см. index.tsx).
-.workFilters {
+/* Фильтры — отдельный grid-item на обе колонки (grid-column: 1 / -1),
+   в той же строке, что и заголовок (grid-row: 1). Так justify-content:
+   center центрирует панель по всей ширине .work, а не по правой колонке. */
+.workFiltersSticky {
+    grid-column: 1 / -1;
+    grid-row: 1;
     position: sticky;
     z-index: 4;
-    top: 136px;
+    top: var(--nav-stack-top);
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    margin-bottom: 85px;
+}
+
+.workFilters {
+    pointer-events: auto;
     display: flex;
     flex-wrap: wrap;
     width: max-content;
     max-width: 100%;
     gap: 9px;
-    margin: 0 auto 85px;
     padding: 10px;
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    background: rgba(248, 248, 249, 0.82);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    align-items: center;
+    justify-content: center;
+
+    /* Стиль как у .navPill — стеклянная панель */
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 0 0 16px 16px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
+    box-shadow:
+        0 8px 28px rgba(15, 23, 42, 0.14),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(7px) saturate(100%);
+    -webkit-backdrop-filter: blur(7px) saturate(100%);
 }
 
 .workFilters a {
@@ -665,25 +653,28 @@
         color 200ms ease;
 }
 
-// .workFilters a.workFilterActive (а не просто .workFilterActive) — иначе
-// специфичность ниже, чем у .workFilters a выше, и color: inherit оттуда
-// выигрывает: фон перекрашивался (там стоял !important), а текст — нет.
 .workFilters a.workFilterActive {
     border-color: var(--ink);
     background: var(--ink);
     color: #fff;
 }
 
-// Вкладка без единой карточки — ещё не заполненная категория. Показываем
-// её тем же пустым бейджем, что и заполненные (как на референсе — там
-// тоже всегда все 4 вкладки), но приглушённой и некликабельной: это
-// <span>, не <a>, явного href на пустую группу нет.
 .workFilterEmpty {
     padding: 7px 12px;
     border: 1px dashed var(--line);
     border-radius: 9px;
     color: rgba(37, 43, 58, 0.4);
     font-size: 11px;
+}
+
+/* Правая колонка — контейнер для карточек, во второй строке grid'а. */
+.workContent {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .tags span {
@@ -697,19 +688,20 @@
 .projects {
     position: relative;
     z-index: 2;
-    // Клик по вкладке скроллит сюда якорем (#work-<id>) — без этого группа
-    // оказалась бы частично под sticky-шапкой (nav + .workTitle/.workFilters).
-    scroll-margin-top: 136px;
+    scroll-margin-top: calc(var(--nav-stack-top) + 60px);
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 90px 90px;
-    max-width: 1160px;
-    margin: 0 auto;
+    gap: 20px;
+    /* было 90px — уменьшил расстояние между карточками */
+    width: 100%;
+    max-width: 700px;
+    /* было 1160px — вот главное, что уменьшает карточки */
+    justify-content: start;
+    margin: 0;
+    padding-bottom: 50px;
+    left: -65px;
 }
 
-// Несколько .projects подряд — по одному на каждую непустую категорию
-// (groupedWork в index.tsx) — иначе вторая и следующие группы начинались
-// бы впритык к карточкам предыдущей.
 .projects + .projects {
     margin-top: 90px;
 }
@@ -731,13 +723,13 @@
     transform: translateY(-8px);
 }
 
-// Без скругления — по референс-фото карточки "work" у них картинка с
-// прямыми углами, хотя сама карточка (.projectCard) скруглена.
 .projectImage {
     display: block;
     width: 100%;
-    height: 180px;
-    margin-bottom: 16px;
+    height: 130px;
+    /* было 180px */
+    margin-bottom: 12px;
+    /* было 16px */
     object-fit: cover;
     border-radius: 0;
 }
@@ -843,8 +835,6 @@
     border-top: 1px solid var(--line);
 }
 
-// Десктоп — один ряд (бренд + навигация слева, иконки справа), мобильная
-// версия ниже (@media max-width: 799px) перестраивает его в столбик.
 .footerRow {
     display: flex;
     align-items: center;
@@ -912,8 +902,6 @@
     height: 20px;
 }
 
-// Брендовые цвета платформ (иконки рисуются через currentColor) —
-// вместо монохромной заливки под ink.
 .footerSocialIconDiscord {
     color: #5865f2;
 }
@@ -939,6 +927,11 @@
 }
 
 @media (max-width: 799px) {
+    .page {
+        --nav-height: 48px;
+        --nav-gap: 8px;
+    }
+
     .notice,
     .navPillDesktop {
         display: none;
@@ -950,15 +943,6 @@
         padding: 10px 16px;
     }
 
-    // Раньше нав был растянут от края до края (left/right: 16px) — на
-    // телефоне это выглядело как широкая плашка "по границе экрана",
-    // а не компактная капсула. Вместо этого — тот же приём, что на
-    // десктопе: ширина по контенту, по центру, с запасом по бокам.
-    //
-    // На мобильной раскладке панель — единственная, что всегда рендерится
-    // перед hero (.mobileNav), поэтому для неё position: fixed задаётся
-    // здесь явно (на десктопе .navPillDesktop переопределяет это в
-    // sticky — см. правило .navPillDesktop выше).
     .navPill {
         position: fixed;
         top: 16px;
@@ -1035,9 +1019,6 @@
         display: none;
     }
 
-    // На мобильном подпись остаётся слева (узкая 48px-колонка, как у
-    // .about/.contact) — order из десктопной версии (подпись справа)
-    // здесь сбрасывается обратно.
     .clients {
         grid-template-columns: 48px 1fr;
         min-height: 150px;
@@ -1070,24 +1051,54 @@
         max-height: 28px;
     }
 
+    /* ---- WORK ---- */
+
     .work {
+        grid-template-columns: 48px 1fr;
+        column-gap: 12px;
         margin: 0 16px 16px;
-        padding: 70px 8px 90px;
+        padding: 0 12px 90px;
         border: 1px solid var(--line);
         border-radius: 20px;
         background: #fff;
         box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
     }
 
-    .workTitle {
-        top: 110px;
+    /* Заголовок work на мобилке не sticky — стоит в потоке слева от контента */
+    .TitleWork {
+        position: static;
+        top: auto;
     }
 
+    /* Фильтры и контент растянуты на обе колонки — на узком экране
+       колонка 48px слишком узкая, поэтому фильтры не должны в неё
+       пытаться влезть. */
+    .workFiltersSticky {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        top: calc(var(--nav-top) + var(--nav-height) + 40px);
+        /* жёстко, без --nav-gap */
+        margin-bottom: 40px;
+    }
+
+    .workContent {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    /* Фильтры на мобилке — более плотный фон: под ними белая карточка,
+       а не контрастный hero, поэтому сильно размытое стекло выглядит
+       как серая плашка. */
     .workFilters {
-        top: 12px;
         gap: 4px;
-        margin-bottom: 50px;
         padding: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
+        box-shadow:
+            0 8px 28px rgba(15, 23, 42, 0.14),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(7px) saturate(100%);
+        -webkit-backdrop-filter: blur(7px) saturate(100%);
     }
 
     .workFilters a,
@@ -1096,10 +1107,25 @@
         font-size: 9px;
     }
 
+    /* Сбрасываем десктопные ограничения: max-width 700px, left -65px,
+       justify-content: start — на мобилке сетка должна идти во всю
+       ширину своей колонки. */
     .projects {
         grid-template-columns: 1fr;
-        gap: 40px;
-        padding: 0 4px;
+        gap: 24px;
+        padding: 0;
+        max-width: 100%;
+        left: 0;
+        justify-content: stretch;
+    }
+
+    .projects + .projects {
+        margin-top: 40px;
+    }
+
+    .projectImage {
+        height: 100px;
+        margin-bottom: 10px;
     }
 
     .projectCard:hover {
@@ -1109,6 +1135,8 @@
     .projectTitle {
         font-size: 19px;
     }
+
+    /* ---- CONTACT ---- */
 
     .contact {
         grid-template-columns: 48px 1fr;
@@ -1120,6 +1148,8 @@
     .contactLink {
         font-size: 26px;
     }
+
+    /* ---- FOOTER ---- */
 
     .siteFooter {
         padding: 40px 16px 44px;
