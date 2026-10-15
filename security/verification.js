@@ -543,7 +543,8 @@ async function applyVerifiedRoles(interaction, config, guild, member, { deferred
         ? guild.roles.cache.get(config.verification.verifiedRoleId)
         : null;
 
-    const reply = payload => (deferred ? interaction.editReply(payload) : interaction.reply({ ...payload, flags: MessageFlags.Ephemeral }));
+    const reply = payload =>
+        deferred ? interaction.editReply(payload) : interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
 
     try {
         if (unverifiedRole) await member.roles.remove(unverifiedRole, 'Верификация пройдена');

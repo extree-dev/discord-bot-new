@@ -1,7 +1,7 @@
 const { getPool, ensureSchema } = require('../utils/db');
 
-const CODE_TTL_MS = 10 * 60 * 1000;        // код живёт 10 минут
-const RESEND_COOLDOWN_MS = 60 * 1000;       // не чаще 1 письма в минуту
+const CODE_TTL_MS = 10 * 60 * 1000; // код живёт 10 минут
+const RESEND_COOLDOWN_MS = 60 * 1000; // не чаще 1 письма в минуту
 
 async function upsertCode(discordId, email, code) {
     await ensureSchema();
