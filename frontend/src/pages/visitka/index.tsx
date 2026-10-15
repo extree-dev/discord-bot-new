@@ -195,6 +195,7 @@ interface WorkItem {
     title: string;
     tags: string[];
     copy: string;
+    imageUrl?: string;
     url?: string;
     nda?: boolean;
     upcoming?: boolean;
@@ -394,6 +395,7 @@ export function VisitkaPage() {
             title: showcase.title,
             tags: showcase.tags,
             copy: showcase.description,
+            imageUrl: showcase.imageUrl,
             url: showcase.url,
             nda: showcase.nda,
             upcoming: showcase.upcoming,
@@ -496,6 +498,9 @@ export function VisitkaPage() {
                         <div className={styles.projects}>
                             {workItems.map((item, index) => (
                                 <article className={styles.projectCard} key={item.key}>
+                                    {item.imageUrl && (
+                                        <img className={styles.projectImage} src={item.imageUrl} alt="" />
+                                    )}
                                     {item.tags.length > 0 && (
                                         <div className={styles.tags}>
                                             {item.tags.map(tag => (

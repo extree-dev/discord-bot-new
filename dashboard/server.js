@@ -970,7 +970,7 @@ async function loadSiteContent() {
 
 app.get('/api/site-content', async (req, res) => {
     const content = await loadSiteContent();
-    res.json({ ...content, maxLinks: site.MAX_LINKS, maxClients: site.MAX_CLIENTS });
+    res.json({ ...content, maxLinks: site.MAX_LINKS, maxClients: site.MAX_CLIENTS, maxShowcases: site.MAX_SHOWCASES });
 });
 
 app.get('/api/site-admin-status', async (req, res) => {
@@ -991,8 +991,14 @@ app.put('/api/site-content', async (req, res) => {
             bio: typeof body.bio === 'string' ? body.bio : '',
             links: Array.isArray(body.links) ? body.links : [],
             clients: Array.isArray(body.clients) ? body.clients : [],
+            showcases: Array.isArray(body.showcases) ? body.showcases : [],
         });
-        res.json({ ...saved, maxLinks: site.MAX_LINKS, maxClients: site.MAX_CLIENTS });
+        res.json({
+            ...saved,
+            maxLinks: site.MAX_LINKS,
+            maxClients: site.MAX_CLIENTS,
+            maxShowcases: site.MAX_SHOWCASES,
+        });
     } catch (err) {
         console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });

@@ -22,6 +22,10 @@ const DEFAULTS = {
     // непусто, поэтому по умолчанию отключена, а не заполнена
     // выдуманными компаниями.
     clients: [],
+    // Секция "work" на визитке — та же логика: пусто по умолчанию,
+    // секция целиком скрывается, пока админ не добавит хотя бы один
+    // проект через /site-admin.
+    showcases: [],
 };
 
 // Форма на /admin отправляет фиксированное число пронумерованных пар
@@ -32,6 +36,15 @@ const MAX_LINKS = 5;
 // Та же логика, что у MAX_LINKS — ограничивает и форму, и бегущую
 // строку на визитке (слишком длинная не нужна ни там, ни там).
 const MAX_CLIENTS = 12;
+
+// Карточек в сетке секции "work" на визитке — та же логика, что у
+// MAX_CLIENTS.
+const MAX_SHOWCASES = 8;
+
+// Тегов на одну карточку — форма шлёт их списком (через запятую),
+// без разумного предела можно случайно забить всю карточку текстом
+// вместо тегов.
+const MAX_SHOWCASE_TAGS = 6;
 
 function normalizeLinks(rawLinks) {
     if (!Array.isArray(rawLinks)) return DEFAULTS.links;
@@ -58,6 +71,29 @@ function normalizeClients(rawClients) {
         }));
 }
 
+function normalizeShowcases(rawShowcases) {
+    if (!Array.isArray(rawShowcases)) return DEFAULTS.showcases;
+    return rawShowcases
+        .filter(s => s && typeof s.title === 'string' && s.title.trim())
+        .slice(0, MAX_SHOWCASES)
+        .map(s => ({
+            title: s.title.trim(),
+            tags: Array.isArray(s.tags)
+                ? s.tags
+                      .filter(t => typeof t === 'string' && t.trim())
+                      .slice(0, MAX_SHOWCASE_TAGS)
+                      .map(t => t.trim())
+                : [],
+            description: typeof s.description === 'string' ? s.description.trim() : '',
+            // Как у клиента: URL картинки, пустая строка = карточка без
+            // баннера (блок изображения в неё просто не рендерится).
+            imageUrl: typeof s.imageUrl === 'string' ? s.imageUrl.trim() : '',
+            url: typeof s.url === 'string' ? s.url.trim() : '',
+            nda: Boolean(s.nda),
+            upcoming: Boolean(s.upcoming),
+        }));
+}
+
 function normalize(data) {
     return {
         name: typeof data.name === 'string' && data.name.trim() ? data.name.trim() : DEFAULTS.name,
@@ -65,6 +101,7 @@ function normalize(data) {
         bio: typeof data.bio === 'string' && data.bio.trim() ? data.bio.trim() : DEFAULTS.bio,
         links: normalizeLinks(data.links),
         clients: normalizeClients(data.clients),
+        showcases: normalizeShowcases(data.showcases),
     };
 }
 
@@ -80,4 +117,6 @@ module.exports = {
     DEFAULTS,
     MAX_LINKS,
     MAX_CLIENTS,
+    MAX_SHOWCASES,
+    MAX_SHOWCASE_TAGS,
 };

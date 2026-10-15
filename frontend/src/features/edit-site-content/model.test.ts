@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
     addClient,
     addLink,
+    addShowcase,
     canAddClient,
     canAddLink,
+    canAddShowcase,
     removeClient,
     removeLink,
+    removeShowcase,
     toPayload,
     updateClient,
     updateLink,
+    updateShowcase,
 } from './model';
 import type { SiteContent } from '../../entities/site-content/types';
 
@@ -116,6 +120,7 @@ describe('toPayload', () => {
             bio: 'Био',
             links: [{ label: 'Сайт', url: 'https://example.com' }],
             clients: [],
+            showcases: [],
         });
     });
 
@@ -139,5 +144,103 @@ describe('toPayload', () => {
     it('без поля clients в исходном content отдаёт пустой список', () => {
         const content: SiteContent = { name: 'Имя', role: 'Роль', bio: 'Био', links: [] };
         expect(toPayload(content).clients).toEqual([]);
+    });
+
+    it('обрезает пробелы, пустые теги и отбрасывает проекты без title', () => {
+        const content: SiteContent = {
+            name: 'Имя',
+            role: 'Роль',
+            bio: 'Био',
+            links: [],
+            showcases: [
+                {
+                    title: '  The Kitchen  ',
+                    tags: ['  Bot  ', '  ', 'Discord'],
+                    description: '  Описание  ',
+                    imageUrl: '  https://example.com/kitchen.png  ',
+                    url: '  https://example.com  ',
+                    nda: true,
+                    upcoming: false,
+                },
+                { title: '   ', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            ],
+        };
+        expect(toPayload(content).showcases).toEqual([
+            {
+                title: 'The Kitchen',
+                tags: ['Bot', 'Discord'],
+                description: 'Описание',
+                imageUrl: 'https://example.com/kitchen.png',
+                url: 'https://example.com',
+                nda: true,
+                upcoming: false,
+            },
+        ]);
+    });
+
+    it('без поля showcases в исходном content отдаёт пустой список', () => {
+        const content: SiteContent = { name: 'Имя', role: 'Роль', bio: 'Био', links: [] };
+        expect(toPayload(content).showcases).toEqual([]);
+    });
+});
+
+describe('canAddShowcase / addShowcase', () => {
+    it('позволяет добавить проект, пока не достигнут maxShowcases', () => {
+        const showcases = [
+            { title: 'A', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        ];
+        expect(canAddShowcase(showcases, 5)).toBe(true);
+        expect(addShowcase(showcases, 5)).toHaveLength(2);
+    });
+
+    it('не добавляет сверх maxShowcases', () => {
+        const showcases = [
+            { title: 'A', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            { title: 'B', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        ];
+        expect(canAddShowcase(showcases, 2)).toBe(false);
+        expect(addShowcase(showcases, 2)).toBe(showcases);
+    });
+});
+
+describe('removeShowcase', () => {
+    it('удаляет проект по индексу, не трогая остальные', () => {
+        const showcases = [
+            { title: 'A', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            { title: 'B', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            { title: 'C', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        ];
+        expect(removeShowcase(showcases, 1)).toEqual([
+            { title: 'A', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            { title: 'C', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        ]);
+    });
+});
+
+describe('updateShowcase', () => {
+    it('меняет поле только у проекта с нужным индексом', () => {
+        const showcases = [
+            { title: 'A', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+            { title: 'B', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        ];
+        const result = updateShowcase(showcases, 1, { imageUrl: 'https://example.com/b.png' });
+        expect(result[0]).toEqual({
+            title: 'A',
+            tags: [],
+            description: '',
+            imageUrl: '',
+            url: '',
+            nda: false,
+            upcoming: false,
+        });
+        expect(result[1]).toEqual({
+            title: 'B',
+            tags: [],
+            description: '',
+            imageUrl: 'https://example.com/b.png',
+            url: '',
+            nda: false,
+            upcoming: false,
+        });
     });
 });
