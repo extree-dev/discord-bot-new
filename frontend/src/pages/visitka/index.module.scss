@@ -1,9 +1,28 @@
-/* Перенос стилей из src/App.tsx / src/index.css репозитория
-   extree-dev/testing-site (экспорт из Figma Make, редизайн визитки
-   от фирмы) — классы и значения как в оригинале, имена классов
-   адаптированы под camelCase CSS-модуля. Контент — наш (через
-   useSiteContent), фото в hero нет — заменено на фирменный градиент
-   extree вместо чужого Unsplash-снимка. */
+/* Визуальный язык frdg.work (Figma Sites), перенесённый 1 в 1 по
+   значениям из сохранённой страницы: цвета, шрифты, размеры, радиусы,
+   стекло, расположение подписей секций. Контент и фирменный hero —
+   наши (extree). Абсолютная вёрстка Figma заменена на поток/grid,
+   чтобы страница оставалась резиновой. */
+
+@import url('https://fonts.googleapis.com/css2?family=Benne&family=Google+Sans+Flex:wght@400;500;700&family=Rethink+Sans:wght@400;500;700&family=Unbounded:wght@700&display=swap');
+
+:global {
+    /* Скрытый скроллбар — как на frdg.work */
+    html,
+    body {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+        background: transparent;
+    }
+}
+
 .page {
     position: relative;
     display: flow-root;
@@ -12,28 +31,39 @@
     overflow-x: clip;
 
     --background: #f8f8f9;
+    --surface: #ffffff;
     --ink: #252b3a;
+    --muted: #575757;
+    --soft: rgba(37, 43, 58, 0.5);
     --line: rgba(0, 0, 0, 0.1);
+    --chip: rgba(37, 43, 58, 0.1);
+    --chip-text: rgba(0, 0, 0, 0.4);
+    --glass: rgba(255, 255, 255, 0.4);
+    --glass-tint: rgba(0, 0, 0, 0.04);
     --blue: #1768ef;
+    --progress: #1c67f4;
 
-    --nav-top: 16px;
-    --nav-height: 65px;
-    --nav-gap: 12px;
-    --nav-stack-top: calc(var(--nav-top) + var(--nav-height) + var(--nav-gap));
+    --font-main: 'Google Sans Flex', 'Google Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-label: 'Benne', Georgia, serif;
+    --font-display: 'Unbounded', var(--font-main);
+    --font-notice: 'Rethink Sans', var(--font-main);
+
+    --gutter: 30px;
+    --nav-top: 18px;
+    --nav-height: 80px;
+    --nav-stack-top: calc(var(--nav-top) + var(--nav-height));
 
     color: var(--ink);
     background: var(--background);
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-family: var(--font-main);
     font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
 }
 
 .page * {
     box-sizing: border-box;
 }
 
-/* :where() — у сброса нулевая специфичность, иначе `.page a`
-   (класс+тег) перебивает любой одноклассовый `color` ниже по файлу
-   (например .projectLink), и белый текст CTA гаснет на тёмном фоне. */
 .page :where(button, a) {
     color: inherit;
     font: inherit;
@@ -43,8 +73,11 @@
     text-decoration: none;
 }
 
-/* Курсор — только там, где есть мышь (pointer: fine): на тач-устройствах
-   свайпы не наводятся, кастомный курсор там просто не отрисуется. */
+.page :where(h1, h2, h3, p) {
+    margin: 0;
+    font-weight: inherit;
+}
+
 @media (pointer: fine) {
     .page {
         cursor:
@@ -53,56 +86,68 @@
             auto;
     }
 
-    /* Без этого ссылки/кнопки откатывались бы на системный pointer-курсор. */
     .page a,
     .page button {
         cursor: inherit;
     }
 }
 
+/* ---------- Прогресс прокрутки ---------- */
+
 .scrollProgress {
     position: fixed;
-    bottom: 0;
     left: 0;
-    z-index: 30;
-    width: 100%;
-    height: 3px;
-    background: var(--blue);
-    transform: scaleX(0);
-    transform-origin: 0 50%;
-    will-change: transform;
+    bottom: 0;
+    z-index: 9999;
+    width: 100vw;
+    height: 4px;
+    pointer-events: none;
 }
 
-/* Скрыто до пересечения вьюпорта (useReveal) — без этого секции (особенно
-   .clients) резко выскакивают при скролле, см. запрос пользователя. */
+.scrollProgressInner {
+    width: 0%;
+    height: 100%;
+    border-radius: 0 999px 999px 0;
+    background: var(--progress);
+    transition: width 0.08s linear;
+}
+
+/* ---------- Появление секций ---------- */
+
 .about,
 .clients,
-.contact,
-.siteFooter {
+.work,
+.contact {
     opacity: 0;
-    transform: translateY(28px);
+    transform: translateY(24px);
     transition:
         opacity 0.6s ease,
         transform 0.6s ease;
 }
 
-.about.revealed,
-.clients.revealed,
-.contact.revealed,
-.siteFooter.revealed {
+.siteFooter {
+    opacity: 0;
+    transform: translateY(24px) scale(0.8);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+}
+
+.revealed {
     opacity: 1;
     transform: none;
 }
 
+/* ---------- Скелетон ---------- */
+
 .skeleton {
-    width: 100%;
-    max-width: 1320px;
-    height: 60vh;
-    margin: 24px auto 0;
-    border-radius: 30px;
+    width: calc(100% - 2 * var(--gutter));
+    height: 70vh;
+    margin: 70px auto 0;
+    border-radius: 30px 30px 0 0;
     background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%),
-        #ffffff;
+        linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 100%),
+        var(--surface);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -117,6 +162,8 @@
     }
 }
 
+/* ---------- Плашка сверху ---------- */
+
 .notice {
     position: relative;
     z-index: 20;
@@ -124,39 +171,62 @@
     height: 40px;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    color: #ffffff;
+    gap: 4px;
+    padding: 0 40px;
+    color: #f8f8f9;
     background: var(--ink);
-    font-size: 13px;
+    font-family: var(--font-notice);
+    font-size: 14px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .notice a {
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-underline-position: from-font;
 }
 
-.notice button {
+.noticeClose {
     position: absolute;
-    right: 13px;
+    top: 50%;
+    right: 10px;
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
     padding: 0;
-    border: 0;
-    color: white;
-    background: none;
-    cursor: pointer;
-    font-size: 24px;
-    line-height: 1;
+    border: 1px solid rgba(37, 43, 58, 0.1);
+    border-radius: 4px;
+    background: rgba(37, 43, 58, 0.2);
+    transform: translateY(-50%);
+}
+
+.noticeClose svg {
+    width: 8px;
+    height: 8px;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+    padding: 30px var(--gutter) 0;
 }
 
 .heroCard {
     position: relative;
     height: 700px;
-    margin: 24px 30px 0;
     overflow: hidden;
-    border-radius: 34px 34px 0 0;
-    color: white;
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 30px 30px 0 0;
+    color: #f8f8f9;
     background: var(--blue);
 }
 
+/* Фирменная подложка extree вместо текстуры frdg.work */
 .heroCardTexture {
     position: absolute;
     inset: 0;
@@ -174,20 +244,19 @@
     background: radial-gradient(circle at center, transparent 20%, rgba(0, 65, 205, 0.16));
 }
 
-.heroCard h1 {
+.heroTitle {
     position: absolute;
     z-index: 2;
     top: 50%;
-    left: 50%;
-    margin: 0;
+    left: calc(50% + 0.5px);
     color: #f8f8f9;
-    font-family: 'Unbounded', sans-serif;
-    font-size: clamp(64px, 8vw, 112px);
+    font-family: var(--font-display);
+    font-size: 100px;
     font-weight: 700;
-    line-height: 1;
+    line-height: normal;
     letter-spacing: 0;
-    transform: translate(-50%, -50%);
     white-space: nowrap;
+    transform: translate(-50%, -50%);
 }
 
 .heroIcon {
@@ -253,43 +322,80 @@
     bottom: 13%;
 }
 
+/* ---------- Навигация ---------- */
+
 .pageBody {
     position: relative;
 }
 
+/* Белая полоса под hero с боковыми бордерами (94px) — в неё «садится»
+   стеклянная навигация. Вместе с .about образует одну белую колонку. */
+.navStrip {
+    height: 94px;
+    margin: 0 var(--gutter);
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-bottom: 0;
+    background: var(--surface);
+}
+
+/* Рельс для sticky-навигации: от низа hero (+10px) до конца страницы */
+.navRail {
+    position: absolute;
+    z-index: 30;
+    top: 10px;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    pointer-events: none;
+}
+
+.navSticky {
+    position: sticky;
+    top: 0;
+    width: 620px;
+    padding: var(--nav-top) 30px 0;
+    transform: translateX(-50%);
+    pointer-events: auto;
+}
+
 .navPill {
-    display: flex;
-    width: fit-content;
-    max-width: calc(100% - 40px);
-    height: 80px;
-    align-items: center;
-    justify-content: center;
-    gap: 44px;
-    padding: 0 40px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    position: relative;
+    width: 580px;
+    height: var(--nav-height);
+    border: 1px solid var(--line);
     border-radius: 30px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
-    box-shadow:
-        0 8px 28px rgba(15, 23, 42, 0.14),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(7px) saturate(100%);
-    -webkit-backdrop-filter: blur(7px) saturate(100%);
-    font-family: 'Inter', sans-serif;
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    color: #000;
+    font-family: var(--font-main);
     font-size: 24px;
-    letter-spacing: -0.02em;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.48px;
     white-space: nowrap;
 }
 
-/* На десктопе панель — sticky, а не fixed. Родитель — .pageBody (высотой
-   во весь остаток страницы), поэтому sticky «доживает» до конца страницы.
-   margin-top: -40px поднимает панель внутрь нижней части hero, чтобы она
-   визуально лежала на шве hero/.about. */
-.navPillDesktop {
-    position: sticky;
-    top: var(--nav-top);
-    z-index: 20;
-    width: fit-content;
-    margin: -90px auto;
+.navLogo {
+    position: absolute;
+    top: 25%;
+    left: 21px;
+    display: block;
+    width: 40px;
+    height: 40px;
+    transform: translateY(-50%);
+}
+
+.navLinks {
+    position: absolute;
+    top: calc(50% - 1px);
+    right: 47px;
+    display: flex;
+    height: 38px;
+    align-items: center;
+    gap: 44px;
+    transform: translateY(-50%);
 }
 
 .navPill a {
@@ -297,23 +403,19 @@
     animation: navLinkIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.navPill a:nth-child(1) {
-    animation-delay: 0s;
-}
-
-.navPill a:nth-child(2) {
+.navLinks a:nth-child(1) {
     animation-delay: 0.06s;
 }
 
-.navPill a:nth-child(3) {
+.navLinks a:nth-child(2) {
     animation-delay: 0.12s;
 }
 
-.navPill a:nth-child(4) {
+.navLinks a:nth-child(3) {
     animation-delay: 0.18s;
 }
 
-.navPill a:nth-child(5) {
+.navLinks a:nth-child(4) {
     animation-delay: 0.24s;
 }
 
@@ -355,35 +457,59 @@
     display: none;
 }
 
-.about {
-    position: relative;
-    display: grid;
-    grid-template-columns: 190px minmax(500px, 760px) 1fr;
-    min-height: 710px;
-    align-items: center;
-    margin: 0 30px 24px;
-    padding: 50px 7vw 100px;
-    border-radius: 0 0 28px 28px;
-    background: #fff;
+/* ---------- Подписи секций (повёрнутые) ---------- */
+
+/* Читается снизу вверх — matrix(0,-1,1,0) у frdg */
+.labelUp {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+/* Читается сверху вниз — matrix(0,1,-1,0) у frdg */
+.labelDown {
+    writing-mode: vertical-rl;
 }
 
 .sectionLabel {
     margin: 0;
-    font-family: 'Benne', serif;
+    color: var(--ink);
+    font-family: var(--font-label);
     font-size: 80px;
     font-weight: 400;
-    letter-spacing: -0.02em;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
+    line-height: 1.2;
+    letter-spacing: -1.6px;
+    white-space: nowrap;
+}
+
+/* ---------- About ---------- */
+
+.about {
+    position: relative;
+    display: grid;
+    grid-template-columns: 219px minmax(0, 1fr) 419px;
+    min-height: 500px;
+    margin: 0 var(--gutter);
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 30px 30px;
+    background: var(--surface);
+}
+
+.about .sectionLabel {
+    align-self: center;
+    justify-self: center;
 }
 
 .aboutCopy {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    color: rgb(87, 87, 87);
+    align-self: center;
+    gap: 20px;
+    padding: 40px 0;
+    color: var(--muted);
     font-size: 18px;
-    line-height: 1.5;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
 }
 
 .aboutHeader {
@@ -391,67 +517,68 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 12px;
-    margin-bottom: 8px;
 }
 
 .aboutName {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.32px;
 }
 
 .aboutRole {
     display: inline-flex;
     align-items: center;
-    padding: 4px 12px;
-    border-radius: 999px;
-    background: var(--background);
+    padding: 6px 12px;
     border: 1px solid var(--line);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: rgba(37, 43, 58, 0.72);
-}
-
-.aboutCopy p {
-    margin: 0;
+    border-radius: 10px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 16px;
+    letter-spacing: 0.16px;
 }
 
 .languages {
-    align-self: end;
     justify-self: end;
-    padding-bottom: 50px;
-    font-family: 'Benne', serif;
-    font-size: 32px;
-    letter-spacing: -0.02em;
+    width: 340px;
+    padding-top: 40px;
 }
 
-.languages > span {
+.languagesLabel {
     display: block;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
 }
 
 .languagesRow {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
 .languageBox {
     display: flex;
-    align-items: center;
-    gap: 8px;
     height: 30px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     padding: 6px 8px 6px 5px;
+    border: 1px solid var(--line);
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--glass-tint);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
-    font-family: 'Inter', sans-serif;
+    color: #000;
     font-size: 16px;
-    font-weight: 400;
-    letter-spacing: -0.02em;
+    line-height: 1.2;
+    letter-spacing: -0.32px;
+    white-space: nowrap;
 }
 
 .languageFlag {
@@ -468,29 +595,34 @@
     height: 100%;
 }
 
+/* ---------- Clients ---------- */
+
 .clients {
     position: relative;
-    display: grid;
-    grid-template-columns: 1fr 190px;
-    min-height: 280px;
+    display: flex;
+    height: 350px;
     align-items: center;
     overflow: hidden;
-    margin: 0 30px 24px;
-    padding: 30px 7vw;
-}
-
-.clients .marquee {
-    order: 1;
-}
-
-.clients .sectionLabel {
-    order: 2;
-    justify-self: end;
 }
 
 .marquee {
     position: relative;
-    overflow: hidden;
+    width: 100%;
+    overflow: clip;
+}
+
+.marquee ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.marquee .marqueeTrack {
+    padding-left: 20px;
+}
+
+.marquee .marqueeTrackStatic {
+    padding-left: 50px;
 }
 
 .marqueeProbe {
@@ -510,53 +642,14 @@
     width: max-content;
     align-items: stretch;
     gap: 20px;
-    animation: marquee 26s linear infinite;
+    animation: marquee 37.7s linear infinite;
 }
 
 .marqueeTrackStatic {
     display: flex;
+    width: max-content;
     align-items: stretch;
     gap: 20px;
-    width: max-content;
-}
-
-.clientCard {
-    display: flex;
-    flex: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 180px;
-    padding: 22px 16px;
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    background: #fff;
-    box-shadow: 0 16px 40px rgba(37, 43, 58, 0.05);
-    transition: transform 0.2s ease;
-}
-
-.clientCard:hover {
-    transform: translateY(-4px);
-}
-
-.clientLogoImg {
-    max-width: 130px;
-    max-height: 34px;
-    object-fit: contain;
-}
-
-.clientName {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--ink);
-    text-align: center;
-}
-
-.clientPeriod {
-    font-size: 12px;
-    color: rgba(37, 43, 58, 0.5);
 }
 
 @keyframes marquee {
@@ -565,308 +658,532 @@
     }
 }
 
-/* Секция work — grid 190px 1fr, как .contact. Левая колонка — заголовок
-   "work" (sticky), правая — фильтры и карточки. Фильтры вынесены отдельным
-   grid-item на обе колонки (grid-column: 1 / -1), чтобы центрироваться по
-   всей ширине секции, а не по правой колонке. */
+.clientCard {
+    position: relative;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    width: 220px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--surface);
+}
+
+.clientHead {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.clientLogoImg {
+    display: block;
+    max-width: 140px;
+    height: 36px;
+    object-fit: contain;
+    object-position: left center;
+}
+
+.clientName {
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+}
+
+.clientPeriod {
+    color: var(--soft);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
+}
+
+/* Панель с подписью справа: перекрывает бегущую строку, слева — размытый
+   «туман» (blur 25px), как у frdg.work */
+.clientsPanel {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: 0;
+    display: flex;
+    width: 200px;
+    height: 350px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 30px 0 0 30px;
+    background: var(--background);
+    transform: translateY(-50%);
+}
+
+.clientsPanel::before {
+    position: absolute;
+    top: 25px;
+    left: -77px;
+    width: 153px;
+    height: 300px;
+    content: '';
+    background: var(--background);
+    filter: blur(25px);
+}
+
+.clientsPanel .sectionLabel {
+    position: relative;
+    line-height: normal;
+}
+
+.clientsFadeLeft {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 0;
+    width: 20px;
+    height: 300px;
+    background: var(--background);
+    transform: translateY(-50%);
+}
+
+.clientsFadeLeft::before {
+    position: absolute;
+    top: 0;
+    right: -76px;
+    width: 153px;
+    height: 300px;
+    content: '';
+    background: var(--background);
+    filter: blur(25px);
+}
+
+/* ---------- Work ---------- */
+
 .work {
     position: relative;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: start;
-    column-gap: 10px;
-    margin: 0 30px 24px;
-    padding: 0 7vw;
+    margin: 0 var(--gutter);
+    padding: 80px 0 60px;
     border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
+    border-radius: 30px;
+    background: var(--surface);
 }
 
-/* Заголовок — в левой колонке, sticky: прилипает под навом. align-self:
-   start не даёт ему растянуться на всю высоту grid-строки — без этого
-   sticky не работал бы. */
-.TitleWork {
-    grid-column: 1;
-    align-self: start;
-    position: sticky;
-    top: var(--nav-stack-top);
-    z-index: 5;
-}
-
-.workTitle {
-    margin: 0;
-    font-family: 'Benne', serif;
-    font-size: 64px;
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-}
-
-/* Фильтры — отдельный grid-item на обе колонки (grid-column: 1 / -1),
-   в той же строке, что и заголовок (grid-row: 1). Так justify-content:
-   center центрирует панель по всей ширине .work, а не по правой колонке. */
-.workFiltersSticky {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    position: sticky;
-    z-index: 4;
-    top: var(--nav-stack-top);
-    display: flex;
-    justify-content: center;
+/* Большая подпись "work" — sticky слева */
+.workLabelRail {
+    position: absolute;
+    z-index: 3;
+    top: 80px;
+    bottom: 0;
+    left: 0;
+    width: 155px;
     pointer-events: none;
-    margin-bottom: 85px;
+}
+
+.workLabel {
+    position: sticky;
+    top: 0;
+    display: grid;
+    height: 315px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: auto;
+}
+
+/* Рельс для вкладок: начинается на 97px выше секции, чтобы панель висела
+   «язычком» от верхнего края .work и потом прилипала под навигацией */
+.workFiltersRail {
+    position: absolute;
+    z-index: 25;
+    top: -97px;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    pointer-events: none;
+}
+
+.workFiltersSticky {
+    position: sticky;
+    top: 0;
+    display: flex;
+    width: 620px;
+    justify-content: center;
+    padding: calc(var(--nav-stack-top)) 30px 0;
+    transform: translateX(-50%);
 }
 
 .workFilters {
-    pointer-events: auto;
     display: flex;
-    flex-wrap: wrap;
-    width: max-content;
-    max-width: 100%;
-    gap: 9px;
-    padding: 10px;
+    min-width: 440px;
+    height: 40px;
     align-items: center;
     justify-content: center;
-
-    /* Стиль как у .navPill — стеклянная панель */
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    border-radius: 0 0 16px 16px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
-    box-shadow:
-        0 8px 28px rgba(15, 23, 42, 0.14),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(7px) saturate(100%);
-    -webkit-backdrop-filter: blur(7px) saturate(100%);
+    gap: 32px;
+    padding: 0 40px 2px;
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    pointer-events: auto;
 }
 
-.workFilters a {
-    padding: 7px 12px;
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    background: rgba(37, 43, 58, 0.06);
-    color: inherit;
-    font-size: 11px;
-    text-decoration: none;
+.workFilters a,
+.workFilterEmpty {
+    color: var(--muted);
+    font-family: var(--font-label);
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: -0.18px;
+    white-space: nowrap;
     transition:
-        background 200ms ease,
-        color 200ms ease;
+        color 200ms ease,
+        opacity 200ms ease;
+}
+
+.workFilters a:hover {
+    opacity: 0.6;
 }
 
 .workFilters a.workFilterActive {
-    border-color: var(--ink);
-    background: var(--ink);
-    color: #fff;
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
 }
 
 .workFilterEmpty {
-    padding: 7px 12px;
-    border: 1px dashed var(--line);
-    border-radius: 9px;
-    color: rgba(37, 43, 58, 0.4);
-    font-size: 11px;
+    opacity: 0.4;
 }
 
-/* Правая колонка — контейнер для карточек, во второй строке grid'а. */
-.workContent {
-    grid-column: 2;
-    grid-row: 2;
-    min-width: 0;
+.workGroups {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    gap: 130px;
 }
 
-.tags span {
-    padding: 7px 12px;
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    background: rgba(37, 43, 58, 0.06);
-    font-size: 11px;
-}
-
-.projects {
+.workGroup {
     position: relative;
-    z-index: 2;
+    padding-top: 20px;
     scroll-margin-top: calc(var(--nav-stack-top) + 60px);
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    /* было 90px — уменьшил расстояние между карточками */
-    width: 100%;
-    max-width: 700px;
-    /* было 1160px — вот главное, что уменьшает карточки */
-    justify-content: start;
-    margin: 0;
-    padding-bottom: 50px;
-    left: -65px;
 }
 
-.projects + .projects {
-    margin-top: 90px;
+.workGroupLabelRail {
+    position: absolute;
+    top: -42px;
+    bottom: 0;
+    left: -10px;
+    width: 172px;
+    pointer-events: none;
+}
+
+.workGroupLabel {
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: 116px;
+    align-items: center;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+
+.workGroupLabel span {
+    color: var(--soft);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
+}
+
+/* Сетка карточек: 2 колонки по 519px, зазор 30px (1068px) — по центру.
+   Слева оставляем место под подписи, чтобы они не наезжали на карточки. */
+.projects {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 30px;
+    width: min(1068px, calc(100% - 380px));
+    margin: 0 auto;
+    align-items: start;
 }
 
 .projectCard {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
     padding: 20px;
-    overflow: hidden;
+    overflow: clip;
     border: 1px solid var(--line);
     border-radius: 24px;
-    background: rgba(255, 255, 255, 0.64);
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.06);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    transition: transform 300ms ease;
+    background: var(--background);
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
 }
 
-.projectCard:hover {
-    transform: translateY(-8px);
+.projectCard.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+.projectBody {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
 }
 
 .projectImage {
     display: block;
     width: 100%;
-    height: 130px;
-    /* было 180px */
-    margin-bottom: 12px;
-    /* было 16px */
+    aspect-ratio: 1004 / 498;
     object-fit: cover;
-    border-radius: 0;
+    border-radius: 12px 12px 4px 4px;
+}
+
+.projectText {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
 }
 
 .tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 6px;
+}
+
+.tags span {
+    display: flex;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
+    white-space: nowrap;
 }
 
 .projectTitle {
-    margin: 16px 0 6px;
-    font-family: 'Unbounded', sans-serif;
-    font-size: 22px;
+    width: 100%;
+    color: var(--ink);
+    font-size: 32px;
     font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    line-height: 1.2;
+    letter-spacing: 0.32px;
 }
 
 .projectCopy {
-    min-height: 64px;
-    margin: 0;
-    color: rgba(37, 43, 58, 0.72);
-    font-size: 13px;
-    line-height: 1.4;
+    width: 100%;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
 }
 
 .projectLink {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    color: white;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
     background: var(--ink);
-    font-size: 12px;
-    text-decoration: none;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
+    transition: opacity 200ms ease;
+}
+
+.projectLink:hover {
+    opacity: 0.85;
 }
 
 .projectLink svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     flex: none;
 }
 
 .projectBlocked {
     display: inline-flex;
-    margin-top: 14px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    border: 1px dashed var(--line);
-    font-size: 11px;
-    font-weight: 600;
-    color: rgba(37, 43, 58, 0.55);
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
 }
 
-.projectIndex {
-    position: absolute;
-    top: 24px;
-    right: 24px;
-    padding: 5px 7px;
-    border-radius: 6px;
-    color: white;
-    background: rgba(37, 43, 58, 0.75);
-    font-size: 9px;
-}
+/* ---------- Contact ---------- */
 
 .contact {
     position: relative;
-    display: grid;
-    grid-template-columns: 190px 1fr;
-    align-items: center;
-    margin: 0 30px 24px;
-    padding: 60px 7vw;
+    margin: 25px var(--gutter);
+    padding: 24px 184px 24px 24px;
     border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
+    border-radius: 30px;
+    background: var(--surface);
 }
 
-.contactCard {
-    max-width: 850px;
+.contactInner {
+    display: flex;
+    min-height: 400px;
+    align-items: stretch;
+    gap: 60px;
 }
 
-.contactCard p {
-    margin: 0 0 18px;
-    color: rgba(37, 43, 58, 0.55);
-    font-size: 17px;
+.contactLead {
+    display: flex;
+    flex: 1 0 0;
+    min-width: 0;
+    align-items: center;
+    padding: 40px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--background);
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: clamp(40px, 4.5vw, 64px);
+    line-height: 1.1;
+    letter-spacing: -1.2px;
+}
+
+.contactBox {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-self: center;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--background);
+}
+
+.contactBoxLabel {
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
 }
 
 .contactLink {
-    display: inline-block;
-    border-bottom: 2px solid var(--ink);
-    font-family: 'Benne', serif;
-    font-size: clamp(40px, 6vw, 72px);
-    line-height: 1.1;
+    display: inline-flex;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
+    transition: opacity 200ms ease;
 }
 
+.contactLink:hover {
+    opacity: 0.85;
+}
+
+.contactLabel {
+    position: absolute;
+    top: 50%;
+    right: 184px;
+    display: flex;
+    transform: translate(100%, -50%);
+}
+
+.contactLabel .sectionLabel {
+    padding: 0 42px;
+    line-height: normal;
+}
+
+/* ---------- Footer ---------- */
+
 .siteFooter {
-    padding: 56px 7vw 60px;
+    position: relative;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 64px;
     border-top: 1px solid var(--line);
 }
 
 .footerRow {
     display: flex;
     align-items: center;
-    max-width: 1160px;
-    margin: 0 auto;
+    justify-content: space-between;
     gap: 40px;
 }
 
 .footerBrand {
     display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.footerLogo {
+    display: flex;
     flex: none;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+}
+
+.footerLogo .mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.footerLogo .markRing {
+    width: 14px;
+    height: 14px;
+    border-width: 3px;
 }
 
 .footerBrandName {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 22px;
-    font-weight: 800;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
     letter-spacing: -0.02em;
-    color: var(--blue);
 }
 
 .footerNav {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 30px;
 }
 
 .footerNav a {
-    font-size: 15px;
-    color: rgba(37, 43, 58, 0.55);
+    color: rgba(0, 0, 0, 0.55);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: -0.08px;
+    white-space: nowrap;
     transition: color 0.2s ease;
 }
 
@@ -877,18 +1194,17 @@
 .footerSocial {
     display: flex;
     flex: none;
-    gap: 10px;
-    margin-left: auto;
+    align-items: center;
+    gap: 11px;
 }
 
 .footerSocialIcon {
     display: flex;
+    width: 34px;
+    height: 34px;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: rgba(37, 43, 58, 0.06);
+    border-radius: 10px;
     color: var(--ink);
     transition: transform 0.2s ease;
 }
@@ -898,8 +1214,8 @@
 }
 
 .footerSocialIcon svg {
-    width: 20px;
-    height: 20px;
+    width: 26px;
+    height: 26px;
 }
 
 .footerSocialIconDiscord {
@@ -926,63 +1242,101 @@
     color: #181717;
 }
 
-@media (max-width: 799px) {
-    .page {
-        --nav-height: 48px;
-        --nav-gap: 8px;
+/* ---------- Средние экраны ---------- */
+
+@media (max-width: 1199px) {
+    .about {
+        grid-template-columns: 160px minmax(0, 1fr) 360px;
     }
 
-    .notice,
-    .navPillDesktop {
+    .languages {
+        width: 320px;
+    }
+
+    .heroTitle {
+        font-size: 80px;
+    }
+
+    .projects {
+        width: calc(100% - 340px);
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- Мобильные ---------- */
+
+@media (max-width: 799px) {
+    .page {
+        --gutter: 16px;
+        --nav-top: 16px;
+        --nav-height: 48px;
+    }
+
+    .notice {
+        display: none;
+    }
+
+    .navRail {
         display: none;
     }
 
     .mobileNav {
-        display: block;
-        height: 80px;
-        padding: 10px 16px;
-    }
-
-    .navPill {
         position: fixed;
-        top: 16px;
+        z-index: 40;
+        top: var(--nav-top);
         left: 50%;
-        right: auto;
-        z-index: 20;
-        width: fit-content;
-        max-width: calc(100% - 32px);
-        height: 48px;
-        gap: 14px;
-        padding: 0 16px;
+        display: block;
         transform: translateX(-50%);
+    }
+
+    .mobileNav .navPill {
+        display: flex;
+        width: max-content;
+        max-width: calc(100vw - 32px);
+        height: 48px;
+        align-items: center;
+        gap: 14px;
+        padding: 0 16px 0 9px;
         border-radius: 20px;
-        font-size: 13px;
+        font-size: 15px;
+        letter-spacing: -0.3px;
     }
 
-    .hasNotice .navPill {
-        top: calc(16px + 40px);
+    .mobileNav .navLogo,
+    .mobileNav .navLinks {
+        position: static;
+        width: auto;
+        height: auto;
+        transform: none;
     }
 
-    .navPill .mark {
-        width: 26px;
-        height: 26px;
+    .mobileNav .navLinks {
+        gap: 14px;
+    }
+
+    .mobileNav .mark {
+        width: 28px;
+        height: 28px;
         border-radius: 7px;
     }
 
-    .navPill .markRing {
-        width: 11px;
-        height: 11px;
+    .mobileNav .markRing {
+        width: 12px;
+        height: 12px;
         border-width: 3px;
+    }
+
+    .hero {
+        padding-top: 80px;
     }
 
     .heroCard {
         height: 440px;
-        margin: 10px 16px 20px;
-        border-radius: 20px;
+        border-radius: 20px 20px 0 0;
     }
 
-    .heroCard h1 {
-        font-size: 39px;
+    .heroTitle {
+        font-size: 40px;
     }
 
     .heroIcon {
@@ -991,171 +1345,222 @@
         stroke-width: 1.4;
     }
 
-    .about {
-        grid-template-columns: 48px 1fr;
-        min-height: 0;
-        align-items: start;
-        margin: 0 16px 16px;
-        padding: 30px 12px 50px;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        background: #fff;
-        box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
+    .navStrip {
+        height: 20px;
     }
 
-    .sectionLabel,
-    .workTitle {
-        padding-top: 8px;
-        font-size: 28px;
+    .sectionLabel {
+        font-size: 36px;
+        letter-spacing: -0.72px;
+    }
+
+    .about {
+        grid-template-columns: 56px minmax(0, 1fr);
+        min-height: 0;
+        padding: 10px 16px 30px 0;
+        border-radius: 0 0 20px 20px;
     }
 
     .aboutCopy {
-        gap: 12px;
+        gap: 14px;
+        padding: 10px 0;
+        font-size: 15px;
+    }
+
+    .aboutName {
+        font-size: 24px;
+    }
+
+    .aboutRole {
         font-size: 13px;
-        line-height: 1.5;
     }
 
     .languages {
-        display: none;
+        grid-column: 2;
+        justify-self: start;
+        width: auto;
+        padding-top: 16px;
+    }
+
+    .languagesLabel {
+        font-size: 24px;
     }
 
     .clients {
-        grid-template-columns: 48px 1fr;
-        min-height: 150px;
-        margin: 0 16px 16px;
-        padding: 20px 12px;
+        height: 220px;
     }
 
-    .clients .sectionLabel {
-        order: 0;
-        justify-self: start;
+    .clientsPanel {
+        width: 64px;
+        height: 220px;
+        border-radius: 20px 0 0 20px;
     }
 
-    .clients .marquee {
-        order: 0;
+    .clientsPanel::before {
+        top: 20px;
+        left: -40px;
+        width: 80px;
+        height: 180px;
     }
 
-    .marqueeTrack,
-    .marqueeTrackStatic,
-    .marqueeProbe {
-        gap: 14px;
+    .clientsFadeLeft {
+        height: 180px;
     }
 
     .clientCard {
-        width: 140px;
-        padding: 16px 12px;
+        width: 170px;
+        gap: 14px;
+        padding: 16px;
     }
 
     .clientLogoImg {
-        max-width: 100px;
-        max-height: 28px;
+        height: 28px;
+        max-width: 110px;
     }
 
-    /* ---- WORK ---- */
+    .clientName {
+        font-size: 15px;
+    }
+
+    .clientPeriod {
+        font-size: 13px;
+    }
 
     .work {
-        grid-template-columns: 48px 1fr;
-        column-gap: 12px;
-        margin: 0 16px 16px;
-        padding: 0 12px 90px;
-        border: 1px solid var(--line);
+        padding: 70px 12px 40px;
         border-radius: 20px;
-        background: #fff;
-        box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
     }
 
-    /* Заголовок work на мобилке не sticky — стоит в потоке слева от контента */
-    .TitleWork {
-        position: static;
-        top: auto;
+    .workLabelRail {
+        display: none;
     }
 
-    /* Фильтры и контент растянуты на обе колонки — на узком экране
-       колонка 48px слишком узкая, поэтому фильтры не должны в неё
-       пытаться влезть. */
+    .workFiltersRail {
+        top: -73px;
+    }
+
     .workFiltersSticky {
-        grid-column: 1 / -1;
-        grid-row: 1;
-        top: calc(var(--nav-top) + var(--nav-height) + 40px);
-        /* жёстко, без --nav-gap */
-        margin-bottom: 40px;
+        width: 100vw;
+        padding: calc(var(--nav-top) + var(--nav-height) + 8px) 16px 0;
     }
 
-    .workContent {
-        grid-column: 1 / -1;
-        grid-row: 2;
-    }
-
-    /* Фильтры на мобилке — более плотный фон: под ними белая карточка,
-       а не контрастный hero, поэтому сильно размытое стекло выглядит
-       как серая плашка. */
     .workFilters {
-        gap: 4px;
-        padding: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.16));
-        box-shadow:
-            0 8px 28px rgba(15, 23, 42, 0.14),
-            inset 0 1px 0 rgba(255, 255, 255, 0.6);
-        backdrop-filter: blur(7px) saturate(100%);
-        -webkit-backdrop-filter: blur(7px) saturate(100%);
+        min-width: 0;
+        height: 34px;
+        gap: 16px;
+        padding: 0 18px 2px;
+        border-radius: 0 0 18px 18px;
     }
 
     .workFilters a,
     .workFilterEmpty {
-        padding: 6px 8px;
-        font-size: 9px;
+        font-size: 15px;
     }
 
-    /* Сбрасываем десктопные ограничения: max-width 700px, left -65px,
-       justify-content: start — на мобилке сетка должна идти во всю
-       ширину своей колонки. */
-    .projects {
-        grid-template-columns: 1fr;
-        gap: 24px;
-        padding: 0;
-        max-width: 100%;
-        left: 0;
-        justify-content: stretch;
+    .workGroups {
+        gap: 60px;
     }
 
-    .projects + .projects {
-        margin-top: 40px;
+    .workGroup {
+        padding-top: 0;
     }
 
-    .projectImage {
-        height: 100px;
-        margin-bottom: 10px;
+    .workGroupLabelRail {
+        position: static;
+        width: auto;
+        margin-bottom: 12px;
     }
 
-    .projectCard:hover {
-        transform: translateY(-4px);
+    .workGroupLabel {
+        position: static;
+        height: auto;
+        justify-content: flex-start;
     }
 
-    .projectTitle {
-        font-size: 19px;
-    }
-
-    /* ---- CONTACT ---- */
-
-    .contact {
-        grid-template-columns: 48px 1fr;
-        margin: 0 16px 16px;
-        padding: 40px 12px;
-        border-radius: 20px;
-    }
-
-    .contactLink {
+    .workGroupLabel span {
+        writing-mode: horizontal-tb;
+        transform: none;
         font-size: 26px;
     }
 
-    /* ---- FOOTER ---- */
+    .projects {
+        width: 100%;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .projectCard {
+        gap: 16px;
+        padding: 14px;
+        border-radius: 20px;
+    }
+
+    .projectTitle {
+        font-size: 22px;
+    }
+
+    .projectCopy {
+        font-size: 14px;
+    }
+
+    .tags span {
+        padding: 5px 10px;
+        font-size: 13px;
+    }
+
+    .projectLink,
+    .projectBlocked {
+        padding: 9px 14px;
+        font-size: 15px;
+    }
+
+    .contact {
+        margin: 16px var(--gutter);
+        padding: 14px 64px 14px 14px;
+        border-radius: 20px;
+    }
+
+    .contactInner {
+        min-height: 0;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .contactLead {
+        padding: 24px;
+        border-radius: 16px;
+        font-size: 30px;
+    }
+
+    .contactBox {
+        align-self: stretch;
+        padding: 16px;
+        border-radius: 16px;
+    }
+
+    .contactBoxLabel {
+        font-size: 22px;
+        white-space: normal;
+    }
+
+    .contactLink {
+        font-size: 15px;
+    }
+
+    .contactLabel {
+        right: 64px;
+    }
+
+    .contactLabel .sectionLabel {
+        padding: 0 14px;
+    }
 
     .siteFooter {
         padding: 40px 16px 44px;
     }
 
-    .footerRow {
+    .footerRow,
+    .footerBrand {
         flex-direction: column;
         align-items: flex-start;
         gap: 22px;
@@ -1163,47 +1568,28 @@
 
     .footerNav {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 14px;
-    }
-
-    .footerNav a {
-        font-size: 15px;
-    }
-
-    .footerSocial {
-        width: 100%;
-        margin-left: 0;
-        justify-content: center;
-    }
-
-    .mark {
-        width: 30px;
-        height: 30px;
+        gap: 12px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .marqueeTrack {
-        animation: none;
-    }
-
-    .skeleton {
-        animation: none;
-    }
-
+    .marqueeTrack,
+    .skeleton,
     .navPill a {
         animation: none;
     }
 
-    .heroIcon {
+    .heroIcon,
+    .scrollProgressInner {
         transition: none;
     }
 
     .about,
     .clients,
+    .work,
     .contact,
-    .siteFooter {
+    .siteFooter,
+    .projectCard {
         opacity: 1;
         transform: none;
         transition: none;
