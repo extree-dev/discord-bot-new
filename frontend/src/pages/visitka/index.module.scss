@@ -146,23 +146,27 @@
 // DOM-снапшоту) hero — верх ОДНОЙ сквозной рамки: левая/правая граница
 // (rgba(0,0,0,.1) 1px) и закруглённый низ (30px) идут от hero и до конца
 // .contact без разрывов/теней между секциями — см. .contentFrame ниже.
-// Поэтому у hero больше нет своего radius/margin — это даёт .contentFrame.
+// У самого hero остаётся только скругление верхних углов (рамка отступает
+// от края вьюпорта на те же 30px, что и по бокам) — низ квадратный, он
+// без разрыва переходит в .about.
 .heroCard {
     position: relative;
     height: 700px;
     overflow: hidden;
+    border-radius: 30px 30px 0 0;
     color: white;
     background: var(--blue);
 }
 
 // Сквозная рамка hero+about+clients+work+contact (см. комментарий у
-// .heroCard) — единственный источник внешних отступов (30px по бокам),
-// левой/правой границы и скругления нижних углов для всего этого блока;
-// секции внутри — .about/.clients/.contact — больше не рисуют свою рамку/
-// фон/тень, только внутренние паддинги.
+// .heroCard) — единственный источник внешних отступов (30px по бокам
+// и сверху), левой/правой границы и скругления нижних углов для всего
+// этого блока; секции внутри — .about/.clients/.work/.contact — больше
+// не рисуют свою рамку/фон/тень/разделитель, только внутренние паддинги
+// (на референсе между ними нет видимого шва — сплошная белая заливка).
 .contentFrame {
     position: relative;
-    margin: 0 30px;
+    margin: 30px 30px 0;
     border-right: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
     border-left: 1px solid var(--line);
@@ -496,7 +500,6 @@
     align-items: center;
     overflow: hidden;
     padding: 30px 7vw;
-    border-top: 1px solid var(--line);
 }
 
 .marquee {
@@ -587,7 +590,6 @@
 .work {
     position: relative;
     padding: 100px 7vw 180px;
-    border-top: 1px solid var(--line);
 }
 
 .workSpine {
@@ -743,7 +745,6 @@
     grid-template-columns: 190px 1fr;
     align-items: center;
     padding: 60px 7vw 120px;
-    border-top: 1px solid var(--line);
 }
 
 .contactCard {
@@ -944,6 +945,7 @@
 
     .heroCard {
         height: 440px;
+        border-radius: 20px 20px 0 0;
     }
 
     .heroCard h1 {
