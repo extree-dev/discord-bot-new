@@ -993,7 +993,12 @@ app.put('/api/site-content', async (req, res) => {
             clients: Array.isArray(body.clients) ? body.clients : [],
             showcases: Array.isArray(body.showcases) ? body.showcases : [],
         });
-        res.json({ ...saved, maxLinks: site.MAX_LINKS, maxClients: site.MAX_CLIENTS, maxShowcases: site.MAX_SHOWCASES });
+        res.json({
+            ...saved,
+            maxLinks: site.MAX_LINKS,
+            maxClients: site.MAX_CLIENTS,
+            maxShowcases: site.MAX_SHOWCASES,
+        });
     } catch (err) {
         console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
