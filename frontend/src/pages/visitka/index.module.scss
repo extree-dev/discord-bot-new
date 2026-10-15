@@ -286,29 +286,24 @@
     white-space: nowrap;
 }
 
-/* На десктопе панель плавает поверх контента всегда (как на мобильной
-   раскладке, .navPill ниже) — fixed, а не sticky: sticky-элемент даже
-   в состоянии "ещё не прилип" остаётся частью потока и резервирует
-   под себя место, из-за чего hero и .about визуально разъезжались
-   (см. скриншот с серым зазором и навом между ними — баг, пойманный
-   по реальным фото референса, где картинка и about me — одна секция
-   без зазора). fixed убирает панель из потока полностью, так что
-   .heroCard и .about стыкуются впритык, а панель просто лежит поверх
-   шва между ними, как на frdg.work. */
+/* На десктопе панель — sticky, а не fixed: по реальным фото референса
+   (frdg.work) в состоянии покоя она лежит поверх нижней части hero (чуть
+   перекрывая картинку), а не прибита к самому верху вьюпорта. Это именно
+   обычный sticky-элемент потока: .navPillDesktop — первый ребёнок
+   .pageBody, который идёт сразу после .heroCard, так что без отступа
+   его статичная позиция и так оказалась бы ровно на шве hero/.about;
+   отрицательный margin-top поднимает её внутрь hero, в нижнюю треть
+   картинки. top: 16px — порог, после которого при скролле панель
+   "прилипает" к верху вьюпорта и остаётся видимой до конца страницы
+   (.pageBody высотой во весь остаток страницы — её containing block).
+   Hero и .about всё равно стыкуются впритык (margin/border-radius на
+   них самих) — нав просто плавает поверх шва, не занимая место в их
+   раскладке. */
 .navPillDesktop {
-    position: fixed;
+    position: sticky;
     top: 16px;
-    left: 50%;
     z-index: 20;
-    transform: translateX(-50%);
-}
-
-// Баннер .notice (40px) — обычный элемент потока в самом верху страницы,
-// а не fixed, поэтому при скролле он уходит из вьюпорта сам. Но в самом
-// первом экране (scroll: 0) он перекрывается с fixed-навом (который
-// всегда top: 16px) — сдвигаем нав на высоту баннера, пока тот открыт.
-.hasNotice .navPillDesktop {
-    top: calc(16px + 40px);
+    margin: -64px auto 0;
 }
 
 .navPill a {
@@ -603,25 +598,24 @@
     }
 }
 
+// Та же карточка, что у .about — белый фон, рамка, скругление, отступ от
+// края страницы: раньше у .work не было ни одного из них, секция просто
+// сидела на сером фоне страницы впритык к .about снизу.
 .work {
     position: relative;
+    margin: 0 30px 24px;
     padding: 100px 7vw 180px;
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: #fff;
 }
 
-.workSpine {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    background: var(--line);
-}
-
-// Оба sticky-элемента ниже "прилипают" под фиксированным .navPillDesktop
-// (top: 16px, height: 80px → нижний край ~96px) — top: 136px оставляет
-// заметный зазор (нав полупрозрачный, с blur — вплотную выглядело бы как
-// наложение), вместо прежних 120/30px, подобранных ещё под sticky-нав
-// (PR #248), который перекрывал .workFilters при top: 30.
+// Оба sticky-элемента ниже "прилипают" под .navPillDesktop, когда тот сам
+// уже прилип к верху (top: 16px, высота 80px → нижний край ~96px) — top:
+// 136px оставляет заметный зазор (нав полупрозрачный, с blur — вплотную
+// выглядело бы как наложение), вместо прежних 120/30px, подобранных ещё
+// под первую версию sticky-нава (PR #248), который перекрывал
+// .workFilters при top: 30.
 .workTitle {
     position: sticky;
     z-index: 5;
@@ -680,6 +674,18 @@
     color: #fff;
 }
 
+// Вкладка без единой карточки — ещё не заполненная категория. Показываем
+// её тем же пустым бейджем, что и заполненные (как на референсе — там
+// тоже всегда все 4 вкладки), но приглушённой и некликабельной: это
+// <span>, не <a>, явного href на пустую группу нет.
+.workFilterEmpty {
+    padding: 7px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 9px;
+    color: rgba(37, 43, 58, 0.4);
+    font-size: 11px;
+}
+
 .tags span {
     padding: 7px 12px;
     border: 1px solid var(--line);
@@ -721,16 +727,8 @@
     transition: transform 300ms ease;
 }
 
-.projectCard:nth-child(even) {
-    transform: translateY(60px);
-}
-
 .projectCard:hover {
     transform: translateY(-8px);
-}
-
-.projectCard:nth-child(even):hover {
-    transform: translateY(52px);
 }
 
 // Без скругления — по референс-фото карточки "work" у них картинка с
@@ -1073,15 +1071,16 @@
     }
 
     .work {
-        margin: 0 16px;
+        margin: 0 16px 16px;
         padding: 70px 8px 90px;
-        border-right: 1px solid var(--line);
-        border-left: 1px solid var(--line);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
     }
 
     .workTitle {
         top: 110px;
-        margin-left: calc(50% - 29px);
     }
 
     .workFilters {
@@ -1091,7 +1090,8 @@
         padding: 6px;
     }
 
-    .workFilters span {
+    .workFilters a,
+    .workFilterEmpty {
         padding: 6px 8px;
         font-size: 9px;
     }
@@ -1102,13 +1102,7 @@
         padding: 0 4px;
     }
 
-    .projectCard,
-    .projectCard:nth-child(even) {
-        transform: none;
-    }
-
-    .projectCard:hover,
-    .projectCard:nth-child(even):hover {
+    .projectCard:hover {
         transform: translateY(-4px);
     }
 

@@ -454,17 +454,24 @@ export function VisitkaPage() {
             category: 'communities' as const,
         })),
     ];
+    // Все 4 вкладки показываются всегда (как на референсе frdg.work), даже
+    // если в части категорий пока нет ни одной карточки — иначе, пока
+    // заполнена только одна категория (как сейчас на проде), панель вкладок
+    // пропадала бы целиком и выглядело так, будто вкладок вообще нет.
+    // Карточки же рендерятся (и участвуют в scrollspy) только для реально
+    // заполненных категорий — populatedWorkGroups.
     const groupedWork = useMemo(
         () =>
             WORK_CATEGORY_ORDER.map(category => ({
                 id: category,
                 label: WORK_CATEGORY_LABELS[category],
                 items: workItems.filter(item => item.category === category),
-            })).filter(group => group.items.length > 0),
+            })),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [tools, showcases, communities]
     );
-    const workCategoryIds = useMemo(() => groupedWork.map(group => `work-${group.id}`), [groupedWork]);
+    const populatedWorkGroups = useMemo(() => groupedWork.filter(group => group.items.length > 0), [groupedWork]);
+    const workCategoryIds = useMemo(() => populatedWorkGroups.map(group => `work-${group.id}`), [populatedWorkGroups]);
     const activeWorkCategory = useScrollSpy(workCategoryIds);
 
     if (!content) {
@@ -554,11 +561,10 @@ export function VisitkaPage() {
 
                 {workItems.length > 0 && (
                     <section className={styles.work} id="work">
-                        <div className={styles.workSpine} aria-hidden="true" />
                         <h2 className={styles.workTitle}>work</h2>
-                        {groupedWork.length > 1 && (
-                            <div className={styles.workFilters}>
-                                {groupedWork.map(group => (
+                        <div className={styles.workFilters}>
+                            {groupedWork.map(group =>
+                                group.items.length > 0 ? (
                                     <a
                                         key={group.id}
                                         href={`#work-${group.id}`}
@@ -570,10 +576,14 @@ export function VisitkaPage() {
                                     >
                                         {group.label}
                                     </a>
-                                ))}
-                            </div>
-                        )}
-                        {groupedWork.map(group => (
+                                ) : (
+                                    <span key={group.id} className={styles.workFilterEmpty}>
+                                        {group.label}
+                                    </span>
+                                )
+                            )}
+                        </div>
+                        {populatedWorkGroups.map(group => (
                             <div
                                 className={styles.projects}
                                 id={`work-${group.id}`}
