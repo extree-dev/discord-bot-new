@@ -21,8 +21,8 @@ function generateEmailCode() {
 // тестах без реальной отправки через Resend.
 function renderVerificationEmail({ code, username, guildName, requestedAt }) {
     const now = requestedAt ? new Date(requestedAt) : new Date();
-    const months = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
-    const dateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}, ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    const dateStr = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}, ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     return `<!DOCTYPE html>
 <html lang="ru">
