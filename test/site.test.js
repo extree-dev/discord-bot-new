@@ -1,6 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalize, DEFAULTS, MAX_LINKS, MAX_CLIENTS, MAX_SHOWCASES, MAX_SHOWCASE_TAGS } = require('../site/model');
+const {
+    normalize,
+    DEFAULTS,
+    MAX_LINKS,
+    MAX_CLIENTS,
+    MAX_SHOWCASES,
+    MAX_SHOWCASE_TAGS,
+    SHOWCASE_CATEGORIES,
+} = require('../site/model');
 
 test('normalize: пустой объект — все поля заменяются дефолтами', () => {
     assert.deepEqual(normalize({}), DEFAULTS);
@@ -91,6 +99,7 @@ test('normalize: проекты без title отбрасываются, ост�
                 imageUrl: '  https://example.com/kitchen.png  ',
                 url: '  https://example.com  ',
                 nda: 'truthy-but-not-boolean',
+                category: 'tools',
             },
             { title: '   ' },
             { title: '', tags: ['Ignored'] },
@@ -105,15 +114,37 @@ test('normalize: проекты без title отбрасываются, ост�
             url: 'https://example.com',
             nda: true,
             upcoming: false,
+            category: 'tools',
         },
     ]);
 });
 
-test('normalize: проект без картинки/тегов/url сохраняется с пустыми значениями (не ломается)', () => {
+test('normalize: проект без картинки/тегов/url/category сохраняется с пустыми значениями и категорией по умолчанию (не ломается)', () => {
     const result = normalize({ showcases: [{ title: 'Unik' }] });
     assert.deepEqual(result.showcases, [
-        { title: 'Unik', tags: [], description: '', imageUrl: '', url: '', nda: false, upcoming: false },
+        {
+            title: 'Unik',
+            tags: [],
+            description: '',
+            imageUrl: '',
+            url: '',
+            nda: false,
+            upcoming: false,
+            category: 'websites',
+        },
     ]);
+});
+
+test('normalize: неизвестная category откатывается к дефолту (websites)', () => {
+    const result = normalize({ showcases: [{ title: 'Проект', category: 'not-a-real-category' }] });
+    assert.equal(result.showcases[0].category, 'websites');
+});
+
+test('normalize: каждая из SHOWCASE_CATEGORIES сохраняется как есть', () => {
+    for (const category of SHOWCASE_CATEGORIES) {
+        const result = normalize({ showcases: [{ title: 'Проект', category }] });
+        assert.equal(result.showcases[0].category, category);
+    }
 });
 
 test('normalize: пустой список проектов остаётся пустым (секция work скрыта, а не фейковая)', () => {

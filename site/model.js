@@ -46,6 +46,15 @@ const MAX_SHOWCASES = 8;
 // вместо тегов.
 const MAX_SHOWCASE_TAGS = 6;
 
+// Категории карточек в секции "work" — те же 4 вкладки, что на
+// референсе (frdg.work): Tools/Communities/Websites/Branding. Вместо
+// отдельных сущностей Tool/Community (они остаются неиспользуемыми
+// заготовками в types.ts) все карточки живут в showcases с полем
+// category — так форма и рендер на визитке остаются одним и тем же
+// кодом для всех 4 вкладок, а не четырьмя похожими CRUD-формами.
+const SHOWCASE_CATEGORIES = ['tools', 'communities', 'websites', 'branding'];
+const DEFAULT_SHOWCASE_CATEGORY = 'websites';
+
 function normalizeLinks(rawLinks) {
     if (!Array.isArray(rawLinks)) return DEFAULTS.links;
     const links = rawLinks
@@ -91,6 +100,7 @@ function normalizeShowcases(rawShowcases) {
             url: typeof s.url === 'string' ? s.url.trim() : '',
             nda: Boolean(s.nda),
             upcoming: Boolean(s.upcoming),
+            category: SHOWCASE_CATEGORIES.includes(s.category) ? s.category : DEFAULT_SHOWCASE_CATEGORY,
         }));
 }
 
@@ -119,4 +129,5 @@ module.exports = {
     MAX_CLIENTS,
     MAX_SHOWCASES,
     MAX_SHOWCASE_TAGS,
+    SHOWCASE_CATEGORIES,
 };

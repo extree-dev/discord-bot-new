@@ -4,7 +4,7 @@ import type { SiteContent } from '../../entities/site-content/types';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { Checkbox } from '../../shared/ui/Checkbox';
-import { TextArea, TextField } from '../../shared/ui/Field';
+import { SelectField, TextArea, TextField } from '../../shared/ui/Field';
 import { Notice } from '../../shared/ui/Notice';
 import { GridIcon, LinkChainIcon, TrashIcon, UserIcon, UsersIcon } from '../../shared/ui/icons';
 import {
@@ -36,6 +36,15 @@ type Status = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind
 type LogoUploadStatus = { kind: 'uploading' } | { kind: 'error'; message: string };
 
 const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
+
+// Вкладки секции "work" на визитке (frdg.work) — те же 4 значения,
+// что и SHOWCASE_CATEGORIES на бэкенде (site/model.js).
+const SHOWCASE_CATEGORY_OPTIONS = [
+    { value: 'tools', label: 'Tools' },
+    { value: 'communities', label: 'Communities' },
+    { value: 'websites', label: 'Websites' },
+    { value: 'branding', label: 'Branding' },
+];
 
 export function SiteContentForm({ initial, maxLinks, maxClients, maxShowcases }: SiteContentFormProps) {
     const [content, setContent] = useState<SiteContent>(initial);
@@ -381,6 +390,22 @@ export function SiteContentForm({ initial, maxLinks, maxClients, maxShowcases }:
                                                 })
                                             }
                                             maxLength={80}
+                                        />
+                                        <SelectField
+                                            label="Вкладка в секции work"
+                                            id={`showcase${index}_category`}
+                                            options={SHOWCASE_CATEGORY_OPTIONS}
+                                            value={showcase.category ?? 'websites'}
+                                            onChange={e =>
+                                                setContent({
+                                                    ...content,
+                                                    showcases: updateShowcase(content.showcases ?? [], index, {
+                                                        category: e.target.value as NonNullable<
+                                                            typeof showcase.category
+                                                        >,
+                                                    }),
+                                                })
+                                            }
                                         />
                                         <TextArea
                                             label="Описание"

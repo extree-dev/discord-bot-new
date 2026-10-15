@@ -259,13 +259,6 @@
     bottom: 13%;
 }
 
-// Обёртка для всего, что идёт после hero (desktop-навигация + все секции) —
-// именно она, а не короткая строка нава сама по себе, служит containing
-// block для .navPillDesktop (position: sticky): элемент может "прилипать"
-// только в пределах высоты своего непосредственного родителя, а .pageBody
-// высотой во весь остаток страницы, так что панель остаётся прилипшей
-// до самого низа (в отличие от прежней короткой 110px-строки — см.
-// комментарий у .navPillDesktop и историю в PR #248).
 .pageBody {
     position: relative;
 }
@@ -293,19 +286,29 @@
     white-space: nowrap;
 }
 
-/* На десктопе панель — sticky: на frdg.work (референс) она стартует
-   обычным элементом потока сразу под hero, а когда верхняя граница
-   страницы при скролле доходит до неё — "прилипает" к верху и дальше
-   едет вместе со страницей (сама остаётся на месте, контент уходит
-   под неё). margin: 0 auto вместо left:50%+transform — тот трюк
-   работает только для fixed/absolute, а sticky до "прилипания" ведёт
-   себя как обычный блочный элемент потока. На мобильной раскладке
-   (.mobileNav, перед hero) панель остаётся fixed — не трогаем. */
+/* На десктопе панель плавает поверх контента всегда (как на мобильной
+   раскладке, .navPill ниже) — fixed, а не sticky: sticky-элемент даже
+   в состоянии "ещё не прилип" остаётся частью потока и резервирует
+   под себя место, из-за чего hero и .about визуально разъезжались
+   (см. скриншот с серым зазором и навом между ними — баг, пойманный
+   по реальным фото референса, где картинка и about me — одна секция
+   без зазора). fixed убирает панель из потока полностью, так что
+   .heroCard и .about стыкуются впритык, а панель просто лежит поверх
+   шва между ними, как на frdg.work. */
 .navPillDesktop {
-    position: sticky;
+    position: fixed;
     top: 16px;
+    left: 50%;
     z-index: 20;
-    margin: 56px auto 0;
+    transform: translateX(-50%);
+}
+
+// Баннер .notice (40px) — обычный элемент потока в самом верху страницы,
+// а не fixed, поэтому при скролле он уходит из вьюпорта сам. Но в самом
+// первом экране (scroll: 0) он перекрывается с fixed-навом (который
+// всегда top: 16px) — сдвигаем нав на высоту баннера, пока тот открыт.
+.hasNotice .navPillDesktop {
+    top: calc(16px + 40px);
 }
 
 .navPill a {
@@ -614,21 +617,33 @@
     background: var(--line);
 }
 
+// Оба sticky-элемента ниже "прилипают" под фиксированным .navPillDesktop
+// (top: 16px, height: 80px → нижний край ~96px) — top: 136px оставляет
+// заметный зазор (нав полупрозрачный, с blur — вплотную выглядело бы как
+// наложение), вместо прежних 120/30px, подобранных ещё под sticky-нав
+// (PR #248), который перекрывал .workFilters при top: 30.
 .workTitle {
     position: sticky;
     z-index: 5;
-    top: 120px;
-    margin: 0 0 0 calc(50% - 45px);
+    top: 136px;
+    margin: 0;
     font-family: 'Benne', serif;
-    font-size: 42px;
+    font-size: 64px;
     font-weight: 400;
     letter-spacing: -0.02em;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
 }
 
+// Вкладки Tools/Communities/Websites/Branding — как на референсе
+// (frdg.work): та же sticky-панель, что была (.workFilters существовала
+// и раньше, просто показывала теги как инертные бейджи), но теперь это
+// настоящие вкладки — клик скроллит к группе (href="#work-<id>"),
+// активная подсвечивается через useScrollSpy (см. index.tsx).
 .workFilters {
     position: sticky;
     z-index: 4;
-    top: 30px;
+    top: 136px;
     display: flex;
     flex-wrap: wrap;
     width: max-content;
@@ -643,7 +658,28 @@
     -webkit-backdrop-filter: blur(14px);
 }
 
-.workFilters span,
+.workFilters a {
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: rgba(37, 43, 58, 0.06);
+    color: inherit;
+    font-size: 11px;
+    text-decoration: none;
+    transition:
+        background 200ms ease,
+        color 200ms ease;
+}
+
+// .workFilters a.workFilterActive (а не просто .workFilterActive) — иначе
+// специфичность ниже, чем у .workFilters a выше, и color: inherit оттуда
+// выигрывает: фон перекрашивался (там стоял !important), а текст — нет.
+.workFilters a.workFilterActive {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: #fff;
+}
+
 .tags span {
     padding: 7px 12px;
     border: 1px solid var(--line);
@@ -655,11 +691,21 @@
 .projects {
     position: relative;
     z-index: 2;
+    // Клик по вкладке скроллит сюда якорем (#work-<id>) — без этого группа
+    // оказалась бы частично под sticky-шапкой (nav + .workTitle/.workFilters).
+    scroll-margin-top: 136px;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 90px 90px;
     max-width: 1160px;
     margin: 0 auto;
+}
+
+// Несколько .projects подряд — по одному на каждую непустую категорию
+// (groupedWork в index.tsx) — иначе вторая и следующие группы начинались
+// бы впритык к карточкам предыдущей.
+.projects + .projects {
+    margin-top: 90px;
 }
 
 .projectCard {
@@ -929,6 +975,10 @@
         transform: translateX(-50%);
         border-radius: 20px;
         font-size: 13px;
+    }
+
+    .hasNotice .navPill {
+        top: calc(16px + 40px);
     }
 
     .navPill .mark {

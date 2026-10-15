@@ -10,6 +10,7 @@ export const EMPTY_SHOWCASE: Showcase = {
     url: '',
     nda: false,
     upcoming: false,
+    category: 'websites',
 };
 
 export function canAddLink(links: SiteLink[], maxLinks: number): boolean {
@@ -90,6 +91,7 @@ export function toPayload(content: SiteContent): SiteContent {
                 url: (showcase.url ?? '').trim(),
                 nda: Boolean(showcase.nda),
                 upcoming: Boolean(showcase.upcoming),
+                category: showcase.category ?? 'websites',
             })),
     };
 }
