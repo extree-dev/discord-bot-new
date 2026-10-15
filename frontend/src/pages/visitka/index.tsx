@@ -324,6 +324,39 @@ function useScrollSpy(ids: string[]): string | null {
     return active;
 }
 
+// На мобильной раскладке навигационная панель — position: fixed, и по
+// умолчанию она «висит» до конца страницы. Просили скрывать её, когда
+// секция work уходит за верх экрана. Отслеживаем положение .work через
+// IntersectionObserver: пока она хоть частично в вьюпорте (или ещё ниже
+// его), панель видна; когда секция уехала выше вьюпорта — панель гаснет
+// (opacity 0 + pointer-events: none).
+function useMobileNavVisible(workRef: React.RefObject<HTMLElement | null>, enabled: boolean) {
+    const [visible, setVisible] = useState(true);
+
+    useEffect(() => {
+        if (!enabled) {
+            setVisible(true);
+            return undefined;
+        }
+        const el = workRef.current;
+        if (!el) return undefined;
+        if (typeof IntersectionObserver === 'undefined') return undefined;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                // Показываем, если work пересекается со вьюпортом ИЛИ ещё
+                // не дошёл до него (top > 0 — секция ниже области видимости).
+                setVisible(entry.isIntersecting || entry.boundingClientRect.top > 0);
+            },
+            { threshold: 0 }
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [enabled, workRef]);
+
+    return visible;
+}
+
 // Бесшовная прокрутка строится дублированием ряда ([...clients, ...clients])
 // и сдвигом на -50% — это ломается визуально, если сам ряд логотипов (без
 // дублирования) короче контейнера: вместо прокрутки видно сразу оба
@@ -474,6 +507,14 @@ export function VisitkaPage() {
     const workCategoryIds = useMemo(() => populatedWorkGroups.map(group => `work-${group.id}`), [populatedWorkGroups]);
     const activeWorkCategory = useScrollSpy(workCategoryIds);
 
+    // Скрытие мобильной навигации, когда секция work уехала выше вьюпорта.
+    // Observer подключён всегда — CSS сам решает, что .mobileNav виден
+    // только на мобильной раскладке (display: none на десктопе). Внутри
+    // хука enabled = true (активно только на мобилке — media-query
+    // здесь не нужен, т.к. сам элемент на десктопе скрыт).
+    const workRef = useRef<HTMLElement | null>(null);
+    const mobileNavVisible = useMobileNavVisible(workRef, true);
+
     if (!content) {
         return (
             <div className={styles.page}>
@@ -500,7 +541,19 @@ export function VisitkaPage() {
                 </aside>
             )}
 
-            <div className={styles.mobileNav}>
+            {/* .mobileNav — единственный владелец навигации на мобилке.
+                style.opacity управляет видимостью: пока секция work
+                в вьюпорте (или ещё ниже) — нав виден, когда work уехал
+                выше — гаснет. На десктопе .mobileNav скрыт через CSS,
+                поэтому эта логика не влияет. */}
+            <div
+                className={styles.mobileNav}
+                style={{
+                    opacity: mobileNavVisible ? 1 : 0,
+                    pointerEvents: mobileNavVisible ? 'auto' : 'none',
+                    transition: 'opacity 200ms ease',
+                }}
+            >
                 <Navigation />
             </div>
 
@@ -517,7 +570,6 @@ export function VisitkaPage() {
                короткая 110px-строка, как раньше — см. комментарий у .navPillDesktop). */}
             <div className={styles.pageBody}>
                 <Navigation className={styles.navPillDesktop} />
-
                 <section
                     ref={aboutReveal.ref}
                     className={`${styles.about} ${aboutReveal.visible ? styles.revealed : ''}`}
@@ -560,74 +612,88 @@ export function VisitkaPage() {
                 )}
 
                 {workItems.length > 0 && (
-                    <section className={styles.work} id="work">
-                        <h2 className={styles.workTitle}>work</h2>
-                        <div className={styles.workFilters}>
-                            {groupedWork.map(group =>
-                                group.items.length > 0 ? (
-                                    <a
-                                        key={group.id}
-                                        href={`#work-${group.id}`}
-                                        className={
-                                            activeWorkCategory === `work-${group.id}`
-                                                ? styles.workFilterActive
-                                                : undefined
-                                        }
-                                    >
-                                        {group.label}
-                                    </a>
-                                ) : (
-                                    <span key={group.id} className={styles.workFilterEmpty}>
-                                        {group.label}
-                                    </span>
-                                )
-                            )}
+                    <section className={styles.work} id="work" ref={workRef}>
+                        {/* Левая колонка: вертикальный заголовок "work". */}
+                        <div className={styles.TitleWork}>
+                            <h2 className={styles.workTitle}>work</h2>
                         </div>
-                        {populatedWorkGroups.map(group => (
-                            <div
-                                className={styles.projects}
-                                id={`work-${group.id}`}
-                                key={group.id}
-                                data-work-category={group.id}
-                            >
-                                {group.items.map((item, index) => (
-                                    <article className={styles.projectCard} key={item.key}>
-                                        {item.imageUrl && (
-                                            <img className={styles.projectImage} src={item.imageUrl} alt="" />
-                                        )}
-                                        {item.tags.length > 0 && (
-                                            <div className={styles.tags}>
-                                                {item.tags.map(tag => (
-                                                    <span key={tag}>{tag}</span>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <h3 className={styles.projectTitle}>{item.title}</h3>
-                                        <p className={styles.projectCopy}>{item.copy}</p>
-                                        {item.nda && (
-                                            <span className={styles.projectBlocked}>
-                                                Non-disclosure agreement-bound
-                                            </span>
-                                        )}
-                                        {item.upcoming && (
-                                            <span className={styles.projectBlocked}>To be published</span>
-                                        )}
-                                        {!item.nda && !item.upcoming && item.url && (
-                                            <a
-                                                className={styles.projectLink}
-                                                href={item.url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                            >
-                                                <span>Смотреть проект</span>
-                                                <ArrowUpRightIcon />
-                                            </a>
-                                        )}
-                                        <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
-                                    </article>
-                                ))}
+
+                        {/* Фильтры — прямой ребёнок .work, растянуты на обе
+                            колонки (grid-column: 1 / -1), центрируются по всей
+                            ширине секции, а не по правой колонке. */}
+                        <div className={styles.workFiltersSticky}>
+                            <div className={styles.workFilters}>
+                                {groupedWork.map(group =>
+                                    group.items.length > 0 ? (
+                                        <a
+                                            key={group.id}
+                                            href={`#work-${group.id}`}
+                                            className={
+                                                activeWorkCategory === `work-${group.id}`
+                                                    ? styles.workFilterActive
+                                                    : undefined
+                                            }
+                                        >
+                                            {group.label}
+                                        </a>
+                                    ) : (
+                                        <span key={group.id} className={styles.workFilterEmpty}>
+                                            {group.label}
+                                        </span>
+                                    )
+                                )}
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Карточки — во второй колонке, внутри .workContent,
+                            чтобы grid видел их как один элемент. */}
+                        <div className={styles.workContent}>
+                            {populatedWorkGroups.map(group => (
+                                <div
+                                    className={styles.projects}
+                                    id={`work-${group.id}`}
+                                    key={group.id}
+                                    data-work-category={group.id}
+                                >
+                                    {group.items.map((item, index) => (
+                                        <article className={styles.projectCard} key={item.key}>
+                                            {item.imageUrl && (
+                                                <img className={styles.projectImage} src={item.imageUrl} alt="" />
+                                            )}
+                                            {item.tags.length > 0 && (
+                                                <div className={styles.tags}>
+                                                    {item.tags.map(tag => (
+                                                        <span key={tag}>{tag}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <h3 className={styles.projectTitle}>{item.title}</h3>
+                                            <p className={styles.projectCopy}>{item.copy}</p>
+                                            {item.nda && (
+                                                <span className={styles.projectBlocked}>
+                                                    Non-disclosure agreement-bound
+                                                </span>
+                                            )}
+                                            {item.upcoming && (
+                                                <span className={styles.projectBlocked}>To be published</span>
+                                            )}
+                                            {!item.nda && !item.upcoming && item.url && (
+                                                <a
+                                                    className={styles.projectLink}
+                                                    href={item.url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    <span>Смотреть проект</span>
+                                                    <ArrowUpRightIcon />
+                                                </a>
+                                            )}
+                                            <span className={styles.projectIndex}>{formatIndex(index + 1)}</span>
+                                        </article>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
                     </section>
                 )}
 
