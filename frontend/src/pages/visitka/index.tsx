@@ -584,11 +584,6 @@ export function VisitkaPage() {
                         </div>
                     )}
                 </div>
-
-                <div className={styles.footerBar} aria-hidden="true" />
-                <a className={styles.footerCta} href="#top">
-                    extree.tech
-                </a>
             </footer>
         </div>
     );
