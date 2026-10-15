@@ -113,9 +113,9 @@ client.once('clientReady', async () => {
 
         const hiddenFromAllButUnverified = unverifiedRole
             ? [
-                  { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                  { id: unverifiedRole.id, allow: [PermissionFlagsBits.ViewChannel] },
-              ]
+                { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                { id: unverifiedRole.id, allow: [PermissionFlagsBits.ViewChannel] },
+            ]
             : [];
 
         const { channel: category, created: categoryCreated } = await ensureChannel({
@@ -134,24 +134,24 @@ client.once('clientReady', async () => {
 
         const { channel, created: channelCreated } = category
             ? await ensureChannel({
-                  guild,
-                  existingId: existingConfig.verification.channelId,
-                  name: 'verification',
-                  type: ChannelType.GuildText,
-                  parentId: category.id,
-                  createOptions: {
-                      permissionOverwrites: unverifiedRole
-                          ? [
-                                { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                                {
-                                    id: unverifiedRole.id,
-                                    allow: [PermissionFlagsBits.ViewChannel],
-                                    deny: [PermissionFlagsBits.SendMessages],
-                                },
-                            ]
-                          : [],
-                  },
-              })
+                guild,
+                existingId: existingConfig.verification.channelId,
+                name: 'verification',
+                type: ChannelType.GuildText,
+                parentId: category.id,
+                createOptions: {
+                    permissionOverwrites: unverifiedRole
+                        ? [
+                            { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+                            {
+                                id: unverifiedRole.id,
+                                allow: [PermissionFlagsBits.ViewChannel],
+                                deny: [PermissionFlagsBits.SendMessages],
+                            },
+                        ]
+                        : [],
+                },
+            })
             : { channel: null, created: false };
         if (channel) console.log(channelCreated ? 'Создан канал: verification' : 'Канал verification уже настроен');
 
@@ -175,7 +175,7 @@ client.once('clientReady', async () => {
                 .setDescription(
                     formatBody(
                         'Добро пожаловать на сервер',
-                        'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже — появится картинка с кодом, выбери его среди кнопок под картинкой. Это займёт пару секунд.'
+                        'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже и следуй подсказкам — это займёт пару минут.'
                     )
                 )
                 .setThumbnail(guild.iconURL() ?? null)
