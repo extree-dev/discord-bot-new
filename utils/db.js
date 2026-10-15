@@ -34,6 +34,13 @@ function ensureSchema() {
                     mime_type TEXT NOT NULL,
                     data BYTEA NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS email_codes (
+                    discord_id BIGINT PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 )`
             )
             .catch(err => {
