@@ -767,12 +767,6 @@
     line-height: 1.1;
 }
 
-// Раньше footer был absolute-позиционирован внутри .contact (отдельная
-// "подвальная" полоса в самом низу высокой секции) — теперь это
-// самостоятельная секция ниже contact, с повтором навигации списком,
-// цветными иконками соцсетей и акцентной плашкой снизу (по
-// референс-скриншотам фактического сайта — в extree-dev/testing-site
-// такого футера нет, там только имя + копирайт в одну строку).
 .siteFooter {
     padding: 56px 7vw 60px;
     border-top: 1px solid var(--line);
@@ -869,26 +863,6 @@
 
 .footerSocialIconGithub {
     color: #181717;
-}
-
-.footerBar {
-    width: 100%;
-    height: 4px;
-    margin-top: 32px;
-    border-radius: 999px;
-    background: var(--blue);
-}
-
-.footerCta {
-    display: flex;
-    width: fit-content;
-    margin: 24px auto 0;
-    padding: 14px 30px;
-    border-radius: 999px;
-    background: var(--ink);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
 }
 
 @media (max-width: 799px) {
@@ -1062,16 +1036,17 @@
 
     .siteFooter {
         padding: 40px 16px 44px;
-        text-align: center;
     }
 
     .footerRow {
         flex-direction: column;
+        align-items: flex-start;
         gap: 22px;
     }
 
     .footerNav {
         flex-direction: column;
+        align-items: flex-start;
         gap: 14px;
     }
 
@@ -1080,7 +1055,9 @@
     }
 
     .footerSocial {
+        width: 100%;
         margin-left: 0;
+        justify-content: center;
     }
 
     .mark {
