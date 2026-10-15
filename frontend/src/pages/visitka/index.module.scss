@@ -484,19 +484,27 @@
     height: 100%;
 }
 
+// Без фона-карточки и с подписью справа — в отличие от .about/.contact,
+// у frdg.work секция clients не оформлена белой карточкой, а подпись
+// "clients" стоит у правого края, а не у левого (см. референс-фото).
 .clients {
     position: relative;
     display: grid;
-    grid-template-columns: 190px 1fr;
+    grid-template-columns: 1fr 190px;
     min-height: 280px;
     align-items: center;
     overflow: hidden;
     margin: 0 30px 24px;
     padding: 30px 7vw;
-    border: 1px solid var(--line);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 30px 80px rgba(37, 43, 58, 0.05);
+}
+
+.clients .marquee {
+    order: 1;
+}
+
+.clients .sectionLabel {
+    order: 2;
+    justify-self: end;
 }
 
 .marquee {
@@ -777,6 +785,8 @@
 .footerRow {
     display: flex;
     align-items: center;
+    max-width: 1160px;
+    margin: 0 auto;
     gap: 40px;
 }
 
@@ -955,12 +965,23 @@
         display: none;
     }
 
+    // На мобильном подпись остаётся слева (узкая 48px-колонка, как у
+    // .about/.contact) — order из десктопной версии (подпись справа)
+    // здесь сбрасывается обратно.
     .clients {
         grid-template-columns: 48px 1fr;
         min-height: 150px;
         margin: 0 16px 16px;
         padding: 20px 12px;
-        border-radius: 20px;
+    }
+
+    .clients .sectionLabel {
+        order: 0;
+        justify-self: start;
+    }
+
+    .clients .marquee {
+        order: 0;
     }
 
     .marqueeTrack,
