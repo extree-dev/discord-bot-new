@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Client, ShowcaseCategory } from '../../entities/site-content/types';
 import {
     selectClients,
@@ -78,89 +78,133 @@ const heroIconPaths = [
     <path key="10" d="M3 6h8v8H3zM13 6h8v8h-8M3 17h18" />,
 ];
 
-interface IconOffset {
-    x: number;
-    y: number;
-}
+// Hero: the icons drift a few pixels towards the cursor while it moves over
+// the image (strongest for icons near the cursor, nothing for far ones),
+// and ease back when it leaves. Offsets are written straight to the DOM
+// inside requestAnimationFrame, so mouse moves never re-render React; the
+// smoothness comes from the CSS transition on .heroIcon.
+const ICON_MAX_SHIFT = 6; // px — "a couple of pixels"
+const ICON_REACH = 380; // px — icons further than this from the cursor stay put
 
-const ZERO_OFFSET: IconOffset = { x: 0, y: 0 };
-
-interface HeroIconProps {
-    index: number;
-    offset: IconOffset;
-    onPointerEnter: () => void;
-    onPointerLeave: () => void;
-}
-
-const HeroIcon = forwardRef<SVGSVGElement, HeroIconProps>(function HeroIcon(
-    { index, offset, onPointerEnter, onPointerLeave },
-    ref
-) {
-    return (
-        <svg
-            ref={ref}
-            className={`${styles.heroIcon} ${styles[`heroIcon${index + 1}`]}`}
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            style={offset.x || offset.y ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
-            onPointerEnter={onPointerEnter}
-            onPointerLeave={onPointerLeave}
-        >
-            {heroIconPaths[index]}
-        </svg>
-    );
-});
-
-// "Magnetic" hover: nearby icons shift slightly towards the hovered one.
-function HeroIconsLayer() {
-    const iconRefs = useRef<Array<SVGSVGElement | null>>([]);
-    const [offsets, setOffsets] = useState<IconOffset[]>(() => heroIconPaths.map(() => ZERO_OFFSET));
-
-    const handleEnter = useCallback((index: number) => {
-        const icons = iconRefs.current;
-        const hovered = icons[index];
-        if (!hovered) return;
-        const hoveredRect = hovered.getBoundingClientRect();
-        const hoveredCenter = {
-            x: hoveredRect.left + hoveredRect.width / 2,
-            y: hoveredRect.top + hoveredRect.height / 2,
-        };
-        const MAX_DIST = 220;
-        const MAX_SHIFT = 7;
-        setOffsets(
-            icons.map((el, i) => {
-                if (!el || i === index) return ZERO_OFFSET;
-                const rect = el.getBoundingClientRect();
-                const center = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-                const dx = hoveredCenter.x - center.x;
-                const dy = hoveredCenter.y - center.y;
-                const dist = Math.hypot(dx, dy) || 1;
-                if (dist > MAX_DIST) return ZERO_OFFSET;
-                const strength = (1 - dist / MAX_DIST) * MAX_SHIFT;
-                return { x: (dx / dist) * strength, y: (dy / dist) * strength };
-            })
-        );
-    }, []);
-
-    const handleLeave = useCallback(() => {
-        setOffsets(heroIconPaths.map(() => ZERO_OFFSET));
-    }, []);
-
+function HeroIconsLayer({ iconRefs }: { iconRefs: React.MutableRefObject<Array<SVGSVGElement | null>> }) {
     return (
         <>
-            {heroIconPaths.map((_, index) => (
-                <HeroIcon
-                    index={index}
+            {heroIconPaths.map((path, index) => (
+                <svg
                     key={index}
                     ref={el => {
                         iconRefs.current[index] = el;
                     }}
-                    offset={offsets[index]}
-                    onPointerEnter={() => handleEnter(index)}
-                    onPointerLeave={handleLeave}
-                />
+                    className={`${styles.heroIcon} ${styles[`heroIcon${index + 1}`]}`}
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    {path}
+                </svg>
             ))}
         </>
+    );
+}
+
+function HeroCard({ title }: { title: string }) {
+    const iconRefs = useRef<Array<SVGSVGElement | null>>([]);
+    // Icon resting centers (current offset subtracted), cached per hover so
+    // moving icons don't feed back into their own target.
+    const centersRef = useRef<Array<{ x: number; y: number } | null>>([]);
+    const shiftsRef = useRef<Array<{ x: number; y: number }>>([]);
+    const frameRef = useRef(0);
+    const pointerRef = useRef({ x: 0, y: 0 });
+    const [pops, setPops] = useState(0);
+
+    const measure = useCallback(() => {
+        centersRef.current = iconRefs.current.map((el, i) => {
+            if (!el) return null;
+            const r = el.getBoundingClientRect();
+            const shift = shiftsRef.current[i] ?? { x: 0, y: 0 };
+            return { x: r.left + r.width / 2 - shift.x, y: r.top + r.height / 2 - shift.y };
+        });
+    }, []);
+
+    const apply = useCallback(() => {
+        frameRef.current = 0;
+        const { x, y } = pointerRef.current;
+        iconRefs.current.forEach((el, i) => {
+            const c = centersRef.current[i];
+            if (!el || !c) return;
+            const dx = x - c.x;
+            const dy = y - c.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const k = Math.max(0, 1 - dist / ICON_REACH);
+            // ease-out falloff: near icons move the most, still capped at MAX_SHIFT
+            const shift = ICON_MAX_SHIFT * k * k * (3 - 2 * k);
+            const sx = (dx / dist) * shift;
+            const sy = (dy / dist) * shift;
+            shiftsRef.current[i] = { x: sx, y: sy };
+            el.style.transform = `translate(${sx.toFixed(2)}px, ${sy.toFixed(2)}px)`;
+        });
+    }, []);
+
+    const onPointerEnter = useCallback(
+        (e: React.PointerEvent) => {
+            if (e.pointerType !== 'mouse') return;
+            measure();
+        },
+        [measure]
+    );
+
+    const onPointerMove = useCallback(
+        (e: React.PointerEvent) => {
+            if (e.pointerType !== 'mouse') return;
+            if (centersRef.current.length === 0) measure();
+            pointerRef.current = { x: e.clientX, y: e.clientY };
+            if (!frameRef.current) frameRef.current = requestAnimationFrame(apply);
+        },
+        [apply, measure]
+    );
+
+    const onPointerLeave = useCallback(() => {
+        if (frameRef.current) cancelAnimationFrame(frameRef.current);
+        frameRef.current = 0;
+        centersRef.current = [];
+        shiftsRef.current = [];
+        iconRefs.current.forEach(el => {
+            if (el) el.style.transform = '';
+        });
+    }, []);
+
+    useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+    // Positions change on scroll/resize — drop the cache, re-measure on next move.
+    useEffect(() => {
+        const reset = () => {
+            centersRef.current = [];
+        };
+        window.addEventListener('scroll', reset, { passive: true });
+        window.addEventListener('resize', reset);
+        return () => {
+            window.removeEventListener('scroll', reset);
+            window.removeEventListener('resize', reset);
+        };
+    }, []);
+
+    return (
+        <section
+            className={styles.heroCard}
+            onPointerEnter={onPointerEnter}
+            onPointerMove={onPointerMove}
+            onPointerLeave={onPointerLeave}
+        >
+            <div className={styles.heroCardTexture} />
+            <HeroIconsLayer iconRefs={iconRefs} />
+            {/* key changes on every click, so the "pop" animation replays */}
+            <p
+                key={pops}
+                className={pops ? `${styles.heroTitle} ${styles.heroTitlePop}` : styles.heroTitle}
+                onClick={() => setPops(n => n + 1)}
+            >
+                {title}
+            </p>
+        </section>
     );
 }
 
@@ -308,33 +352,6 @@ function useScrollSpy(ids: string[]): string | null {
     }, [idsKey]);
 
     return active;
-}
-
-// The mobile navigation (position: fixed) fades out once the work
-// section has scrolled above the viewport.
-function useMobileNavVisible(workRef: React.RefObject<HTMLElement | null>, enabled: boolean) {
-    const [visible, setVisible] = useState(true);
-
-    useEffect(() => {
-        if (!enabled) {
-            setVisible(true);
-            return undefined;
-        }
-        const el = workRef.current;
-        if (!el) return undefined;
-        if (typeof IntersectionObserver === 'undefined') return undefined;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                setVisible(entry.isIntersecting || entry.boundingClientRect.top > 0);
-            },
-            { threshold: 0 }
-        );
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [enabled, workRef]);
-
-    return visible;
 }
 
 function ClientCard({ client, onLogoLoad }: { client: Client; onLogoLoad?: () => void }) {
@@ -507,19 +524,6 @@ export function VisitkaPage() {
     const workCategoryIds = useMemo(() => populatedWorkGroups.map(group => `work-${group.id}`), [populatedWorkGroups]);
     const activeWorkCategory = useScrollSpy(workCategoryIds);
 
-    const workRef = useRef<HTMLElement | null>(null);
-    const mobileNavVisible = useMobileNavVisible(workRef, true);
-
-    // .work needs both workRef (for the mobile nav) and the reveal ref.
-    const setWorkNode = useCallback(
-        (el: HTMLElement | null) => {
-            workRef.current = el;
-            workReveal.ref(el);
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        []
-    );
-
     if (!content) {
         return (
             <div className={styles.page}>
@@ -553,23 +557,13 @@ export function VisitkaPage() {
                 </aside>
             )}
 
-            <div
-                className={styles.mobileNav}
-                style={{
-                    opacity: mobileNavVisible ? 1 : 0,
-                    pointerEvents: mobileNavVisible ? 'auto' : 'none',
-                    transition: 'opacity 200ms ease',
-                }}
-            >
+            {/* Mobile only: always-visible glass nav (hidden on desktop via CSS) */}
+            <div className={styles.mobileNav}>
                 <Navigation />
             </div>
 
             <header className={styles.hero}>
-                <section className={styles.heroCard}>
-                    <div className={styles.heroCardTexture} />
-                    <HeroIconsLayer />
-                    <p className={styles.heroTitle}>extree.tech</p>
-                </section>
+                <HeroCard title="extree.tech" />
             </header>
 
             <div className={styles.pageBody}>
@@ -628,7 +622,7 @@ export function VisitkaPage() {
 
                 {workItems.length > 0 && (
                     <section
-                        ref={setWorkNode}
+                        ref={workReveal.ref}
                         className={cx(styles.work, workReveal.visible && styles.revealed)}
                         id="work"
                     >
@@ -662,6 +656,11 @@ export function VisitkaPage() {
                             <a className={styles.workLabel} href="#work">
                                 <h2 className={cx(styles.sectionLabel, styles.labelUp)}>work</h2>
                             </a>
+                        </div>
+
+                        {/* Mobile only: sticks under the nav, behind the cards */}
+                        <div className={styles.workMobileTitle} aria-hidden="true">
+                            work
                         </div>
 
                         <div className={styles.workGroups}>
