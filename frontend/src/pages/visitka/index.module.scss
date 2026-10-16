@@ -1,13 +1,13 @@
-/* Визуальный язык frdg.work (Figma Sites), перенесённый 1 в 1 по
-   значениям из сохранённой страницы: цвета, шрифты, размеры, радиусы,
-   стекло, расположение подписей секций. Контент и фирменный hero —
-   наши (extree). Абсолютная вёрстка Figma заменена на поток/grid,
-   чтобы страница оставалась резиновой. */
+/* frdg.work's visual language (Figma Sites), carried over 1:1 using
+   values from the saved page: colors, fonts, sizes, radii, glass and
+   section label placement. Content and the branded hero are ours
+   (extree). Figma's absolute layout is replaced with flow/grid so the
+   page stays fluid. */
 
 @import url('https://fonts.googleapis.com/css2?family=Benne&family=Google+Sans+Flex:wght@400;500;700&family=Rethink+Sans:wght@400;500;700&family=Unbounded:wght@700&display=swap');
 
 :global {
-    /* Скрытый скроллбар — как на frdg.work */
+    /* Hidden scrollbar, as on frdg.work */
     html,
     body {
         -ms-overflow-style: none;
@@ -92,7 +92,7 @@
     }
 }
 
-/* ---------- Прогресс прокрутки ---------- */
+/* ---------- Scroll progress ---------- */
 
 .scrollProgress {
     position: fixed;
@@ -112,7 +112,7 @@
     transition: width 0.08s linear;
 }
 
-/* ---------- Появление секций ---------- */
+/* ---------- Section reveal ---------- */
 
 .about,
 .clients,
@@ -138,7 +138,7 @@
     transform: none;
 }
 
-/* ---------- Скелетон ---------- */
+/* ---------- Skeleton ---------- */
 
 .skeleton {
     width: calc(100% - 2 * var(--gutter));
@@ -162,7 +162,7 @@
     }
 }
 
-/* ---------- Плашка сверху ---------- */
+/* ---------- Top notice bar ---------- */
 
 .notice {
     position: relative;
@@ -226,7 +226,7 @@
     background: var(--blue);
 }
 
-/* Фирменная подложка extree вместо текстуры frdg.work */
+/* extree brand background instead of frdg.work's texture */
 .heroCardTexture {
     position: absolute;
     inset: 0;
@@ -257,6 +257,32 @@
     letter-spacing: 0;
     white-space: nowrap;
     transform: translate(-50%, -50%);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Light "pop" on click: quick squeeze, small overshoot, settle */
+.heroTitlePop {
+    animation: heroTitlePop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes heroTitlePop {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    25% {
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    60% {
+        transform: translate(-50%, -50%) scale(1.04);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 .heroIcon {
@@ -269,7 +295,9 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.7;
-    transition: transform 0.3s ease;
+    /* smooth, slightly lazy follow of the cursor (offsets set from JS) */
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
 }
 
 .heroIcon1 {
@@ -322,14 +350,14 @@
     bottom: 13%;
 }
 
-/* ---------- Навигация ---------- */
+/* ---------- Navigation ---------- */
 
 .pageBody {
     position: relative;
 }
 
-/* Белая полоса под hero с боковыми бордерами (94px) — в неё «садится»
-   стеклянная навигация. Вместе с .about образует одну белую колонку. */
+/* White 94px strip under the hero with side borders; the glass nav
+   sits in it. Together with .about it forms one white column. */
 .navStrip {
     height: 94px;
     margin: 0 var(--gutter);
@@ -339,7 +367,7 @@
     background: var(--surface);
 }
 
-/* Рельс для sticky-навигации: от низа hero (+10px) до конца страницы */
+/* Sticky nav rail: from the bottom of the hero (+10px) to the end of the page */
 .navRail {
     position: absolute;
     z-index: 30;
@@ -457,15 +485,15 @@
     display: none;
 }
 
-/* ---------- Подписи секций (повёрнутые) ---------- */
+/* ---------- Section labels (rotated) ---------- */
 
-/* Читается снизу вверх — matrix(0,-1,1,0) у frdg */
+/* Reads bottom to top: matrix(0,-1,1,0) on frdg */
 .labelUp {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
 }
 
-/* Читается сверху вниз — matrix(0,1,-1,0) у frdg */
+/* Reads top to bottom: matrix(0,1,-1,0) on frdg */
 .labelDown {
     writing-mode: vertical-rl;
 }
@@ -702,8 +730,8 @@
     letter-spacing: 0.16px;
 }
 
-/* Панель с подписью справа: перекрывает бегущую строку, слева — размытый
-   «туман» (blur 25px), как у frdg.work */
+/* Label panel on the right: covers the marquee, with a blurred "fog"
+   (blur 25px) on its left edge, as on frdg.work */
 .clientsPanel {
     position: absolute;
     z-index: 2;
@@ -768,12 +796,15 @@
     background: var(--surface);
 }
 
-/* Большая подпись "work" — sticky слева */
+/* Large "work" label, sticky on the left. The rail starts where the first
+   cards start (80px section padding + 20px group padding), so the top of
+   "work" is level with the top of the first card; while scrolling it
+   sticks at the same height as the group labels. */
 .workLabelRail {
     position: absolute;
     z-index: 3;
-    top: 80px;
-    bottom: 0;
+    top: 100px;
+    bottom: 60px; /* = .work padding-bottom: stop at the last card, not the section edge */
     left: 0;
     width: 155px;
     pointer-events: none;
@@ -781,18 +812,18 @@
 
 .workLabel {
     position: sticky;
-    top: 0;
+    top: calc(var(--nav-stack-top) + 60px);
     display: grid;
-    height: 315px;
-    place-items: center;
+    align-items: start;
+    justify-items: center;
     padding: 0;
     border: 0;
     background: none;
     pointer-events: auto;
 }
 
-/* Рельс для вкладок: начинается на 97px выше секции, чтобы панель висела
-   «язычком» от верхнего края .work и потом прилипала под навигацией */
+/* Tabs rail: starts 97px above the section so the panel hangs like a tab
+   from the top edge of .work, then sticks below the navigation */
 .workFiltersRail {
     position: absolute;
     z-index: 25;
@@ -870,9 +901,13 @@
     scroll-margin-top: calc(var(--nav-stack-top) + 60px);
 }
 
+/* The rail starts where the group's cards start (= .workGroup padding-top),
+   so the label's top is level with the top of the first card. While
+   scrolling it sticks below the nav + tabs (nav + 40px tabs + 20px),
+   at the same height as "work", until its group ends. */
 .workGroupLabelRail {
     position: absolute;
-    top: -42px;
+    top: 20px;
     bottom: 0;
     left: -10px;
     width: 172px;
@@ -881,10 +916,9 @@
 
 .workGroupLabel {
     position: sticky;
-    top: 0;
+    top: calc(var(--nav-stack-top) + 60px);
     display: flex;
-    height: 116px;
-    align-items: center;
+    align-items: flex-start;
     justify-content: flex-end;
     pointer-events: auto;
 }
@@ -898,8 +932,8 @@
     white-space: nowrap;
 }
 
-/* Сетка карточек: 2 колонки по 519px, зазор 30px (1068px) — по центру.
-   Слева оставляем место под подписи, чтобы они не наезжали на карточки. */
+/* Card grid: 2 columns of 519px with a 30px gap (1068px), centered.
+   Space is left on the side for labels so they don't overlap the cards. */
 .projects {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -919,7 +953,9 @@
     overflow: clip;
     border: 1px solid var(--line);
     border-radius: 24px;
-    background: var(--background);
+    background: var(--glass-tint);
+    backdrop-filter: blur(7px) saturate(160%);
+    -webkit-backdrop-filter: blur(7px) saturate(160%);
     opacity: 0;
     transform: translateY(24px);
     transition:
@@ -1242,7 +1278,7 @@
     color: #181717;
 }
 
-/* ---------- Средние экраны ---------- */
+/* ---------- Medium screens ---------- */
 
 @media (max-width: 1199px) {
     .about {
@@ -1263,71 +1299,78 @@
     }
 }
 
-/* ---------- Мобильные ---------- */
+/* Sticky "work" heading for mobile only (frdg.work shows it instead of
+   the filter tabs). Hidden on desktop. */
+.workMobileTitle {
+    display: none;
+}
 
+/* ---------- Mobile ---------- */
+
+/* Mirrors frdg.work on mobile:
+   - the nav is always visible: a full-width glass pill with links only;
+   - no filter tabs in work: "work" sticks under the nav and the current
+     group label sticks right below it; both sit BEHIND the cards, which
+     slide over them;
+   - contact is a plain card with an email button; footer links stack. */
 @media (max-width: 799px) {
     .page {
         --gutter: 16px;
-        --nav-top: 16px;
-        --nav-height: 48px;
+        --nav-top: 12px;
+        --nav-height: 44px;
+        --work-title-top: calc(var(--nav-top) + var(--nav-height) + 10px);
+        --work-title-height: 38px;
     }
 
-    .notice {
-        display: none;
-    }
-
+    .notice,
     .navRail {
         display: none;
     }
+
+    /* ---- Navigation: always on screen ---- */
 
     .mobileNav {
         position: fixed;
         z-index: 40;
         top: var(--nav-top);
-        left: 50%;
+        right: var(--gutter);
+        left: var(--gutter);
         display: block;
-        transform: translateX(-50%);
     }
 
     .mobileNav .navPill {
         display: flex;
-        width: max-content;
-        max-width: calc(100vw - 32px);
-        height: 48px;
+        width: 90%;
+        margin: auto;
+        height: var(--nav-height);
         align-items: center;
-        gap: 14px;
-        padding: 0 16px 0 9px;
+        padding: 30px;
         border-radius: 20px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-label);
         font-size: 15px;
-        letter-spacing: -0.3px;
+        letter-spacing: -0.15px;
     }
 
-    .mobileNav .navLogo,
+    .mobileNav .navLogo {
+        display: none;
+    }
+
     .mobileNav .navLinks {
         position: static;
-        width: auto;
+        display: flex;
+        flex: 1;
         height: auto;
+        justify-content: space-evenly;
+        gap: 8px;
         transform: none;
     }
 
-    .mobileNav .navLinks {
-        gap: 14px;
-    }
-
-    .mobileNav .mark {
-        width: 28px;
-        height: 28px;
-        border-radius: 7px;
-    }
-
-    .mobileNav .markRing {
-        width: 12px;
-        height: 12px;
-        border-width: 3px;
-    }
+    /* ---- Hero / about ---- */
 
     .hero {
-        padding-top: 80px;
+        padding-top: calc(var(--nav-top) + var(--nav-height) + 44px);
     }
 
     .heroCard {
@@ -1386,6 +1429,8 @@
         font-size: 24px;
     }
 
+    /* ---- Clients ---- */
+
     .clients {
         height: 220px;
     }
@@ -1426,35 +1471,32 @@
         font-size: 13px;
     }
 
+    /* ---- Work: sticky title + sticky group label, under the cards ---- */
+
     .work {
-        padding: 70px 12px 40px;
+        padding: 24px 12px 40px;
         border-radius: 20px;
     }
 
+    .workFiltersRail,
     .workLabelRail {
         display: none;
     }
 
-    .workFiltersRail {
-        top: -73px;
-    }
-
-    .workFiltersSticky {
-        width: 100vw;
-        padding: calc(var(--nav-top) + var(--nav-height) + 8px) 16px 0;
-    }
-
-    .workFilters {
-        min-width: 0;
-        height: 34px;
-        gap: 16px;
-        padding: 0 18px 2px;
-        border-radius: 0 0 18px 18px;
-    }
-
-    .workFilters a,
-    .workFilterEmpty {
-        font-size: 15px;
+    .workMobileTitle {
+        position: sticky;
+        z-index: 1;
+        top: var(--work-title-top);
+        display: flex;
+        height: var(--work-title-height);
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+        font-family: var(--font-label);
+        font-size: 32px;
+        line-height: 1.2;
+        letter-spacing: -0.64px;
+        pointer-events: none;
     }
 
     .workGroups {
@@ -1463,24 +1505,31 @@
 
     .workGroup {
         padding-top: 0;
+        scroll-margin-top: calc(var(--work-title-top) + var(--work-title-height));
     }
 
+    /* Sticks right under "work" while its own group is on screen; the next
+       group's label takes over when that group arrives. */
     .workGroupLabelRail {
-        position: static;
+        position: sticky;
+        z-index: 1;
+        top: calc(var(--work-title-top) + var(--work-title-height));
         width: auto;
-        margin-bottom: 12px;
+        margin-bottom: 18px;
+        pointer-events: none;
     }
 
     .workGroupLabel {
         position: static;
         height: auto;
-        justify-content: flex-start;
+        justify-content: center;
     }
 
     .workGroupLabel span {
         writing-mode: horizontal-tb;
         transform: none;
-        font-size: 26px;
+        font-size: 15px;
+        letter-spacing: -0.15px;
     }
 
     .projects {
@@ -1489,10 +1538,14 @@
         gap: 16px;
     }
 
+    /* Opaque cards above the sticky headings, so they slide over them */
     .projectCard {
+        z-index: 2;
         gap: 16px;
         padding: 14px;
         border-radius: 20px;
+        width: 90%;
+        margin: auto;
     }
 
     .projectTitle {
@@ -1514,37 +1567,37 @@
         font-size: 15px;
     }
 
+    /* ---- Contact: plain card with the email button ---- */
+
     .contact {
         margin: 16px var(--gutter);
-        padding: 14px 64px 14px 14px;
+        padding: 0 64px 0 16px;
         border-radius: 20px;
     }
 
     .contactInner {
-        min-height: 0;
-        flex-direction: column;
-        gap: 14px;
+        min-height: 180px;
+        align-items: center;
+        justify-content: center;
     }
 
-    .contactLead {
-        padding: 24px;
-        border-radius: 16px;
-        font-size: 30px;
+    .contactLead,
+    .contactBoxLabel {
+        display: none;
     }
 
     .contactBox {
-        align-self: stretch;
-        padding: 16px;
-        border-radius: 16px;
-    }
-
-    .contactBoxLabel {
-        font-size: 22px;
-        white-space: normal;
+        align-self: center;
+        align-items: center;
+        padding: 0;
+        border: 0;
+        background: none;
     }
 
     .contactLink {
-        font-size: 15px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 14px;
     }
 
     .contactLabel {
@@ -1555,6 +1608,8 @@
         padding: 0 14px;
     }
 
+    /* ---- Footer: logo, stacked links, centered socials ---- */
+
     .siteFooter {
         padding: 40px 16px 44px;
     }
@@ -1563,12 +1618,20 @@
     .footerBrand {
         flex-direction: column;
         align-items: flex-start;
-        gap: 22px;
+        gap: 26px;
+    }
+
+    .footerRow {
+        align-items: stretch;
     }
 
     .footerNav {
         flex-direction: column;
         gap: 12px;
+    }
+
+    .footerSocial {
+        justify-content: center;
     }
 }
 
@@ -1582,6 +1645,10 @@
     .heroIcon,
     .scrollProgressInner {
         transition: none;
+    }
+
+    .heroTitlePop {
+        animation: none;
     }
 
     .about,
