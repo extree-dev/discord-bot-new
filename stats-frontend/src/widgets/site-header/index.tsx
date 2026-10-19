@@ -16,8 +16,8 @@ export function SiteHeader({ rightSlot }: SiteHeaderProps) {
     return (
         <header className={styles.header}>
             <Link to="/" className={styles.brandLink}>
-                <span className={styles.mark} aria-hidden="true" />
-                <span className={styles.brand}>EXTREE STATS</span>
+                <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
+                <span className={styles.brand}>Extree Stats</span>
             </Link>
             {rightSlot && <div className={styles.right}>{rightSlot}</div>}
         </header>
