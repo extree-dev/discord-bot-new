@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Extree Stats — VALORANT statistics</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap');
+
+            :root {
+                --bg: #07090d;
+                --surface: rgba(255, 255, 255, 0.03);
+                --border: rgba(255, 255, 255, 0.08);
+                --border-strong: rgba(255, 255, 255, 0.14);
+                --text: #f3f4f6;
+                --text-dim: rgba(243, 244, 246, 0.64);
+                --text-faint: rgba(243, 244, 246, 0.4);
+                --accent: #ff4655;
+                --accent-dim: rgba(255, 70, 85, 0.5);
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+            }
+
+            body {
+                position: relative;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px;
+                overflow: hidden;
+                background: var(--bg);
+                background-image:
+                    radial-gradient(60% 50% at 82% 6%, rgba(255, 70, 85, 0.14), transparent 60%),
+                    radial-gradient(40% 35% at 8% 96%, rgba(255, 70, 85, 0.08), transparent 60%),
+                    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+                background-size:
+                    auto,
+                    auto,
+                    40px 40px,
+                    40px 40px;
+                background-position:
+                    0 0,
+                    0 0,
+                    -1px -1px,
+                    -1px -1px;
+                color: var(--text);
+                font-family:
+                    'Inter',
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    'Segoe UI',
+                    sans-serif;
+                -webkit-font-smoothing: antialiased;
+                text-align: center;
+            }
+
+            .vignette {
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(60% 55% at 50% 38%, transparent 0%, var(--bg) 92%);
+                pointer-events: none;
+            }
+
+            .wrap {
+                position: relative;
+                z-index: 1;
+                width: 100%;
+                max-width: 440px;
+            }
+
+            .mark {
+                display: inline-flex;
+                width: 40px;
+                height: 40px;
+                align-items: center;
+                justify-content: center;
+                margin-bottom: 28px;
+                border-radius: 11px;
+                background: linear-gradient(160deg, #ff7a85, #e0283b);
+                box-shadow:
+                    0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+                    0 10px 24px -8px rgba(224, 40, 59, 0.55);
+            }
+
+            .mark svg {
+                width: 18px;
+                height: 18px;
+            }
+
+            .pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 14px;
+                margin-bottom: 24px;
+                border-radius: 999px;
+                border: 1px solid var(--border-strong);
+                background: var(--surface);
+                font-size: 12.5px;
+                font-weight: 500;
+                letter-spacing: 0.02em;
+                color: var(--text-dim);
+            }
+
+            h1 {
+                margin: 0 0 14px;
+                font-family: 'Unbounded', sans-serif;
+                font-size: clamp(26px, 4.6vw, 34px);
+                font-weight: 600;
+                letter-spacing: -0.015em;
+                line-height: 1.25;
+            }
+
+            p.lead {
+                margin: 0 auto;
+                max-width: 380px;
+                color: var(--text-dim);
+                font-size: 15.5px;
+                line-height: 1.65;
+            }
+
+            .brand {
+                margin-top: 40px;
+                color: var(--text-faint);
+                font-size: 12.5px;
+                letter-spacing: 0.03em;
+            }
+
+            .brand a {
+                color: var(--text-faint);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="vignette"></div>
+        <div class="wrap">
+            <span class="mark" aria-hidden="true">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#fff"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M3 17l6-8 4 5 8-10" />
+                    <path d="M15 4h6v6" />
+                </svg>
+            </span>
+
+            <div class="pill">Extree Stats</div>
+
+            <h1>VALORANT stats, coming soon</h1>
+            <p class="lead">
+                Match history, win rates by map and agent, and rank tracking for VALORANT players. We're building it —
+                check back soon.
+            </p>
+
+            <div class="brand">part of <a href="https://extree.tech">extree.tech</a></div>
+        </div>
+    </body>
+</html>
