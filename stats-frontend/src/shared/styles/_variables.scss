@@ -1,0 +1,12 @@
+// Статические, compile-time константы (брейкпоинты) — то же разделение,
+// что в frontend/src/shared/styles/_variables.scss: цвета живут в
+// app/styles/global.css как CSS custom properties, здесь — только то, что
+// SCSS-переменной и остаётся (медиа-запросы не умеют var()).
+
+$breakpoint-mobile: 640px;
+
+// Угол среза углов панелей/кнопок — фирменная деталь визуального языка
+// VALORANT (острые срезанные углы вместо border-radius). Единое число,
+// а не magic-value в каждом clip-path, чтобы срез оставался одинаковым
+// по всей странице.
+$cut: 14px;

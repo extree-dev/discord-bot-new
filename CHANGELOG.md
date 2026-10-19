@@ -91,6 +91,14 @@ PATCH-версия (`X.Y.Z`, `Z > 0`) — багфикс, MINOR/MAJOR (`X.Y.0`) 
 
 - **Ответы на команды и кнопки — ephemeral по умолчанию.** Единственное осознанное исключение — `/level leaderboard` (топ должен быть виден всем в канале). Для случаев, где кнопка живёт на публичной персистентной карточке — саму карточку правит обычный `Message#edit` (не interaction-ответ), а персональный результат уходит нажавшему отдельным ephemeral-сообщением, чтобы карточка оставалась полезной всем, но ответ — только автору действия. Добавлен `toEphemeralMessage()` в `utils/components.js` — та же сборка Components V2, что и `toMessage()`, но с флагом `Ephemeral`.
 
+## [3.9.25] — Страница входа Extree Stats (stats-frontend)
+
+### Добавлено
+
+- **`stats-frontend/`** — отдельный React/TypeScript-проект (Vite, FSD-слои `app → pages → widgets → features → shared`, тот же набор тулинга, что у `frontend/`: eslint flat config, SCSS-модули, Vitest), под продукт Extree Stats — по запросу администратора показать рецензентам Riot (заявка на продукт сейчас Pending Review) что над продуктом идёт работа, а не просто держать домен открытым. Первая и пока единственная страница — экран входа в визуальном языке VALORANT (срезанные углы вместо border-radius, Bebas Neue для заголовка, фирменный красный `#ff4655`, тонкие диагональные линии на фоне), с обязательным по общим политикам Riot Developer Portal дисклеймером ("isn't endorsed by Riot Games...") внизу панели — без использования логотипа Riot/VALORANT (их политика прямо просит сторонние продукты этого не делать). Кнопка «Sign in with Riot» пока не редиректит на реальный RSO (Riot Sign-On) — учётные данные OAuth-клиента Riot выдаёт отдельно от API-ключа, после одобрения продукта — по клику честно показывает заметку о статусе вместо фиктивного flow.
+- **Сборка и деплой stats-frontend** — не рантайм-сервис: новый одноразовый Docker-джоб `stats-frontend-builder` (`docker-compose.yml`, `profiles: ["build-only"]`) собирает Vite-бандл и перезаписывает им `web/stats-site/` (bind-mount `/output`) — тот же каталог уже раздаёт Caddy статикой (см. 3.9.24). `deploy.yml`: `docker compose build stats-frontend-builder && docker compose run --rm stats-frontend-builder` после `caddy restart` — перезапуск самого Caddy для этого не нужен, `file_server` читает файлы с диска на каждый запрос. Верификационный `riot.txt` (3.9.24) переехал в `stats-frontend/public/riot.txt` — Vite копирует его в каждую сборку автоматически, вместо того чтобы вручную поддерживать файл прямо в `web/stats-site/`, которая теперь полностью генерируется сборкой (убрана из git, `.gitignore`).
+- **CI для stats-frontend** (`.github/workflows/ci.yml`) — install/lint/test/build, тем же паттерном, что уже есть для `frontend/`, отдельным `package-lock.json`.
+
 ## [3.9.24] — Заготовка stats.extree.tech (новый продукт: статистика VALORANT)
 
 ### Добавлено

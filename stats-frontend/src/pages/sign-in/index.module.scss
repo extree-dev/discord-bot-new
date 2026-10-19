@@ -1,0 +1,68 @@
+.page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+
+// Тонкие диагональные полосы — визуальный язык VALORANT (угловые срезы,
+// диагонали в HUD) без копирования конкретных ассетов игры.
+.backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        repeating-linear-gradient(
+            115deg,
+            rgba(255, 255, 255, 0.025) 0px,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px,
+            transparent 64px
+        ),
+        radial-gradient(ellipse at 15% 20%, rgba(255, 70, 85, 0.08), transparent 55%);
+    pointer-events: none;
+}
+
+.header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 960px;
+    padding: 32px 24px 0;
+}
+
+.mark {
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+}
+
+.brand {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+}
+
+.main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 24px;
+}
+
+.footer {
+    position: relative;
+    z-index: 1;
+    padding: 0 24px 28px;
+    color: var(--text-faint);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+}

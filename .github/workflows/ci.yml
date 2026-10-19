@@ -67,3 +67,24 @@ jobs:
             - name: Frontend build
               working-directory: frontend
               run: npm run build
+
+            # stats-frontend/ — ещё один отдельный React/TS-проект (Extree
+            # Stats), свой package-lock.json, та же причина разделения, что
+            # у frontend/ выше: собирается в статику, которую раздаёт Caddy
+            # напрямую (web/stats-site/), без общего бэкенда с
+            # dashboard/server.js.
+            - name: Install stats-frontend dependencies
+              working-directory: stats-frontend
+              run: npm ci
+
+            - name: Stats-frontend lint
+              working-directory: stats-frontend
+              run: npm run lint
+
+            - name: Stats-frontend test
+              working-directory: stats-frontend
+              run: npm test
+
+            - name: Stats-frontend build
+              working-directory: stats-frontend
+              run: npm run build

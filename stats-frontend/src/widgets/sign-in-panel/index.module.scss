@@ -1,0 +1,67 @@
+@use '../../shared/styles/variables' as v;
+
+.wrap {
+    width: 100%;
+    max-width: 420px;
+}
+
+.panel {
+    position: relative;
+    padding: 48px 36px 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 28px), calc(100% - 28px) 100%, 0 100%);
+}
+
+.accentLine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 64px;
+    height: 4px;
+    background: var(--accent);
+}
+
+.eyebrow {
+    display: inline-block;
+    margin-bottom: 20px;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.title {
+    margin: 0 0 16px;
+    font-family: 'Bebas Neue', 'Inter', sans-serif;
+    font-size: 52px;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.lead {
+    margin: 0 0 32px;
+    color: var(--text-dim);
+    font-size: 14.5px;
+    line-height: 1.6;
+}
+
+.disclaimer {
+    margin: 20px 4px 0;
+    color: var(--text-faint);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+@media (max-width: v.$breakpoint-mobile) {
+    .panel {
+        padding: 40px 24px 32px;
+    }
+
+    .title {
+        font-size: 40px;
+    }
+}
