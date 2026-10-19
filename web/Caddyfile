@@ -13,12 +13,17 @@
 # рендерятся на клиенте, сервер отдаёт только собранные assets/*.js,
 # assets/*.css и JSON под /api/*.
 #
-# stats.extree.tech — отдельный продукт (статистика VALORANT, Riot API),
-# пока просто статическая заглушка (web/stats-site/), так же как
-# bot-site — без своего Node-процесса. Сюда же, в корень web/stats-site/,
-# при верификации домена в Riot Developer Portal кладётся их riot.txt —
-# ничего менять в Caddy для этого не нужно, file_server отдаст любой файл
-# из этой папки как есть.
+# stats.extree.tech — отдельный продукт (статистика VALORANT, Riot API,
+# см. stats-frontend/), React-SPA с клиент-side роутингом
+# (react-router-dom), но без своего Node-процесса — раздаётся статикой
+# из web/stats-site/, как и bot-site. try_files перед file_server —
+# обязательный SPA-fallback: без него прямой заход на stats.extree.tech
+# /terms (а не переход туда кликом внутри уже загруженного приложения)
+# упёрся бы в 404, потому что файла terms.html на диске не существует —
+# весь роутинг только в JS-бандле. riot.txt для верификации домена в
+# Riot Developer Portal кладётся туда же, в корень web/stats-site/, —
+# try_files находит реальный файл раньше фолбэка на index.html, так что
+# на сам riot.txt это не влияет.
 
 extree.tech, www.extree.tech {
     reverse_proxy dashboard:3000
@@ -71,6 +76,7 @@ bot.extree.tech {
 
 stats.extree.tech {
     root * /srv/stats-site
+    try_files {path} /index.html
     file_server
     encode gzip
 }

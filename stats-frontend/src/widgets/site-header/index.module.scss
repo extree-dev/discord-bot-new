@@ -1,0 +1,27 @@
+.header {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 960px;
+    padding: 32px 24px 0;
+}
+
+.brandLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.mark {
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+}
+
+.brand {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+}

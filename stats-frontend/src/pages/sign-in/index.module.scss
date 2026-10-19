@@ -24,29 +24,6 @@
     pointer-events: none;
 }
 
-.header {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 960px;
-    padding: 32px 24px 0;
-}
-
-.mark {
-    width: 10px;
-    height: 10px;
-    background: var(--accent);
-}
-
-.brand {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-}
-
 .main {
     position: relative;
     z-index: 1;
@@ -65,4 +42,14 @@
     color: var(--text-faint);
     font-size: 12.5px;
     letter-spacing: 0.02em;
+
+    a {
+        color: var(--text-faint);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    a:hover {
+        color: var(--text-dim);
+    }
 }
