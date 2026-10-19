@@ -3,9 +3,14 @@
 // (в режиме техперерыва всё остальное всё равно не отвечает — см.
 // server.js). Визуальный язык — тот же, что у визитки (frontend/src/pages
 // /visitka/index.module.scss): тёмно-синий градиент hero, шрифты
-// Unbounded/Inter/Benne, акцентный синий --blue: #1768ef. Оформление в
-// духе классической страницы "404" (огромный код по центру) — но число
-// и текст говорят о временном техперерыве, а не "страница не найдена".
+// Unbounded/Inter, акцентный синий --blue: #1768ef, плавающие иконки —
+// как в hero-секции визитки. Оформление в духе классической страницы
+// "404" (огромный код по центру) — но число и текст говорят о временном
+// техперерыве, а не "страница не найдена". Та же вёрстка — буквально
+// идентичный HTML/CSS — дублируется в web/bot-site/maintenance.html: это
+// статика, которую раздаёт Caddy напрямую для bot.extree.tech (минуя
+// этот процесс, см. web/Caddyfile), так что единого файла-источника
+// для обеих поверхностей нет — при правке дизайна менять оба файла.
 module.exports = `<!doctype html>
 <html lang="ru">
 <head>
@@ -26,22 +31,51 @@ html, body {
 }
 
 body {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     padding: 24px;
+    overflow: hidden;
     background:
-        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 40%),
-        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.06), transparent 45%),
+        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent 40%),
+        radial-gradient(circle at 80% 75%, rgba(255, 255, 255, 0.08), transparent 45%),
         linear-gradient(135deg, #0c1a3d 0%, #123a8f 50%, #1768ef 100%);
     color: #f8f8f9;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     text-align: center;
 }
 
+.icon {
+    position: absolute;
+    color: rgba(255, 255, 255, 0.22);
+}
+
+.icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.icon-1 { top: 12%; left: 10%; width: 36px; height: 36px; }
+.icon-2 { top: 18%; right: 12%; width: 30px; height: 30px; }
+.icon-3 { bottom: 16%; left: 14%; width: 26px; height: 26px; }
+.icon-4 { bottom: 22%; right: 16%; width: 34px; height: 34px; }
+.icon-5 { top: 48%; left: 6%; width: 22px; height: 22px; }
+.icon-6 { top: 44%; right: 8%; width: 28px; height: 28px; }
+
 .card {
+    position: relative;
+    z-index: 1;
     max-width: 560px;
+    padding: 56px 40px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 30px 80px rgba(5, 12, 35, 0.35);
 }
 
 .mark {
@@ -50,28 +84,31 @@ body {
     height: 44px;
     align-items: center;
     justify-content: center;
-    margin-bottom: 36px;
+    margin-bottom: 32px;
     border-radius: 13px;
-    background: linear-gradient(135deg, #6a7dff, #1768ef);
-    box-shadow: 0 8px 24px rgba(23, 104, 239, 0.45);
+    background: linear-gradient(135deg, #8294ff, #1768ef);
+    box-shadow: 0 8px 24px rgba(23, 104, 239, 0.5);
 }
 
 .mark::after {
     content: '';
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.9);
     border-radius: 50%;
 }
 
 .code {
     margin: 0;
+    background: linear-gradient(180deg, #ffffff, #bcd3ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     font-family: 'Unbounded', sans-serif;
     font-size: clamp(72px, 16vw, 148px);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.02em;
-    text-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 h1 {
@@ -85,7 +122,7 @@ h1 {
 p {
     margin: 0 auto;
     max-width: 420px;
-    color: rgba(248, 248, 249, 0.78);
+    color: rgba(248, 248, 249, 0.8);
     font-size: 15px;
     line-height: 1.6;
 }
@@ -96,14 +133,26 @@ a {
 }
 
 .brand {
-    margin-top: 44px;
+    margin-top: 40px;
     color: rgba(248, 248, 249, 0.5);
     font-size: 13px;
     letter-spacing: 0.02em;
 }
+
+@media (max-width: 480px) {
+    .card { padding: 44px 24px; }
+    .icon { display: none; }
+}
 </style>
 </head>
 <body>
+<span class="icon icon-1" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10l4-2v8l-4-2"/></svg></span>
+<span class="icon icon-2" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v12H8l-4 4V4z"/></svg></span>
+<span class="icon icon-3" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17c3-1 4-5 2-8 4 0 7 3 7 7 0 2-1 3-3 3-2 0-4-1-6-2z"/></svg></span>
+<span class="icon icon-4" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="12" rx="2"/><path d="M9 20h6M12 15v5"/></svg></span>
+<span class="icon icon-5" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18l5-10 4 7 3-5 4 8"/></svg></span>
+<span class="icon icon-6" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h6"/></svg></span>
+
 <div class="card">
     <span class="mark" aria-hidden="true"></span>
     <p class="code">503</p>
