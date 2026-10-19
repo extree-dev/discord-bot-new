@@ -3,20 +3,18 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 15px 32px;
+    gap: 9px;
+    padding: 13px 22px;
     border: none;
     border-radius: var(--radius-md);
     font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: 14.5px;
+    font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     transition:
-        background-color 0.15s ease,
-        transform 0.1s ease;
+        transform 0.1s ease,
+        box-shadow 0.15s ease;
 }
 
 .base:active {
@@ -24,12 +22,17 @@
 }
 
 .primary {
-    background: var(--accent);
-    color: var(--accent-ink);
+    background: linear-gradient(155deg, var(--accent-soft), var(--accent));
+    color: #fff;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.15) inset,
+        0 8px 20px rgba(255, 77, 94, 0.28);
 }
 
 .primary:hover {
-    background: var(--accent-hover);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.15) inset,
+        0 10px 26px rgba(255, 77, 94, 0.38);
 }
 
 .ghost {
