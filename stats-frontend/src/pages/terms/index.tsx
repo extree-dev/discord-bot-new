@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { SiteHeader } from '../../widgets/site-header';
 import styles from './index.module.scss';
 
@@ -11,7 +12,7 @@ import styles from './index.module.scss';
 export function TermsPage() {
     return (
         <div className={styles.page}>
-            <SiteHeader />
+            <SiteHeader rightSlot={<Link to="/privacy">Privacy Policy</Link>} />
             <main className={styles.main}>
                 <article className={styles.article}>
                     <p className={styles.updated}>Last updated: October 19, 2026</p>

@@ -13,7 +13,15 @@ export function SignInPage() {
     return (
         <div className={styles.page}>
             <div className={styles.ambient} aria-hidden="true" />
-            <SiteHeader rightSlot={<Link to="/terms">Terms of Use</Link>} />
+            <SiteHeader
+                rightSlot={
+                    <>
+                        <Link to="/privacy">Privacy Policy</Link>
+                        <span aria-hidden="true"> · </span>
+                        <Link to="/terms">Terms of Use</Link>
+                    </>
+                }
+            />
             <main className={styles.main}>
                 <div className={styles.left}>
                     <div className={styles.badge}>
