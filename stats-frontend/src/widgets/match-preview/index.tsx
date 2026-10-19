@@ -29,7 +29,7 @@ export function MatchPreview() {
                 <span className={styles.t2}>Last 24h</span>
             </div>
 
-            {MOCK_MATCHES.map((row) => (
+            {MOCK_MATCHES.map(row => (
                 <div
                     key={`${row.map}-${row.agent}`}
                     className={row.result === 'loss' ? `${styles.match} ${styles.loss}` : styles.match}

@@ -24,8 +24,8 @@ export function SignInPage() {
                         <span className={styles.hl}>Match by match.</span>
                     </h1>
                     <p className={styles.lead}>
-                        Match history, win rates by map and agent, and rank progress — sign in with your Riot account
-                        to see your own stats.
+                        Match history, win rates by map and agent, and rank progress — sign in with your Riot account to
+                        see your own stats.
                     </p>
                     <RiotSignInButton />
                     <p className={styles.disclaimer}>{RIOT_DISCLAIMER}</p>
