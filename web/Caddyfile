@@ -14,16 +14,20 @@
 # assets/*.css и JSON под /api/*.
 #
 # stats.extree.tech — отдельный продукт (статистика VALORANT, Riot API,
-# см. stats-frontend/), React-SPA с клиент-side роутингом
-# (react-router-dom), но без своего Node-процесса — раздаётся статикой
-# из web/stats-site/, как и bot-site. try_files перед file_server —
-# обязательный SPA-fallback: без него прямой заход на stats.extree.tech
-# /terms (а не переход туда кликом внутри уже загруженного приложения)
-# упёрся бы в 404, потому что файла terms.html на диске не существует —
-# весь роутинг только в JS-бандле. riot.txt для верификации домена в
-# Riot Developer Portal кладётся туда же, в корень web/stats-site/, —
-# try_files находит реальный файл раньше фолбэка на index.html, так что
-# на сам riot.txt это не влияет.
+# см. stats-frontend/): React-SPA с клиент-side роутингом
+# (react-router-dom), раздаётся статикой из web/stats-site/ (как и
+# bot-site), плюс теперь отдельный Node-процесс stats-backend (см.
+# stats-backend/server.js) только для Riot Sign-On (RSO) — /auth/* и
+# /api/* явными handle-блоками уходят туда, тот же порядок, что у
+# bot.extree.tech ниже: явные handle-блоки проверяются раньше catch-all,
+# иначе try_files внутри catch-all перехватил бы и их. try_files перед
+# file_server в catch-all — обязательный SPA-fallback: без него прямой
+# заход на stats.extree.tech/terms (не переход кликом внутри уже
+# загруженного приложения) упёрся бы в 404, потому что файла terms.html
+# на диске не существует — весь роутинг только в JS-бандле. riot.txt для
+# верификации домена в Riot Developer Portal кладётся в корень
+# web/stats-site/ — try_files находит реальный файл раньше фолбэка на
+# index.html, так что на сам riot.txt это не влияет.
 
 extree.tech, www.extree.tech {
     reverse_proxy dashboard:3000
@@ -75,8 +79,16 @@ bot.extree.tech {
 }
 
 stats.extree.tech {
-    root * /srv/stats-site
-    try_files {path} /index.html
-    file_server
+    handle /auth/* {
+        reverse_proxy stats-backend:3000
+    }
+    handle /api/* {
+        reverse_proxy stats-backend:3000
+    }
+    handle {
+        root * /srv/stats-site
+        try_files {path} /index.html
+        file_server
+    }
     encode gzip
 }

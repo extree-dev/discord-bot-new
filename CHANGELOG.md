@@ -91,6 +91,15 @@ PATCH-версия (`X.Y.Z`, `Z > 0`) — багфикс, MINOR/MAJOR (`X.Y.0`) 
 
 - **Ответы на команды и кнопки — ephemeral по умолчанию.** Единственное осознанное исключение — `/level leaderboard` (топ должен быть виден всем в канале). Для случаев, где кнопка живёт на публичной персистентной карточке — саму карточку правит обычный `Message#edit` (не interaction-ответ), а персональный результат уходит нажавшему отдельным ephemeral-сообщением, чтобы карточка оставалась полезной всем, но ответ — только автору действия. Добавлен `toEphemeralMessage()` в `utils/components.js` — та же сборка Components V2, что и `toMessage()`, но с флагом `Ephemeral`.
 
+## [3.9.27] — Бэкенд Riot Sign-On для Extree Stats (инфраструктура, без живых учётных данных)
+
+### Добавлено
+
+- **`stats-backend/`** — отдельный Node/Express-процесс только для RSO (Riot Sign-On) у Extree Stats: `GET /auth/riot/login` (редирект на `auth.riotgames.com/authorize`), `GET /auth/riot/callback` (обмен кода на токен + сессия), `GET /auth/logout`, `GET /api/session`. Сессия — та же схема, что у дашборда (`stats-backend/session.js`, AES-256-GCM поверх `STATS_SESSION_SECRET`, без БД), но намеренно отдельный модуль, а не переиспользование `dashboard/session.js` — Extree Stats независимый продукт, связывать его сессии с личным кабинетом бота по коду было бы неправильно. Переиспользует тот же Docker-образ, что бот/дашборд (`docker-compose.yml`, `build: .`, новый `command`) — у сервиса нет зависимостей сверх уже установленных в корневом `package.json`.
+- **`RIOT_CLIENT_ID`/`RIOT_CLIENT_SECRET` ещё не заданы нигде** — Riot одобряет сам продукт (сейчас Pending Review), потом отдельным приглашением открывает заявку конкретно на RSO-доступ; до этого момента их просто неоткуда взять. `/auth/riot/login` без них честно отвечает редиректом на `/?auth_error=1` вместо похода в Riot с пустым `client_id` — тот же паттерн, что `/auth/google/login` в `dashboard/server.js` при незаданном `GOOGLE_CLIENT_ID`. `stats-backend/riotOAuth.js` явно документирует, какие детали протокола (client-авторизация Basic vs Private Key JWT, PKCE, точный scope) взяты из неофициальных источников и должны быть перепроверены против настоящей RSO-доки Riot, когда доступ реально откроют.
+- **Кнопка «Sign in with Riot» на `stats-frontend`** теперь настоящая ссылка (`href="/auth/riot/login"`) вместо клиентской заглушки — `shared/ui/Button` получил вариант `href` (тот же паттерн, что в `frontend/shared/ui/Button`). Без живых учётных данных клик реально доходит до бэкенда и честно возвращается с `?auth_error=1`, который читается через `react-router-dom` и показывается статусной заметкой — ничего не имитируется.
+- **`web/Caddyfile`**: `stats.extree.tech` — новые `handle /auth/*` и `handle /api/*` (проксируют на `stats-backend:3000`) перед catch-all, тот же порядок приоритета, что уже на `bot.extree.tech` — иначе `try_files` внутри catch-all перехватил бы эти пути раньше явных `handle`-блоков.
+
 ## [3.9.26] — Страница Terms of Use для Extree Stats
 
 ### Добавлено
