@@ -90,6 +90,24 @@ services:
                 condition: service_healthy
         command: ['node', 'dashboard/server.js']
 
+    # Бэкенд Extree Stats (RSO-логин, stats.extree.tech) — тот же образ,
+    # что бот/дашборд (build: ., нет собственных зависимостей сверх уже
+    # установленных в package.json корня: express/helmet/express-rate-
+    # limit), другой command. Сознательно отдельный сервис, а не ещё один
+    # роут в dashboard/server.js: Extree Stats независимый продукт (своя
+    # заявка в Riot Developer Portal), смешивать его сессии с личным
+    # кабинетом бота значило бы по коду связать два разных продукта. БД
+    # не нужна — сессия целиком в cookie, см. stats-backend/session.js.
+    # RIOT_CLIENT_ID/RIOT_CLIENT_SECRET пока не заданы (Riot ещё не
+    # одобрил заявку) — сервис всё равно стартует и честно отвечает
+    # ошибкой на /auth/riot/login вместо похода в Riot с пустым client_id.
+    stats-backend:
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
+        command: ['node', 'stats-backend/server.js']
+
     # Страница бота (bot.extree.tech, web/bot-site/) + автоматический TLS
     # от Let's Encrypt. Caddy сам запрашивает и продлевает сертификаты для
     # доменов, перечисленных в web/Caddyfile — никакого отдельного certbot.

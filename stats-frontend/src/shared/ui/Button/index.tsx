@@ -1,26 +1,51 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import styles from './index.module.scss';
 
 type Variant = 'primary' | 'ghost';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface CommonProps {
     variant?: Variant;
     fullWidth?: boolean;
     children: ReactNode;
 }
 
+type ButtonProps = CommonProps &
+    ButtonHTMLAttributes<HTMLButtonElement> & {
+        href?: undefined;
+    };
+
+type LinkProps = CommonProps &
+    AnchorHTMLAttributes<HTMLAnchorElement> & {
+        href: string;
+    };
+
 // Срезанные углы (clip-path, см. index.module.scss) вместо border-radius —
-// см. $cut в shared/styles/_variables.scss. Только <button>: в отличие от
-// Button в основном кабинете (frontend/), здесь пока нет ни одной ссылки —
-// как только появится реальный OAuth-редирект на Riot Sign-On, вариант
-// href добавится по тому же паттерну, что в frontend/shared/ui/Button.
-export function Button({ variant = 'primary', fullWidth, children, className, ...rest }: ButtonProps) {
+// см. $cut в shared/styles/_variables.scss. Кнопка-ссылка (OAuth-редирект
+// на /auth/riot/login) или обычная <button> — один и тот же паттерн, что
+// в frontend/shared/ui/Button: разная семантика тега, одна визуальная
+// оболочка, вместо двух почти одинаковых компонентов.
+export function Button({
+    variant = 'primary',
+    fullWidth,
+    children,
+    className,
+    href,
+    ...rest
+}: ButtonProps | LinkProps) {
     const classes = [styles.base, styles[variant], fullWidth ? styles.fullWidth : '', className]
         .filter(Boolean)
         .join(' ');
 
+    if (href !== undefined) {
+        return (
+            <a className={classes} href={href} {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}>
+                {children}
+            </a>
+        );
+    }
+
     return (
-        <button className={classes} {...rest}>
+        <button className={classes} {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}>
             {children}
         </button>
     );
