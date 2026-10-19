@@ -291,6 +291,23 @@ app.use(
     })
 );
 
+// Технический перерыв — полностью перекрывает этот процесс целиком, а
+// значит сразу все поверхности, которые он обслуживает: bot.extree.tech
+// (включая /dashboard), extree.tech и extree.tech/admin (см. комментарий
+// в начале файла). Middleware без next() — ничего ниже по цепочке
+// (rate-limit, /api/*, /auth/*, статика SPA) для таких запросов уже не
+// выполняется. Включён по умолчанию (MAINTENANCE_MODE !== 'false'), а не
+// по умолчанию выключен — чтобы простой деплой этого коммита сразу уводил
+// сайт в техперерыв, без ручных действий на сервере. Снова открыть:
+// добавить MAINTENANCE_MODE=false в .env на сервере и перезапустить
+// dashboard (docker compose restart dashboard, либо обычный передеплой).
+if (process.env.MAINTENANCE_MODE !== 'false') {
+    const maintenancePage = require('./maintenancePage');
+    app.use((req, res) => {
+        res.status(503).set('Retry-After', '3600').type('html').send(maintenancePage);
+    });
+}
+
 // Общий rate-limit на все /api/* и /auth/* — защита от перебора/грубого
 // DoS на уровне процесса, в дополнение к прицельному лимитеру на
 // /auth/email/login ниже (у него лимит жёстче и ключ — IP, не email).
