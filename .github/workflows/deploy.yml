@@ -57,6 +57,16 @@ jobs:
                       # Caddyfile и web/bot-site/ с диска заново при старте.
                       docker compose restart caddy
 
+                      # Extree Stats (stats-frontend/) — не рантайм-сервис,
+                      # одноразовый билд-джоб: собирает Vite-бандл и
+                      # перезаписывает им ./web/stats-site/ (bind-mount
+                      # /output, см. docker-compose.yml). Reload/restart
+                      # caddy для этого не нужен — file_server читает
+                      # статику с диска на каждый запрос, а не кеширует
+                      # её в памяти процесса.
+                      docker compose build stats-frontend-builder
+                      docker compose run --rm stats-frontend-builder
+
                       # Регистрация слэш-команд и setup-скрипты в режиме синхронизации
                       # (utils/setupMode.js): только находят уже существующие каналы
                       # и роли, сохраняют их ID и обновляют собственные панели бота.

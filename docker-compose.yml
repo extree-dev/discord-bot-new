@@ -113,6 +113,19 @@ services:
             - caddy_data:/data
             - caddy_config:/config
 
+    # Не рантайм-сервис — одноразовый джоб "docker compose run --rm
+    # stats-frontend-builder" (см. deploy.yml), который собирает
+    # stats-frontend/ (Vite + React) и копирует dist/ в ./web/stats-site/
+    # поверх bind-mount'а /output — тот же каталог, что читает caddy
+    # выше. profiles: ["build-only"] — чтобы "docker compose up -d" его
+    # не пытался поднять как обычный сервис.
+    stats-frontend-builder:
+        build:
+            context: ./stats-frontend
+        profiles: ['build-only']
+        volumes:
+            - ./web/stats-site:/output
+
 volumes:
     pgdata:
     bot-data:

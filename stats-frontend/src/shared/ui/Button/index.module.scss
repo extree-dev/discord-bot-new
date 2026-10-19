@@ -1,0 +1,48 @@
+@use '../../styles/variables' as v;
+
+.base {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px 28px;
+    border: none;
+    clip-path: polygon(v.$cut 0, 100% 0, 100% calc(100% - #{v.$cut}), calc(100% - #{v.$cut}) 100%, 0 100%, 0 v.$cut);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        transform 0.1s ease;
+}
+
+.base:active {
+    transform: scale(0.98);
+}
+
+.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+.primary:hover {
+    background: var(--accent-hover);
+}
+
+.ghost {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+}
+
+.ghost:hover {
+    border-color: var(--accent);
+}
+
+.fullWidth {
+    width: 100%;
+}
