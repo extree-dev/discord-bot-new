@@ -19,7 +19,7 @@ export function RiotSignInButton() {
 
     return (
         <div>
-            <Button variant="primary" fullWidth href="/auth/riot/login" aria-describedby="riot-sign-in-note">
+            <Button variant="primary" href="/auth/riot/login" aria-describedby="riot-sign-in-note">
                 Sign in with Riot
             </Button>
             {hasAuthError && (

@@ -19,11 +19,9 @@ type LinkProps = CommonProps &
         href: string;
     };
 
-// Срезанные углы (clip-path, см. index.module.scss) вместо border-radius —
-// см. $cut в shared/styles/_variables.scss. Кнопка-ссылка (OAuth-редирект
-// на /auth/riot/login) или обычная <button> — один и тот же паттерн, что
-// в frontend/shared/ui/Button: разная семантика тега, одна визуальная
-// оболочка, вместо двух почти одинаковых компонентов.
+// Кнопка-ссылка (OAuth-редирект на /auth/riot/login) или обычная <button> —
+// один и тот же паттерн, что в frontend/shared/ui/Button: разная семантика
+// тега, одна визуальная оболочка, вместо двух почти одинаковых компонентов.
 export function Button({
     variant = 'primary',
     fullWidth,

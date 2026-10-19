@@ -1,19 +1,17 @@
-@use '../../styles/variables' as v;
-
 .base {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 16px 28px;
+    padding: 15px 32px;
     border: none;
-    clip-path: polygon(v.$cut 0, 100% 0, 100% calc(100% - #{v.$cut}), calc(100% - #{v.$cut}) 100%, 0 100%, 0 v.$cut);
+    border-radius: var(--radius-md);
     font-family: 'Inter', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.03em;
     text-decoration: none;
     cursor: pointer;
     transition:
