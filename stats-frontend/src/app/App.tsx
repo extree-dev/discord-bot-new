@@ -1,9 +1,12 @@
+import { Route, Routes } from 'react-router-dom';
 import { SignInPage } from '../pages/sign-in';
+import { TermsPage } from '../pages/terms';
 
-// Пока единственная страница — React Router не подключаем заранее
-// (YAGNI): как только появятся /dashboard или другие страницы продукта,
-// App.tsx перейдёт на тот же паттерн <Routes>/<Route>, что и в frontend/
-// src/app/App.tsx.
 export function App() {
-    return <SignInPage />;
+    return (
+        <Routes>
+            <Route path="/" element={<SignInPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+        </Routes>
+    );
 }
