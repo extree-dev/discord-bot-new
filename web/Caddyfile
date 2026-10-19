@@ -40,9 +40,24 @@ bot.extree.tech {
     handle /assets/* {
         reverse_proxy dashboard:3000
     }
+    # Техперерыв (см. dashboard/maintenancePage.js, тот же дизайн
+    # продублирован здесь как web/bot-site/maintenance.html): эта статика
+    # (web/bot-site/) — единственное на bot.extree.tech, что не проходит
+    # через dashboard:3000 и потому не закрывается его MAINTENANCE_MODE
+    # middleware. rewrite/header — внутри этого catch-all handle, а не на
+    # уровне всего сайта: handle-блоки выше (/auth/*, /api/*, /dashboard*,
+    # /login*, /assets/*) по-прежнему сначала проверяются как обычно и
+    # уходят на dashboard:3000 (там их закрывает MAINTENANCE_MODE) — иначе
+    # неадресный rewrite выполнился бы для всех путей раньше, чем Caddy
+    # успеет сопоставить их с handle-блоками. Снова открыть маркетинговую
+    # страницу бота: убрать rewrite/header ниже и передеплоить.
     handle {
+        rewrite * /maintenance.html
+        header Retry-After "3600"
         root * /srv/bot-site
-        file_server
+        file_server {
+            status 503
+        }
     }
     encode gzip
 }
