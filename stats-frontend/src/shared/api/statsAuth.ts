@@ -17,6 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     invalid_nickname: 'Nickname must be 3-24 characters: letters, numbers, underscore.',
     invalid_subject: 'Enter a subject.',
     invalid_message: 'Enter a message (up to 5000 characters).',
+    invalid_category: 'Choose a category.',
     invalid_request: 'Please fill in all fields.',
     invalid_credentials: 'Wrong email or password.',
     email_already_registered: 'An account with this email already exists — try signing in.',
@@ -93,8 +94,8 @@ export function resetPassword(token: string, password: string) {
     return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password });
 }
 
-export function submitSupportTicket(subject: string, message: string, email?: string) {
-    return postJson<{ ok: true; ticketId: string }>('/api/support/tickets', { subject, message, email });
+export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
+    return postJson<{ ok: true; ticketId: string }>('/api/support/tickets', { subject, message, category, email });
 }
 
 export async function getAccount(): Promise<AccountUser | null> {
