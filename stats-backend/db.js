@@ -77,6 +77,14 @@ function ensureSchema() {
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 );
+                CREATE TABLE IF NOT EXISTS stats_email_change_codes (
+                    user_id TEXT PRIMARY KEY REFERENCES stats_users(id) ON DELETE CASCADE,
+                    new_email TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    attempts INT NOT NULL DEFAULT 0,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
                 CREATE TABLE IF NOT EXISTS stats_support_tickets (
                     id TEXT PRIMARY KEY,
                     user_id TEXT REFERENCES stats_users(id) ON DELETE SET NULL,
