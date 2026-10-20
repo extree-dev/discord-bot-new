@@ -31,6 +31,7 @@ const emailCodes = require('./emailCodes');
 const emailChangeCodes = require('./emailChangeCodes');
 const loginCodes = require('./loginCodes');
 const loginLocations = require('./loginLocations');
+const loginEvents = require('./loginEvents');
 const passwordResets = require('./passwordResets');
 const supportTickets = require('./supportTickets');
 const geo = require('./geo');
@@ -378,6 +379,7 @@ app.post('/auth/login', async (req, res) => {
     }
 
     await loginLocations.rememberLocation(user.id, country, city, ip);
+    await loginEvents.recordLogin(user.id, { ip, country, city });
     try {
         await mailer.sendSignInNotification(email, { ip, country, city, time: new Date().toUTCString() });
     } catch (err) {
@@ -456,6 +458,7 @@ app.post('/auth/login/confirm-location', async (req, res) => {
     // Доверяем месту из исходной попытки входа (row), а не текущему
     // запросу — его могут подтверждать с другого устройства/сети.
     await loginLocations.rememberLocation(user.id, row.country, row.city, row.ip);
+    await loginEvents.recordLogin(user.id, { ip: row.ip, country: row.country, city: row.city });
     await loginCodes.deleteCode(email);
 
     setSessionCookie(res, { userId: user.id });
@@ -525,10 +528,13 @@ app.post('/auth/reset-password', async (req, res) => {
         return;
     }
 
+    const resetIp = geo.getClientIp(req);
+    const resetLocation = geo.lookupLocation(resetIp);
+    await loginEvents.recordLogin(user.id, { ip: resetIp, ...resetLocation });
     try {
         await mailer.sendPasswordChanged(user.email, {
-            ip: geo.getClientIp(req),
-            ...geo.lookupLocation(geo.getClientIp(req)),
+            ip: resetIp,
+            ...resetLocation,
             time: new Date().toUTCString(),
         });
     } catch (err) {
@@ -747,6 +753,22 @@ app.get('/api/account/me', async (req, res) => {
             name: user.name,
             nickname: user.nickname,
         },
+    });
+});
+
+app.get('/api/account/login-history', async (req, res) => {
+    const session = requireSession(req, res);
+    if (!session) return;
+
+    const events = await loginEvents.listRecent(session.userId);
+    res.json({
+        events: events.map(e => ({
+            id: e.id,
+            ip: e.ip,
+            country: e.country,
+            city: e.city,
+            time: new Date(e.created_at).toUTCString(),
+        })),
     });
 });
 

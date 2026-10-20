@@ -8,12 +8,14 @@ import { PasswordRequirements } from '../../shared/ui/PasswordRequirements';
 import { isPasswordValid } from '../../shared/lib/passwordRules';
 import {
     getAccount,
+    getLoginHistory,
     requestEmailChange,
     resendEmailChangeCode,
     confirmEmailChange,
     changePassword,
     ApiError,
     type AccountUser,
+    type LoginEvent,
 } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -146,6 +148,49 @@ function ChangeEmailSection({ email, onChanged }: { email: string; onChanged: (n
     );
 }
 
+function formatLocation(event: LoginEvent): string {
+    if (!event.country) return 'Unknown location';
+    return event.city ? `${event.city}, ${event.country}` : event.country;
+}
+
+// Read-only — тот же набор полей (время/локация/IP), что в письме
+// "New sign-in to your account" (см. mailer.js), просто список вместо
+// одного события за раз.
+function LoginHistorySection() {
+    const [events, setEvents] = useState<LoginEvent[] | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        getLoginHistory().then(result => {
+            if (!cancelled) setEvents(result);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    return (
+        <div className={styles.section}>
+            <h2 className={styles.sectionTitle}>Recent sign-ins</h2>
+            {events === null && <p className={styles.sectionHint}>Loading…</p>}
+            {events?.length === 0 && <p className={styles.sectionHint}>No recent sign-ins on record.</p>}
+            {events && events.length > 0 && (
+                <ul className={styles.loginList}>
+                    {events.map(event => (
+                        <li key={event.id} className={styles.loginItem}>
+                            <div className={styles.loginItemTime}>{event.time}</div>
+                            <div className={styles.loginItemMeta}>
+                                {formatLocation(event)}
+                                {event.ip && <span className={styles.loginItemIp}> · {event.ip}</span>}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 function ChangePasswordSection() {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -270,6 +315,7 @@ export function AccountPage() {
                 <span className={styles.value}>{user.email}</span>
             </div>
 
+            <LoginHistorySection />
             <ChangeEmailSection
                 email={user.email}
                 onChanged={newEmail => setUser(u => u && { ...u, email: newEmail })}
