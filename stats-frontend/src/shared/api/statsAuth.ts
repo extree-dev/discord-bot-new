@@ -29,6 +29,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     unknown_location: "We don't recognize this location — check your email for a code.",
     token_not_found: 'This reset link is invalid — request a new one.',
     token_expired: 'This reset link has expired — request a new one.',
+    turnstile_failed: 'Verification failed — please try again.',
 };
 
 function messageFor(code: string): string {
@@ -70,8 +71,8 @@ export function verifyCode(email: string, code: string) {
     return postJson<{ ok: true; user: { email: string } }>('/auth/verify', { email, code });
 }
 
-export function login(email: string, password: string) {
-    return postJson<{ ok: true; user: { email: string } }>('/auth/login', { email, password });
+export function login(email: string, password: string, turnstileToken: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login', { email, password, turnstileToken });
 }
 
 export function resendLoginCode(email: string) {
