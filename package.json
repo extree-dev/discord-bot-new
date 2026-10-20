@@ -24,6 +24,7 @@
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
         "express-rate-limit": "^8.7.1",
+        "geoip-lite": "^1.4.10",
         "helmet": "^8.3.0",
         "multer": "^2.4.0",
         "nodemailer": "^10.1.7",
@@ -36,5 +37,10 @@
         "eslint-config-prettier": "^9.1.2",
         "globals": "^15.15.0",
         "prettier": "^3.9.7"
+    },
+    "overrides": {
+        "geoip-lite": {
+            "ip-address": "^10.7.4"
+        }
     }
 }
