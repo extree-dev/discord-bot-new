@@ -31,6 +31,12 @@
     letter-spacing: -0.01em;
 }
 
+.navRight {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
 .right {
     font-size: 13.5px;
     color: var(--text-faint);
@@ -43,4 +49,10 @@
     a:hover {
         color: var(--text-dim);
     }
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }

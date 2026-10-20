@@ -2,9 +2,11 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'reac
 import styles from './index.module.scss';
 
 type Variant = 'primary' | 'ghost';
+type Size = 'md' | 'sm';
 
 interface CommonProps {
     variant?: Variant;
+    size?: Size;
     fullWidth?: boolean;
     children: ReactNode;
 }
@@ -24,13 +26,14 @@ type LinkProps = CommonProps &
 // тега, одна визуальная оболочка, вместо двух почти одинаковых компонентов.
 export function Button({
     variant = 'primary',
+    size = 'md',
     fullWidth,
     children,
     className,
     href,
     ...rest
 }: ButtonProps | LinkProps) {
-    const classes = [styles.base, styles[variant], fullWidth ? styles.fullWidth : '', className]
+    const classes = [styles.base, styles[variant], styles[size], fullWidth ? styles.fullWidth : '', className]
         .filter(Boolean)
         .join(' ');
 
