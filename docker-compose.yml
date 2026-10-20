@@ -151,8 +151,43 @@ services:
         volumes:
             - ./web/stats-site:/output
 
+    # Собственный почтовый сервер под support@extree.tech — отдельный
+    # логин, не алиас внутри чужого Apple ID (см. обсуждение: iCloud
+    # custom domain физически не даёт отдельный вход). Poste.io — один
+    # контейнер (Postfix+Dovecot+Rspamd+встроенная вебпочта), сам заводит
+    # ящики через свою админку на mail.extree.tech/admin.
+    #
+    # HTTPS=OFF — веб-интерфейс (админка и вебпочта) отдаёт голый HTTP
+    # внутри docker-сети, TLS для браузера терминирует Caddy снаружи, как
+    # у dashboard/stats-backend (см. web/Caddyfile). Это НЕ тот же
+    # сертификат, что нужен для самого SMTP/IMAP (мэйл-клиенты вроде
+    # Outlook шифруют соединение сами, браузер тут ни при чём) — его
+    # Poste.io получает своим собственным ACME-клиентом через
+    # /.well-known/acme-challenge/*, который Caddy просто прозрачно
+    # проксирует на этот сервис вместе с остальными путями — отдельно
+    # настраивать не нужно.
+    #
+    # Порты почтовых протоколов (25/465/587/993/995) публикуются на хост
+    # напрямую — это не HTTP, Caddy их проксировать не умеет.
+    mailserver:
+        image: analogic/poste.io
+        restart: unless-stopped
+        hostname: mail.extree.tech
+        environment:
+            TZ: Etc/UTC
+            HTTPS: 'OFF'
+        volumes:
+            - mailserver-data:/data
+        ports:
+            - '25:25'
+            - '465:465'
+            - '587:587'
+            - '993:993'
+            - '995:995'
+
 volumes:
     pgdata:
     bot-data:
     caddy_data:
     caddy_config:
+    mailserver-data:
