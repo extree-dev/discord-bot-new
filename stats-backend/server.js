@@ -6,8 +6,9 @@
 // бота значило бы по коду связать два разных продукта. Образ
 // переиспользует тот же Docker-образ, что бот/дашборд (docker-
 // compose.yml, build: ., другой command); зависимости сверх корневого
-// package.json — pg (та же БД, что у бота, но свои таблицы, см. db.js)
-// и nodemailer (своя почта под Extree Stats, не Resend бота).
+// package.json — pg (та же БД, что у бота, но свои таблицы, см. db.js),
+// nodemailer (своя почта под Extree Stats, не Resend бота) и geoip-lite
+// (офлайн-геолокация по IP для /auth/login — см. geo.js/loginLocations.js).
 //
 // RSO ещё не выдан Riot'ом (см. riotOAuth.js) — RIOT_CLIENT_ID/
 // RIOT_CLIENT_SECRET пока не заданы нигде, и /auth/riot/login честно
@@ -24,6 +25,9 @@ const riotOAuth = require('./riotOAuth');
 const { encryptSession, decryptSession } = require('./session');
 const users = require('./users');
 const emailCodes = require('./emailCodes');
+const loginCodes = require('./loginCodes');
+const loginLocations = require('./loginLocations');
+const geo = require('./geo');
 const mailer = require('./mailer');
 const { normalizeEmail, isValidEmail, isValidPassword } = require('./validation');
 
@@ -255,9 +259,23 @@ app.post('/auth/verify', async (req, res) => {
         return;
     }
 
+    // Регистрация — это ещё не "вход" в смысле /auth/login (письма о входе
+    // тут не шлём, см. mailer.sendSignInNotification), но именно здесь
+    // появляется первое "известное место" для аккаунта, чтобы следующий
+    // реальный /auth/login с того же места прошёл без доп. подтверждения.
+    const ip = geo.getClientIp(req);
+    const { country, city } = geo.lookupLocation(ip);
+    await loginLocations.rememberLocation(user.id, country, city, ip);
+
     setSessionCookie(res, { userId: user.id });
     res.json({ ok: true, user: { email: user.email } });
 });
+
+async function issueAndSendLoginCode(email, location) {
+    const code = loginCodes.generateCode();
+    await loginCodes.upsertCode(email, code, location);
+    await mailer.sendNewLocationCode(email, code, location);
+}
 
 app.post('/auth/login', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
@@ -277,6 +295,114 @@ app.post('/auth/login', async (req, res) => {
         res.status(403).json({ error: 'email_not_verified' });
         return;
     }
+
+    const ip = geo.getClientIp(req);
+    const { country, city } = geo.lookupLocation(ip);
+
+    // Блокируем вход только когда для аккаунта УЖЕ есть хотя бы одно
+    // известное место И текущая страна определена и не совпадает ни с
+    // одним известным — иначе легитимный владелец никогда бы не смог
+    // войти в первый раз, а пробел в офлайн-базе геолокации не должен
+    // запирать аккаунт (см. loginLocations.isKnownLocation).
+    const hasHistory = await loginLocations.hasAnyKnownLocation(user.id);
+    const known = await loginLocations.isKnownLocation(user.id, country);
+
+    if (hasHistory && !known) {
+        if (await loginCodes.isOnCooldown(email)) {
+            res.status(429).json({ error: 'code_on_cooldown' });
+            return;
+        }
+        try {
+            await issueAndSendLoginCode(email, { ip, country, city });
+        } catch (err) {
+            console.error('stats-backend: ошибка отправки кода подтверждения нового места входа:', err);
+            res.status(500).json({ error: 'internal_error' });
+            return;
+        }
+        res.status(403).json({ error: 'unknown_location' });
+        return;
+    }
+
+    await loginLocations.rememberLocation(user.id, country, city, ip);
+    try {
+        await mailer.sendSignInNotification(email, { ip, country, city, time: new Date().toUTCString() });
+    } catch (err) {
+        // Уведомление — не критично для самого входа: не роняем сессию
+        // из-за временной проблемы с почтой.
+        console.error('stats-backend: ошибка отправки уведомления о входе:', err);
+    }
+
+    setSessionCookie(res, { userId: user.id });
+    res.json({ ok: true, user: { email: user.email } });
+});
+
+app.post('/auth/login/resend-code', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!isValidEmail(email)) {
+        res.status(400).json({ error: 'invalid_email' });
+        return;
+    }
+
+    const pending = await loginCodes.getCode(email);
+    if (!pending) {
+        // Не сообщаем, есть ли вообще ожидающий подтверждения вход для
+        // этого email — тот же приём, что /auth/resend-code.
+        res.json({ ok: true });
+        return;
+    }
+    if (await loginCodes.isOnCooldown(email)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        await issueAndSendLoginCode(email, { ip: pending.ip, country: pending.country, city: pending.city });
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('stats-backend: ошибка повторной отправки кода подтверждения входа:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+app.post('/auth/login/confirm-location', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+
+    if (!isValidEmail(email) || !code) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+
+    const row = await loginCodes.getCode(email);
+    if (!row) {
+        res.status(400).json({ error: 'code_not_found' });
+        return;
+    }
+    if (Date.now() > new Date(row.expires_at).getTime()) {
+        await loginCodes.deleteCode(email);
+        res.status(400).json({ error: 'code_expired' });
+        return;
+    }
+    if (row.attempts >= loginCodes.MAX_ATTEMPTS) {
+        res.status(429).json({ error: 'too_many_attempts' });
+        return;
+    }
+    if (code !== row.code) {
+        await loginCodes.registerFailedAttempt(email);
+        res.status(400).json({ error: 'wrong_code' });
+        return;
+    }
+
+    const user = await users.findByEmail(email);
+    if (!user) {
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+
+    // Доверяем месту из исходной попытки входа (row), а не текущему
+    // запросу — его могут подтверждать с другого устройства/сети.
+    await loginLocations.rememberLocation(user.id, row.country, row.city, row.ip);
+    await loginCodes.deleteCode(email);
 
     setSessionCookie(res, { userId: user.id });
     res.json({ ok: true, user: { email: user.email } });

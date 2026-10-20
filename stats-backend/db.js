@@ -42,6 +42,25 @@ function ensureSchema() {
                     attempts INT NOT NULL DEFAULT 0,
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS stats_known_locations (
+                    user_id TEXT NOT NULL REFERENCES stats_users(id) ON DELETE CASCADE,
+                    country TEXT NOT NULL,
+                    city TEXT,
+                    last_ip TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    PRIMARY KEY (user_id, country)
+                );
+                CREATE TABLE IF NOT EXISTS stats_login_codes (
+                    email TEXT PRIMARY KEY,
+                    code TEXT NOT NULL,
+                    attempts INT NOT NULL DEFAULT 0,
+                    ip TEXT,
+                    country TEXT,
+                    city TEXT,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 )`
             )
             .catch(err => {

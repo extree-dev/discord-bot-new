@@ -6,6 +6,7 @@ import { CookiesPage } from '../pages/cookies';
 import { RegisterPage } from '../pages/register';
 import { LoginPage } from '../pages/login';
 import { VerifyPage } from '../pages/verify';
+import { VerifyLocationPage } from '../pages/verify-location';
 import { AccountPage } from '../pages/account';
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/verify" element={<VerifyPage />} />
+            <Route path="/verify-location" element={<VerifyLocationPage />} />
             <Route path="/account" element={<AccountPage />} />
         </Routes>
     );

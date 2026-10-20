@@ -69,6 +69,24 @@ export function PrivacyPage() {
                         our <Link to="/cookies">Cookie Policy</Link> for the full list, including exact durations.
                     </p>
 
+                    <h2>Sign-in security (IP address &amp; location)</h2>
+                    <p>
+                        When you sign in, we look up the approximate country (and sometimes city) your IP address
+                        belongs to, using a local, offline database on our own server — no third-party geolocation
+                        service is called, and your IP address is never sent anywhere outside our infrastructure. We
+                        keep the country tied to your account so we can recognize future sign-ins from the same place.
+                    </p>
+                    <p>
+                        Signing in from a country we haven&apos;t seen for your account before requires confirming a
+                        one-time code we email you, the same way as during sign-up. After every successful sign-in, we
+                        also email you a notification with the approximate time, location, and IP address, so you can
+                        tell if it wasn&apos;t you.
+                    </p>
+                    <p>
+                        We don&apos;t keep a full history of every IP address you&apos;ve ever signed in from — only the
+                        countries we currently recognize for your account.
+                    </p>
+
                     <h2>VALORANT match data</h2>
                     <p>
                         Once Riot account linking and match history are live, that data will be requested from the

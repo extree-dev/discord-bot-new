@@ -25,6 +25,10 @@ export function LoginPage() {
                 navigate(`/verify?email=${encodeURIComponent(email)}`);
                 return;
             }
+            if (err instanceof ApiError && err.code === 'unknown_location') {
+                navigate(`/verify-location?email=${encodeURIComponent(email)}`);
+                return;
+            }
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
             setPending(false);

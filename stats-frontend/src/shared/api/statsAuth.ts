@@ -23,6 +23,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     too_many_attempts: 'Too many wrong attempts — request a new code.',
     code_on_cooldown: 'Please wait a bit before requesting another code.',
     internal_error: 'Something went wrong on our end — please try again.',
+    unknown_location: "We don't recognize this location — check your email for a code.",
 };
 
 function messageFor(code: string): string {
@@ -64,6 +65,14 @@ export function verifyCode(email: string, code: string) {
 
 export function login(email: string, password: string) {
     return postJson<{ ok: true; user: { email: string } }>('/auth/login', { email, password });
+}
+
+export function resendLoginCode(email: string) {
+    return postJson<{ ok: true }>('/auth/login/resend-code', { email });
+}
+
+export function confirmLoginLocation(email: string, code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login/confirm-location', { email, code });
 }
 
 export async function getAccount(): Promise<AccountUser | null> {
