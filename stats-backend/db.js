@@ -23,6 +23,14 @@ function getPool() {
 // аккаунту — будущая функция (см. план в PR): добавлять колонку потом,
 // на уже заполненную таблицу пользователей, лишний повод что-то сломать
 // при миграции — проще сразу оставить для неё место.
+//
+// name/nickname добавлены через ALTER TABLE ADD COLUMN IF NOT EXISTS, а не
+// в теле CREATE TABLE stats_users — в проде эта таблица уже существует с
+// зарегистрированными аккаунтами (нет системы миграций, только
+// идемпотентные DDL здесь), так что это единственный путь для "старой"
+// и "новой" БД одновременно. UNIQUE-индекс на nickname допускает любое
+// число NULL (у аккаунтов, заведённых до этой функции, nickname пуст) —
+// это штатное поведение Postgres для UNIQUE, не дыра.
 function ensureSchema() {
     if (!schemaReady) {
         schemaReady = getPool()
@@ -61,7 +69,17 @@ function ensureSchema() {
                     city TEXT,
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                )`
+                );
+                CREATE TABLE IF NOT EXISTS stats_password_resets (
+                    token TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES stats_users(id) ON DELETE CASCADE,
+                    email TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS name TEXT;
+                ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS nickname TEXT;
+                CREATE UNIQUE INDEX IF NOT EXISTS stats_users_nickname_key ON stats_users (nickname)`
             )
             .catch(err => {
                 // Гонка двух процессов на свежей БД (см. utils/db.js) — не

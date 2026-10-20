@@ -12,11 +12,14 @@ export class ApiError extends Error {
 
 const ERROR_MESSAGES: Record<string, string> = {
     invalid_email: 'Enter a valid email address.',
-    invalid_password: 'Password must be at least 8 characters.',
+    invalid_password: 'Password must be at least 8 characters, with a letter and a number.',
+    invalid_name: 'Enter your name.',
+    invalid_nickname: 'Nickname must be 3-24 characters: letters, numbers, underscore.',
     invalid_request: 'Please fill in all fields.',
     invalid_credentials: 'Wrong email or password.',
     email_already_registered: 'An account with this email already exists — try signing in.',
     email_not_verified: "This email isn't verified yet.",
+    nickname_taken: 'That nickname is already taken — try another.',
     code_not_found: 'No active code for this email — request a new one.',
     code_expired: 'This code has expired — request a new one.',
     wrong_code: 'Wrong code. Please try again.',
@@ -24,6 +27,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     code_on_cooldown: 'Please wait a bit before requesting another code.',
     internal_error: 'Something went wrong on our end — please try again.',
     unknown_location: "We don't recognize this location — check your email for a code.",
+    token_not_found: 'This reset link is invalid — request a new one.',
+    token_expired: 'This reset link has expired — request a new one.',
 };
 
 function messageFor(code: string): string {
@@ -49,10 +54,12 @@ export interface AccountUser {
     email: string;
     emailVerified: boolean;
     riotLinked: boolean;
+    name: string | null;
+    nickname: string | null;
 }
 
-export function register(email: string, password: string) {
-    return postJson<{ ok: true }>('/auth/register', { email, password });
+export function register(email: string, password: string, name: string, nickname: string) {
+    return postJson<{ ok: true }>('/auth/register', { email, password, name, nickname });
 }
 
 export function resendCode(email: string) {
@@ -73,6 +80,14 @@ export function resendLoginCode(email: string) {
 
 export function confirmLoginLocation(email: string, code: string) {
     return postJson<{ ok: true; user: { email: string } }>('/auth/login/confirm-location', { email, code });
+}
+
+export function forgotPassword(email: string) {
+    return postJson<{ ok: true }>('/auth/forgot-password', { email });
+}
+
+export function resetPassword(token: string, password: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password });
 }
 
 export async function getAccount(): Promise<AccountUser | null> {
