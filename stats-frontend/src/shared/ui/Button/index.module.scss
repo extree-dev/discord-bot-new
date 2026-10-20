@@ -43,6 +43,22 @@
     border-color: var(--accent);
 }
 
+// Плоский вариант для карточек register/login/verify (widgets/split-auth)
+// — контрастирует с мягким `.primary` градиентом нарочно, см. комментарий
+// в split-auth/index.tsx.
+.flat {
+    background: var(--accent);
+    color: #0c0c0e;
+    border-radius: 4px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.flat:hover {
+    background: var(--accent-hover);
+}
+
 .fullWidth {
     width: 100%;
 }
