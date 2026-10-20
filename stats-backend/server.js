@@ -9,6 +9,9 @@
 // package.json — pg (та же БД, что у бота, но свои таблицы, см. db.js),
 // nodemailer (своя почта под Extree Stats, не Resend бота) и geoip-lite
 // (офлайн-геолокация по IP для /auth/login — см. geo.js/loginLocations.js).
+// Cloudflare Turnstile на /auth/login (turnstile.js) обходится без новой
+// зависимости — встроенный fetch Node 18+, нужен только TURNSTILE_SECRET_KEY
+// в .env (см. .env.example); публичный Site Key зашит прямо в код фронтенда.
 //
 // RSO ещё не выдан Riot'ом (см. riotOAuth.js) — RIOT_CLIENT_ID/
 // RIOT_CLIENT_SECRET пока не заданы нигде, и /auth/riot/login честно
@@ -29,6 +32,7 @@ const loginCodes = require('./loginCodes');
 const loginLocations = require('./loginLocations');
 const passwordResets = require('./passwordResets');
 const geo = require('./geo');
+const { verifyTurnstileToken } = require('./turnstile');
 const mailer = require('./mailer');
 const { normalizeEmail, isValidEmail, isValidPassword, isValidName, isValidNickname } = require('./validation');
 
@@ -298,6 +302,15 @@ async function issueAndSendLoginCode(email, location) {
 app.post('/auth/login', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
+    const ip = geo.getClientIp(req);
+
+    // Проверяем Turnstile раньше всего остального — смысл капчи в том,
+    // чтобы отсекать ботов/перебор credential stuffing до того, как мы
+    // вообще обратимся к БД или сравним хеш пароля, а не после.
+    if (!(await verifyTurnstileToken(req.body?.turnstileToken, ip))) {
+        res.status(400).json({ error: 'turnstile_failed' });
+        return;
+    }
 
     if (!isValidEmail(email) || typeof password !== 'string') {
         res.status(400).json({ error: 'invalid_request' });
@@ -314,7 +327,6 @@ app.post('/auth/login', async (req, res) => {
         return;
     }
 
-    const ip = geo.getClientIp(req);
     const { country, city } = geo.lookupLocation(ip);
 
     // Блокируем вход только когда для аккаунта УЖЕ есть хотя бы одно

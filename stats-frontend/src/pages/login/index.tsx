@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
+import { Turnstile } from '../../shared/ui/Turnstile';
+import { TURNSTILE_SITE_KEY } from '../../shared/config';
 import { login, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -12,13 +14,19 @@ export function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
+    // Токен Turnstile одноразовый — бэкенд списывает его при каждой
+    // попытке входа, даже неудачной (см. stats-backend/server.js). Смена
+    // key пересоздаёт виджет и даёт свежий токен вместо попытки
+    // переиспользовать уже потраченный.
+    const [turnstileKey, setTurnstileKey] = useState(0);
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
         setError(null);
         setPending(true);
         try {
-            await login(email, password);
+            await login(email, password, turnstileToken);
             navigate('/account');
         } catch (err) {
             if (err instanceof ApiError && err.code === 'email_not_verified') {
@@ -30,6 +38,8 @@ export function LoginPage() {
                 return;
             }
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
+            setTurnstileToken('');
+            setTurnstileKey(k => k + 1);
         } finally {
             setPending(false);
         }
@@ -76,7 +86,13 @@ export function LoginPage() {
                 <Link to="/forgot-password" className={styles.forgot}>
                     Forgot password?
                 </Link>
-                <Button type="submit" variant="flat" fullWidth disabled={pending}>
+                <Turnstile
+                    key={turnstileKey}
+                    siteKey={TURNSTILE_SITE_KEY}
+                    onVerify={setTurnstileToken}
+                    onExpire={() => setTurnstileToken('')}
+                />
+                <Button type="submit" variant="flat" fullWidth disabled={pending || !turnstileToken}>
                     {pending ? 'Signing in…' : 'Sign in'}
                 </Button>
             </form>
