@@ -11,6 +11,7 @@ import { ForgotPasswordPage } from '../pages/forgot-password';
 import { ResetPasswordPage } from '../pages/reset-password';
 import { AccountPage } from '../pages/account';
 import { SupportPage } from '../pages/support';
+import { RiotLookupPage } from '../pages/riot-lookup';
 
 export function App() {
     return (
@@ -27,6 +28,7 @@ export function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/riot-lookup" element={<RiotLookupPage />} />
         </Routes>
     );
 }

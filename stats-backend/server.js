@@ -35,6 +35,7 @@ const supportTickets = require('./supportTickets');
 const geo = require('./geo');
 const { verifyTurnstileToken } = require('./turnstile');
 const mailer = require('./mailer');
+const riotApi = require('./riotApi');
 const {
     normalizeEmail,
     isValidEmail,
@@ -44,6 +45,7 @@ const {
     isValidSubject,
     isValidMessage,
     isValidCategory,
+    parseRiotId,
 } = require('./validation');
 
 const PORT = process.env.STATS_BACKEND_PORT || 3000;
@@ -68,6 +70,17 @@ const authRateLimiter = rateLimit({
     legacyHeaders: false,
 });
 app.use(['/auth', '/api'], authRateLimiter);
+
+// Отдельный, более тесный лимит под поиск Riot ID — личный API-ключ Riot
+// сам ограничен ~100 запросами/2 минуты на весь бэкенд, а authRateLimiter
+// выше считает per-IP и этого не защищает: без этого частые обращения с
+// разных IP всё равно могли бы выбить лимит самого ключа Riot.
+const riotLookupRateLimiter = rateLimit({
+    windowMs: 2 * 60 * 1000,
+    limit: 80,
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 function parseCookies(header) {
     const out = {};
@@ -608,6 +621,35 @@ app.post('/api/support/tickets', async (req, res) => {
     } catch (err) {
         console.error('stats-backend: ошибка создания заявки в поддержку:', err);
         res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+// Поиск Riot-аккаунта по Riot ID ("Имя#Тег") — только подтверждение, что
+// аккаунт существует (account-v1). Полноценная статистика матчей (K/D,
+// карты, винрейт) пока недоступна — см. riotApi.js: VALORANT Match-V1
+// этому ключу не отдан, Riot требует для него отдельно одобренный продукт
+// + RSO-согласие игрока.
+app.post('/api/riot/lookup', riotLookupRateLimiter, async (req, res) => {
+    const parsed = parseRiotId(typeof req.body?.riotId === 'string' ? req.body.riotId : '');
+    if (!parsed) {
+        res.status(400).json({ error: 'invalid_riot_id' });
+        return;
+    }
+
+    try {
+        const result = await riotApi.lookupRiotAccount(parsed.gameName, parsed.tagLine);
+        if (!result.configured) {
+            res.status(503).json({ error: 'riot_api_not_configured' });
+            return;
+        }
+        if (!result.found) {
+            res.status(404).json({ error: 'riot_account_not_found' });
+            return;
+        }
+        res.json({ ok: true, gameName: result.gameName, tagLine: result.tagLine });
+    } catch (err) {
+        console.error('stats-backend: ошибка поиска Riot-аккаунта:', err);
+        res.status(502).json({ error: 'riot_api_error' });
     }
 });
 

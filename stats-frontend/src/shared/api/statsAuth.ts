@@ -33,6 +33,10 @@ const ERROR_MESSAGES: Record<string, string> = {
     token_not_found: 'This reset link is invalid — request a new one.',
     token_expired: 'This reset link has expired — request a new one.',
     turnstile_failed: 'Verification failed — please try again.',
+    invalid_riot_id: 'Enter a Riot ID in the form Name#Tag.',
+    riot_account_not_found: "We couldn't find a Riot account with that Riot ID.",
+    riot_api_not_configured: "Riot lookup isn't configured right now — try again later.",
+    riot_api_error: 'Riot is not responding right now — try again in a moment.',
 };
 
 function messageFor(code: string): string {
@@ -96,6 +100,10 @@ export function resetPassword(token: string, password: string) {
 
 export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
     return postJson<{ ok: true; ticketId: string }>('/api/support/tickets', { subject, message, category, email });
+}
+
+export function lookupRiotId(riotId: string) {
+    return postJson<{ ok: true; gameName: string; tagLine: string }>('/api/riot/lookup', { riotId });
 }
 
 export async function getAccount(): Promise<AccountUser | null> {
