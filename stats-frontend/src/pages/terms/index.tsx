@@ -15,7 +15,7 @@ export function TermsPage() {
             <SiteHeader rightSlot={<Link to="/privacy">Privacy Policy</Link>} />
             <main className={styles.main}>
                 <article className={styles.article}>
-                    <p className={styles.updated}>Last updated: October 19, 2026</p>
+                    <p className={styles.updated}>Last updated: October 20, 2026</p>
                     <h1>Terms of Use</h1>
                     <p>By using Extree Stats (stats.extree.tech), you agree to the terms on this page.</p>
 
@@ -36,9 +36,14 @@ export function TermsPage() {
 
                     <h2>Account &amp; sign-in</h2>
                     <p>
-                        Extree Stats authenticates through Riot Sign-On (RSO) — we don't collect or store your Riot
-                        password, and we don't look up or display another player's match history without that player
-                        having signed in themselves. This feature is still in development; sign-in isn't live yet.
+                        You can create an Extree Stats account with an email and password, confirmed by a one-time code
+                        sent to that email. Linking a Riot account to it (via Riot Sign-On, RSO) is planned but not
+                        available yet — once it is, we won't collect or store your Riot password, and we won't look up
+                        or display another player's match history without that player having signed in themselves.
+                    </p>
+                    <p>
+                        Keep your password to yourself and use one account per person — don't share logins or create
+                        accounts on someone else's behalf.
                     </p>
 
                     <h2>Acceptable use</h2>

@@ -19,6 +19,8 @@ export function SignInPage() {
                         <Link to="/privacy">Privacy Policy</Link>
                         <span aria-hidden="true"> · </span>
                         <Link to="/terms">Terms of Use</Link>
+                        <span aria-hidden="true"> · </span>
+                        <Link to="/login">Log in</Link>
                     </>
                 }
             />
@@ -37,6 +39,9 @@ export function SignInPage() {
                         see your own numbers.
                     </p>
                     <RiotSignInButton />
+                    <p className={styles.altAuth}>
+                        Prefer email? <Link to="/register">Create an account</Link>
+                    </p>
                     <p className={styles.disclaimer}>{RIOT_DISCLAIMER}</p>
                 </div>
                 <ActivityFeed />

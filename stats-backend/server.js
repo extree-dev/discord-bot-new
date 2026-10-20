@@ -1,19 +1,20 @@
-// Отдельный лёгкий бэкенд только для Riot Sign-On (RSO) у Extree Stats —
+// Бэкенд Extree Stats — RSO-логин (Riot Sign-On) и собственная система
+// аккаунтов (email + пароль, db.js/users.js/emailCodes.js/mailer.js) —
 // вынесен из dashboard/server.js намеренно: Extree Stats независимый
 // продукт (своя заявка в Riot Developer Portal, свой домен
-// stats.extree.tech) — смешивать его сессии с личным кабинетом бота
-// значило бы по коду связать два разных продукта. Образ переиспользует
-// тот же Docker-образ, что бот/дашборд (docker-compose.yml, build: .,
-// другой command) — у этого сервиса нет зависимостей сверх express/
-// helmet/express-rate-limit, уже в package.json корня, заводить под три
-// файла отдельный npm-пакет/Dockerfile было бы лишним (в отличие от
-// stats-frontend/ — там принципиально другой тулинг, Vite/React/TS).
+// stats.extree.tech) — смешивать его сессии/данные с личным кабинетом
+// бота значило бы по коду связать два разных продукта. Образ
+// переиспользует тот же Docker-образ, что бот/дашборд (docker-
+// compose.yml, build: ., другой command); зависимости сверх корневого
+// package.json — pg (та же БД, что у бота, но свои таблицы, см. db.js)
+// и nodemailer (своя почта под Extree Stats, не Resend бота).
 //
 // RSO ещё не выдан Riot'ом (см. riotOAuth.js) — RIOT_CLIENT_ID/
 // RIOT_CLIENT_SECRET пока не заданы нигде, и /auth/riot/login честно
 // отвечает редиректом с ошибкой вместо похода в Riot с пустым client_id
 // — тот же паттерн, что /auth/google/login в dashboard/server.js при
-// незаданном GOOGLE_CLIENT_ID.
+// незаданном GOOGLE_CLIENT_ID. Пока RSO недоступен, email+пароль —
+// единственный способ завести аккаунт.
 require('dotenv').config({ quiet: true });
 const express = require('express');
 const helmet = require('helmet');
@@ -21,6 +22,10 @@ const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 const riotOAuth = require('./riotOAuth');
 const { encryptSession, decryptSession } = require('./session');
+const users = require('./users');
+const emailCodes = require('./emailCodes');
+const mailer = require('./mailer');
+const { normalizeEmail, isValidEmail, isValidPassword } = require('./validation');
 
 const PORT = process.env.STATS_BACKEND_PORT || 3000;
 const RIOT_CLIENT_ID = process.env.RIOT_CLIENT_ID;
@@ -35,6 +40,7 @@ if (!SESSION_SECRET) {
 const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
+app.use(express.json({ limit: '10kb' }));
 
 const authRateLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -77,6 +83,19 @@ function getSessionFromReq(req) {
     return raw ? decryptSession(raw, SESSION_SECRET) : null;
 }
 
+// Общий для RSO-логина и email+пароль-логина — оба в итоге просто кладут
+// в одну и ту же cookie зашифрованный payload, разной формы ({sub, ...}
+// для Riot, {userId, ...} для email-аккаунта); /api/account/me и
+// /api/session читают из неё то поле, которое им нужно.
+function setSessionCookie(res, payload) {
+    res.cookie(SESSION_COOKIE, encryptSession({ ...payload, issuedAt: Date.now() }, SESSION_SECRET), {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: SESSION_MAX_AGE_MS,
+    });
+}
+
 app.get('/auth/riot/login', (req, res) => {
     if (!RIOT_CLIENT_ID) {
         res.redirect('/?auth_error=1');
@@ -107,13 +126,7 @@ app.get('/auth/riot/callback', async (req, res) => {
             code,
         });
         const identity = await riotOAuth.fetchIdentity(token.access_token);
-        const session = encryptSession({ sub: identity.sub, issuedAt: Date.now() }, SESSION_SECRET);
-        res.cookie(SESSION_COOKIE, session, {
-            httpOnly: true,
-            secure: true,
-            sameSite: 'lax',
-            maxAge: SESSION_MAX_AGE_MS,
-        });
+        setSessionCookie(res, { sub: identity.sub });
         res.redirect('/');
     } catch (err) {
         console.error('stats-backend: ошибка обмена кода на токен Riot:', err);
@@ -129,6 +142,164 @@ app.get('/auth/logout', (req, res) => {
 app.get('/api/session', (req, res) => {
     const session = getSessionFromReq(req);
     res.json({ user: session ? { sub: session.sub } : null });
+});
+
+// Регистрация email+паролем — отдельная от RSO система входа (см. PR,
+// добавляющий этот блок): пока Riot не одобрил продукт и RSO недоступен,
+// это единственный способ завести аккаунт. riot_puuid в схеме уже есть
+// (db.js) — привязка Riot-профиля к уже созданному аккаунту планируется
+// отдельной функцией позже, этот эндпоинт её не трогает.
+async function issueAndSendCode(email) {
+    const code = emailCodes.generateCode();
+    await emailCodes.upsertCode(email, code);
+    await mailer.sendVerificationCode(email, code);
+}
+
+app.post('/auth/register', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
+
+    if (!isValidEmail(email)) {
+        res.status(400).json({ error: 'invalid_email' });
+        return;
+    }
+    if (!isValidPassword(password)) {
+        res.status(400).json({ error: 'invalid_password' });
+        return;
+    }
+
+    const existing = await users.findByEmail(email);
+    if (existing?.email_verified_at) {
+        res.status(409).json({ error: 'email_already_registered' });
+        return;
+    }
+    if (await emailCodes.isOnCooldown(email)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        // Существующий, но ещё не подтверждённый аккаунт — перезаписываем
+        // пароль (пользователь мог опечататься в первой попытке) и шлём
+        // новый код, не создавая дубликат.
+        await users.upsertUnverifiedUser(email, users.hashPassword(password));
+        await issueAndSendCode(email);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('stats-backend: ошибка регистрации:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+app.post('/auth/resend-code', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!isValidEmail(email)) {
+        res.status(400).json({ error: 'invalid_email' });
+        return;
+    }
+
+    const existing = await users.findByEmail(email);
+    if (!existing || existing.email_verified_at) {
+        // Не сообщаем, зарегистрирован ли email и подтверждён ли он —
+        // чтобы по ответу нельзя было перебором узнавать чужие email.
+        res.json({ ok: true });
+        return;
+    }
+    if (await emailCodes.isOnCooldown(email)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        await issueAndSendCode(email);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('stats-backend: ошибка повторной отправки кода:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+app.post('/auth/verify', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+
+    if (!isValidEmail(email) || !code) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+
+    const row = await emailCodes.getCode(email);
+    if (!row) {
+        res.status(400).json({ error: 'code_not_found' });
+        return;
+    }
+    if (Date.now() > new Date(row.expires_at).getTime()) {
+        await emailCodes.deleteCode(email);
+        res.status(400).json({ error: 'code_expired' });
+        return;
+    }
+    if (row.attempts >= emailCodes.MAX_ATTEMPTS) {
+        res.status(429).json({ error: 'too_many_attempts' });
+        return;
+    }
+    if (code !== row.code) {
+        await emailCodes.registerFailedAttempt(email);
+        res.status(400).json({ error: 'wrong_code' });
+        return;
+    }
+
+    const user = await users.markEmailVerified(email);
+    await emailCodes.deleteCode(email);
+    if (!user) {
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+
+    setSessionCookie(res, { userId: user.id });
+    res.json({ ok: true, user: { email: user.email } });
+});
+
+app.post('/auth/login', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
+
+    if (!isValidEmail(email) || typeof password !== 'string') {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+
+    const user = await users.findByEmail(email);
+    if (!user || !users.verifyPasswordHash(password, user.password_hash)) {
+        res.status(401).json({ error: 'invalid_credentials' });
+        return;
+    }
+    if (!user.email_verified_at) {
+        res.status(403).json({ error: 'email_not_verified' });
+        return;
+    }
+
+    setSessionCookie(res, { userId: user.id });
+    res.json({ ok: true, user: { email: user.email } });
+});
+
+app.get('/api/account/me', async (req, res) => {
+    const session = getSessionFromReq(req);
+    if (!session?.userId) {
+        res.json({ user: null });
+        return;
+    }
+    const user = await users.findById(session.userId);
+    if (!user) {
+        res.json({ user: null });
+        return;
+    }
+    res.json({
+        user: {
+            email: user.email,
+            emailVerified: Boolean(user.email_verified_at),
+            riotLinked: Boolean(user.riot_puuid),
+        },
+    });
 });
 
 app.listen(PORT, () => {
