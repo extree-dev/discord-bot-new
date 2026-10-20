@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AuthCard } from '../../widgets/auth-card';
+import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
 import { verifyCode, resendCode, ApiError } from '../../shared/api/statsAuth';
@@ -46,9 +46,21 @@ export function VerifyPage() {
     }
 
     return (
-        <AuthCard
-            title="Check your email"
-            subtitle={email ? `We sent a 6-digit code to ${email}.` : 'Enter the 6-digit code we sent you.'}
+        <SplitAuthLayout
+            badge="Almost there"
+            heading={
+                <>
+                    Check your
+                    <br />
+                    <span className="hl">email.</span>
+                </>
+            }
+            lead={
+                email
+                    ? `We sent a 6-digit code to ${email}. Enter it below to finish setting up your account.`
+                    : 'Enter the 6-digit code we sent you to finish setting up your account.'
+            }
+            cardTitle="Verify"
             error={error}
             footer={
                 <button type="button" className={styles.resend} onClick={onResend} disabled={resending}>
@@ -69,10 +81,10 @@ export function VerifyPage() {
                     value={code}
                     onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
                 />
-                <Button type="submit" variant="primary" fullWidth disabled={pending}>
+                <Button type="submit" variant="flat" fullWidth disabled={pending}>
                     {pending ? 'Verifying…' : 'Verify'}
                 </Button>
             </form>
-        </AuthCard>
+        </SplitAuthLayout>
     );
 }

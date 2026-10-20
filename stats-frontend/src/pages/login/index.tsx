@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthCard } from '../../widgets/auth-card';
+import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
 import { login, ApiError } from '../../shared/api/statsAuth';
@@ -32,8 +32,17 @@ export function LoginPage() {
     }
 
     return (
-        <AuthCard
-            title="Sign in"
+        <SplitAuthLayout
+            badge="Welcome back"
+            heading={
+                <>
+                    Good to
+                    <br />
+                    <span className="hl">see you again.</span>
+                </>
+            }
+            lead="Sign in to check your win rates, K/D trends, and rank progress — right where you left off."
+            cardTitle="Sign in"
             error={error}
             footer={
                 <>
@@ -60,10 +69,10 @@ export function LoginPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
-                <Button type="submit" variant="primary" fullWidth disabled={pending}>
+                <Button type="submit" variant="flat" fullWidth disabled={pending}>
                     {pending ? 'Signing in…' : 'Sign in'}
                 </Button>
             </form>
-        </AuthCard>
+        </SplitAuthLayout>
     );
 }

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthCard } from '../../widgets/auth-card';
+import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
 import { register, ApiError } from '../../shared/api/statsAuth';
@@ -28,13 +28,21 @@ export function RegisterPage() {
     }
 
     return (
-        <AuthCard
-            title="Create your account"
-            subtitle="Sign up with email — you can connect your Riot account later."
+        <SplitAuthLayout
+            badge="Free account — 30 seconds"
+            heading={
+                <>
+                    Track your game.
+                    <br />
+                    <span className="hl">Match by match.</span>
+                </>
+            }
+            lead="Create a free account to save your lookups, track trends over time, and unlock your activity feed."
+            cardTitle="Create account"
             error={error}
             footer={
                 <>
-                    Already have an account? <Link to="/login">Sign in</Link>
+                    Already have an account? <Link to="/login">Log in</Link>
                 </>
             }
         >
@@ -58,10 +66,10 @@ export function RegisterPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
-                <Button type="submit" variant="primary" fullWidth disabled={pending}>
+                <Button type="submit" variant="flat" fullWidth disabled={pending}>
                     {pending ? 'Creating account…' : 'Create account'}
                 </Button>
             </form>
-        </AuthCard>
+        </SplitAuthLayout>
     );
 }
