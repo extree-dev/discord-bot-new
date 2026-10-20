@@ -4,6 +4,20 @@
     gap: 16px;
 }
 
+.codeField {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.codeLabel {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+}
+
 .resend {
     background: none;
     border: none;
