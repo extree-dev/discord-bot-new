@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { SiteHeader } from '../../widgets/site-header';
 import { ActivityFeed } from '../../widgets/activity-feed';
 import { RiotSignInButton } from '../../features/riot-sign-in/RiotSignInButton';
+import { Button } from '../../shared/ui/Button';
 import styles from './index.module.scss';
 
 // Дисклеймер — обязательный пункт политик Riot Developer Portal
@@ -14,13 +15,14 @@ export function SignInPage() {
         <div className={styles.page}>
             <div className={styles.ambient} aria-hidden="true" />
             <SiteHeader
-                rightSlot={
+                actions={
                     <>
-                        <Link to="/privacy">Privacy Policy</Link>
-                        <span aria-hidden="true"> · </span>
-                        <Link to="/terms">Terms of Use</Link>
-                        <span aria-hidden="true"> · </span>
-                        <Link to="/login">Log in</Link>
+                        <Button href="/login" variant="ghost" size="sm">
+                            Log in
+                        </Button>
+                        <Button href="/register" variant="primary" size="sm">
+                            Sign up
+                        </Button>
                     </>
                 }
             />
@@ -46,6 +48,11 @@ export function SignInPage() {
                 </div>
                 <ActivityFeed />
             </main>
+            <footer className={styles.footer}>
+                <Link to="/privacy">Privacy Policy</Link>
+                <span aria-hidden="true"> · </span>
+                <Link to="/terms">Terms of Use</Link>
+            </footer>
         </div>
     );
 }
