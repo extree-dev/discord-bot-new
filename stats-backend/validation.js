@@ -33,4 +33,20 @@ function isValidNickname(nickname) {
     return typeof nickname === 'string' && NICKNAME_RE.test(nickname);
 }
 
-module.exports = { normalizeEmail, isValidEmail, isValidPassword, isValidName, isValidNickname };
+function isValidSubject(subject) {
+    return typeof subject === 'string' && subject.trim().length >= 1 && subject.trim().length <= 200;
+}
+
+function isValidMessage(message) {
+    return typeof message === 'string' && message.trim().length >= 1 && message.trim().length <= 5000;
+}
+
+module.exports = {
+    normalizeEmail,
+    isValidEmail,
+    isValidPassword,
+    isValidName,
+    isValidNickname,
+    isValidSubject,
+    isValidMessage,
+};

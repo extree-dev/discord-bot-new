@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthCard } from '../../widgets/auth-card';
 import { getAccount, type AccountUser } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
@@ -61,6 +61,9 @@ export function AccountPage() {
                 </button>
             </div>
 
+            <Link className={styles.logout} to="/support">
+                Contact support
+            </Link>
             <a className={styles.logout} href="/auth/logout">
                 Sign out
             </a>
