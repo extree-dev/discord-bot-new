@@ -48,7 +48,10 @@ export function PrivacyPage() {
                         <code>sub</code> claim from Riot&apos;s OpenID Connect <code>/userinfo</code> endpoint) so we
                         know which Riot account is signed in. We never see or store your Riot password — authentication
                         happens entirely on Riot&apos;s own servers. Linking a Riot account to your Extree Stats account
-                        is planned but not available yet.
+                        is planned but not available yet — per Riot&apos;s own policies, linking it will require
+                        accepting a separate, explicit notice that doing so makes your VALORANT stats visible to other
+                        Extree Stats users who look you up. We won&apos;t show match data for any Riot account that
+                        hasn&apos;t opted in that way itself.
                     </p>
 
                     <h2>How it&apos;s stored</h2>
