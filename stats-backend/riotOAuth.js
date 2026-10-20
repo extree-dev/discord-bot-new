@@ -8,10 +8,10 @@
 // Developer Portal — Pending Review, а RSO-доступ Riot выдаёт ОТДЕЛЬНЫМ
 // приглашением уже ПОСЛЕ одобрения продукта (см. официальные статьи
 // support-developer.riotgames.com — "RSO - Riot Sign-On" и "OAuth Client
-// Documentation"). Поэтому часть деталей ниже — лучшее предположение по
-// открытым (не всегда официальным) источникам, а НЕ подтверждённая
-// документация, и это нужно перепроверить, когда Riot реально выдаст
-// RSO-клиент:
+// Documentation"). Часть деталей ниже подтверждена официальным
+// туториалом Riot по внедрению RSO ("Implementing Riot Sign On"), часть
+// всё ещё лучшее предположение — и это нужно перепроверить, когда Riot
+// реально выдаст RSO-клиент:
 //   - Client-авторизация на /token: Riot выдаёт клиент с одним из двух
 //     методов — "Client Secret Basic" (как реализовано здесь — client_id
 //     + client_secret в теле запроса, тот же паттерн, что у Discord/
@@ -20,13 +20,18 @@
 //     Riot при выдаче клиента.
 //   - PKCE: не подтверждено, требует ли /authorize code_challenge —
 //     пока не реализован.
-//   - scope: 'openid offline_access' — по аналогии с другими OIDC-
-//     провайдерами в этом проекте; какой scope реально нужен для доступа
-//     к PUUID игрока через VALORANT API, нужно свериться с настоящей
-//     RSO-докой.
-//   - identity-эндпоинт: используется стандартный OIDC /userinfo;
-//     возможно, PUUID для VALORANT API нужно получать отдельно через
-//     account-v1 с тем же access_token — тоже требует проверки.
+//   - scope: 'openid offline_access' — ПОДТВЕРЖДЕНО туториалом Riot:
+//     openid обязателен, offline_access — опциональный scope именно для
+//     refresh-токенов (ровно то, что здесь и запрашивается). Есть ещё
+//     необязательный scope 'cpid' (игровой регион) — не запрашивается,
+//     пока не понадобится для региональной маршрутизации VALORANT API.
+//   - identity-эндпоинт: используется стандартный OIDC /userinfo — ПОДТВЕРЖДЕНО
+//     туториалом Riot (возвращает claim'ы вроде sub/cpid по Bearer-токену).
+//     Для доступа к самому VALORANT API (матчи, ранг) этого НЕДОСТАТОЧНО —
+//     PUUID игрока нужно получать отдельным вызовом
+//     /riot/account/v1/accounts/me на региональном хосте (americas/europe/
+//     asia) с тем же access_token (см. developer.riotgames.com/docs/valorant)
+//     — это пока не реализовано, т.к. матч-данные ещё не строятся.
 const RIOT_AUTH_HOST = 'https://auth.riotgames.com';
 
 function buildAuthorizeUrl({ clientId, redirectUri, state }) {

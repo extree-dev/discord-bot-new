@@ -48,6 +48,9 @@ export function TermsPage() {
                         sent to that email. Linking a Riot account to it (via Riot Sign-On, RSO) is planned but not
                         available yet — once it is, we won't collect or store your Riot password, and we won't look up
                         or display another player's match history without that player having signed in themselves.
+                        Linking will require accepting a separate, clear notice that doing so makes your match stats
+                        visible to other Extree Stats users who look you up — we only show data for Riot accounts that
+                        have opted in that way themselves.
                     </p>
                     <p>
                         Keep your password to yourself and use one account per person — don't share logins or create
@@ -57,8 +60,16 @@ export function TermsPage() {
                     <h2>Acceptable use</h2>
                     <ul>
                         <li>
-                            Don't use Extree Stats to build or operate an item-shop checker, or anything else Riot's
-                            policies prohibit.
+                            Don't use Extree Stats to build or operate an item-shop checker, cheating tools, or anything
+                            else Riot's policies prohibit.
+                        </li>
+                        <li>
+                            Rank progress shown here is always Riot's own official rank — Extree Stats doesn't compute
+                            an alternative ranking, MMR, or ELO system of its own.
+                        </li>
+                        <li>
+                            Don't attempt to identify or de-anonymize a player the game itself keeps hidden, including
+                            anyone who hasn't linked their Riot account to Extree Stats.
                         </li>
                         <li>
                             Don't attempt to scrape, reverse-engineer, or exceed the request volume a normal player
