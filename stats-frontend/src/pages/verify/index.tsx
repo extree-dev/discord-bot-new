@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
-import { TextField } from '../../shared/ui/TextField';
+import { CodeInput } from '../../shared/ui/CodeInput';
 import { Button } from '../../shared/ui/Button';
 import { verifyCode, resendCode, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
+
+const CODE_LENGTH = 6;
 
 export function VerifyPage() {
     const navigate = useNavigate();
@@ -15,20 +17,41 @@ export function VerifyPage() {
     const [notice, setNotice] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
     const [resending, setResending] = useState(false);
+    const submittedCode = useRef<string | null>(null);
 
-    async function onSubmit(e: FormEvent) {
-        e.preventDefault();
+    async function submit(value: string) {
         setError(null);
         setNotice(null);
         setPending(true);
         try {
-            await verifyCode(email, code);
+            await verifyCode(email, value);
             navigate('/account');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
+            submittedCode.current = null;
         } finally {
             setPending(false);
         }
+    }
+
+    // Автосабмит, когда введены все 6 цифр — тот же UX, что в большинстве
+    // приложений с OTP-ячейками (см. CodeInput): не нужно отдельно жать
+    // "Verify" после последней цифры. Кнопка ниже остаётся как явный
+    // резерв (вставка кода целиком, автозаполнение из автозаполнителя и т.п.)
+    useEffect(() => {
+        if (code.length === CODE_LENGTH && !pending && submittedCode.current !== code) {
+            submittedCode.current = code;
+            void submit(code);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code, pending]);
+
+    async function onSubmit(e: FormEvent) {
+        e.preventDefault();
+        if (code.length === CODE_LENGTH) {
+            submittedCode.current = code;
+        }
+        await submit(code);
     }
 
     async function onResend() {
@@ -69,19 +92,11 @@ export function VerifyPage() {
             }
         >
             <form className={styles.form} onSubmit={onSubmit}>
-                <TextField
-                    id="code"
-                    label="Verification code"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    minLength={6}
-                    maxLength={6}
-                    placeholder="000000"
-                    required
-                    value={code}
-                    onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
-                />
-                <Button type="submit" variant="flat" fullWidth disabled={pending}>
+                <div className={styles.codeField}>
+                    <span className={styles.codeLabel}>Verification code</span>
+                    <CodeInput length={CODE_LENGTH} value={code} onChange={setCode} disabled={pending} autoFocus />
+                </div>
+                <Button type="submit" variant="flat" fullWidth disabled={pending || code.length < CODE_LENGTH}>
                     {pending ? 'Verifying…' : 'Verify'}
                 </Button>
             </form>
