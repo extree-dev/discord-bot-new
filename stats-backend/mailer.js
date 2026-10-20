@@ -328,7 +328,15 @@ We got your support request. Ticket ${ticketId}.
 // Внутреннее письмо команде поддержки (support@extree.tech) с содержимым
 // заявки — Reply-To указывает на адрес отправителя, чтобы ответить можно
 // было обычным "Ответить" в почтовом клиенте, без отдельной админки.
-function renderSupportTicketNotificationEmail({ ticketId, email, subject, message, userId }) {
+const SUPPORT_CATEGORY_LABELS = {
+    account: 'Account & login',
+    bug: 'Bug report',
+    billing: 'Billing',
+    other: 'Other',
+};
+
+function renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId }) {
+    const categoryLabel = SUPPORT_CATEGORY_LABELS[category] || 'Other';
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -346,6 +354,7 @@ function renderSupportTicketNotificationEmail({ ticketId, email, subject, messag
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
         <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${escapeHtml(ticketId)}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">From</td><td style="padding:4px 0;">${escapeHtml(email)}${userId ? ' (signed in)' : ' (not signed in)'}</td></tr>
+        <tr><td style="padding:4px 0;color:#888888;">Category</td><td style="padding:4px 0;">${escapeHtml(categoryLabel)}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
       </table>
     </td></tr>
@@ -410,14 +419,14 @@ async function sendSupportTicketConfirmation(email, { ticketId, subject }) {
     });
 }
 
-async function sendSupportTicketNotification({ ticketId, email, subject, message, userId }) {
+async function sendSupportTicketNotification({ ticketId, email, subject, message, category, userId }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: 'support@extree.tech',
         replyTo: email,
         subject: `[Ticket ${ticketId}] ${subject}`,
-        html: renderSupportTicketNotificationEmail({ ticketId, email, subject, message, userId }),
+        html: renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId }),
     });
 }
 

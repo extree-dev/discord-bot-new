@@ -24,13 +24,13 @@ async function isOnCooldown(email) {
     return Date.now() - new Date(rows[0].created_at).getTime() < RESEND_COOLDOWN_MS;
 }
 
-async function createTicket({ userId, email, subject, message }) {
+async function createTicket({ userId, email, subject, message, category }) {
     await ensureSchema();
     const id = crypto.randomUUID();
     await getPool().query(
-        `INSERT INTO stats_support_tickets (id, user_id, email, subject, message)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [id, userId ?? null, email, subject, message]
+        `INSERT INTO stats_support_tickets (id, user_id, email, subject, message, category)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [id, userId ?? null, email, subject, message, category]
     );
     return { id };
 }

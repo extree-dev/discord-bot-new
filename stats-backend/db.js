@@ -88,7 +88,8 @@ function ensureSchema() {
                 );
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS name TEXT;
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS nickname TEXT;
-                CREATE UNIQUE INDEX IF NOT EXISTS stats_users_nickname_key ON stats_users (nickname)`
+                CREATE UNIQUE INDEX IF NOT EXISTS stats_users_nickname_key ON stats_users (nickname);
+                ALTER TABLE stats_support_tickets ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other'`
             )
             .catch(err => {
                 // Гонка двух процессов на свежей БД (см. utils/db.js) — не

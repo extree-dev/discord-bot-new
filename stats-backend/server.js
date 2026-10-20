@@ -43,6 +43,7 @@ const {
     isValidNickname,
     isValidSubject,
     isValidMessage,
+    isValidCategory,
 } = require('./validation');
 
 const PORT = process.env.STATS_BACKEND_PORT || 3000;
@@ -566,6 +567,7 @@ app.post('/api/support/tickets', async (req, res) => {
 
     const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
     const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    const category = typeof req.body?.category === 'string' ? req.body.category.trim() : '';
 
     if (!isValidSubject(subject)) {
         res.status(400).json({ error: 'invalid_subject' });
@@ -575,16 +577,27 @@ app.post('/api/support/tickets', async (req, res) => {
         res.status(400).json({ error: 'invalid_message' });
         return;
     }
+    if (!isValidCategory(category)) {
+        res.status(400).json({ error: 'invalid_category' });
+        return;
+    }
     if (await supportTickets.isOnCooldown(email)) {
         res.status(429).json({ error: 'code_on_cooldown' });
         return;
     }
 
     try {
-        const ticket = await supportTickets.createTicket({ userId, email, subject, message });
+        const ticket = await supportTickets.createTicket({ userId, email, subject, message, category });
         await mailer.sendSupportTicketConfirmation(email, { ticketId: ticket.id, subject });
         try {
-            await mailer.sendSupportTicketNotification({ ticketId: ticket.id, email, subject, message, userId });
+            await mailer.sendSupportTicketNotification({
+                ticketId: ticket.id,
+                email,
+                subject,
+                message,
+                category,
+                userId,
+            });
         } catch (err) {
             // Письмо в поддержку — не критично для самого факта подачи
             // заявки (она уже сохранена в БД): не роняем ответ пользователю

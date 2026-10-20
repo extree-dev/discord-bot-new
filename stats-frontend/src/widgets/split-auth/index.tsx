@@ -6,6 +6,7 @@ interface SplitAuthLayoutProps {
     badge: ReactNode;
     heading: ReactNode;
     lead?: ReactNode;
+    leftExtra?: ReactNode;
     cardTitle: string;
     error?: string | null;
     children: ReactNode;
@@ -19,7 +20,16 @@ interface SplitAuthLayoutProps {
 // карточка нарочно более плоская/жёсткая (border-radius 6px, акцентный
 // кант сверху, прямоугольная кнопка), чем мягкие скруглённые элементы
 // слева — это намеренный контраст, одобренный в макетах (вариант J).
-export function SplitAuthLayout({ badge, heading, lead, cardTitle, error, children, footer }: SplitAuthLayoutProps) {
+export function SplitAuthLayout({
+    badge,
+    heading,
+    lead,
+    leftExtra,
+    cardTitle,
+    error,
+    children,
+    footer,
+}: SplitAuthLayoutProps) {
     return (
         <div className={styles.page}>
             <SiteHeader />
@@ -31,6 +41,7 @@ export function SplitAuthLayout({ badge, heading, lead, cardTitle, error, childr
                     </div>
                     <h1 className={styles.heading}>{heading}</h1>
                     {lead && <p className={styles.lead}>{lead}</p>}
+                    {leftExtra}
                 </div>
                 <div className={styles.card}>
                     <h2 className={styles.cardTitle}>{cardTitle}</h2>

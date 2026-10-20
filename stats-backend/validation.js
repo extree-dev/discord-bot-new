@@ -41,6 +41,15 @@ function isValidMessage(message) {
     return typeof message === 'string' && message.trim().length >= 1 && message.trim().length <= 5000;
 }
 
+// Категории заявок в поддержку — тот же список, что на фронтенде
+// (pages/support), значения — ключи, а не отображаемые надписи, чтобы
+// можно было поменять текст без миграции данных.
+const SUPPORT_CATEGORIES = ['account', 'bug', 'billing', 'other'];
+
+function isValidCategory(category) {
+    return typeof category === 'string' && SUPPORT_CATEGORIES.includes(category);
+}
+
 module.exports = {
     normalizeEmail,
     isValidEmail,
@@ -49,4 +58,6 @@ module.exports = {
     isValidNickname,
     isValidSubject,
     isValidMessage,
+    SUPPORT_CATEGORIES,
+    isValidCategory,
 };
