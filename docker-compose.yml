@@ -90,22 +90,29 @@ services:
                 condition: service_healthy
         command: ['node', 'dashboard/server.js']
 
-    # Бэкенд Extree Stats (RSO-логин, stats.extree.tech) — тот же образ,
-    # что бот/дашборд (build: ., нет собственных зависимостей сверх уже
-    # установленных в package.json корня: express/helmet/express-rate-
-    # limit), другой command. Сознательно отдельный сервис, а не ещё один
-    # роут в dashboard/server.js: Extree Stats независимый продукт (своя
-    # заявка в Riot Developer Portal), смешивать его сессии с личным
-    # кабинетом бота значило бы по коду связать два разных продукта. БД
-    # не нужна — сессия целиком в cookie, см. stats-backend/session.js.
-    # RIOT_CLIENT_ID/RIOT_CLIENT_SECRET пока не заданы (Riot ещё не
-    # одобрил заявку) — сервис всё равно стартует и честно отвечает
-    # ошибкой на /auth/riot/login вместо похода в Riot с пустым client_id.
+    # Бэкенд Extree Stats (RSO-логин + email/пароль-аккаунты,
+    # stats.extree.tech) — тот же образ, что бот/дашборд (build: .),
+    # другой command. Сознательно отдельный сервис, а не ещё один роут в
+    # dashboard/server.js: Extree Stats независимый продукт (своя заявка
+    # в Riot Developer Portal), смешивать его сессии/данные с личным
+    # кабинетом бота значило бы по коду связать два разных продукта.
+    # DATABASE_URL — тот же Postgres-сервер, что у bot/dashboard (ради
+    # экономии ресурсов — не поднимаем второй контейнер БД), но свои
+    # таблицы (stats_users, stats_email_codes, см. stats-backend/db.js),
+    # не bot_stores/dashboard_accounts. RIOT_CLIENT_ID/RIOT_CLIENT_SECRET
+    # пока не заданы (Riot ещё не одобрил заявку) — сервис всё равно
+    # стартует и честно отвечает ошибкой на /auth/riot/login вместо
+    # похода в Riot с пустым client_id; email+пароль работает уже сейчас.
     stats-backend:
         build: .
         restart: unless-stopped
         env_file:
             - .env
+        environment:
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+        depends_on:
+            postgres:
+                condition: service_healthy
         command: ['node', 'stats-backend/server.js']
 
     # Страница бота (bot.extree.tech, web/bot-site/) + автоматический TLS

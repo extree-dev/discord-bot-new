@@ -91,6 +91,22 @@
     line-height: 1.6;
 }
 
+.altAuth {
+    margin: 14px 0 0;
+    font-size: 13px;
+    color: var(--text-faint);
+
+    a {
+        color: var(--text-dim);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    a:hover {
+        color: var(--text);
+    }
+}
+
 .disclaimer {
     margin-top: 28px;
     max-width: 480px;

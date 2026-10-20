@@ -6,85 +6,97 @@ import styles from './index.module.scss';
 // Portal наравне с Terms of Use (developer.riotgames.com/policies/
 // general требует оба документа у любого продукта на их API, особенно
 // с OAuth-логином). Текст написан по факту того, что реально делает
-// stats-backend/server.js и session.js — не шаблон: единственное, что
-// сохраняется о пользователе — поле "sub" из Riot OIDC /userinfo внутри
-// зашифрованной httpOnly-куки, без отдельной базы данных.
+// stats-backend/ — не шаблон, и обновлён вместе с добавлением
+// email+пароль-аккаунтов (см. stats-backend/users.js/db.js): теперь это
+// больше не "нет базы данных", честность важнее, чем звучать проще.
 export function PrivacyPage() {
     return (
         <div className={styles.page}>
             <SiteHeader rightSlot={<Link to="/terms">Terms of Use</Link>} />
             <main className={styles.main}>
                 <article className={styles.article}>
-                    <p className={styles.updated}>Last updated: October 19, 2026</p>
+                    <p className={styles.updated}>Last updated: October 20, 2026</p>
                     <h1>Privacy Policy</h1>
                     <p>
-                        This page explains what Extree Stats (stats.extree.tech) collects when you sign in with your
-                        Riot account, why, and how to have it removed.
+                        This page explains what Extree Stats (stats.extree.tech) collects, whether you sign in with
+                        email or with your Riot account, why, and how to have it removed.
                     </p>
 
-                    <h2>What we collect</h2>
+                    <h2>Email + password accounts</h2>
                     <p>
-                        When you sign in through Riot Sign-On (RSO), Riot sends us your account&apos;s unique identifier
-                        (the <code>sub</code> claim from Riot&apos;s OpenID Connect <code>/userinfo</code> endpoint) so
-                        we know which Riot account is signed in. We never see or store your Riot password —
-                        authentication happens entirely on Riot&apos;s own servers.
+                        If you create an account, we store your email address and a hashed password (never the password
+                        itself — it&apos;s hashed with scrypt and can&apos;t be reversed) in our database. During
+                        sign-up, we email a 6-digit code to confirm the address is really yours; that code is deleted
+                        once used or after 10 minutes, whichever comes first.
                     </p>
                     <p>
-                        We don&apos;t currently request your email address, Riot ID, or any other profile field — only
-                        the account identifier needed to keep you signed in.
+                        Verification emails are sent from a mailbox dedicated to Extree Stats, separate from the rest of
+                        the extree.tech infrastructure.
+                    </p>
+
+                    <h2>Signing in with Riot (RSO)</h2>
+                    <p>
+                        When you sign in through Riot Sign-On, Riot sends us your account&apos;s unique identifier (the{' '}
+                        <code>sub</code> claim from Riot&apos;s OpenID Connect <code>/userinfo</code> endpoint) so we
+                        know which Riot account is signed in. We never see or store your Riot password — authentication
+                        happens entirely on Riot&apos;s own servers. Linking a Riot account to your Extree Stats account
+                        is planned but not available yet.
                     </p>
 
                     <h2>How it&apos;s stored</h2>
                     <p>
-                        That identifier lives in a single encrypted, <code>httpOnly</code> session cookie (
-                        <code>extree_stats_session</code>) — there is no user database. The cookie is encrypted with
-                        AES-256-GCM and can&apos;t be read or modified from your browser. It expires automatically after
-                        7 days, or immediately when you sign out.
+                        Account data (email, hashed password, and — once linked — your Riot identifier) lives in our
+                        database. Your signed-in session itself is a single encrypted, <code>httpOnly</code> cookie (
+                        <code>extree_stats_session</code>), not a server-side session store — it&apos;s encrypted with
+                        AES-256-GCM, can&apos;t be read or modified from your browser, and expires automatically after 7
+                        days or immediately when you sign out.
                     </p>
                     <p>
-                        A second, short-lived cookie (<code>extree_stats_oauth_state</code>) exists only during the
+                        A second, short-lived cookie (<code>extree_stats_oauth_state</code>) exists only during the Riot
                         sign-in redirect itself, to prevent cross-site request forgery — it&apos;s deleted within
                         minutes either way.
                     </p>
-                    <p>Neither cookie is used for analytics, advertising, or tracking across other sites.</p>
+                    <p>None of these cookies are used for analytics, advertising, or tracking across other sites.</p>
 
                     <h2>VALORANT match data</h2>
                     <p>
-                        Once sign-in is live, match history, win rates, and rank data will be requested from the
-                        official VALORANT API server-side, on demand, for the signed-in account only — not in bulk, not
-                        on a schedule, and not cached beyond what&apos;s needed to render the page you asked for.
+                        Once Riot account linking and match history are live, that data will be requested from the
+                        official VALORANT API server-side, on demand, for your account only — not in bulk, not on a
+                        schedule, and not cached beyond what&apos;s needed to render the page you asked for.
                     </p>
 
                     <h2>Who we share data with</h2>
                     <p>
-                        We don&apos;t sell or share your data with third parties. The only outside party involved is
-                        Riot Games, whose API and Sign-On service this product is built on. Extree Stats is a separate
-                        product from the Extree Discord bot and its dashboard — the two don&apos;t share accounts,
-                        sessions, or data.
+                        We don&apos;t sell or share your data with third parties. The outside parties involved are Riot
+                        Games (whose API and Sign-On service this product is built on) and our email provider (used only
+                        to deliver verification codes to the address you give us). Extree Stats is a separate product
+                        from the Extree Discord bot and its dashboard — the two don&apos;t share accounts, sessions, or
+                        data.
                     </p>
 
                     <h2>Deleting your data</h2>
                     <p>
-                        Signing out clears your session cookie immediately. Because we don&apos;t keep a database of
-                        accounts, there&apos;s nothing else to delete on our end. If that changes as the product grows,
-                        this page will be updated to describe how to request deletion.
+                        Signing out clears your session cookie immediately. To delete your account and the data tied to
+                        it, email us — we don&apos;t have self-serve deletion yet, but we&apos;ll remove it by hand on
+                        request.
                     </p>
 
                     <h2>Children</h2>
                     <p>
-                        Extree Stats requires a Riot Games account to sign in, so it&apos;s subject to Riot&apos;s own
-                        age requirements for account creation.
+                        Extree Stats isn&apos;t directed at children. If you link a Riot account, that&apos;s also
+                        subject to Riot&apos;s own age requirements for account creation.
                     </p>
 
                     <h2>Changes</h2>
                     <p>
-                        This policy may change as the product develops, in particular once match-data features go live.
-                        The date above reflects the latest update.
+                        This policy may change as the product develops, in particular once Riot account linking and
+                        match-data features go live. The date above reflects the latest update.
                     </p>
 
                     <h2>Contact</h2>
                     <p>
-                        Questions about your data: <a href="mailto:support@extree.tech">support@extree.tech</a>.
+                        Questions about your data, or to request deletion:{' '}
+                        <a href="mailto:support@extree.tech">support@extree.tech</a>.
                     </p>
                 </article>
             </main>
