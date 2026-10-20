@@ -12,7 +12,15 @@ import styles from './index.module.scss';
 export function TermsPage() {
     return (
         <div className={styles.page}>
-            <SiteHeader rightSlot={<Link to="/privacy">Privacy Policy</Link>} />
+            <SiteHeader
+                rightSlot={
+                    <>
+                        <Link to="/privacy">Privacy Policy</Link>
+                        <span aria-hidden="true"> · </span>
+                        <Link to="/cookies">Cookie Policy</Link>
+                    </>
+                }
+            />
             <main className={styles.main}>
                 <article className={styles.article}>
                     <p className={styles.updated}>Last updated: October 20, 2026</p>

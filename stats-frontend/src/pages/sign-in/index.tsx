@@ -52,6 +52,8 @@ export function SignInPage() {
                 <Link to="/privacy">Privacy Policy</Link>
                 <span aria-hidden="true"> · </span>
                 <Link to="/terms">Terms of Use</Link>
+                <span aria-hidden="true"> · </span>
+                <Link to="/cookies">Cookie Policy</Link>
             </footer>
         </div>
     );
