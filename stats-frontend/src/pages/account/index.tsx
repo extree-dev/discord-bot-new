@@ -31,6 +31,18 @@ export function AccountPage() {
 
     return (
         <AuthCard title="Your account">
+            {user.name && (
+                <div className={styles.row}>
+                    <span className={styles.label}>Name</span>
+                    <span className={styles.value}>{user.name}</span>
+                </div>
+            )}
+            {user.nickname && (
+                <div className={styles.row}>
+                    <span className={styles.label}>Nickname</span>
+                    <span className={styles.value}>{user.nickname}</span>
+                </div>
+            )}
             <div className={styles.row}>
                 <span className={styles.label}>Email</span>
                 <span className={styles.value}>{user.email}</span>

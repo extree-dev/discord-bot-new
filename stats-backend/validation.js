@@ -1,7 +1,10 @@
-// Общие проверки для /auth/register и /auth/login — вынесены в чистые
-// функции, чтобы не плодить одинаковые regex/условия в двух местах
-// server.js.
+// Общие проверки для /auth/register, /auth/login и /auth/reset-password —
+// вынесены в чистые функции, чтобы не плодить одинаковые regex/условия в
+// нескольких местах server.js (и чтобы pages/register и
+// pages/reset-password на фронтенде могли показывать тот же чеклист
+// требований, см. shared/ui/PasswordRequirements).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NICKNAME_RE = /^[a-zA-Z0-9_]{3,24}$/;
 
 function normalizeEmail(email) {
     return typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -11,8 +14,23 @@ function isValidEmail(email) {
     return EMAIL_RE.test(email);
 }
 
+// Минимум 8 символов, хотя бы одна буква и одна цифра — чуть строже
+// прежнего "просто 8 символов", чтобы чеклист требований на фронтенде
+// (PasswordRequirements) имел смысл показывать несколько пунктов, а не
+// один. Не ломает уже существующие аккаунты: правило применяется только
+// при УСТАНОВКЕ нового пароля (регистрация, сброс), не при входе — вход
+// сравнивает хеш, а не перепроверяет сложность задним числом.
 function isValidPassword(password) {
-    return typeof password === 'string' && password.length >= 8 && password.length <= 200;
+    if (typeof password !== 'string' || password.length < 8 || password.length > 200) return false;
+    return /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
 }
 
-module.exports = { normalizeEmail, isValidEmail, isValidPassword };
+function isValidName(name) {
+    return typeof name === 'string' && name.trim().length >= 1 && name.trim().length <= 100;
+}
+
+function isValidNickname(nickname) {
+    return typeof nickname === 'string' && NICKNAME_RE.test(nickname);
+}
+
+module.exports = { normalizeEmail, isValidEmail, isValidPassword, isValidName, isValidNickname };

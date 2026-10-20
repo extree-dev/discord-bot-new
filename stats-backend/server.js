@@ -27,9 +27,10 @@ const users = require('./users');
 const emailCodes = require('./emailCodes');
 const loginCodes = require('./loginCodes');
 const loginLocations = require('./loginLocations');
+const passwordResets = require('./passwordResets');
 const geo = require('./geo');
 const mailer = require('./mailer');
-const { normalizeEmail, isValidEmail, isValidPassword } = require('./validation');
+const { normalizeEmail, isValidEmail, isValidPassword, isValidName, isValidNickname } = require('./validation');
 
 const PORT = process.env.STATS_BACKEND_PORT || 3000;
 const RIOT_CLIENT_ID = process.env.RIOT_CLIENT_ID;
@@ -162,6 +163,8 @@ async function issueAndSendCode(email) {
 app.post('/auth/register', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const nickname = typeof req.body?.nickname === 'string' ? req.body.nickname.trim() : '';
 
     if (!isValidEmail(email)) {
         res.status(400).json({ error: 'invalid_email' });
@@ -169,6 +172,14 @@ app.post('/auth/register', async (req, res) => {
     }
     if (!isValidPassword(password)) {
         res.status(400).json({ error: 'invalid_password' });
+        return;
+    }
+    if (!isValidName(name)) {
+        res.status(400).json({ error: 'invalid_name' });
+        return;
+    }
+    if (!isValidNickname(nickname)) {
+        res.status(400).json({ error: 'invalid_nickname' });
         return;
     }
 
@@ -184,12 +195,19 @@ app.post('/auth/register', async (req, res) => {
 
     try {
         // Существующий, но ещё не подтверждённый аккаунт — перезаписываем
-        // пароль (пользователь мог опечататься в первой попытке) и шлём
-        // новый код, не создавая дубликат.
-        await users.upsertUnverifiedUser(email, users.hashPassword(password));
+        // пароль/имя/никнейм (пользователь мог опечататься в первой
+        // попытке) и шлём новый код, не создавая дубликат.
+        await users.upsertUnverifiedUser(email, users.hashPassword(password), { name, nickname });
         await issueAndSendCode(email);
         res.json({ ok: true });
     } catch (err) {
+        // UNIQUE(nickname) занят кем-то другим — единственное ограничение
+        // схемы, которое реально может сработать здесь (email проверен
+        // выше через findByEmail).
+        if (err.code === '23505' && err.constraint === 'stats_users_nickname_key') {
+            res.status(409).json({ error: 'nickname_taken' });
+            return;
+        }
         console.error('stats-backend: ошибка регистрации:', err);
         res.status(500).json({ error: 'internal_error' });
     }
@@ -408,6 +426,75 @@ app.post('/auth/login/confirm-location', async (req, res) => {
     res.json({ ok: true, user: { email: user.email } });
 });
 
+function resetUrlFor(req, token) {
+    return `https://${req.headers.host}/reset-password?token=${token}`;
+}
+
+app.post('/auth/forgot-password', async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!isValidEmail(email)) {
+        res.status(400).json({ error: 'invalid_email' });
+        return;
+    }
+
+    if (await passwordResets.isOnCooldown(email)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    // Один и тот же ответ независимо от того, существует ли аккаунт —
+    // тот же приём анти-перебора, что /auth/resend-code и
+    // /auth/login/resend-code: по ответу нельзя узнать, зарегистрирован
+    // ли email.
+    const user = await users.findByEmail(email);
+    if (user) {
+        try {
+            const token = await passwordResets.createReset(user.id, email);
+            await mailer.sendPasswordResetEmail(email, resetUrlFor(req, token));
+        } catch (err) {
+            console.error('stats-backend: ошибка отправки письма сброса пароля:', err);
+        }
+    }
+    res.json({ ok: true });
+});
+
+app.post('/auth/reset-password', async (req, res) => {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    const password = req.body?.password;
+
+    if (!token) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+    if (!isValidPassword(password)) {
+        res.status(400).json({ error: 'invalid_password' });
+        return;
+    }
+
+    const row = await passwordResets.getReset(token);
+    if (!row) {
+        res.status(400).json({ error: 'token_not_found' });
+        return;
+    }
+    if (Date.now() > new Date(row.expires_at).getTime()) {
+        await passwordResets.deleteReset(token);
+        res.status(400).json({ error: 'token_expired' });
+        return;
+    }
+
+    const user = await users.updatePasswordHash(row.user_id, users.hashPassword(password));
+    await passwordResets.deleteReset(token);
+    if (!user) {
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+
+    // Успешный сброс — это тоже вход: пускаем сразу в аккаунт, не
+    // заставляя повторно вводить новый пароль на /login.
+    setSessionCookie(res, { userId: user.id });
+    res.json({ ok: true, user: { email: user.email } });
+});
+
 app.get('/api/account/me', async (req, res) => {
     const session = getSessionFromReq(req);
     if (!session?.userId) {
@@ -424,6 +511,8 @@ app.get('/api/account/me', async (req, res) => {
             email: user.email,
             emailVerified: Boolean(user.email_verified_at),
             riotLinked: Boolean(user.riot_puuid),
+            name: user.name,
+            nickname: user.nickname,
         },
     });
 });

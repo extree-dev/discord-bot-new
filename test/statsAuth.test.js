@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeEmail, isValidEmail, isValidPassword } = require('../stats-backend/validation');
+const {
+    normalizeEmail,
+    isValidEmail,
+    isValidPassword,
+    isValidName,
+    isValidNickname,
+} = require('../stats-backend/validation');
 const { hashPassword, verifyPasswordHash } = require('../stats-backend/users');
 const { lookupLocation } = require('../stats-backend/geo');
 
@@ -15,11 +21,31 @@ test('isValidEmail: отличает корректные адреса от не
     assert.equal(isValidEmail(''), false);
 });
 
-test('isValidPassword: минимум 8 символов, максимум 200', () => {
-    assert.equal(isValidPassword('short'), false);
-    assert.equal(isValidPassword('longenough'), true);
-    assert.equal(isValidPassword('a'.repeat(201)), false);
+test('isValidPassword: минимум 8 символов, максимум 200, нужна буква и цифра', () => {
+    assert.equal(isValidPassword('short1'), false);
+    assert.equal(isValidPassword('longenough'), false, 'без цифры не проходит');
+    assert.equal(isValidPassword('12345678'), false, 'без буквы не проходит');
+    assert.equal(isValidPassword('longenough1'), true);
+    assert.equal(isValidPassword(`${'a'.repeat(199)}1`), true, '200 символов — ещё в пределах');
+    assert.equal(isValidPassword(`${'a'.repeat(200)}1`), false, '201 символ — уже за пределами');
     assert.equal(isValidPassword(undefined), false);
+});
+
+test('isValidName: непустое имя до 100 символов', () => {
+    assert.equal(isValidName('Alex'), true);
+    assert.equal(isValidName('  '), false);
+    assert.equal(isValidName(''), false);
+    assert.equal(isValidName('a'.repeat(101)), false);
+    assert.equal(isValidName(undefined), false);
+});
+
+test('isValidNickname: 3-24 символа, латиница/цифры/подчёркивание', () => {
+    assert.equal(isValidNickname('player_1'), true);
+    assert.equal(isValidNickname('ab'), false, 'короче 3 символов');
+    assert.equal(isValidNickname('a'.repeat(25)), false, 'длиннее 24 символов');
+    assert.equal(isValidNickname('bad name'), false, 'пробел недопустим');
+    assert.equal(isValidNickname('игрок'), false, 'нелатинские символы недопустимы');
+    assert.equal(isValidNickname(undefined), false);
 });
 
 test('hashPassword/verifyPasswordHash: верный пароль проходит, неверный — нет', () => {

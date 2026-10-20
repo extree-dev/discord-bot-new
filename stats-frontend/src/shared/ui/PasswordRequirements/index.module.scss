@@ -1,0 +1,44 @@
+.list {
+    margin: -2px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.list li {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    line-height: 1.4;
+    transition: color 0.15s ease;
+}
+
+.dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition:
+        background 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.unmet {
+    color: var(--text-faint);
+}
+
+.unmet .dot {
+    background: var(--border-strong);
+}
+
+.met {
+    color: var(--text-dim);
+}
+
+.met .dot {
+    background: var(--win);
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.18);
+}

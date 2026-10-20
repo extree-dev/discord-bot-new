@@ -73,6 +73,9 @@ export function LoginPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
+                <Link to="/forgot-password" className={styles.forgot}>
+                    Forgot password?
+                </Link>
                 <Button type="submit" variant="flat" fullWidth disabled={pending}>
                     {pending ? 'Signing in…' : 'Sign in'}
                 </Button>
