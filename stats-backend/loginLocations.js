@@ -9,9 +9,7 @@ const { getPool, ensureSchema } = require('./db');
 
 async function hasAnyKnownLocation(userId) {
     await ensureSchema();
-    const { rows } = await getPool().query(`SELECT 1 FROM stats_known_locations WHERE user_id = $1 LIMIT 1`, [
-        userId,
-    ]);
+    const { rows } = await getPool().query(`SELECT 1 FROM stats_known_locations WHERE user_id = $1 LIMIT 1`, [userId]);
     return rows.length > 0;
 }
 
