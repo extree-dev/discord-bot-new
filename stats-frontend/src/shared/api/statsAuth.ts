@@ -37,6 +37,10 @@ const ERROR_MESSAGES: Record<string, string> = {
     riot_account_not_found: "We couldn't find a Riot account with that Riot ID.",
     riot_api_not_configured: "Riot lookup isn't configured right now — try again later.",
     riot_api_error: 'Riot is not responding right now — try again in a moment.',
+    unauthorized: 'Please sign in again.',
+    wrong_password: "That password doesn't look right.",
+    same_email: "That's already your email.",
+    no_pending_change: "There's no email change to resend a code for.",
 };
 
 function messageFor(code: string): string {
@@ -104,6 +108,22 @@ export function submitSupportTicket(subject: string, message: string, category: 
 
 export function lookupRiotId(riotId: string) {
     return postJson<{ ok: true; gameName: string; tagLine: string }>('/api/riot/lookup', { riotId });
+}
+
+export function requestEmailChange(currentPassword: string, newEmail: string) {
+    return postJson<{ ok: true }>('/auth/account/change-email', { currentPassword, newEmail });
+}
+
+export function resendEmailChangeCode() {
+    return postJson<{ ok: true }>('/auth/account/resend-email-change-code', {});
+}
+
+export function confirmEmailChange(code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/account/confirm-email-change', { code });
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+    return postJson<{ ok: true }>('/auth/account/change-password', { currentPassword, newPassword });
 }
 
 export async function getAccount(): Promise<AccountUser | null> {

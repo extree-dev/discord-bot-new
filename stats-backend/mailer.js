@@ -369,6 +369,201 @@ function renderSupportTicketNotificationEmail({ ticketId, email, subject, messag
 </html>`;
 }
 
+// Код подтверждения смены email — уходит на НОВЫЙ адрес (доказательство
+// владения им), тот же визуальный язык, что renderVerificationEmail.
+function renderEmailChangeCodeEmail({ code }) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Confirm your new email</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+Your Extree Stats email change code: ${code}. Expires in 10 minutes.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                color:#111111;">
+    <tr><td style="padding:40px 40px 0;">
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
+      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
+                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">Confirm your new email</h1>
+    </td></tr>
+    <tr><td style="padding:16px 40px 0;">
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
+        Enter this code to confirm this is your email and finish updating your Extree Stats account.
+      </p>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td align="center" style="background:#f4f5f7;border-radius:12px;padding:28px 24px;">
+          <span style="font-family:'SF Mono','Courier New',Consolas,monospace;font-size:36px;font-weight:600;
+                       letter-spacing:10px;color:#111111;white-space:nowrap;">${code}</span>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:16px 40px 40px;">
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;text-align:center;">
+        Code expires in 10 minutes. Didn't request this? You can ignore this email.
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Уходит на СТАРЫЙ адрес в момент запроса смены — если это не сам
+// владелец, у него есть шанс среагировать до того, как смена завершится
+// (сменить пароль, написать в поддержку), а не только постфактум.
+function renderEmailChangeNoticeEmail({ newEmail }) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Email change requested</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;color:#111111;">
+    <tr><td style="padding:40px 40px 0;">
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
+      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
+                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">Email change requested</h1>
+    </td></tr>
+    <tr><td style="padding:16px 40px 40px;">
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
+        Someone requested changing the email on your Extree Stats account to <strong>${escapeHtml(newEmail)}</strong>.
+        Nothing changes yet — they still need to confirm it from that inbox.
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#888888;">
+        Wasn't you? Change your password right away and contact
+        <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>.
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Финальное письмо — уходит и на старый, и на новый адрес, когда смена
+// уже завершена (тот же приём, что у крупных сервисов: обе стороны видят
+// факт свершившегося изменения, не только запрос).
+function renderEmailChangedEmail({ oldEmail, newEmail }) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Your email was changed</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;color:#111111;">
+    <tr><td style="padding:40px 40px 0;">
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
+      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
+                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">Your email was changed</h1>
+    </td></tr>
+    <tr><td style="padding:16px 40px 40px;">
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
+        The email on your Extree Stats account was changed from <strong>${escapeHtml(oldEmail)}</strong> to
+        <strong>${escapeHtml(newEmail)}</strong>. You'll sign in with the new address from now on.
+      </p>
+      <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#888888;">
+        Wasn't you? Contact <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a> right away.
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Уведомление о смене пароля — общее для /auth/account/change-password
+// (из настроек, уже залогинен) и /auth/reset-password (по ссылке из
+// письма "забыл пароль"): в обоих случаях владельцу стоит знать, что
+// пароль поменялся, тем же визуальным языком, что renderSignInNotificationEmail.
+function renderPasswordChangedEmail({ ip, country, city, time }) {
+    const location = formatLocation({ country, city });
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Your password was changed</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+Your Extree Stats password was just changed from ${location}.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                color:#111111;">
+    <tr><td style="padding:40px 40px 0;">
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
+      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
+                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">Your password was changed</h1>
+    </td></tr>
+    <tr><td style="padding:16px 40px 0;">
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
+        The password for your Extree Stats account was just changed. If this was you, no action is needed.
+      </p>
+    </td></tr>
+    <tr><td style="padding:28px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;border-radius:12px;">
+        <tr><td style="padding:18px 22px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
+            <tr><td style="padding:4px 0;color:#888888;width:84px;">Time</td><td style="padding:4px 0;">${time}</td></tr>
+            <tr><td style="padding:4px 0;color:#888888;">Location</td><td style="padding:4px 0;">${location}</td></tr>
+            <tr><td style="padding:4px 0;color:#888888;">IP address</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${ip ?? 'unknown'}</td></tr>
+          </table>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:20px 40px 40px;">
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;">
+        Didn't do this? Contact
+        <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>
+        right away.
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
 async function sendVerificationCode(email, code) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
@@ -409,6 +604,46 @@ async function sendPasswordResetEmail(email, resetUrl) {
     });
 }
 
+async function sendEmailChangeCode(newEmail, { code }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to: newEmail,
+        subject: 'Confirm your new email — Extree Stats',
+        html: renderEmailChangeCodeEmail({ code }),
+    });
+}
+
+async function sendEmailChangeNotice(oldEmail, { newEmail }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to: oldEmail,
+        subject: 'Email change requested — Extree Stats',
+        html: renderEmailChangeNoticeEmail({ newEmail }),
+    });
+}
+
+async function sendEmailChanged(to, { oldEmail, newEmail }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to,
+        subject: 'Your email was changed — Extree Stats',
+        html: renderEmailChangedEmail({ oldEmail, newEmail }),
+    });
+}
+
+async function sendPasswordChanged(email, { ip, country, city, time }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to: email,
+        subject: 'Your password was changed — Extree Stats',
+        html: renderPasswordChangedEmail({ ip, country, city, time }),
+    });
+}
+
 async function sendSupportTicketConfirmation(email, { ticketId, subject }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
@@ -435,12 +670,20 @@ module.exports = {
     sendSignInNotification,
     sendNewLocationCode,
     sendPasswordResetEmail,
+    sendEmailChangeCode,
+    sendEmailChangeNotice,
+    sendEmailChanged,
+    sendPasswordChanged,
     sendSupportTicketConfirmation,
     sendSupportTicketNotification,
     renderVerificationEmail,
     renderSignInNotificationEmail,
     renderNewLocationCodeEmail,
     renderPasswordResetEmail,
+    renderEmailChangeCodeEmail,
+    renderEmailChangeNoticeEmail,
+    renderEmailChangedEmail,
+    renderPasswordChangedEmail,
     renderSupportTicketConfirmationEmail,
     renderSupportTicketNotificationEmail,
 };

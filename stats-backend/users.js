@@ -31,10 +31,15 @@ async function findByEmail(email) {
     return rows[0] ?? null;
 }
 
+// password_hash включён в выборку (хотя большинству вызывающих он не
+// нужен) ради /auth/account/change-email и /auth/account/change-password
+// — обоим нужно сверить текущий пароль по id из сессии, не по email.
+// Безопасно: ни один вызывающий код не отдаёт объект user целиком наружу,
+// всегда явно перечисляет нужные поля в ответе (см. /api/account/me).
 async function findById(id) {
     await ensureSchema();
     const { rows } = await getPool().query(
-        `SELECT id, email, email_verified_at, riot_puuid, name, nickname FROM stats_users WHERE id = $1`,
+        `SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname FROM stats_users WHERE id = $1`,
         [id]
     );
     return rows[0] ?? null;
@@ -82,6 +87,20 @@ async function updatePasswordHash(userId, passwordHash) {
     return rows[0] ?? null;
 }
 
+// Смена email в настройках аккаунта (не путать с markEmailVerified —
+// та подтверждает ПЕРВИЧНЫЙ email при регистрации). Новый адрес уже
+// подтверждён кодом на момент вызова (см. /auth/account/confirm-email-change),
+// поэтому email_verified_at сразу проставляется — семантика "подтверждён"
+// не должна сбрасываться в процессе смены.
+async function updateEmail(userId, newEmail) {
+    await ensureSchema();
+    const { rows } = await getPool().query(
+        `UPDATE stats_users SET email = $2, email_verified_at = now() WHERE id = $1 RETURNING id, email`,
+        [userId, newEmail]
+    );
+    return rows[0] ?? null;
+}
+
 module.exports = {
     hashPassword,
     verifyPasswordHash,
@@ -90,4 +109,5 @@ module.exports = {
     upsertUnverifiedUser,
     markEmailVerified,
     updatePasswordHash,
+    updateEmail,
 };

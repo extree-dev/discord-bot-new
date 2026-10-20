@@ -28,6 +28,7 @@ const riotOAuth = require('./riotOAuth');
 const { encryptSession, decryptSession } = require('./session');
 const users = require('./users');
 const emailCodes = require('./emailCodes');
+const emailChangeCodes = require('./emailChangeCodes');
 const loginCodes = require('./loginCodes');
 const loginLocations = require('./loginLocations');
 const passwordResets = require('./passwordResets');
@@ -524,10 +525,207 @@ app.post('/auth/reset-password', async (req, res) => {
         return;
     }
 
+    try {
+        await mailer.sendPasswordChanged(user.email, {
+            ip: geo.getClientIp(req),
+            ...geo.lookupLocation(geo.getClientIp(req)),
+            time: new Date().toUTCString(),
+        });
+    } catch (err) {
+        // Уведомление — не критично для самого сброса: не роняем вход
+        // из-за временной проблемы с почтой.
+        console.error('stats-backend: ошибка отправки уведомления о смене пароля:', err);
+    }
+
     // Успешный сброс — это тоже вход: пускаем сразу в аккаунт, не
     // заставляя повторно вводить новый пароль на /login.
     setSessionCookie(res, { userId: user.id });
     res.json({ ok: true, user: { email: user.email } });
+});
+
+// Смена email/пароля из настроек аккаунта — отличается от /auth/reset-
+// password (та для "забыл пароль", без знания текущего): обе требуют
+// действующую сессию И текущий пароль ("step-up" проверка, тот же приём,
+// что у крупных сервисов — простого факта быть залогиненным недостаточно
+// для смены учётных данных).
+function requireSession(req, res) {
+    const session = getSessionFromReq(req);
+    if (!session?.userId) {
+        res.status(401).json({ error: 'unauthorized' });
+        return null;
+    }
+    return session;
+}
+
+app.post('/auth/account/change-email', async (req, res) => {
+    const session = requireSession(req, res);
+    if (!session) return;
+
+    const currentPassword = req.body?.currentPassword;
+    const newEmail = normalizeEmail(req.body?.newEmail);
+
+    if (!isValidEmail(newEmail)) {
+        res.status(400).json({ error: 'invalid_email' });
+        return;
+    }
+
+    const user = await users.findById(session.userId);
+    if (!user || !users.verifyPasswordHash(currentPassword, user.password_hash)) {
+        res.status(401).json({ error: 'wrong_password' });
+        return;
+    }
+    if (newEmail === user.email) {
+        res.status(400).json({ error: 'same_email' });
+        return;
+    }
+    const existing = await users.findByEmail(newEmail);
+    if (existing) {
+        res.status(409).json({ error: 'email_already_registered' });
+        return;
+    }
+    if (await emailChangeCodes.isOnCooldown(session.userId)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        const code = emailChangeCodes.generateCode();
+        await emailChangeCodes.upsertCode(session.userId, newEmail, code);
+        await mailer.sendEmailChangeCode(newEmail, { code });
+        try {
+            await mailer.sendEmailChangeNotice(user.email, { newEmail });
+        } catch (err) {
+            // Уведомление на старый адрес — не критично для самого запроса
+            // смены: не роняем его из-за временной проблемы с почтой.
+            console.error('stats-backend: ошибка отправки уведомления о запросе смены email:', err);
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('stats-backend: ошибка запроса смены email:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+app.post('/auth/account/resend-email-change-code', async (req, res) => {
+    const session = requireSession(req, res);
+    if (!session) return;
+
+    const pending = await emailChangeCodes.getCode(session.userId);
+    if (!pending) {
+        res.status(400).json({ error: 'no_pending_change' });
+        return;
+    }
+    if (await emailChangeCodes.isOnCooldown(session.userId)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        const code = emailChangeCodes.generateCode();
+        await emailChangeCodes.upsertCode(session.userId, pending.new_email, code);
+        await mailer.sendEmailChangeCode(pending.new_email, { code });
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('stats-backend: ошибка повторной отправки кода смены email:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
+});
+
+app.post('/auth/account/confirm-email-change', async (req, res) => {
+    const session = requireSession(req, res);
+    if (!session) return;
+
+    const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+    if (!code) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+
+    const row = await emailChangeCodes.getCode(session.userId);
+    if (!row) {
+        res.status(400).json({ error: 'code_not_found' });
+        return;
+    }
+    if (Date.now() > new Date(row.expires_at).getTime()) {
+        await emailChangeCodes.deleteCode(session.userId);
+        res.status(400).json({ error: 'code_expired' });
+        return;
+    }
+    if (row.attempts >= emailChangeCodes.MAX_ATTEMPTS) {
+        res.status(429).json({ error: 'too_many_attempts' });
+        return;
+    }
+    if (code !== row.code) {
+        await emailChangeCodes.registerFailedAttempt(session.userId);
+        res.status(400).json({ error: 'wrong_code' });
+        return;
+    }
+
+    // Второй игрок мог занять этот email между запросом смены и
+    // подтверждением кода — перепроверяем прямо перед записью.
+    const conflicting = await users.findByEmail(row.new_email);
+    if (conflicting && conflicting.id !== session.userId) {
+        await emailChangeCodes.deleteCode(session.userId);
+        res.status(409).json({ error: 'email_already_registered' });
+        return;
+    }
+
+    const before = await users.findById(session.userId);
+    const updated = await users.updateEmail(session.userId, row.new_email);
+    await emailChangeCodes.deleteCode(session.userId);
+    if (!updated || !before) {
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+
+    try {
+        await Promise.all([
+            mailer.sendEmailChanged(before.email, { oldEmail: before.email, newEmail: updated.email }),
+            mailer.sendEmailChanged(updated.email, { oldEmail: before.email, newEmail: updated.email }),
+        ]);
+    } catch (err) {
+        console.error('stats-backend: ошибка отправки подтверждения смены email:', err);
+    }
+
+    res.json({ ok: true, user: { email: updated.email } });
+});
+
+app.post('/auth/account/change-password', async (req, res) => {
+    const session = requireSession(req, res);
+    if (!session) return;
+
+    const currentPassword = req.body?.currentPassword;
+    const newPassword = req.body?.newPassword;
+
+    if (!isValidPassword(newPassword)) {
+        res.status(400).json({ error: 'invalid_password' });
+        return;
+    }
+
+    const user = await users.findById(session.userId);
+    if (!user || !users.verifyPasswordHash(currentPassword, user.password_hash)) {
+        res.status(401).json({ error: 'wrong_password' });
+        return;
+    }
+
+    const updated = await users.updatePasswordHash(session.userId, users.hashPassword(newPassword));
+    if (!updated) {
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+
+    try {
+        const ip = geo.getClientIp(req);
+        await mailer.sendPasswordChanged(updated.email, {
+            ip,
+            ...geo.lookupLocation(ip),
+            time: new Date().toUTCString(),
+        });
+    } catch (err) {
+        console.error('stats-backend: ошибка отправки уведомления о смене пароля:', err);
+    }
+
+    res.json({ ok: true });
 });
 
 app.get('/api/account/me', async (req, res) => {
