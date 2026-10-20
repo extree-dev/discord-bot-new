@@ -91,6 +91,17 @@
     letter-spacing: -0.01em;
 }
 
+@keyframes split-auth-error-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .error {
     margin: 0 0 18px;
     padding: 10px 14px;
@@ -100,6 +111,7 @@
     color: var(--accent-soft);
     font-size: 13px;
     line-height: 1.5;
+    animation: split-auth-error-in 0.2s ease;
 }
 
 .footer {

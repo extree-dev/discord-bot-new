@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
@@ -40,6 +40,31 @@ const FAQ = [
         a: "We ask for a one-time code the first time you sign in from a country we haven't seen on your account before — it's a safeguard against someone else using your password.",
     },
 ];
+
+// Свой аккордеон вместо нативных <details>/<summary> — у них открытие/
+// закрытие происходит мгновенно, без анимации, и этого браузер ничем не
+// даёт настроить. Высота анимируется трюком с grid-template-rows (0fr →
+// 1fr) — работает с динамическим контентом без JS-измерения высоты, в
+// отличие от max-height.
+function FaqItem({ q, a }: { q: string; a: ReactNode }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <div className={styles.faqItem}>
+            <button type="button" className={styles.faqQuestion} aria-expanded={open} onClick={() => setOpen(o => !o)}>
+                {q}
+                <span
+                    className={open ? `${styles.faqIcon} ${styles.faqIconOpen}` : styles.faqIcon}
+                    aria-hidden="true"
+                />
+            </button>
+            <div className={open ? `${styles.faqAnswer} ${styles.faqAnswerOpen}` : styles.faqAnswer}>
+                <div className={styles.faqAnswerInner}>
+                    <p>{a}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // Доступна и без входа (см. обсуждение) — залогиненному пользователю email
 // берём из аккаунта и не даём редактировать (бэкенд игнорировал бы
@@ -97,10 +122,7 @@ export function SupportPage() {
                 <div className={styles.faq}>
                     <h2 className={styles.faqTitle}>Common questions</h2>
                     {FAQ.map(item => (
-                        <details key={item.q} className={styles.faqItem}>
-                            <summary>{item.q}</summary>
-                            <p>{item.a}</p>
-                        </details>
+                        <FaqItem key={item.q} q={item.q} a={item.a} />
                     ))}
                 </div>
             }
