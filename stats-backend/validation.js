@@ -50,6 +50,27 @@ function isValidCategory(category) {
     return typeof category === 'string' && SUPPORT_CATEGORIES.includes(category);
 }
 
+// Riot ID — "ИмяИгрока#Тег". gameName допускает практически любые символы
+// (включая юникод — ники бывают на любом языке), поэтому тут только
+// санитарная проверка длины, а не строгий regex: окончательно валидирует
+// сам Riot API (404, если такого аккаунта нет). tagLine у Riot всегда
+// 3-5 букв/цифр.
+const RIOT_TAG_RE = /^[A-Za-z0-9]{3,5}$/;
+
+function parseRiotId(riotId) {
+    if (typeof riotId !== 'string') return null;
+    const trimmed = riotId.trim();
+    const hashIndex = trimmed.lastIndexOf('#');
+    if (hashIndex <= 0 || hashIndex === trimmed.length - 1) return null;
+
+    const gameName = trimmed.slice(0, hashIndex);
+    const tagLine = trimmed.slice(hashIndex + 1);
+    if (gameName.length < 1 || gameName.length > 16) return null;
+    if (!RIOT_TAG_RE.test(tagLine)) return null;
+
+    return { gameName, tagLine };
+}
+
 module.exports = {
     normalizeEmail,
     isValidEmail,
@@ -60,4 +81,5 @@ module.exports = {
     isValidMessage,
     SUPPORT_CATEGORIES,
     isValidCategory,
+    parseRiotId,
 };

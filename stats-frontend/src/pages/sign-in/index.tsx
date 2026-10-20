@@ -56,6 +56,8 @@ export function SignInPage() {
                 <Link to="/cookies">Cookie Policy</Link>
                 <span aria-hidden="true"> · </span>
                 <Link to="/support">Support</Link>
+                <span aria-hidden="true"> · </span>
+                <Link to="/riot-lookup">Riot ID lookup</Link>
             </footer>
         </div>
     );
