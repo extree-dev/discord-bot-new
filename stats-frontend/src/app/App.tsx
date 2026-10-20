@@ -11,7 +11,12 @@ import { ForgotPasswordPage } from '../pages/forgot-password';
 import { ResetPasswordPage } from '../pages/reset-password';
 import { AccountPage } from '../pages/account';
 import { SupportPage } from '../pages/support';
-import { RiotLookupPage } from '../pages/riot-lookup';
+
+// RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
+// обсуждение в PR #307: страница рабочая и готова, но пока убрана с
+// публичного сайта, чтобы не привлекать лишнего внимания Riot к продукту,
+// пока заявка на RSO/VALORANT API ещё Pending Review. Раскомментировать
+// импорт и роут ниже, когда будет смысл её снова показывать.
 
 export function App() {
     return (
@@ -28,7 +33,6 @@ export function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/support" element={<SupportPage />} />
-            <Route path="/riot-lookup" element={<RiotLookupPage />} />
         </Routes>
     );
 }
