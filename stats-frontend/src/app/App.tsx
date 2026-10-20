@@ -10,6 +10,7 @@ import { VerifyLocationPage } from '../pages/verify-location';
 import { ForgotPasswordPage } from '../pages/forgot-password';
 import { ResetPasswordPage } from '../pages/reset-password';
 import { AccountPage } from '../pages/account';
+import { SupportPage } from '../pages/support';
 
 export function App() {
     return (
@@ -25,6 +26,7 @@ export function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/support" element={<SupportPage />} />
         </Routes>
     );
 }

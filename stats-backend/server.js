@@ -31,10 +31,19 @@ const emailCodes = require('./emailCodes');
 const loginCodes = require('./loginCodes');
 const loginLocations = require('./loginLocations');
 const passwordResets = require('./passwordResets');
+const supportTickets = require('./supportTickets');
 const geo = require('./geo');
 const { verifyTurnstileToken } = require('./turnstile');
 const mailer = require('./mailer');
-const { normalizeEmail, isValidEmail, isValidPassword, isValidName, isValidNickname } = require('./validation');
+const {
+    normalizeEmail,
+    isValidEmail,
+    isValidPassword,
+    isValidName,
+    isValidNickname,
+    isValidSubject,
+    isValidMessage,
+} = require('./validation');
 
 const PORT = process.env.STATS_BACKEND_PORT || 3000;
 const RIOT_CLIENT_ID = process.env.RIOT_CLIENT_ID;
@@ -527,6 +536,66 @@ app.get('/api/account/me', async (req, res) => {
             nickname: user.nickname,
         },
     });
+});
+
+// Заявка в поддержку — доступна без входа (см. обсуждение при добавлении:
+// именно тот, кто не может войти, чаще всего и обращается в поддержку).
+// Если сессия есть, email берём из аккаунта и игнорируем тот, что прислали
+// в теле — не даём залогиненному пользователю притвориться другим
+// отправителем; без сессии email обязателен и валидируется как обычно.
+app.post('/api/support/tickets', async (req, res) => {
+    const session = getSessionFromReq(req);
+    let userId = null;
+    let email;
+
+    if (session?.userId) {
+        const user = await users.findById(session.userId);
+        if (!user) {
+            res.status(401).json({ error: 'invalid_request' });
+            return;
+        }
+        userId = user.id;
+        email = user.email;
+    } else {
+        email = normalizeEmail(req.body?.email);
+        if (!isValidEmail(email)) {
+            res.status(400).json({ error: 'invalid_email' });
+            return;
+        }
+    }
+
+    const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+
+    if (!isValidSubject(subject)) {
+        res.status(400).json({ error: 'invalid_subject' });
+        return;
+    }
+    if (!isValidMessage(message)) {
+        res.status(400).json({ error: 'invalid_message' });
+        return;
+    }
+    if (await supportTickets.isOnCooldown(email)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        const ticket = await supportTickets.createTicket({ userId, email, subject, message });
+        await mailer.sendSupportTicketConfirmation(email, { ticketId: ticket.id, subject });
+        try {
+            await mailer.sendSupportTicketNotification({ ticketId: ticket.id, email, subject, message, userId });
+        } catch (err) {
+            // Письмо в поддержку — не критично для самого факта подачи
+            // заявки (она уже сохранена в БД): не роняем ответ пользователю
+            // из-за временной проблемы с почтой.
+            console.error('stats-backend: ошибка отправки уведомления команде поддержки:', err);
+        }
+        res.json({ ok: true, ticketId: ticket.id });
+    } catch (err) {
+        console.error('stats-backend: ошибка создания заявки в поддержку:', err);
+        res.status(500).json({ error: 'internal_error' });
+    }
 });
 
 app.listen(PORT, () => {

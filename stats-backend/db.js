@@ -77,6 +77,15 @@ function ensureSchema() {
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 );
+                CREATE TABLE IF NOT EXISTS stats_support_tickets (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT REFERENCES stats_users(id) ON DELETE SET NULL,
+                    email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS name TEXT;
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS nickname TEXT;
                 CREATE UNIQUE INDEX IF NOT EXISTS stats_users_nickname_key ON stats_users (nickname)`

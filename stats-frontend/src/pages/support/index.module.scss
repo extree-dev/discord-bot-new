@@ -1,0 +1,44 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.accountEmail {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-faint);
+
+    strong {
+        color: var(--text-dim);
+    }
+}
+
+.sent {
+    p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-dim);
+    }
+
+    strong {
+        color: var(--text);
+    }
+}
+
+.ticketId {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-faint);
+
+    code {
+        font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        padding: 2px 6px;
+    }
+}
