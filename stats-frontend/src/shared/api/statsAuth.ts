@@ -131,3 +131,17 @@ export async function getAccount(): Promise<AccountUser | null> {
     const data = await res.json().catch(() => ({ user: null }));
     return data.user ?? null;
 }
+
+export interface LoginEvent {
+    id: string;
+    ip: string | null;
+    country: string | null;
+    city: string | null;
+    time: string;
+}
+
+export async function getLoginHistory(): Promise<LoginEvent[]> {
+    const res = await fetch('/api/account/login-history', { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({ events: [] }));
+    return data.events ?? [];
+}

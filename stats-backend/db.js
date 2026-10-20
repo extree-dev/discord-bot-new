@@ -85,6 +85,16 @@ function ensureSchema() {
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 );
+                CREATE TABLE IF NOT EXISTS stats_login_events (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES stats_users(id) ON DELETE CASCADE,
+                    ip TEXT,
+                    country TEXT,
+                    city TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS stats_login_events_user_created_idx
+                    ON stats_login_events (user_id, created_at DESC);
                 CREATE TABLE IF NOT EXISTS stats_support_tickets (
                     id TEXT PRIMARY KEY,
                     user_id TEXT REFERENCES stats_users(id) ON DELETE SET NULL,

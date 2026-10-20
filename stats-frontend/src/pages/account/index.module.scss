@@ -113,6 +113,39 @@
     }
 }
 
+.loginList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.loginItem {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.loginItemTime {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.loginItemMeta {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.loginItemIp {
+    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+}
+
 .riotCard {
     padding: 16px;
     background: var(--surface-2);
