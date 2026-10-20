@@ -4,6 +4,12 @@ import { AuthCard } from '../../widgets/auth-card';
 import { getAccount, type AccountUser } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
+// Тот же дисклеймер, что на sign-in и terms (developer.riotgames.com/
+// policies/general, "Legal Jibber Jabber") — здесь он нужен отдельно, т.к.
+// это единственное другое место в продукте с явным Riot-брендированным CTA.
+const RIOT_DISCLAIMER =
+    "Extree Stats isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing VALORANT. VALORANT and Riot Games are trademarks or registered trademarks of Riot Games, Inc.";
+
 export function AccountPage() {
     const navigate = useNavigate();
     const [user, setUser] = useState<AccountUser | null>(null);
@@ -59,6 +65,7 @@ export function AccountPage() {
                 <button type="button" className={styles.riotCardButton} disabled>
                     Connect Riot account — coming soon
                 </button>
+                <p className={styles.riotDisclaimer}>{RIOT_DISCLAIMER}</p>
             </div>
 
             <Link className={styles.logout} to="/support">

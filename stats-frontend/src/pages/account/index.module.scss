@@ -53,6 +53,14 @@
     cursor: not-allowed;
 }
 
+.riotDisclaimer {
+    margin: 10px 0 0;
+    color: var(--text-faint);
+    font-size: 10px;
+    line-height: 1.5;
+    opacity: 0.75;
+}
+
 .logout {
     display: block;
     text-align: center;
