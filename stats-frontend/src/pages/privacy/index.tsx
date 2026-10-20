@@ -12,7 +12,15 @@ import styles from './index.module.scss';
 export function PrivacyPage() {
     return (
         <div className={styles.page}>
-            <SiteHeader rightSlot={<Link to="/terms">Terms of Use</Link>} />
+            <SiteHeader
+                rightSlot={
+                    <>
+                        <Link to="/terms">Terms of Use</Link>
+                        <span aria-hidden="true"> · </span>
+                        <Link to="/cookies">Cookie Policy</Link>
+                    </>
+                }
+            />
             <main className={styles.main}>
                 <article className={styles.article}>
                     <p className={styles.updated}>Last updated: October 20, 2026</p>
@@ -56,7 +64,10 @@ export function PrivacyPage() {
                         sign-in redirect itself, to prevent cross-site request forgery — it&apos;s deleted within
                         minutes either way.
                     </p>
-                    <p>None of these cookies are used for analytics, advertising, or tracking across other sites.</p>
+                    <p>
+                        None of these cookies are used for analytics, advertising, or tracking across other sites. See
+                        our <Link to="/cookies">Cookie Policy</Link> for the full list, including exact durations.
+                    </p>
 
                     <h2>VALORANT match data</h2>
                     <p>

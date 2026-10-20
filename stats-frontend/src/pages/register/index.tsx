@@ -10,6 +10,7 @@ export function RegisterPage() {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [agreed, setAgreed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
 
@@ -66,7 +67,14 @@ export function RegisterPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
-                <Button type="submit" variant="flat" fullWidth disabled={pending}>
+                <label className={styles.agree}>
+                    <input type="checkbox" required checked={agreed} onChange={e => setAgreed(e.target.checked)} />
+                    <span>
+                        I agree to the <Link to="/terms">Terms of Use</Link>, <Link to="/privacy">Privacy Policy</Link>,
+                        and <Link to="/cookies">Cookie Policy</Link>.
+                    </span>
+                </label>
+                <Button type="submit" variant="flat" fullWidth disabled={pending || !agreed}>
                     {pending ? 'Creating account…' : 'Create account'}
                 </Button>
             </form>
