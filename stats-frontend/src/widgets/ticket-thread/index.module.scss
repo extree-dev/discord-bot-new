@@ -1,0 +1,50 @@
+.thread {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.message {
+    display: flex;
+    gap: 12px;
+}
+
+.bubbleCol {
+    flex: 1;
+    min-width: 0;
+}
+
+.bubbleHead {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.author {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.time {
+    font-size: 11.5px;
+    color: var(--text-faint);
+}
+
+.bubble {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border-top-left-radius: 4px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+}
+
+.bubbleSupport {
+    background: rgba(255, 77, 94, 0.06);
+    border-color: rgba(255, 77, 94, 0.18);
+    color: var(--text);
+}

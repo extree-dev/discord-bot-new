@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthCard } from '../../widgets/auth-card';
+import { DashboardShell } from '../../widgets/dashboard-shell';
+import { Panel } from '../../shared/ui/Panel';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
 import { CodeInput } from '../../shared/ui/CodeInput';
@@ -84,8 +85,7 @@ function ChangeEmailSection({ email, onChanged }: { email: string; onChanged: (n
     }
 
     return (
-        <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Change email</h2>
+        <Panel title="Change email">
             {error && (
                 <p className={styles.sectionError} role="alert">
                     {error}
@@ -144,7 +144,7 @@ function ChangeEmailSection({ email, onChanged }: { email: string; onChanged: (n
                     </button>
                 </form>
             )}
-        </div>
+        </Panel>
     );
 }
 
@@ -170,8 +170,7 @@ function LoginHistorySection() {
     }, []);
 
     return (
-        <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Recent sign-ins</h2>
+        <Panel title="Recent sign-ins">
             {events === null && <p className={styles.sectionHint}>Loading…</p>}
             {events?.length === 0 && <p className={styles.sectionHint}>No recent sign-ins on record.</p>}
             {events && events.length > 0 && (
@@ -187,7 +186,7 @@ function LoginHistorySection() {
                     ))}
                 </ul>
             )}
-        </div>
+        </Panel>
     );
 }
 
@@ -221,8 +220,7 @@ function ChangePasswordSection() {
     }
 
     return (
-        <div className={styles.section}>
-            <h2 className={styles.sectionTitle}>Change password</h2>
+        <Panel title="Change password">
             {error && (
                 <p className={styles.sectionError} role="alert">
                     {error}
@@ -267,7 +265,7 @@ function ChangePasswordSection() {
                     {pending ? 'Updating…' : 'Update password'}
                 </Button>
             </form>
-        </div>
+        </Panel>
     );
 }
 
@@ -293,27 +291,33 @@ export function AccountPage() {
     }, [navigate]);
 
     if (loading || !user) {
-        return <AuthCard title="Your account">Loading…</AuthCard>;
+        return (
+            <DashboardShell user={null} title="Account">
+                Loading…
+            </DashboardShell>
+        );
     }
 
     return (
-        <AuthCard title="Your account">
-            {user.name && (
+        <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} active="account" title="Account">
+            <Panel title="Profile">
+                {user.name && (
+                    <div className={styles.row}>
+                        <span className={styles.label}>Name</span>
+                        <span className={styles.value}>{user.name}</span>
+                    </div>
+                )}
+                {user.nickname && (
+                    <div className={styles.row}>
+                        <span className={styles.label}>Nickname</span>
+                        <span className={styles.value}>{user.nickname}</span>
+                    </div>
+                )}
                 <div className={styles.row}>
-                    <span className={styles.label}>Name</span>
-                    <span className={styles.value}>{user.name}</span>
+                    <span className={styles.label}>Email</span>
+                    <span className={styles.value}>{user.email}</span>
                 </div>
-            )}
-            {user.nickname && (
-                <div className={styles.row}>
-                    <span className={styles.label}>Nickname</span>
-                    <span className={styles.value}>{user.nickname}</span>
-                </div>
-            )}
-            <div className={styles.row}>
-                <span className={styles.label}>Email</span>
-                <span className={styles.value}>{user.email}</span>
-            </div>
+            </Panel>
 
             <LoginHistorySection />
             <ChangeEmailSection
@@ -325,28 +329,19 @@ export function AccountPage() {
             {/* Riot-привязка — будущая функция (см. riot_puuid/riot_linked_at в
                 stats-backend/db.js), пока RSO недоступен (Riot ещё не одобрил
                 продукт) кнопка честно отключена, а не притворяется рабочей. */}
-            <div className={styles.riotCard}>
-                <div className={styles.riotCardTitle}>Riot account</div>
-                <div className={styles.riotCardDesc}>
+            <Panel title="Riot account">
+                <p className={styles.riotDesc}>
                     Not connected yet — this is coming once Riot Sign-On is live for Extree Stats.
-                </div>
-                <button type="button" className={styles.riotCardButton} disabled>
+                </p>
+                <button type="button" className={styles.riotButton} disabled>
                     Connect Riot account — coming soon
                 </button>
                 <p className={styles.riotDisclaimer}>{RIOT_DISCLAIMER}</p>
-            </div>
+            </Panel>
 
-            {user.isAdmin && (
-                <Link className={styles.logout} to="/admin/tickets">
-                    Support tickets (admin)
-                </Link>
-            )}
-            <Link className={styles.logout} to="/support">
+            <Link className={styles.footerLink} to="/support">
                 Contact support
             </Link>
-            <a className={styles.logout} href="/auth/logout">
-                Sign out
-            </a>
-        </AuthCard>
+        </DashboardShell>
     );
 }

@@ -1,97 +1,50 @@
-.back {
-    display: inline-block;
-    margin-bottom: 20px;
-    font-size: 12.5px;
-    color: var(--text-faint);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+.layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
 
-    &:hover {
-        color: var(--text-dim);
+    @media (min-width: 860px) {
+        grid-template-columns: 1fr 280px;
+        align-items: start;
     }
 }
 
-.meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 16px;
-    margin-bottom: 20px;
-    font-size: 12.5px;
-    color: var(--text-faint);
-}
-
-.badge {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 3px 8px;
-    border-radius: 4px;
-}
-
-.badgeOpen {
-    color: var(--win);
-    background: rgba(60, 200, 120, 0.12);
-}
-
-.badgeClosed {
-    color: var(--text-faint);
-    background: var(--surface-2);
-}
-
-.form {
+.metaList {
     display: flex;
     flex-direction: column;
     gap: 14px;
 }
 
-.thread {
+.metaRow {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 3px;
 }
 
-.bubble {
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 13.5px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-}
-
-.bubbleAdmin {
-    border-color: rgba(255, 77, 94, 0.25);
-    background: rgba(255, 77, 94, 0.07);
-}
-
-.bubbleAuthor {
-    display: block;
-    margin-bottom: 4px;
+.metaLabel {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     color: var(--text-faint);
 }
 
-.bubbleTime {
-    display: block;
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--text-faint);
+.metaValue {
+    font-size: 13.5px;
+    font-weight: 600;
+    word-break: break-word;
 }
 
-.statusRow {
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid var(--border);
 }
 
-.closedNotice {
-    margin: 0 0 14px;
-    font-size: 13px;
-    color: var(--text-faint);
+.formActions {
+    display: flex;
+    justify-content: flex-end;
 }
