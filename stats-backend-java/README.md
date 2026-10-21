@@ -24,10 +24,12 @@ domain/                          — чистые доменные объект�
 application/port/in/             — входные порты (use case интерфейсы)
 application/port/out/            — выходные порты (что нужно от внешнего мира)
 application/service/             — реализация input-портов поверх output-портов
-adapter/in/web/                  — REST-контроллеры (Spring MVC)
+adapter/in/web/                  — REST-контроллеры (Spring MVC), rate-limit фильтр
 adapter/out/persistence/         — JDBC-реализации репозиториев
 adapter/out/crypto/              — AES-GCM сессия и scrypt-пароли, совместимые с session.js/users.js
 adapter/out/mail/                — SMTP (iCloud), совместимо с mailer.js
+adapter/out/geo/                 — офлайн geo-по-IP (страна), те же данные, что geoip-lite у Node
+adapter/out/turnstile/           — Cloudflare Turnstile siteverify
 ```
 
 ## Что уже перенесено
@@ -36,28 +38,48 @@ adapter/out/mail/                — SMTP (iCloud), совместимо с mail
 - `GET /api/account/me` — профиль + `isAdmin` (как в PR #315).
 - `POST /auth/register` / `/auth/resend-code` / `/auth/verify` —
   регистрация email+паролем с кодом подтверждения; `verify` сразу логинит
-  (ставит ту же cookie), как и Node. **Пока без** geo/`loginLocations`
-  ("известное место входа") — понадобится вместе с переносом полного
-  `/auth/login` (следующий срез), см. комментарий в `RegistrationService`.
+  (ставит ту же cookie), как и Node.
+- `POST /auth/login` / `/auth/login/resend-code` / `/auth/login/confirm-location` —
+  вход email+паролем, Turnstile, "известное место входа" (geo по стране)
+  с кодом подтверждения на новый IP/страну, rate-limit (300/5мин на IP,
+  как authRateLimiter у Node) на `/auth` и `/api`.
+
+**Известное отклонение (осознанное, не забытое):** geo-определение страны
+здесь читает только `geoip-country(6).dat` (те же файлы, что у geoip-lite,
+но country-уровень, ~14MB, см. `IpCountryGeoLookup`), а не city-уровень
+(`geoip-city(6).dat`, ~135MB), который Node использует по умолчанию через
+geoip-lite. Для подавляющего большинства реальных IP оба источника дают
+одну и ту же страну; расхождение возможно на редких/anycast-диапазонах,
+которых нет в country-файле, но есть в более подробном city-файле (или
+наоборот). `city` в письмах от этого сервиса поэтому всегда пустой —
+шаблон писем уже поддерживает "страна без города" (см. `formatLocation`
+в mailer.js), деградация чисто косметическая. Сама проверка "известного
+места" по-прежнему устроена так, что отсутствие данных НЕ блокирует вход
+(fail open) — то же поведение, что и у Node.
 
 Все проверены на совместимость с уже выпущенным Node-сервисом:
 `AesGcmSessionCodecTest` расшифровывает (и теперь также выпускает —
 `encrypt()`) токен, реально сгенерированный
 `node -e "require('./stats-backend/session').encryptSession(...)"`;
 `ScryptPasswordHasherTest` проверяет хеш, реально сгенерированный
-`require('./stats-backend/users.js').hashPassword(...)`; живой smoke-тест
-(Postgres + собранный jar + curl) прогнан вручную для всего слайса
-register → verify, включая то, что выпущенная Java-сервисом cookie
-расшифровывается тем же Node'овым `decryptSession`. Если эти проверки
-когда-нибудь расходятся — переключать трафик нельзя.
+`require('./stats-backend/users.js').hashPassword(...)`;
+`IpCountryGeoLookupTest` сверяет страну для полусотни IP (включая границы
+диапазонов, приватные адреса, IPv6) с реальной библиотекой geoip-lite,
+принудительно направленной на те же country-файлы через `GEODATADIR`;
+живой smoke-тест (Postgres + собранный jar + curl, Turnstile — через
+официальные тестовые ключи Cloudflare) прогнан вручную для всего слайса
+регистрации и входа, включая полный цикл "неизвестное место → код на
+почту → confirm-location → cookie с правильным Max-Age/sameSite", и то,
+что выпущенная Java-сервисом cookie расшифровывается тем же Node'овым
+`decryptSession`. Если эти проверки когда-нибудь расходятся — переключать
+трафик нельзя.
 
 ## Что дальше (в следующих PR)
 
-1. Полный `/auth/login` (известное место входа, Turnstile, rate-limit).
-2. Смена email/пароля, история входов.
-3. Тикет-платформа (создание/ответ/статусы/canned responses).
-4. Riot OAuth + Turnstile.
-5. Только после того, как Java-сервис покрывает весь REST API и прошёл
+1. Смена email/пароля, история входов (`/api/account/login-history`).
+2. Тикет-платформа (создание/ответ/статусы/canned responses).
+3. Riot OAuth + Turnstile config endpoints.
+4. Только после того, как Java-сервис покрывает весь REST API и прошёл
    полноценную проверку — переключение `web/Caddyfile`/
    `docker-compose.yml` на него, с Node-версией как fallback на случай
    отката.
@@ -79,5 +101,6 @@ SUPPORT_ADMIN_EMAILS=admin@example.com \
 STATS_BACKEND_JAVA_PORT=8081 \
 STATS_MAIL_USER=<тот же iCloud-адрес, что у Node-сервиса> \
 STATS_MAIL_APP_PASSWORD=<тот же app-specific пароль> \
+TURNSTILE_SECRET_KEY=<тот же ключ, что у Node-сервиса> \
 mvn spring-boot:run
 ```

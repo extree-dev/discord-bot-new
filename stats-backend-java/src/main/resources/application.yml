@@ -31,3 +31,4 @@ extree:
     session-secret: ${STATS_SESSION_SECRET:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
     mail-from: ${STATS_MAIL_FROM:}
+    turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}

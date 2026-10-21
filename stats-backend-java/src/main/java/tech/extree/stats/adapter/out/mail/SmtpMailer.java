@@ -46,6 +46,193 @@ public class SmtpMailer implements Mailer {
         }
     }
 
+    @Override
+    public void sendNewLocationCode(String email, String code, String ip, String country, String city) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("Confirm this sign-in — Extree Stats");
+            helper.setText(renderNewLocationCodeEmail(code, ip, country, city), true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить письмо с кодом подтверждения нового места входа", e);
+        }
+    }
+
+    @Override
+    public void sendSignInNotification(String email, String ip, String country, String city, String time) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("New sign-in to your account — Extree Stats");
+            helper.setText(renderSignInNotificationEmail(ip, country, city, time), true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить письмо-уведомление о входе", e);
+        }
+    }
+
+    // Как и formatLocation в mailer.js (Node) — city здесь всегда null
+    // (см. IpCountryGeoLookup), поэтому письма от этого сервиса всегда
+    // попадают в ветку "страна без города", что уже штатно поддерживается.
+    private static String formatLocation(String country, String city) {
+        if (country == null) {
+            return "an unknown location";
+        }
+        return city != null ? city + ", " + country : country;
+    }
+
+    // Интерполяция без экранирования — так же, как в mailer.js: ip/location/
+    // code/time тут не сырой пользовательский ввод (геолокация и
+    // сгенерированный код), тот же уровень доверия, что у Node-оригинала.
+    private static String renderSignInNotificationEmail(String ip, String country, String city, String time) {
+        String location = formatLocation(country, city);
+        String ipText = ip != null ? ip : "unknown";
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "<meta name=\"color-scheme\" content=\"light\">\n"
+                + "<meta name=\"supported-color-schemes\" content=\"light\">\n"
+                + "<title>New sign-in to your account</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;\">\n"
+                + "<div style=\"display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;"
+                + "opacity:0;overflow:hidden;\">\n"
+                + "New sign-in to your Extree Stats account from " + location + ".\n"
+                + "</div>\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#f4f5f7;padding:48px 16px;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"480\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"\n"
+                + "         style=\"max-width:480px;width:100%;background:#ffffff;border-radius:16px;\n"
+                + "                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,"
+                + "Arial,sans-serif;\n"
+                + "                color:#111111;\">\n"
+                + "    <tr><td style=\"padding:40px 40px 0;\">\n"
+                + "      <span style=\"font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;\">"
+                + "Extree</span>\n"
+                + "      <span style=\"display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;"
+                + "font-weight:700;\n"
+                + "                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;"
+                + "vertical-align:middle;\">STATS</span>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:32px 40px 0;\">\n"
+                + "      <h1 style=\"margin:0;font-size:22px;line-height:1.3;font-weight:600;"
+                + "letter-spacing:-0.3px;\">New sign-in to your account</h1>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:16px 40px 0;\">\n"
+                + "      <p style=\"margin:0;font-size:15px;line-height:1.6;color:#555555;\">\n"
+                + "        Your Extree Stats account was just signed in to. If this was you, no action is needed.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:28px 40px 0;\">\n"
+                + "      <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#f4f5f7;border-radius:12px;\">\n"
+                + "        <tr><td style=\"padding:18px 22px;\">\n"
+                + "          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" "
+                + "border=\"0\" style=\"font-size:13.5px;color:#333333;\">\n"
+                + "            <tr><td style=\"padding:4px 0;color:#888888;width:84px;\">Time</td>"
+                + "<td style=\"padding:4px 0;\">" + time + "</td></tr>\n"
+                + "            <tr><td style=\"padding:4px 0;color:#888888;\">Location</td>"
+                + "<td style=\"padding:4px 0;\">" + location + "</td></tr>\n"
+                + "            <tr><td style=\"padding:4px 0;color:#888888;\">IP address</td>"
+                + "<td style=\"padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;\">" + ipText
+                + "</td></tr>\n"
+                + "          </table>\n"
+                + "        </td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:20px 40px 40px;\">\n"
+                + "      <p style=\"margin:0;font-size:13px;line-height:1.6;color:#888888;\">\n"
+                + "        Don't recognize this? Change your Extree Stats password and contact\n"
+                + "        <a href=\"mailto:support@extree.tech\" style=\"color:#ff4d5e;text-decoration:none;\">"
+                + "support@extree.tech</a>.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
+    }
+
+    private static String renderNewLocationCodeEmail(String code, String ip, String country, String city) {
+        String location = formatLocation(country, city);
+        String ipText = ip != null ? ip : "unknown";
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "<meta name=\"color-scheme\" content=\"light\">\n"
+                + "<meta name=\"supported-color-schemes\" content=\"light\">\n"
+                + "<title>Confirm this sign-in</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;\">\n"
+                + "<div style=\"display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;"
+                + "opacity:0;overflow:hidden;\">\n"
+                + "Your Extree Stats sign-in code: " + code + ". A sign-in attempt came from " + location + ".\n"
+                + "</div>\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#f4f5f7;padding:48px 16px;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"480\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"\n"
+                + "         style=\"max-width:480px;width:100%;background:#ffffff;border-radius:16px;\n"
+                + "                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,"
+                + "Arial,sans-serif;\n"
+                + "                color:#111111;\">\n"
+                + "    <tr><td style=\"padding:40px 40px 0;\">\n"
+                + "      <span style=\"font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;\">"
+                + "Extree</span>\n"
+                + "      <span style=\"display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;"
+                + "font-weight:700;\n"
+                + "                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;"
+                + "vertical-align:middle;\">STATS</span>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:32px 40px 0;\">\n"
+                + "      <h1 style=\"margin:0;font-size:22px;line-height:1.3;font-weight:600;"
+                + "letter-spacing:-0.3px;\">Confirm this sign-in</h1>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:16px 40px 0;\">\n"
+                + "      <p style=\"margin:0;font-size:15px;line-height:1.6;color:#555555;\">\n"
+                + "        Someone just tried to sign in to your Extree Stats account from <strong>" + location
+                + "</strong>\n"
+                + "        (IP " + ipText + ") — a place we haven't seen before. If this was you, enter the code "
+                + "below to continue.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:32px 40px 0;\">\n"
+                + "      <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" "
+                + "border=\"0\">\n"
+                + "        <tr><td align=\"center\" style=\"background:#f4f5f7;border-radius:12px;"
+                + "padding:28px 24px;\">\n"
+                + "          <span style=\"font-family:'SF Mono','Courier New',Consolas,monospace;"
+                + "font-size:36px;font-weight:600;\n"
+                + "                       letter-spacing:10px;color:#111111;white-space:nowrap;\">" + code
+                + "</span>\n"
+                + "        </td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:16px 40px 40px;\">\n"
+                + "      <p style=\"margin:0;font-size:13px;line-height:1.6;color:#888888;text-align:center;\">\n"
+                + "        Code expires in 10 minutes. Wasn't you? Change your password and contact\n"
+                + "        <a href=\"mailto:support@extree.tech\" style=\"color:#ff4d5e;text-decoration:none;\">"
+                + "support@extree.tech</a>.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
+    }
+
     private static String renderVerificationEmail(String code) {
         return "<!DOCTYPE html>\n"
                 + "<html lang=\"en\">\n"
