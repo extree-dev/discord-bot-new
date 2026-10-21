@@ -1,0 +1,20 @@
+# Переменные окружения намеренно переиспользуют имена из ../.env.example
+# там, где смысл совпадает 1:1 с Node-сервисом (STATS_SESSION_SECRET,
+# SUPPORT_ADMIN_EMAILS) — один .env на оба сервиса, пока они работают
+# бок о бок. Исключение — datasource.url: Spring ждёт JDBC-форму
+# (jdbc:postgresql://...), а DATABASE_URL в .env.example — в формате
+# postgresql://user:pass@host/db (как принимает node-postgres), поэтому
+# тут отдельная переменная DATABASE_URL_JDBC до тех пор, пока оба сервиса
+# не согласуют один формат при реальном переключении трафика.
+server:
+    port: ${STATS_BACKEND_JAVA_PORT:8081}
+
+spring:
+    datasource:
+        url: ${DATABASE_URL_JDBC:jdbc:postgresql://localhost:5432/discordbot}
+        username: ${POSTGRES_USER:discordbot}
+        password: ${POSTGRES_PASSWORD:discordbot}
+
+extree:
+    session-secret: ${STATS_SESSION_SECRET:}
+    support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}

@@ -7,3 +7,4 @@ frontend/package-lock.json
 stats-frontend/node_modules/
 stats-frontend/dist/
 stats-frontend/package-lock.json
+stats-backend-java/target/
