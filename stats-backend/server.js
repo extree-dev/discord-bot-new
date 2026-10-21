@@ -20,6 +20,19 @@
 // незаданном GOOGLE_CLIENT_ID. Пока RSO недоступен, email+пароль —
 // единственный способ завести аккаунт.
 require('dotenv').config({ quiet: true });
+const Sentry = require('@sentry/node');
+
+// DSN не секрет (как и Turnstile Site Key во фронтенде) — можно было бы
+// зашить прямо тут, но держим его переопределяемым через .env, как и
+// остальной конфиг stats-backend, на случай второго окружения/отключения.
+Sentry.init({
+    dsn:
+        process.env.STATS_BACKEND_SENTRY_DSN ||
+        'https://b30fdebc8383a5c0100264771dddd18d@o4512294454034432.ingest.de.sentry.io/4512294479003728',
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.1,
+});
+
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -180,6 +193,7 @@ app.get('/auth/riot/callback', async (req, res) => {
         res.redirect('/');
     } catch (err) {
         console.error('stats-backend: ошибка обмена кода на токен Riot:', err);
+        Sentry.captureException(err);
         res.redirect('/?auth_error=1');
     }
 });
@@ -254,6 +268,7 @@ app.post('/auth/register', async (req, res) => {
             return;
         }
         console.error('stats-backend: ошибка регистрации:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -282,6 +297,7 @@ app.post('/auth/resend-code', async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('stats-backend: ошибка повторной отправки кода:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -390,6 +406,7 @@ app.post('/auth/login', async (req, res) => {
             await issueAndSendLoginCode(email, { ip, country, city, remember: rememberMe });
         } catch (err) {
             console.error('stats-backend: ошибка отправки кода подтверждения нового места входа:', err);
+            Sentry.captureException(err);
             res.status(500).json({ error: 'internal_error' });
             return;
         }
@@ -405,6 +422,7 @@ app.post('/auth/login', async (req, res) => {
         // Уведомление — не критично для самого входа: не роняем сессию
         // из-за временной проблемы с почтой.
         console.error('stats-backend: ошибка отправки уведомления о входе:', err);
+        Sentry.captureException(err);
     }
 
     setSessionCookie(res, { userId: user.id }, rememberMe);
@@ -440,6 +458,7 @@ app.post('/auth/login/resend-code', async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('stats-backend: ошибка повторной отправки кода подтверждения входа:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -524,6 +543,7 @@ app.post('/auth/forgot-password', async (req, res) => {
             await mailer.sendPasswordResetEmail(email, resetUrlFor(req, token));
         } catch (err) {
             console.error('stats-backend: ошибка отправки письма сброса пароля:', err);
+            Sentry.captureException(err);
         }
     }
     res.json({ ok: true });
@@ -573,6 +593,7 @@ app.post('/auth/reset-password', async (req, res) => {
         // Уведомление — не критично для самого сброса: не роняем вход
         // из-за временной проблемы с почтой.
         console.error('stats-backend: ошибка отправки уведомления о смене пароля:', err);
+        Sentry.captureException(err);
     }
 
     // Успешный сброс — это тоже вход: пускаем сразу в аккаунт, не
@@ -651,10 +672,12 @@ app.post('/auth/account/change-email', async (req, res) => {
             // Уведомление на старый адрес — не критично для самого запроса
             // смены: не роняем его из-за временной проблемы с почтой.
             console.error('stats-backend: ошибка отправки уведомления о запросе смены email:', err);
+            Sentry.captureException(err);
         }
         res.json({ ok: true });
     } catch (err) {
         console.error('stats-backend: ошибка запроса смены email:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -680,6 +703,7 @@ app.post('/auth/account/resend-email-change-code', async (req, res) => {
         res.json({ ok: true });
     } catch (err) {
         console.error('stats-backend: ошибка повторной отправки кода смены email:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -738,6 +762,7 @@ app.post('/auth/account/confirm-email-change', async (req, res) => {
         ]);
     } catch (err) {
         console.error('stats-backend: ошибка отправки подтверждения смены email:', err);
+        Sentry.captureException(err);
     }
 
     res.json({ ok: true, user: { email: updated.email } });
@@ -776,6 +801,7 @@ app.post('/auth/account/change-password', async (req, res) => {
         });
     } catch (err) {
         console.error('stats-backend: ошибка отправки уведомления о смене пароля:', err);
+        Sentry.captureException(err);
     }
 
     res.json({ ok: true });
@@ -890,10 +916,12 @@ app.post('/api/support/tickets', async (req, res) => {
             // заявки (она уже сохранена в БД): не роняем ответ пользователю
             // из-за временной проблемы с почтой.
             console.error('stats-backend: ошибка отправки уведомления команде поддержки:', err);
+            Sentry.captureException(err);
         }
         res.json({ ok: true, ticketNumber: ticket.ticketNumber });
     } catch (err) {
         console.error('stats-backend: ошибка создания заявки в поддержку:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
@@ -984,6 +1012,7 @@ app.post('/api/admin/tickets/:number/reply', async (req, res) => {
         }
     } catch (err) {
         console.error('stats-backend: ошибка ответа на тикет из админки:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
         return;
     }
@@ -999,6 +1028,7 @@ app.post('/api/admin/tickets/:number/reply', async (req, res) => {
         // Ответ уже сохранён и виден в треде — сбой письма-уведомления не
         // повод говорить админу, что ответ не отправился.
         console.error('stats-backend: ошибка отправки уведомления об ответе на тикет:', err);
+        Sentry.captureException(err);
     }
     res.json({ ok: true });
 });
@@ -1112,6 +1142,7 @@ app.post('/api/support/tickets/:token/reply', async (req, res) => {
         await supportTickets.addReply(ticket.id, 'user', message);
     } catch (err) {
         console.error('stats-backend: ошибка ответа пользователя в тикете:', err);
+        Sentry.captureException(err);
         res.status(500).json({ error: 'internal_error' });
         return;
     }
@@ -1127,6 +1158,7 @@ app.post('/api/support/tickets/:token/reply', async (req, res) => {
         // Ответ уже сохранён и виден в треде — сбой письма-уведомления не
         // повод говорить пользователю, что его ответ не отправился.
         console.error('stats-backend: ошибка отправки уведомления команде поддержки об ответе:', err);
+        Sentry.captureException(err);
     }
     res.json({ ok: true });
 });
@@ -1156,9 +1188,16 @@ app.post('/api/riot/lookup', riotLookupRateLimiter, async (req, res) => {
         res.json({ ok: true, gameName: result.gameName, tagLine: result.tagLine });
     } catch (err) {
         console.error('stats-backend: ошибка поиска Riot-аккаунта:', err);
+        Sentry.captureException(err);
         res.status(502).json({ error: 'riot_api_error' });
     }
 });
+
+// На случай необработанного/синхронного throw, который дойдёт до Express
+// мимо try/catch выше (сами catch-блоки репортят в Sentry явно, см.
+// Sentry.captureException(err) рядом с каждым console.error выше) —
+// должен стоять после всех роутов.
+Sentry.setupExpressErrorHandler(app);
 
 app.listen(PORT, () => {
     console.log(`stats-backend: слушает порт ${PORT}`);
