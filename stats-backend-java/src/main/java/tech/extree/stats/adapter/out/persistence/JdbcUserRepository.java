@@ -41,6 +41,11 @@ public class JdbcUserRepository implements UserRepository {
                     rs.getString("id"), rs.getString("email"), null, toInstant(rs.getTimestamp("email_verified_at")),
                     null, null, null);
 
+    // updatePasswordHash/updateEmail в users.js возвращают только id, email
+    // (RETURNING) — то же сокращение, что у UPSERT_RESULT_ROW_MAPPER выше.
+    private static final RowMapper<User> ID_EMAIL_ROW_MAPPER =
+            (rs, rowNum) -> new User(rs.getString("id"), rs.getString("email"), null, null, null, null, null);
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcUserRepository(JdbcTemplate jdbcTemplate) {
@@ -102,6 +107,26 @@ public class JdbcUserRepository implements UserRepository {
                         + "RETURNING id, email, email_verified_at",
                 UPSERT_RESULT_ROW_MAPPER,
                 email);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public Optional<User> updatePasswordHash(String userId, String passwordHash) {
+        List<User> rows = jdbcTemplate.query(
+                "UPDATE stats_users SET password_hash = ? WHERE id = ? RETURNING id, email",
+                ID_EMAIL_ROW_MAPPER,
+                passwordHash,
+                userId);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public Optional<User> updateEmail(String userId, String newEmail) {
+        List<User> rows = jdbcTemplate.query(
+                "UPDATE stats_users SET email = ?, email_verified_at = now() WHERE id = ? RETURNING id, email",
+                ID_EMAIL_ROW_MAPPER,
+                newEmail,
+                userId);
         return rows.stream().findFirst();
     }
 }

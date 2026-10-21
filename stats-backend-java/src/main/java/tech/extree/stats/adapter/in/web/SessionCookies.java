@@ -25,4 +25,15 @@ final class SessionCookies {
         }
         return builder.build();
     }
+
+    /** Соответствует res.clearCookie(SESSION_COOKIE, {...}) в /auth/logout (server.js). */
+    static ResponseCookie clear() {
+        return ResponseCookie.from(SESSION_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+    }
 }

@@ -2,13 +2,12 @@ package tech.extree.stats.application.service;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Locale;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import tech.extree.stats.application.UtcTime;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.LoginUseCase;
 import tech.extree.stats.application.port.out.GeoLookup;
@@ -117,7 +116,7 @@ public class LoginService implements LoginUseCase {
         loginLocationRepository.rememberLocation(user.id(), location.country(), location.city(), clientIp);
         loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city());
         try {
-            mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), utcNow());
+            mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), UtcTime.now());
         } catch (Exception e) {
             // Уведомление не критично для самого входа — не роняем сессию
             // из-за временной проблемы с почтой, как и Node.
@@ -219,11 +218,5 @@ public class LoginService implements LoginUseCase {
 
     private String generateCode() {
         return String.valueOf(100000 + secureRandom.nextInt(900000));
-    }
-
-    private static String utcNow() {
-        return DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US)
-                .withZone(java.time.ZoneOffset.UTC)
-                .format(Instant.now());
     }
 }
