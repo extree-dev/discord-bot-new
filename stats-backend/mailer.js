@@ -268,9 +268,12 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-// Пользователю — подтверждение, что заявка получена, с её номером и
-// ссылкой на просмотр/ответ (тред теперь живёт на сайте — см. ticketUrl в
-// server.js, — а не в переписке по почте, см. sendSupportTicketReply).
+// Пользователю — подтверждение, что заявка получена. Простой текстовый
+// стиль вместо карточки с кнопкой (см. обсуждение при добавлении —
+// ориентир: как выглядят письма Riot Games Player Support) — это должно
+// читаться как письмо от живого человека, не как маркетинговая рассылка.
+// Ссылка на просмотр/ответ — обычная ссылка в тексте, не большая кнопка;
+// сам тред всё равно живёт на сайте (ticketUrl), не в переписке по почте.
 function renderSupportTicketConfirmationEmail({ ticketNumber, subject, ticketUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
@@ -281,51 +284,34 @@ function renderSupportTicketConfirmationEmail({ ticketNumber, subject, ticketUrl
 <meta name="supported-color-schemes" content="light">
 <title>We got your request</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
-<div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+<body style="margin:0;padding:0;background:#ffffff;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;color:#ffffff;max-height:0;max-width:0;opacity:0;overflow:hidden;">
 We got your support request. Ticket #${ticketNumber}.
 </div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
 <tr><td align="center">
-  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
-         style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;
+  <table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:580px;width:100%;
                 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-                color:#111111;">
-    <tr><td style="padding:40px 40px 0;">
-      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
-      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
-                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+                color:#1a1a1a;padding:32px 24px;">
+    <tr><td style="padding-bottom:24px;font-size:12.5px;color:#888888;">
+      Extree Stats Support
     </td></tr>
-    <tr><td style="padding:32px 40px 0;">
-      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">We got your request</h1>
+    <tr><td style="font-size:15px;line-height:1.7;">
+      Hi there,<br><br>
+      Thanks for reaching out — we got your message (<strong>${escapeHtml(subject)}</strong>) and will reply as soon as we can.
+      <br><br>
+      You can view it, and reply whenever you want, here: <a href="${ticketUrl}" style="color:#ff4d5e;">${ticketUrl}</a>.
+      We'll also email you the moment we reply.
+      <br><br>
+      Best regards,<br>
+      Extree Stats Support
     </td></tr>
-    <tr><td style="padding:16px 40px 0;">
-      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
-        Thanks for reaching out — we'll reply to this email as soon as we can. Here's your ticket for reference:
-      </p>
-    </td></tr>
-    <tr><td style="padding:28px 40px 0;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;border-radius:12px;">
-        <tr><td style="padding:18px 22px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
-            <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">#${escapeHtml(String(ticketNumber))}</td></tr>
-            <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
-          </table>
-        </td></tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:28px 40px 0;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-        <tr><td style="background:#ff4d5e;border-radius:10px;">
-          <a href="${ticketUrl}" style="display:inline-block;padding:14px 28px;font-size:14.5px;font-weight:700;
-             color:#ffffff;text-decoration:none;">View &amp; reply to your ticket</a>
-        </td></tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:20px 40px 40px;">
-      <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;">
-        We'll reply on that page, and email you when we do. Didn't send this request? Contact
-        <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>.
+    <tr><td style="padding-top:32px;">
+      <hr style="border:none;border-top:1px solid #e5e5e5;margin:0 0 16px;">
+      <p style="margin:0;font-size:12.5px;line-height:1.6;color:#999999;">
+        Ticket #${escapeHtml(String(ticketNumber))}. Didn't send this request? Contact
+        <a href="mailto:support@extree.tech" style="color:#999999;">support@extree.tech</a>.
       </p>
     </td></tr>
   </table>
@@ -335,9 +321,11 @@ We got your support request. Ticket #${ticketNumber}.
 </html>`;
 }
 
-// Пользователю — у тикета появился ответ от поддержки, со ссылкой на тред
-// (сама переписка — на сайте, это письмо только уведомление).
-function renderSupportTicketReplyEmail({ ticketNumber, subject, message, ticketUrl }) {
+// Пользователю — у тикета появился ответ от поддержки. Тот же простой
+// текстовый стиль, что и у подтверждения заявки выше — adminName берётся
+// из stats_users.name отвечавшего админа (см. server.js), с фолбэком на
+// "Support", если имя в профиле не заполнено.
+function renderSupportTicketReplyEmail({ ticketNumber, message, adminName, ticketUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -347,48 +335,32 @@ function renderSupportTicketReplyEmail({ ticketNumber, subject, message, ticketU
 <meta name="supported-color-schemes" content="light">
 <title>New reply to your ticket</title>
 </head>
-<body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
-<div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
-We replied to your support ticket #${escapeHtml(String(ticketNumber))}.
+<body style="margin:0;padding:0;background:#ffffff;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;color:#ffffff;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+${escapeHtml(adminName)} replied to your support ticket #${escapeHtml(String(ticketNumber))}.
 </div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
 <tr><td align="center">
-  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
-         style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;
+  <table role="presentation" width="580" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:580px;width:100%;
                 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
-                color:#111111;">
-    <tr><td style="padding:40px 40px 0;">
-      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
-      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
-                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+                color:#1a1a1a;padding:32px 24px;">
+    <tr><td style="padding-bottom:24px;">
+      <span style="font-size:14px;font-weight:700;">${escapeHtml(adminName)}</span>
+      <span style="font-size:12.5px;color:#888888;"> (Extree Stats Support)</span>
     </td></tr>
-    <tr><td style="padding:32px 40px 0;">
-      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">We replied to your ticket</h1>
+    <tr><td style="font-size:15px;line-height:1.7;white-space:pre-wrap;">${escapeHtml(message)}</td></tr>
+    <tr><td style="padding-top:24px;font-size:15px;line-height:1.7;">
+      Best regards,<br>
+      ${escapeHtml(adminName)}<br>
+      Extree Stats Support
     </td></tr>
-    <tr><td style="padding:16px 40px 0;">
-      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
-        There's a new reply on your support ticket &mdash; <strong>${escapeHtml(subject)}</strong>.
-      </p>
-    </td></tr>
-    <tr><td style="padding:20px 40px 0;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;border-radius:12px;">
-        <tr><td style="padding:16px 20px;">
-          <p style="margin:0;font-size:14px;line-height:1.6;color:#333333;white-space:pre-wrap;">${escapeHtml(message)}</p>
-        </td></tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:24px 40px 0;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-        <tr><td style="background:#ff4d5e;border-radius:10px;">
-          <a href="${ticketUrl}" style="display:inline-block;padding:14px 28px;font-size:14.5px;font-weight:700;
-             color:#ffffff;text-decoration:none;">Reply</a>
-        </td></tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:20px 40px 40px;">
-      <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;">
+    <tr><td style="padding-top:32px;">
+      <hr style="border:none;border-top:1px solid #e5e5e5;margin:0 0 16px;">
+      <p style="margin:0;font-size:12.5px;line-height:1.6;color:#999999;">
+        Reply on ticket #${escapeHtml(String(ticketNumber))}: <a href="${ticketUrl}" style="color:#999999;">${ticketUrl}</a>.
         Didn't open this ticket? Contact
-        <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>.
+        <a href="mailto:support@extree.tech" style="color:#999999;">support@extree.tech</a>.
       </p>
     </td></tr>
   </table>
@@ -801,13 +773,13 @@ async function sendSupportTicketNotification({ ticketNumber, email, subject, mes
 // Поддержке ответили на тикет — уведомляем пользователя. Полный текст
 // ответа теперь в самом письме (см. renderSupportTicketReplyEmail) — не
 // только ссылка, чтобы можно было прочитать ответ не открывая сайт.
-async function sendSupportTicketReply(email, { ticketNumber, subject, message, ticketUrl }) {
+async function sendSupportTicketReply(email, { ticketNumber, subject, message, adminName, ticketUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: email,
         subject: `Re: ${subject} — Extree Stats #${ticketNumber}`,
-        html: renderSupportTicketReplyEmail({ ticketNumber, subject, message, ticketUrl }),
+        html: renderSupportTicketReplyEmail({ ticketNumber, message, adminName: adminName || 'Support', ticketUrl }),
     });
 }
 

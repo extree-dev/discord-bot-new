@@ -979,6 +979,7 @@ app.post('/api/admin/tickets/:number/reply', async (req, res) => {
             ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
             message,
+            adminName: admin.name,
             ticketUrl: ticketUrlFor(req, ticket.view_token),
         });
     } catch (err) {
