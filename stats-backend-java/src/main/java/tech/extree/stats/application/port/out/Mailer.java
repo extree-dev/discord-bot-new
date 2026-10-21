@@ -17,4 +17,13 @@ public interface Mailer {
     void sendEmailChanged(String to, String oldEmail, String newEmail);
 
     void sendPasswordChanged(String email, String ip, String country, String city, String time);
+
+    void sendSupportTicketConfirmation(String email, long ticketNumber, String subject, String ticketUrl);
+
+    void sendSupportTicketNotification(
+            long ticketNumber, String email, String subject, String message, String category, String userId, String adminUrl);
+
+    void sendSupportTicketReply(String email, long ticketNumber, String subject, String message, String adminName, String ticketUrl);
+
+    void sendSupportTicketUserReply(long ticketNumber, String email, String subject, String message, String adminUrl);
 }

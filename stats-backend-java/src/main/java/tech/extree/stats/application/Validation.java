@@ -1,5 +1,6 @@
 package tech.extree.stats.application;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -39,5 +40,22 @@ public final class Validation {
 
     public static boolean isValidNickname(String nickname) {
         return nickname != null && NICKNAME_RE.matcher(nickname).matches();
+    }
+
+    public static boolean isValidSubject(String subject) {
+        return subject != null && !subject.trim().isEmpty() && subject.trim().length() <= 200;
+    }
+
+    public static boolean isValidMessage(String message) {
+        return message != null && !message.trim().isEmpty() && message.trim().length() <= 5000;
+    }
+
+    // Ключи категорий заявок — те же, что в pages/support фронтенда
+    // (Node), не отображаемые надписи, чтобы текст можно было поменять
+    // без миграции данных.
+    private static final List<String> SUPPORT_CATEGORIES = List.of("account", "bug", "billing", "other");
+
+    public static boolean isValidCategory(String category) {
+        return category != null && SUPPORT_CATEGORIES.contains(category);
     }
 }

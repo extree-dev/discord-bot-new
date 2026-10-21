@@ -1,6 +1,7 @@
 package tech.extree.stats.adapter.out.mail;
 
 import jakarta.mail.internet.MimeMessage;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -137,6 +138,76 @@ public class SmtpMailer implements Mailer {
     }
 
     @Override
+    public void sendSupportTicketConfirmation(String email, long ticketNumber, String subject, String ticketUrl) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("We got your request — Extree Stats #" + ticketNumber);
+            helper.setText(renderSupportTicketConfirmationEmail(ticketNumber, subject, ticketUrl), true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить подтверждение заявки в поддержку", e);
+        }
+    }
+
+    @Override
+    public void sendSupportTicketNotification(
+            long ticketNumber, String email, String subject, String message, String category, String userId, String adminUrl) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromAddress);
+            // Фиксированный адрес команды поддержки, не STATS_MAIL_FROM/TO —
+            // та же константа, что в mailer.js. Reply-To на отправителя —
+            // на случай, если кто-то ответит прямо из почтового клиента, не
+            // заметив админку.
+            helper.setTo("support@extree.tech");
+            helper.setReplyTo(email);
+            helper.setSubject("[Ticket #" + ticketNumber + "] " + subject);
+            helper.setText(
+                    renderSupportTicketNotificationEmail(ticketNumber, email, subject, message, category, userId, adminUrl),
+                    true);
+            mailSender.send(mimeMessage);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить уведомление команде поддержки о новой заявке", e);
+        }
+    }
+
+    @Override
+    public void sendSupportTicketReply(
+            String email, long ticketNumber, String subject, String message, String adminName, String ticketUrl) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("Re: " + subject + " — Extree Stats #" + ticketNumber);
+            helper.setText(renderSupportTicketReplyEmail(ticketNumber, message, adminName, ticketUrl), true);
+            mailSender.send(mimeMessage);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить уведомление об ответе на тикет", e);
+        }
+    }
+
+    @Override
+    public void sendSupportTicketUserReply(long ticketNumber, String email, String subject, String message, String adminUrl) {
+        try {
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo("support@extree.tech");
+            helper.setReplyTo(email);
+            helper.setSubject("Re: [Ticket #" + ticketNumber + "] " + subject);
+            helper.setText(renderSupportTicketUserReplyEmail(ticketNumber, email, subject, message, adminUrl), true);
+            mailSender.send(mimeMessage);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить уведомление команде поддержки об ответе пользователя", e);
+        }
+    }
+
+    @Override
     public void sendSignInNotification(String email, String ip, String country, String city, String time) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -171,6 +242,223 @@ public class SmtpMailer implements Mailer {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private static final Map<String, String> SUPPORT_CATEGORY_LABELS =
+            Map.of("account", "Account & login", "bug", "Bug report", "billing", "Billing", "other", "Other");
+
+    private static String renderSupportTicketConfirmationEmail(long ticketNumber, String subject, String ticketUrl) {
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "<meta name=\"color-scheme\" content=\"light\">\n"
+                + "<meta name=\"supported-color-schemes\" content=\"light\">\n"
+                + "<title>We got your request</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#ffffff;-webkit-font-smoothing:antialiased;\">\n"
+                + "<div style=\"display:none;font-size:1px;line-height:1px;color:#ffffff;max-height:0;max-width:0;"
+                + "opacity:0;overflow:hidden;\">\n"
+                + "We got your support request. Ticket #" + ticketNumber + ".\n"
+                + "</div>\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#ffffff;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"580\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"\n"
+                + "         style=\"max-width:580px;width:100%;\n"
+                + "                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,"
+                + "Arial,sans-serif;\n"
+                + "                color:#1a1a1a;padding:32px 24px;\">\n"
+                + "    <tr><td style=\"padding-bottom:24px;font-size:12.5px;color:#888888;\">\n"
+                + "      Extree Stats Support\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"font-size:15px;line-height:1.7;\">\n"
+                + "      Hi there,<br><br>\n"
+                + "      Thanks for reaching out — we got your message (<strong>" + escapeHtml(subject)
+                + "</strong>) and will reply as soon as we can.\n"
+                + "      <br><br>\n"
+                + "      You can view it, and reply whenever you want, here: <a href=\"" + ticketUrl
+                + "\" style=\"color:#ff4d5e;\">" + ticketUrl + "</a>.\n"
+                + "      We'll also email you the moment we reply.\n"
+                + "      <br><br>\n"
+                + "      Best regards,<br>\n"
+                + "      Extree Stats Support\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding-top:32px;\">\n"
+                + "      <hr style=\"border:none;border-top:1px solid #e5e5e5;margin:0 0 16px;\">\n"
+                + "      <p style=\"margin:0;font-size:12.5px;line-height:1.6;color:#999999;\">\n"
+                + "        Ticket #" + escapeHtml(String.valueOf(ticketNumber)) + ". Didn't send this request? "
+                + "Contact\n"
+                + "        <a href=\"mailto:support@extree.tech\" style=\"color:#999999;\">support@extree.tech</a>.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
+    }
+
+    private static String renderSupportTicketReplyEmail(long ticketNumber, String message, String adminName, String ticketUrl) {
+        String safeAdminName = escapeHtml(adminName);
+        String ticketLabel = escapeHtml(String.valueOf(ticketNumber));
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+                + "<meta name=\"color-scheme\" content=\"light\">\n"
+                + "<meta name=\"supported-color-schemes\" content=\"light\">\n"
+                + "<title>New reply to your ticket</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#ffffff;-webkit-font-smoothing:antialiased;\">\n"
+                + "<div style=\"display:none;font-size:1px;line-height:1px;color:#ffffff;max-height:0;max-width:0;"
+                + "opacity:0;overflow:hidden;\">\n"
+                + safeAdminName + " replied to your support ticket #" + ticketLabel + ".\n"
+                + "</div>\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#ffffff;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"580\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"\n"
+                + "         style=\"max-width:580px;width:100%;\n"
+                + "                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,"
+                + "Arial,sans-serif;\n"
+                + "                color:#1a1a1a;padding:32px 24px;\">\n"
+                + "    <tr><td style=\"padding-bottom:24px;\">\n"
+                + "      <span style=\"font-size:14px;font-weight:700;\">" + safeAdminName + "</span>\n"
+                + "      <span style=\"font-size:12.5px;color:#888888;\"> (Extree Stats Support)</span>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"font-size:15px;line-height:1.7;white-space:pre-wrap;\">" + escapeHtml(message)
+                + "</td></tr>\n"
+                + "    <tr><td style=\"padding-top:24px;font-size:15px;line-height:1.7;\">\n"
+                + "      Best regards,<br>\n"
+                + "      " + safeAdminName + "<br>\n"
+                + "      Extree Stats Support\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding-top:32px;\">\n"
+                + "      <hr style=\"border:none;border-top:1px solid #e5e5e5;margin:0 0 16px;\">\n"
+                + "      <p style=\"margin:0;font-size:12.5px;line-height:1.6;color:#999999;\">\n"
+                + "        Reply on ticket #" + ticketLabel + ": <a href=\"" + ticketUrl
+                + "\" style=\"color:#999999;\">" + ticketUrl + "</a>.\n"
+                + "        Didn't open this ticket? Contact\n"
+                + "        <a href=\"mailto:support@extree.tech\" style=\"color:#999999;\">support@extree.tech</a>.\n"
+                + "      </p>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
+    }
+
+    private static String renderSupportTicketNotificationEmail(
+            long ticketNumber, String email, String subject, String message, String category, String userId, String adminUrl) {
+        String categoryLabel = SUPPORT_CATEGORY_LABELS.getOrDefault(category, "Other");
+        String fromLine = escapeHtml(email) + (userId != null ? " (signed in)" : " (not signed in)");
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<title>New support ticket</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,"
+                + "BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#f4f5f7;padding:32px 16px;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"560\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"max-width:560px;width:100%;background:#ffffff;border-radius:12px;color:#111111;\">\n"
+                + "    <tr><td style=\"padding:28px 32px 0;\">\n"
+                + "      <h1 style=\"margin:0;font-size:18px;font-weight:700;\">New Extree Stats support ticket</h1>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:16px 32px 0;\">\n"
+                + "      <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" "
+                + "border=\"0\" style=\"font-size:13.5px;color:#333333;\">\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;width:84px;\">Ticket</td>"
+                + "<td style=\"padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;\">#"
+                + escapeHtml(String.valueOf(ticketNumber)) + "</td></tr>\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;\">From</td>"
+                + "<td style=\"padding:4px 0;\">" + fromLine + "</td></tr>\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;\">Category</td>"
+                + "<td style=\"padding:4px 0;\">" + escapeHtml(categoryLabel) + "</td></tr>\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;\">Subject</td>"
+                + "<td style=\"padding:4px 0;\">" + escapeHtml(subject) + "</td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:20px 32px 0;\">\n"
+                + "      <p style=\"margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;"
+                + "letter-spacing:0.04em;color:#888888;\">Message</p>\n"
+                + "      <p style=\"margin:0;font-size:14px;line-height:1.6;color:#111111;white-space:pre-wrap;\">"
+                + escapeHtml(message) + "</p>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:24px 32px 28px;\">\n"
+                + "      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n"
+                + "        <tr><td style=\"background:#ff4d5e;border-radius:10px;\">\n"
+                + "          <a href=\"" + adminUrl + "\" style=\"display:inline-block;padding:12px 24px;"
+                + "font-size:13.5px;font-weight:700;\n"
+                + "             color:#ffffff;text-decoration:none;\">Reply in admin</a>\n"
+                + "        </td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
+    }
+
+    private static String renderSupportTicketUserReplyEmail(
+            long ticketNumber, String email, String subject, String message, String adminUrl) {
+        return "<!DOCTYPE html>\n"
+                + "<html lang=\"en\">\n"
+                + "<head>\n"
+                + "<meta charset=\"utf-8\">\n"
+                + "<title>New reply on a support ticket</title>\n"
+                + "</head>\n"
+                + "<body style=\"margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,"
+                + "BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;\">\n"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background:#f4f5f7;padding:32px 16px;\">\n"
+                + "<tr><td align=\"center\">\n"
+                + "  <table role=\"presentation\" width=\"560\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"max-width:560px;width:100%;background:#ffffff;border-radius:12px;color:#111111;\">\n"
+                + "    <tr><td style=\"padding:28px 32px 0;\">\n"
+                + "      <h1 style=\"margin:0;font-size:18px;font-weight:700;\">New reply on an Extree Stats "
+                + "ticket</h1>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:16px 32px 0;\">\n"
+                + "      <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" "
+                + "border=\"0\" style=\"font-size:13.5px;color:#333333;\">\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;width:84px;\">Ticket</td>"
+                + "<td style=\"padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;\">#"
+                + escapeHtml(String.valueOf(ticketNumber)) + "</td></tr>\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;\">From</td>"
+                + "<td style=\"padding:4px 0;\">" + escapeHtml(email) + "</td></tr>\n"
+                + "        <tr><td style=\"padding:4px 0;color:#888888;\">Subject</td>"
+                + "<td style=\"padding:4px 0;\">" + escapeHtml(subject) + "</td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:20px 32px 0;\">\n"
+                + "      <p style=\"margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;"
+                + "letter-spacing:0.04em;color:#888888;\">Reply</p>\n"
+                + "      <p style=\"margin:0;font-size:14px;line-height:1.6;color:#111111;white-space:pre-wrap;\">"
+                + escapeHtml(message) + "</p>\n"
+                + "    </td></tr>\n"
+                + "    <tr><td style=\"padding:24px 32px 28px;\">\n"
+                + "      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n"
+                + "        <tr><td style=\"background:#ff4d5e;border-radius:10px;\">\n"
+                + "          <a href=\"" + adminUrl + "\" style=\"display:inline-block;padding:12px 24px;"
+                + "font-size:13.5px;font-weight:700;\n"
+                + "             color:#ffffff;text-decoration:none;\">Reply in admin</a>\n"
+                + "        </td></tr>\n"
+                + "      </table>\n"
+                + "    </td></tr>\n"
+                + "  </table>\n"
+                + "</td></tr>\n"
+                + "</table>\n"
+                + "</body>\n"
+                + "</html>";
     }
 
     private static String renderPasswordResetEmail(String resetUrl) {

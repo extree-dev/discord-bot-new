@@ -53,6 +53,20 @@ adapter/out/turnstile/           — Cloudflare Turnstile siteverify
   `GET /api/account/login-history` — настройки аккаунта, все требуют
   действующую сессию + (для смены email/пароля) текущий пароль —
   тот же "step-up" приём, что requireSession в server.js.
+- `POST /api/support/tickets`, `GET /api/support/tickets/:token`,
+  `POST /api/support/tickets/:token/reply` — публичная сторона
+  тикет-платформы (без входа, или с сессией — тогда email берётся из
+  аккаунта, тело игнорируется, чтобы нельзя было подменить отправителя).
+  Просмотр/ответ по секретному `view_token`, не по человекочитаемому
+  номеру тикета (тот легко перебирается).
+- `GET /api/admin/tickets`, `GET /api/admin/tickets/:number`,
+  `POST /api/admin/tickets/:number/reply`, `/status`,
+  `GET`/`POST /api/admin/canned-responses`,
+  `DELETE /api/admin/canned-responses/:id` — админка, email в
+  `SUPPORT_ADMIN_EMAILS` (`SupportAdminEmails`, общий с `/api/account/me`
+  `isAdmin`); 401 (нет сессии) и 403 (сессия есть, но не админ)
+  различаются, как и requireAdmin в Node. Первый ответ админа сдвигает
+  тикет из `open` в `in_progress`.
 
 **Известное отклонение (осознанное, не забытое):** geo-определение страны
 здесь читает только `geoip-country(6).dat` (те же файлы, что у geoip-lite,
@@ -79,18 +93,22 @@ geoip-lite. Для подавляющего большинства реальн�
 живой smoke-тест (Postgres + собранный jar + curl, Turnstile — через
 официальные тестовые ключи Cloudflare) прогнан вручную для регистрации,
 входа ("неизвестное место → код на почту → confirm-location → cookie с
-правильным Max-Age/sameSite") и настроек аккаунта (смена пароля → смена
+правильным Max-Age/sameSite"), настроек аккаунта (смена пароля → смена
 email с подтверждением на новый адрес → забыл пароль → сброс по ссылке
-→ вход с финальным паролем, одной цепочкой на одном аккаунте), включая
-то, что выпущенная Java-сервисом cookie расшифровывается тем же
-Node'овым `decryptSession`. Если эти проверки когда-нибудь расходятся —
-переключать трафик нельзя.
+→ вход с финальным паролем, одной цепочкой на одном аккаунте) и
+тикет-платформы (создание без сессии → публичный просмотр без email в
+ответе → ответ пользователя → список/детали в админке с email → ответ
+админа с авто-переходом open→in_progress → смена статуса → отклонённый
+ответ на закрытый тикет → canned responses create/list/delete →
+401-без-сессии vs 403-не-админ → подмена email в теле запроса
+подтверждённым пользователем игнорируется), включая то, что выпущенная
+Java-сервисом cookie расшифровывается тем же Node'овым `decryptSession`.
+Если эти проверки когда-нибудь расходятся — переключать трафик нельзя.
 
 ## Что дальше (в следующих PR)
 
-1. Тикет-платформа (создание/ответ/статусы/canned responses).
-2. Riot OAuth + Turnstile config endpoints.
-3. Только после того, как Java-сервис покрывает весь REST API и прошёл
+1. Riot OAuth + Turnstile config endpoints.
+2. Только после того, как Java-сервис покрывает весь REST API и прошёл
    полноценную проверку — переключение `web/Caddyfile`/
    `docker-compose.yml` на него, с Node-версией как fallback на случай
    отката.
