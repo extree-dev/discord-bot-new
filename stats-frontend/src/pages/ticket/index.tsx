@@ -93,7 +93,7 @@ export function TicketPage() {
         <DashboardShell
             user={null}
             title={ticket?.subject ?? 'Your ticket'}
-            subtitle={ticket ? `Ticket ${ticket.id}` : undefined}
+            subtitle={ticket ? `#${ticket.number}` : undefined}
             headerExtra={ticket && <StatusPill status={ticket.status} />}
             error={error}
         >

@@ -271,7 +271,7 @@ function escapeHtml(value) {
 // Пользователю — подтверждение, что заявка получена, с её номером и
 // ссылкой на просмотр/ответ (тред теперь живёт на сайте — см. ticketUrl в
 // server.js, — а не в переписке по почте, см. sendSupportTicketReply).
-function renderSupportTicketConfirmationEmail({ ticketId, subject, ticketUrl }) {
+function renderSupportTicketConfirmationEmail({ ticketNumber, subject, ticketUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -283,7 +283,7 @@ function renderSupportTicketConfirmationEmail({ ticketId, subject, ticketUrl }) 
 </head>
 <body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
 <div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
-We got your support request. Ticket ${ticketId}.
+We got your support request. Ticket #${ticketNumber}.
 </div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
 <tr><td align="center">
@@ -308,7 +308,7 @@ We got your support request. Ticket ${ticketId}.
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;border-radius:12px;">
         <tr><td style="padding:18px 22px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
-            <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${escapeHtml(ticketId)}</td></tr>
+            <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">#${escapeHtml(String(ticketNumber))}</td></tr>
             <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
           </table>
         </td></tr>
@@ -337,7 +337,7 @@ We got your support request. Ticket ${ticketId}.
 
 // Пользователю — у тикета появился ответ от поддержки, со ссылкой на тред
 // (сама переписка — на сайте, это письмо только уведомление).
-function renderSupportTicketReplyEmail({ ticketId, subject, ticketUrl }) {
+function renderSupportTicketReplyEmail({ ticketNumber, subject, message, ticketUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -349,7 +349,7 @@ function renderSupportTicketReplyEmail({ ticketId, subject, ticketUrl }) {
 </head>
 <body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
 <div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
-We replied to your support ticket ${escapeHtml(ticketId)}.
+We replied to your support ticket #${escapeHtml(String(ticketNumber))}.
 </div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
 <tr><td align="center">
@@ -370,11 +370,18 @@ We replied to your support ticket ${escapeHtml(ticketId)}.
         There's a new reply on your support ticket &mdash; <strong>${escapeHtml(subject)}</strong>.
       </p>
     </td></tr>
-    <tr><td style="padding:28px 40px 0;">
+    <tr><td style="padding:20px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;border-radius:12px;">
+        <tr><td style="padding:16px 20px;">
+          <p style="margin:0;font-size:14px;line-height:1.6;color:#333333;white-space:pre-wrap;">${escapeHtml(message)}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:24px 40px 0;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0">
         <tr><td style="background:#ff4d5e;border-radius:10px;">
           <a href="${ticketUrl}" style="display:inline-block;padding:14px 28px;font-size:14.5px;font-weight:700;
-             color:#ffffff;text-decoration:none;">View reply</a>
+             color:#ffffff;text-decoration:none;">Reply</a>
         </td></tr>
       </table>
     </td></tr>
@@ -392,9 +399,10 @@ We replied to your support ticket ${escapeHtml(ticketId)}.
 }
 
 // Внутреннее письмо команде поддержки (support@extree.tech) с содержимым
-// заявки — отвечаем теперь в админке (/admin/tickets/:id, ссылка ниже), а
-// не "Ответить" в почтовом клиенте: тред живёт на сайте, Reply-To всё ещё
-// указывает на отправителя просто на случай, если админку кто-то не найдёт.
+// заявки — отвечаем теперь в админке (/admin/tickets/:number, ссылка
+// ниже), а не "Ответить" в почтовом клиенте: тред живёт на сайте,
+// Reply-To всё ещё указывает на отправителя просто на случай, если
+// админку кто-то не найдёт.
 const SUPPORT_CATEGORY_LABELS = {
     account: 'Account & login',
     bug: 'Bug report',
@@ -402,7 +410,7 @@ const SUPPORT_CATEGORY_LABELS = {
     other: 'Other',
 };
 
-function renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId, adminUrl }) {
+function renderSupportTicketNotificationEmail({ ticketNumber, email, subject, message, category, userId, adminUrl }) {
     const categoryLabel = SUPPORT_CATEGORY_LABELS[category] || 'Other';
     return `<!DOCTYPE html>
 <html lang="en">
@@ -419,7 +427,7 @@ function renderSupportTicketNotificationEmail({ ticketId, email, subject, messag
     </td></tr>
     <tr><td style="padding:16px 32px 0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
-        <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${escapeHtml(ticketId)}</td></tr>
+        <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">#${escapeHtml(String(ticketNumber))}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">From</td><td style="padding:4px 0;">${escapeHtml(email)}${userId ? ' (signed in)' : ' (not signed in)'}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">Category</td><td style="padding:4px 0;">${escapeHtml(categoryLabel)}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
@@ -446,7 +454,7 @@ function renderSupportTicketNotificationEmail({ ticketId, email, subject, messag
 
 // Пользователь ответил в своём тикете — та же карточка, что уведомление о
 // новой заявке выше, просто без категории (ответ не меняет её).
-function renderSupportTicketUserReplyEmail({ ticketId, email, subject, message, adminUrl }) {
+function renderSupportTicketUserReplyEmail({ ticketNumber, email, subject, message, adminUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -462,7 +470,7 @@ function renderSupportTicketUserReplyEmail({ ticketId, email, subject, message, 
     </td></tr>
     <tr><td style="padding:16px 32px 0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
-        <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${escapeHtml(ticketId)}</td></tr>
+        <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">#${escapeHtml(String(ticketNumber))}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">From</td><td style="padding:4px 0;">${escapeHtml(email)}</td></tr>
         <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
       </table>
@@ -761,48 +769,57 @@ async function sendPasswordChanged(email, { ip, country, city, time }) {
     });
 }
 
-async function sendSupportTicketConfirmation(email, { ticketId, subject, ticketUrl }) {
+async function sendSupportTicketConfirmation(email, { ticketNumber, subject, ticketUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: email,
-        subject: `We got your request — Extree Stats [${ticketId}]`,
-        html: renderSupportTicketConfirmationEmail({ ticketId, subject, ticketUrl }),
+        subject: `We got your request — Extree Stats #${ticketNumber}`,
+        html: renderSupportTicketConfirmationEmail({ ticketNumber, subject, ticketUrl }),
     });
 }
 
-async function sendSupportTicketNotification({ ticketId, email, subject, message, category, userId, adminUrl }) {
+async function sendSupportTicketNotification({ ticketNumber, email, subject, message, category, userId, adminUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: 'support@extree.tech',
         replyTo: email,
-        subject: `[Ticket ${ticketId}] ${subject}`,
-        html: renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId, adminUrl }),
+        subject: `[Ticket #${ticketNumber}] ${subject}`,
+        html: renderSupportTicketNotificationEmail({
+            ticketNumber,
+            email,
+            subject,
+            message,
+            category,
+            userId,
+            adminUrl,
+        }),
     });
 }
 
-// Поддержке ответили на тикет — уведомляем пользователя, сам ответ читает
-// на сайте (ticketUrl), не в теле письма.
-async function sendSupportTicketReply(email, { ticketId, subject, ticketUrl }) {
+// Поддержке ответили на тикет — уведомляем пользователя. Полный текст
+// ответа теперь в самом письме (см. renderSupportTicketReplyEmail) — не
+// только ссылка, чтобы можно было прочитать ответ не открывая сайт.
+async function sendSupportTicketReply(email, { ticketNumber, subject, message, ticketUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: email,
-        subject: `Re: ${subject} — Extree Stats [${ticketId}]`,
-        html: renderSupportTicketReplyEmail({ ticketId, subject, ticketUrl }),
+        subject: `Re: ${subject} — Extree Stats #${ticketNumber}`,
+        html: renderSupportTicketReplyEmail({ ticketNumber, subject, message, ticketUrl }),
     });
 }
 
 // Пользователь ответил в своём тикете — уведомляем поддержку.
-async function sendSupportTicketUserReply({ ticketId, email, subject, message, adminUrl }) {
+async function sendSupportTicketUserReply({ ticketNumber, email, subject, message, adminUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: 'support@extree.tech',
         replyTo: email,
-        subject: `Re: [Ticket ${ticketId}] ${subject}`,
-        html: renderSupportTicketUserReplyEmail({ ticketId, email, subject, message, adminUrl }),
+        subject: `Re: [Ticket #${ticketNumber}] ${subject}`,
+        html: renderSupportTicketUserReplyEmail({ ticketNumber, email, subject, message, adminUrl }),
     });
 }
 

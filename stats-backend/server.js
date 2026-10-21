@@ -34,6 +34,7 @@ const loginLocations = require('./loginLocations');
 const loginEvents = require('./loginEvents');
 const passwordResets = require('./passwordResets');
 const supportTickets = require('./supportTickets');
+const cannedResponses = require('./cannedResponses');
 const geo = require('./geo');
 const { verifyTurnstileToken } = require('./turnstile');
 const mailer = require('./mailer');
@@ -483,8 +484,8 @@ function ticketUrlFor(req, token) {
     return `https://${req.headers.host}/support/ticket/${token}`;
 }
 
-function adminTicketUrlFor(req, ticketId) {
-    return `https://${req.headers.host}/admin/tickets/${ticketId}`;
+function adminTicketUrlFor(req, ticketNumber) {
+    return `https://${req.headers.host}/admin/tickets/${ticketNumber}`;
 }
 
 app.post('/auth/forgot-password', async (req, res) => {
@@ -860,16 +861,16 @@ app.post('/api/support/tickets', async (req, res) => {
     try {
         const ticket = await supportTickets.createTicket({ userId, email, subject, message, category });
         const ticketUrl = ticketUrlFor(req, ticket.viewToken);
-        await mailer.sendSupportTicketConfirmation(email, { ticketId: ticket.id, subject, ticketUrl });
+        await mailer.sendSupportTicketConfirmation(email, { ticketNumber: ticket.ticketNumber, subject, ticketUrl });
         try {
             await mailer.sendSupportTicketNotification({
-                ticketId: ticket.id,
+                ticketNumber: ticket.ticketNumber,
                 email,
                 subject,
                 message,
                 category,
                 userId,
-                adminUrl: adminTicketUrlFor(req, ticket.id),
+                adminUrl: adminTicketUrlFor(req, ticket.ticketNumber),
             });
         } catch (err) {
             // Письмо в поддержку — не критично для самого факта подачи
@@ -877,19 +878,21 @@ app.post('/api/support/tickets', async (req, res) => {
             // из-за временной проблемы с почтой.
             console.error('stats-backend: ошибка отправки уведомления команде поддержки:', err);
         }
-        res.json({ ok: true, ticketId: ticket.id });
+        res.json({ ok: true, ticketNumber: ticket.ticketNumber });
     } catch (err) {
         console.error('stats-backend: ошибка создания заявки в поддержку:', err);
         res.status(500).json({ error: 'internal_error' });
     }
 });
 
-const TICKET_STATUSES = ['open', 'closed'];
+const TICKET_STATUSES = ['open', 'in_progress', 'closed'];
 
 // Админка тикетов (/admin/tickets) — список и ответ живут на сайте вместо
 // переписки по почте (см. обсуждение при добавлении: доступа к реальному
 // почтовому ящику support@extree.tech со своим отдельным логином нет и не
-// планируется, письма — только уведомления со ссылкой сюда).
+// планируется, письма — только уведомления со ссылкой сюда). Адресуются
+// по ticket_number (человекочитаемый #42, см. db.js), не по внутреннему
+// UUID id — он только в БД, наружу (URL, письма) не торчит.
 app.get('/api/admin/tickets', async (req, res) => {
     const admin = await requireAdmin(req, res);
     if (!admin) return;
@@ -902,7 +905,7 @@ app.get('/api/admin/tickets', async (req, res) => {
     const tickets = await supportTickets.listTickets({ status });
     res.json({
         tickets: tickets.map(t => ({
-            id: t.id,
+            number: Number(t.ticket_number),
             email: t.email,
             subject: t.subject,
             category: t.category,
@@ -912,11 +915,11 @@ app.get('/api/admin/tickets', async (req, res) => {
     });
 });
 
-app.get('/api/admin/tickets/:id', async (req, res) => {
+app.get('/api/admin/tickets/:number', async (req, res) => {
     const admin = await requireAdmin(req, res);
     if (!admin) return;
 
-    const ticket = await supportTickets.getTicketById(req.params.id);
+    const ticket = await supportTickets.getTicketByNumber(req.params.number);
     if (!ticket) {
         res.status(404).json({ error: 'ticket_not_found' });
         return;
@@ -924,7 +927,7 @@ app.get('/api/admin/tickets/:id', async (req, res) => {
     const replies = await supportTickets.listReplies(ticket.id);
     res.json({
         ticket: {
-            id: ticket.id,
+            number: Number(ticket.ticket_number),
             email: ticket.email,
             subject: ticket.subject,
             message: ticket.message,
@@ -941,7 +944,7 @@ app.get('/api/admin/tickets/:id', async (req, res) => {
     });
 });
 
-app.post('/api/admin/tickets/:id/reply', async (req, res) => {
+app.post('/api/admin/tickets/:number/reply', async (req, res) => {
     const admin = await requireAdmin(req, res);
     if (!admin) return;
 
@@ -951,7 +954,7 @@ app.post('/api/admin/tickets/:id/reply', async (req, res) => {
         return;
     }
 
-    const ticket = await supportTickets.getTicketById(req.params.id);
+    const ticket = await supportTickets.getTicketByNumber(req.params.number);
     if (!ticket) {
         res.status(404).json({ error: 'ticket_not_found' });
         return;
@@ -959,6 +962,13 @@ app.post('/api/admin/tickets/:id/reply', async (req, res) => {
 
     try {
         await supportTickets.addReply(ticket.id, 'admin', message);
+        // Первый ответ админа сдвигает тикет из "open" в "in_progress" —
+        // то же поведение, что у большинства тикет-систем: "открыт" значит
+        // "ещё не взяли в работу", а не "ждём ответа команды". Если статус
+        // уже меняли вручную (in_progress/closed), не трогаем его здесь.
+        if (ticket.status === 'open') {
+            await supportTickets.setStatus(ticket.id, 'in_progress');
+        }
     } catch (err) {
         console.error('stats-backend: ошибка ответа на тикет из админки:', err);
         res.status(500).json({ error: 'internal_error' });
@@ -966,8 +976,9 @@ app.post('/api/admin/tickets/:id/reply', async (req, res) => {
     }
     try {
         await mailer.sendSupportTicketReply(ticket.email, {
-            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
             subject: ticket.subject,
+            message,
             ticketUrl: ticketUrlFor(req, ticket.view_token),
         });
     } catch (err) {
@@ -978,7 +989,7 @@ app.post('/api/admin/tickets/:id/reply', async (req, res) => {
     res.json({ ok: true });
 });
 
-app.post('/api/admin/tickets/:id/status', async (req, res) => {
+app.post('/api/admin/tickets/:number/status', async (req, res) => {
     const admin = await requireAdmin(req, res);
     if (!admin) return;
 
@@ -988,7 +999,7 @@ app.post('/api/admin/tickets/:id/status', async (req, res) => {
         return;
     }
 
-    const ticket = await supportTickets.getTicketById(req.params.id);
+    const ticket = await supportTickets.getTicketByNumber(req.params.number);
     if (!ticket) {
         res.status(404).json({ error: 'ticket_not_found' });
         return;
@@ -998,9 +1009,46 @@ app.post('/api/admin/tickets/:id/status', async (req, res) => {
     res.json({ ok: true });
 });
 
+// Готовые ответы ("macros") для админки — см. cannedResponses.js.
+app.get('/api/admin/canned-responses', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const responses = await cannedResponses.listCannedResponses();
+    res.json({ responses });
+});
+
+app.post('/api/admin/canned-responses', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+    if (!isValidSubject(title)) {
+        res.status(400).json({ error: 'invalid_subject' });
+        return;
+    }
+    if (!isValidMessage(body)) {
+        res.status(400).json({ error: 'invalid_message' });
+        return;
+    }
+
+    const created = await cannedResponses.createCannedResponse(title, body);
+    res.json({ ok: true, id: created.id });
+});
+
+app.delete('/api/admin/canned-responses/:id', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    await cannedResponses.deleteCannedResponse(req.params.id);
+    res.json({ ok: true });
+});
+
 // Просмотр/ответ на свой тикет без входа — по секретному view_token из
-// письма-подтверждения (см. supportTickets.js), не по id тикета: id
-// утечёт в URL админки, по нему нельзя пускать в чужой тред.
+// письма-подтверждения (см. supportTickets.js), не по ticket_number: тот
+// просто инкремент и легко перебирается, по нему нельзя пускать в чужой
+// тред.
 app.get('/api/support/tickets/:token', async (req, res) => {
     const ticket = await supportTickets.getTicketByToken(req.params.token);
     if (!ticket) {
@@ -1010,7 +1058,7 @@ app.get('/api/support/tickets/:token', async (req, res) => {
     const replies = await supportTickets.listReplies(ticket.id);
     res.json({
         ticket: {
-            id: ticket.id,
+            number: Number(ticket.ticket_number),
             subject: ticket.subject,
             message: ticket.message,
             status: ticket.status,
@@ -1055,11 +1103,11 @@ app.post('/api/support/tickets/:token/reply', async (req, res) => {
     }
     try {
         await mailer.sendSupportTicketUserReply({
-            ticketId: ticket.id,
+            ticketNumber: ticket.ticket_number,
             email: ticket.email,
             subject: ticket.subject,
             message,
-            adminUrl: adminTicketUrlFor(req, ticket.id),
+            adminUrl: adminTicketUrlFor(req, ticket.ticket_number),
         });
     } catch (err) {
         // Ответ уже сохранён и виден в треде — сбой письма-уведомления не

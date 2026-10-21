@@ -120,7 +120,25 @@ function ensureSchema() {
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 );
                 CREATE INDEX IF NOT EXISTS stats_support_ticket_replies_ticket_idx
-                    ON stats_support_ticket_replies (ticket_id, created_at ASC)`
+                    ON stats_support_ticket_replies (ticket_id, created_at ASC);
+                -- Короткий человекочитаемый номер тикета (#42) для UI/писем/URL
+                -- админки вместо необфусцированного UUID id — BIGSERIAL сам
+                -- бэкфиллит существующие строки при ADD COLUMN. status всё ещё
+                -- просто TEXT без CHECK (см. CREATE TABLE выше) — третье
+                -- значение 'in_progress' не требует миграции схемы, только
+                -- правки в validation.js/server.js.
+                ALTER TABLE stats_support_tickets ADD COLUMN IF NOT EXISTS ticket_number BIGSERIAL;
+                CREATE UNIQUE INDEX IF NOT EXISTS stats_support_tickets_ticket_number_key
+                    ON stats_support_tickets (ticket_number);
+                -- Готовые ответы для админки тикетов — общий пул на всех
+                -- админов (не per-user), поэтому без owner_id: это шаблоны
+                -- организации, а не личные заметки конкретного сотрудника.
+                CREATE TABLE IF NOT EXISTS stats_canned_responses (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )`
             )
             .catch(err => {
                 // Гонка двух процессов на свежей БД (см. utils/db.js) — не
