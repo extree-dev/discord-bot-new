@@ -20,6 +20,7 @@
     "dependencies": {
         "@napi-rs/canvas": "^1.0.9",
         "@openfonts/noto-sans_cyrillic": "^1.44.3",
+        "@sentry/node": "^11.8.0",
         "discord.js": "^14.27.0",
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
