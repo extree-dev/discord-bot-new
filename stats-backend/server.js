@@ -55,6 +55,16 @@ const RIOT_CLIENT_ID = process.env.RIOT_CLIENT_ID;
 const RIOT_CLIENT_SECRET = process.env.RIOT_CLIENT_SECRET;
 const SESSION_SECRET = process.env.STATS_SESSION_SECRET;
 
+// Белый список email — тех же аккаунтов Extree Stats (email+пароль),
+// кому доступна /admin/tickets. Нет отдельного понятия "роль" в
+// stats_users ради одного админ-экрана — проще и быстрее завести список
+// в .env (см. .env.example), чем тащить миграцию и UI управления ролями
+// ради пары человек.
+const SUPPORT_ADMIN_EMAILS = (process.env.SUPPORT_ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+
 if (!SESSION_SECRET) {
     console.error('stats-backend: переменная окружения STATS_SESSION_SECRET не задана — процесс не может стартовать.');
     process.exit(1);
@@ -469,6 +479,14 @@ function resetUrlFor(req, token) {
     return `https://${req.headers.host}/reset-password?token=${token}`;
 }
 
+function ticketUrlFor(req, token) {
+    return `https://${req.headers.host}/support/ticket/${token}`;
+}
+
+function adminTicketUrlFor(req, ticketId) {
+    return `https://${req.headers.host}/admin/tickets/${ticketId}`;
+}
+
 app.post('/auth/forgot-password', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     if (!isValidEmail(email)) {
@@ -561,6 +579,21 @@ function requireSession(req, res) {
         return null;
     }
     return session;
+}
+
+// Тикет-админка (/api/admin/tickets/*) — та же сессия, что и остальной
+// аккаунт, плюс email в SUPPORT_ADMIN_EMAILS. 401 (не вошёл) и 403 (вошёл,
+// но не в списке) различаем — фронту это не нужно сейчас, но так честнее
+// в логах/devtools, чем притворяться, что эндпоинта вовсе нет.
+async function requireAdmin(req, res) {
+    const session = requireSession(req, res);
+    if (!session) return null;
+    const user = await users.findById(session.userId);
+    if (!user || !SUPPORT_ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        res.status(403).json({ error: 'forbidden' });
+        return null;
+    }
+    return user;
 }
 
 app.post('/auth/account/change-email', async (req, res) => {
@@ -821,7 +854,8 @@ app.post('/api/support/tickets', async (req, res) => {
 
     try {
         const ticket = await supportTickets.createTicket({ userId, email, subject, message, category });
-        await mailer.sendSupportTicketConfirmation(email, { ticketId: ticket.id, subject });
+        const ticketUrl = ticketUrlFor(req, ticket.viewToken);
+        await mailer.sendSupportTicketConfirmation(email, { ticketId: ticket.id, subject, ticketUrl });
         try {
             await mailer.sendSupportTicketNotification({
                 ticketId: ticket.id,
@@ -830,6 +864,7 @@ app.post('/api/support/tickets', async (req, res) => {
                 message,
                 category,
                 userId,
+                adminUrl: adminTicketUrlFor(req, ticket.id),
             });
         } catch (err) {
             // Письмо в поддержку — не критично для самого факта подачи
@@ -842,6 +877,191 @@ app.post('/api/support/tickets', async (req, res) => {
         console.error('stats-backend: ошибка создания заявки в поддержку:', err);
         res.status(500).json({ error: 'internal_error' });
     }
+});
+
+const TICKET_STATUSES = ['open', 'closed'];
+
+// Админка тикетов (/admin/tickets) — список и ответ живут на сайте вместо
+// переписки по почте (см. обсуждение при добавлении: доступа к реальному
+// почтовому ящику support@extree.tech со своим отдельным логином нет и не
+// планируется, письма — только уведомления со ссылкой сюда).
+app.get('/api/admin/tickets', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    if (status && !TICKET_STATUSES.includes(status)) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+    const tickets = await supportTickets.listTickets({ status });
+    res.json({
+        tickets: tickets.map(t => ({
+            id: t.id,
+            email: t.email,
+            subject: t.subject,
+            category: t.category,
+            status: t.status,
+            time: new Date(t.created_at).toUTCString(),
+        })),
+    });
+});
+
+app.get('/api/admin/tickets/:id', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const ticket = await supportTickets.getTicketById(req.params.id);
+    if (!ticket) {
+        res.status(404).json({ error: 'ticket_not_found' });
+        return;
+    }
+    const replies = await supportTickets.listReplies(ticket.id);
+    res.json({
+        ticket: {
+            id: ticket.id,
+            email: ticket.email,
+            subject: ticket.subject,
+            message: ticket.message,
+            category: ticket.category,
+            status: ticket.status,
+            time: new Date(ticket.created_at).toUTCString(),
+        },
+        replies: replies.map(r => ({
+            id: r.id,
+            author: r.author,
+            message: r.message,
+            time: new Date(r.created_at).toUTCString(),
+        })),
+    });
+});
+
+app.post('/api/admin/tickets/:id/reply', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (!isValidMessage(message)) {
+        res.status(400).json({ error: 'invalid_message' });
+        return;
+    }
+
+    const ticket = await supportTickets.getTicketById(req.params.id);
+    if (!ticket) {
+        res.status(404).json({ error: 'ticket_not_found' });
+        return;
+    }
+
+    try {
+        await supportTickets.addReply(ticket.id, 'admin', message);
+    } catch (err) {
+        console.error('stats-backend: ошибка ответа на тикет из админки:', err);
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+    try {
+        await mailer.sendSupportTicketReply(ticket.email, {
+            ticketId: ticket.id,
+            subject: ticket.subject,
+            ticketUrl: ticketUrlFor(req, ticket.view_token),
+        });
+    } catch (err) {
+        // Ответ уже сохранён и виден в треде — сбой письма-уведомления не
+        // повод говорить админу, что ответ не отправился.
+        console.error('stats-backend: ошибка отправки уведомления об ответе на тикет:', err);
+    }
+    res.json({ ok: true });
+});
+
+app.post('/api/admin/tickets/:id/status', async (req, res) => {
+    const admin = await requireAdmin(req, res);
+    if (!admin) return;
+
+    const status = req.body?.status;
+    if (!TICKET_STATUSES.includes(status)) {
+        res.status(400).json({ error: 'invalid_request' });
+        return;
+    }
+
+    const ticket = await supportTickets.getTicketById(req.params.id);
+    if (!ticket) {
+        res.status(404).json({ error: 'ticket_not_found' });
+        return;
+    }
+
+    await supportTickets.setStatus(ticket.id, status);
+    res.json({ ok: true });
+});
+
+// Просмотр/ответ на свой тикет без входа — по секретному view_token из
+// письма-подтверждения (см. supportTickets.js), не по id тикета: id
+// утечёт в URL админки, по нему нельзя пускать в чужой тред.
+app.get('/api/support/tickets/:token', async (req, res) => {
+    const ticket = await supportTickets.getTicketByToken(req.params.token);
+    if (!ticket) {
+        res.status(404).json({ error: 'ticket_not_found' });
+        return;
+    }
+    const replies = await supportTickets.listReplies(ticket.id);
+    res.json({
+        ticket: {
+            id: ticket.id,
+            subject: ticket.subject,
+            message: ticket.message,
+            status: ticket.status,
+            time: new Date(ticket.created_at).toUTCString(),
+        },
+        replies: replies.map(r => ({
+            id: r.id,
+            author: r.author,
+            message: r.message,
+            time: new Date(r.created_at).toUTCString(),
+        })),
+    });
+});
+
+app.post('/api/support/tickets/:token/reply', async (req, res) => {
+    const ticket = await supportTickets.getTicketByToken(req.params.token);
+    if (!ticket) {
+        res.status(404).json({ error: 'ticket_not_found' });
+        return;
+    }
+    if (ticket.status === 'closed') {
+        res.status(409).json({ error: 'ticket_closed' });
+        return;
+    }
+
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+    if (!isValidMessage(message)) {
+        res.status(400).json({ error: 'invalid_message' });
+        return;
+    }
+    if (await supportTickets.isReplyOnCooldown(ticket.id)) {
+        res.status(429).json({ error: 'code_on_cooldown' });
+        return;
+    }
+
+    try {
+        await supportTickets.addReply(ticket.id, 'user', message);
+    } catch (err) {
+        console.error('stats-backend: ошибка ответа пользователя в тикете:', err);
+        res.status(500).json({ error: 'internal_error' });
+        return;
+    }
+    try {
+        await mailer.sendSupportTicketUserReply({
+            ticketId: ticket.id,
+            email: ticket.email,
+            subject: ticket.subject,
+            message,
+            adminUrl: adminTicketUrlFor(req, ticket.id),
+        });
+    } catch (err) {
+        // Ответ уже сохранён и виден в треде — сбой письма-уведомления не
+        // повод говорить пользователю, что его ответ не отправился.
+        console.error('stats-backend: ошибка отправки уведомления команде поддержки об ответе:', err);
+    }
+    res.json({ ok: true });
 });
 
 // Поиск Riot-аккаунта по Riot ID ("Имя#Тег") — только подтверждение, что

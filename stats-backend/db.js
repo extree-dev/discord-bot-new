@@ -107,7 +107,20 @@ function ensureSchema() {
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS name TEXT;
                 ALTER TABLE stats_users ADD COLUMN IF NOT EXISTS nickname TEXT;
                 CREATE UNIQUE INDEX IF NOT EXISTS stats_users_nickname_key ON stats_users (nickname);
-                ALTER TABLE stats_support_tickets ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other'`
+                ALTER TABLE stats_support_tickets ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other';
+                ALTER TABLE stats_support_tickets ADD COLUMN IF NOT EXISTS view_token TEXT;
+                UPDATE stats_support_tickets SET view_token = md5(random()::text || clock_timestamp()::text || id)
+                    WHERE view_token IS NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS stats_support_tickets_view_token_key ON stats_support_tickets (view_token);
+                CREATE TABLE IF NOT EXISTS stats_support_ticket_replies (
+                    id TEXT PRIMARY KEY,
+                    ticket_id TEXT NOT NULL REFERENCES stats_support_tickets(id) ON DELETE CASCADE,
+                    author TEXT NOT NULL CHECK (author IN ('user', 'admin')),
+                    message TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS stats_support_ticket_replies_ticket_idx
+                    ON stats_support_ticket_replies (ticket_id, created_at ASC)`
             )
             .catch(err => {
                 // Гонка двух процессов на свежей БД (см. utils/db.js) — не
