@@ -29,6 +29,18 @@ jobs:
                   port: ${{ secrets.VPS_PORT }}
                   username: ${{ secrets.VPS_USER }}
                   key: ${{ secrets.VPS_SSH_KEY }}
+                  # По умолчанию у ssh-action весь script обязан уложиться в
+                  # 10 минут (command_timeout) — с запасом хватало, пока в
+                  # конце не появились 15 последовательных "docker compose
+                  # run --rm bot node ..." (каждый — отдельный старт
+                  # контейнера + обращения к Discord API). На практике сама
+                  # выкладка (сборка образов, docker compose up) укладывается
+                  # в минуту, а этот хвост setup-скриптов съедал остаток
+                  # лимита и падал с "Run Command Timeout" уже ПОСЛЕ
+                  # того, как всё нужное на сервере отработало (см. PR #309,
+                  # #311 — задеплоено успешно, а CI всё равно красный).
+                  # 30 минут — с кратным запасом под все 15 шагов разом.
+                  command_timeout: 30m
                   script: |
                       set -e
                       cd /root/discord-bot-new
