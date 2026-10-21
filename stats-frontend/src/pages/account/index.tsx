@@ -336,6 +336,11 @@ export function AccountPage() {
                 <p className={styles.riotDisclaimer}>{RIOT_DISCLAIMER}</p>
             </div>
 
+            {user.isAdmin && (
+                <Link className={styles.logout} to="/admin/tickets">
+                    Support tickets (admin)
+                </Link>
+            )}
             <Link className={styles.logout} to="/support">
                 Contact support
             </Link>

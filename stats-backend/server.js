@@ -785,6 +785,11 @@ app.get('/api/account/me', async (req, res) => {
             riotLinked: Boolean(user.riot_puuid),
             name: user.name,
             nickname: user.nickname,
+            // Фронт использует это только чтобы решить, показывать ли ссылку
+            // "Tickets" в меню аккаунта — реальная проверка прав всё равно
+            // на requireAdmin у каждого /api/admin/* эндпоинта (см. выше),
+            // это поле не открывает доступ само по себе.
+            isAdmin: SUPPORT_ADMIN_EMAILS.includes(user.email.toLowerCase()),
         },
     });
 });

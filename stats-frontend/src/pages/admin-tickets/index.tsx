@@ -67,6 +67,9 @@ export function AdminTicketsPage() {
 
     return (
         <AuthCard title="Support tickets" error={error}>
+            <Link to="/account" className={styles.back}>
+                ← Account
+            </Link>
             {!error && (
                 <>
                     <div className={styles.filterRow}>

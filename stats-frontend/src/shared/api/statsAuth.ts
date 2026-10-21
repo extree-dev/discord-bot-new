@@ -81,6 +81,7 @@ export interface AccountUser {
     riotLinked: boolean;
     name: string | null;
     nickname: string | null;
+    isAdmin: boolean;
 }
 
 export function register(email: string, password: string, name: string, nickname: string) {
