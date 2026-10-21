@@ -92,13 +92,3 @@ stats.extree.tech {
     }
     encode gzip
 }
-
-# Админка + вебпочта Poste.io (see docker-compose.yml, сервис
-# "mailserver") — чистый reverse_proxy без явных handle-блоков: все пути,
-# включая /.well-known/acme-challenge/*, которые нужны самому Poste.io
-# для получения ЕГО СОБСТВЕННОГО сертификата под SMTP/IMAP (не браузерный
-# HTTPS — тот Caddy сам выпускает для этого домена, как для остальных
-# ниже), просто прозрачно уходят на mailserver:80.
-mail.extree.tech {
-    reverse_proxy mailserver:80
-}
