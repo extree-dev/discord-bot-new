@@ -4,10 +4,13 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.domain.NicknameTakenException;
 import tech.extree.stats.domain.User;
 
 /**
@@ -28,6 +31,15 @@ public class JdbcUserRepository implements UserRepository {
                     rs.getString("riot_puuid"),
                     rs.getString("name"),
                     rs.getString("nickname"));
+
+    // upsertUnverifiedUser/markEmailVerified в users.js возвращают только
+    // id, email, email_verified_at (RETURNING) — остальные поля User тут
+    // не нужны ни одному вызывающему коду, оставляем null, как и Node не
+    // отдаёт их из этих функций.
+    private static final RowMapper<User> UPSERT_RESULT_ROW_MAPPER =
+            (rs, rowNum) -> new User(
+                    rs.getString("id"), rs.getString("email"), null, toInstant(rs.getTimestamp("email_verified_at")),
+                    null, null, null);
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -55,6 +67,40 @@ public class JdbcUserRepository implements UserRepository {
                 "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname "
                         + "FROM stats_users WHERE email = ?",
                 USER_ROW_MAPPER,
+                email);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public User upsertUnverifiedUser(String email, String passwordHash, String name, String nickname) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "INSERT INTO stats_users (id, email, password_hash, name, nickname) "
+                            + "VALUES (?, ?, ?, ?, ?) "
+                            + "ON CONFLICT (email) DO UPDATE "
+                            + "SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name, "
+                            + "nickname = EXCLUDED.nickname "
+                            + "RETURNING id, email, email_verified_at",
+                    UPSERT_RESULT_ROW_MAPPER,
+                    UUID.randomUUID().toString(),
+                    email,
+                    passwordHash,
+                    name,
+                    nickname);
+        } catch (DuplicateKeyException e) {
+            // ON CONFLICT (email) выше уже разрешает конфликт по email —
+            // единственный другой UNIQUE на этой таблице (stats_users_nickname_key,
+            // см. db.js) может всплыть только из-за чужого nickname.
+            throw new NicknameTakenException(nickname);
+        }
+    }
+
+    @Override
+    public Optional<User> markEmailVerified(String email) {
+        List<User> rows = jdbcTemplate.query(
+                "UPDATE stats_users SET email_verified_at = now() WHERE email = ? "
+                        + "RETURNING id, email, email_verified_at",
+                UPSERT_RESULT_ROW_MAPPER,
                 email);
         return rows.stream().findFirst();
     }

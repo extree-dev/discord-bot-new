@@ -3,7 +3,9 @@ package tech.extree.stats.adapter.out.crypto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import javax.crypto.Cipher;
@@ -36,6 +38,7 @@ public class AesGcmSessionCodec implements SessionCodec {
 
     private final byte[] key;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public AesGcmSessionCodec(@Value("${extree.session-secret}") String secret) {
         this.key = deriveKey(secret);
@@ -84,6 +87,46 @@ public class AesGcmSessionCodec implements SessionCodec {
             // Битая/подделанная/чужим ключом подписанная cookie — то же
             // поведение, что decryptSession в Node: null/пусто, не исключение.
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public String encrypt(Session session) {
+        try {
+            // LinkedHashMap + явный пропуск null-полей — то же, что
+            // JSON.stringify делает с undefined-ключами в Node (опускает
+            // их, не пишет null), важно для места под байт в байт.
+            Map<String, Object> payload = new LinkedHashMap<>();
+            if (session.sub() != null) {
+                payload.put("sub", session.sub());
+            }
+            if (session.userId() != null) {
+                payload.put("userId", session.userId());
+            }
+            payload.put("issuedAt", session.issuedAt());
+            byte[] plaintext = objectMapper.writeValueAsBytes(payload);
+
+            byte[] iv = new byte[IV_LENGTH];
+            secureRandom.nextBytes(iv);
+
+            Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
+            cipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    new SecretKeySpec(key, "AES"),
+                    new GCMParameterSpec(TAG_LENGTH_BITS, iv));
+            byte[] ciphertextWithTag = cipher.doFinal(plaintext);
+            int ciphertextLength = ciphertextWithTag.length - TAG_LENGTH_BYTES;
+
+            // Node кладёt tag сразу после iv, перед шифротекстом — тот же
+            // порядок, что decrypt() выше ожидает при чтении.
+            byte[] out = new byte[IV_LENGTH + TAG_LENGTH_BYTES + ciphertextLength];
+            System.arraycopy(iv, 0, out, 0, IV_LENGTH);
+            System.arraycopy(ciphertextWithTag, ciphertextLength, out, IV_LENGTH, TAG_LENGTH_BYTES);
+            System.arraycopy(ciphertextWithTag, 0, out, IV_LENGTH + TAG_LENGTH_BYTES, ciphertextLength);
+
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(out);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось зашифровать сессию", e);
         }
     }
 }

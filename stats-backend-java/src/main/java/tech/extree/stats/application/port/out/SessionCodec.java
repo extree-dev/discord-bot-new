@@ -13,4 +13,7 @@ import tech.extree.stats.domain.Session;
 public interface SessionCodec {
     /** Пустой Optional на любую проблему (битая/подделанная cookie) — как decryptSession в Node, не выбрасывает. */
     Optional<Session> decrypt(String token);
+
+    /** Выпускает новую cookie — должна расшифровываться и Node'овым decryptSession при переходном периоде. */
+    String encrypt(Session session);
 }

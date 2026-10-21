@@ -26,24 +26,34 @@ application/port/out/            — выходные порты (что нуж�
 application/service/             — реализация input-портов поверх output-портов
 adapter/in/web/                  — REST-контроллеры (Spring MVC)
 adapter/out/persistence/         — JDBC-реализации репозиториев
-adapter/out/crypto/              — AES-GCM сессия, совместимая с session.js
+adapter/out/crypto/              — AES-GCM сессия и scrypt-пароли, совместимые с session.js/users.js
+adapter/out/mail/                — SMTP (iCloud), совместимо с mailer.js
 ```
 
 ## Что уже перенесено
 
 - `GET /api/session` — читает и расшифровывает сессионную cookie.
 - `GET /api/account/me` — профиль + `isAdmin` (как в PR #315).
+- `POST /auth/register` / `/auth/resend-code` / `/auth/verify` —
+  регистрация email+паролем с кодом подтверждения; `verify` сразу логинит
+  (ставит ту же cookie), как и Node. **Пока без** geo/`loginLocations`
+  ("известное место входа") — понадобится вместе с переносом полного
+  `/auth/login` (следующий срез), см. комментарий в `RegistrationService`.
 
-Оба read-only, оба проверены на совместимость с уже выпущенными Node
-cookie: `AesGcmSessionCodecTest` расшифровывает токен, реально
-сгенерированный `node -e "require('./stats-backend/session').encryptSession(...)"`
-— если этот тест когда-нибудь падает, значит шифрование разошлось и
-переключать трафик нельзя.
+Все проверены на совместимость с уже выпущенным Node-сервисом:
+`AesGcmSessionCodecTest` расшифровывает (и теперь также выпускает —
+`encrypt()`) токен, реально сгенерированный
+`node -e "require('./stats-backend/session').encryptSession(...)"`;
+`ScryptPasswordHasherTest` проверяет хеш, реально сгенерированный
+`require('./stats-backend/users.js').hashPassword(...)`; живой smoke-тест
+(Postgres + собранный jar + curl) прогнан вручную для всего слайса
+register → verify, включая то, что выпущенная Java-сервисом cookie
+расшифровывается тем же Node'овым `decryptSession`. Если эти проверки
+когда-нибудь расходятся — переключать трафик нельзя.
 
 ## Что дальше (в следующих PR)
 
-1. Регистрация/вход (email+пароль, коды подтверждения) — самое объёмное:
-   нужны email-адаптер (SMTP через iCloud, см. mailer.js) и ещё 5-6 таблиц.
+1. Полный `/auth/login` (известное место входа, Turnstile, rate-limit).
 2. Смена email/пароля, история входов.
 3. Тикет-платформа (создание/ответ/статусы/canned responses).
 4. Riot OAuth + Turnstile.
@@ -67,5 +77,7 @@ POSTGRES_PASSWORD=discordbot \
 STATS_SESSION_SECRET=<тот же секрет, что у Node-сервиса> \
 SUPPORT_ADMIN_EMAILS=admin@example.com \
 STATS_BACKEND_JAVA_PORT=8081 \
+STATS_MAIL_USER=<тот же iCloud-адрес, что у Node-сервиса> \
+STATS_MAIL_APP_PASSWORD=<тот же app-specific пароль> \
 mvn spring-boot:run
 ```

@@ -45,4 +45,21 @@ class AesGcmSessionCodecTest {
 
         assertThat(codec.decrypt("not-a-valid-token")).isEmpty();
     }
+
+    @Test
+    void encryptsAndDecryptsItsOwnTokenRoundTrip() {
+        AesGcmSessionCodec codec = new AesGcmSessionCodec(SECRET);
+        Session original = new Session(null, "user-xyz-999", 1700000005000L);
+
+        String token = codec.encrypt(original);
+        Optional<Session> decoded = codec.decrypt(token);
+
+        assertThat(decoded).contains(original);
+    }
+
+    // Проверено вручную (не как JUnit — нет Node-рантайма в этом модуле),
+    // см. PR: токен, выпущенный encrypt() здесь, был скормлен Node'овому
+    // decryptSession(token, SECRET) и расшифровался в тот же {userId,
+    // issuedAt} — то есть cookie, выпущенная Java-сервисом, тоже понятна
+    // Node, если трафик на переходный период распределён в обе стороны.
 }

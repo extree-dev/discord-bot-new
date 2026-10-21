@@ -53,6 +53,23 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
+        <!-- Отправка писем с кодом подтверждения (../stats-backend/mailer.js
+             использует nodemailer на тот же SMTP iCloud Mail). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- Scrypt — стандартный JDK/JCE её не поставляет (в отличие от
+             PBKDF2), а пароли уже захешированы Node'овым crypto.scryptSync
+             (см. users.js) — нужна совместимая по параметрам (N=16384,
+             r=8, p=1) реализация, а не замена схемы хеширования на
+             несовместимую, иначе все существующие пароли пришлось бы
+             сбрасывать. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
