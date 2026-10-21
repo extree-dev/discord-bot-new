@@ -43,6 +43,16 @@ adapter/out/turnstile/           — Cloudflare Turnstile siteverify
   вход email+паролем, Turnstile, "известное место входа" (geo по стране)
   с кодом подтверждения на новый IP/страну, rate-limit (300/5мин на IP,
   как authRateLimiter у Node) на `/auth` и `/api`.
+- `GET /auth/logout` — чистит сессионную cookie, редирект на `/`.
+- `POST /auth/forgot-password` / `/auth/reset-password` — сброс пароля по
+  ссылке (не 6-значный код — 32 случайных байта в hex, см.
+  `JdbcPasswordResetRepository`), anti-enumeration (один и тот же ответ
+  независимо от того, существует ли аккаунт). Успешный сброс сразу логинит.
+- `POST /auth/account/change-email` / `/resend-email-change-code` /
+  `/confirm-email-change`, `POST /auth/account/change-password`,
+  `GET /api/account/login-history` — настройки аккаунта, все требуют
+  действующую сессию + (для смены email/пароля) текущий пароль —
+  тот же "step-up" приём, что requireSession в server.js.
 
 **Известное отклонение (осознанное, не забытое):** geo-определение страны
 здесь читает только `geoip-country(6).dat` (те же файлы, что у geoip-lite,
@@ -67,19 +77,20 @@ geoip-lite. Для подавляющего большинства реальн�
 диапазонов, приватные адреса, IPv6) с реальной библиотекой geoip-lite,
 принудительно направленной на те же country-файлы через `GEODATADIR`;
 живой smoke-тест (Postgres + собранный jar + curl, Turnstile — через
-официальные тестовые ключи Cloudflare) прогнан вручную для всего слайса
-регистрации и входа, включая полный цикл "неизвестное место → код на
-почту → confirm-location → cookie с правильным Max-Age/sameSite", и то,
-что выпущенная Java-сервисом cookie расшифровывается тем же Node'овым
-`decryptSession`. Если эти проверки когда-нибудь расходятся — переключать
-трафик нельзя.
+официальные тестовые ключи Cloudflare) прогнан вручную для регистрации,
+входа ("неизвестное место → код на почту → confirm-location → cookie с
+правильным Max-Age/sameSite") и настроек аккаунта (смена пароля → смена
+email с подтверждением на новый адрес → забыл пароль → сброс по ссылке
+→ вход с финальным паролем, одной цепочкой на одном аккаунте), включая
+то, что выпущенная Java-сервисом cookie расшифровывается тем же
+Node'овым `decryptSession`. Если эти проверки когда-нибудь расходятся —
+переключать трафик нельзя.
 
 ## Что дальше (в следующих PR)
 
-1. Смена email/пароля, история входов (`/api/account/login-history`).
-2. Тикет-платформа (создание/ответ/статусы/canned responses).
-3. Riot OAuth + Turnstile config endpoints.
-4. Только после того, как Java-сервис покрывает весь REST API и прошёл
+1. Тикет-платформа (создание/ответ/статусы/canned responses).
+2. Riot OAuth + Turnstile config endpoints.
+3. Только после того, как Java-сервис покрывает весь REST API и прошёл
    полноценную проверку — переключение `web/Caddyfile`/
    `docker-compose.yml` на него, с Node-версией как fallback на случай
    отката.

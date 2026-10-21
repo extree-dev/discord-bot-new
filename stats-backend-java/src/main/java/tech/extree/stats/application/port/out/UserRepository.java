@@ -23,4 +23,14 @@ public interface UserRepository {
     User upsertUnverifiedUser(String email, String passwordHash, String name, String nickname);
 
     Optional<User> markEmailVerified(String email);
+
+    Optional<User> updatePasswordHash(String userId, String passwordHash);
+
+    /**
+     * Смена email в настройках аккаунта — в отличие от markEmailVerified
+     * (подтверждает ПЕРВИЧНЫЙ email при регистрации), эта проставляет
+     * email_verified_at заново, т.к. новый адрес уже подтверждён кодом к
+     * моменту вызова (см. updateEmail в users.js).
+     */
+    Optional<User> updateEmail(String userId, String newEmail);
 }

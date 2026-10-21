@@ -7,4 +7,14 @@ public interface Mailer {
     void sendNewLocationCode(String email, String code, String ip, String country, String city);
 
     void sendSignInNotification(String email, String ip, String country, String city, String time);
+
+    void sendPasswordResetEmail(String email, String resetUrl);
+
+    void sendEmailChangeCode(String newEmail, String code);
+
+    void sendEmailChangeNotice(String oldEmail, String newEmail);
+
+    void sendEmailChanged(String to, String oldEmail, String newEmail);
+
+    void sendPasswordChanged(String email, String ip, String country, String city, String time);
 }
