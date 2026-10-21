@@ -1,11 +1,6 @@
 package tech.extree.stats.application.service;
 
-import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.port.in.GetAccountUseCase;
 import tech.extree.stats.application.port.out.SessionCodec;
@@ -19,20 +14,12 @@ public class AccountService implements GetAccountUseCase {
 
     private final SessionCodec sessionCodec;
     private final UserRepository userRepository;
-    private final Set<String> supportAdminEmails;
+    private final SupportAdminEmails supportAdminEmails;
 
-    public AccountService(
-            SessionCodec sessionCodec,
-            UserRepository userRepository,
-            @Value("${extree.support-admin-emails:}") String supportAdminEmailsRaw) {
+    public AccountService(SessionCodec sessionCodec, UserRepository userRepository, SupportAdminEmails supportAdminEmails) {
         this.sessionCodec = sessionCodec;
         this.userRepository = userRepository;
-        this.supportAdminEmails =
-                List.of(supportAdminEmailsRaw.split(",")).stream()
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .map(s -> s.toLowerCase(Locale.ROOT))
-                        .collect(Collectors.toUnmodifiableSet());
+        this.supportAdminEmails = supportAdminEmails;
     }
 
     @Override
@@ -49,6 +36,6 @@ public class AccountService implements GetAccountUseCase {
 
     @Override
     public boolean isAdmin(User user) {
-        return supportAdminEmails.contains(user.email().toLowerCase(Locale.ROOT));
+        return supportAdminEmails.isAdmin(user);
     }
 }
