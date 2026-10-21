@@ -70,6 +70,11 @@ function ensureSchema() {
                     expires_at TIMESTAMPTZ NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 );
+                -- "Remember me" пережидает detour через подтверждение нового
+                -- места входа (stats_login_codes) — выбор из исходной формы
+                -- входа нужно помнить до confirm-location, иначе чекбокс
+                -- молча забывался бы для всех, кому попался незнакомый IP.
+                ALTER TABLE stats_login_codes ADD COLUMN IF NOT EXISTS remember BOOLEAN NOT NULL DEFAULT true;
                 CREATE TABLE IF NOT EXISTS stats_password_resets (
                     token TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL REFERENCES stats_users(id) ON DELETE CASCADE,
