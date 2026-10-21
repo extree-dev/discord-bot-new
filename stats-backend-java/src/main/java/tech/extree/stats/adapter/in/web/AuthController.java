@@ -1,9 +1,7 @@
 package tech.extree.stats.adapter.in.web;
 
-import java.time.Duration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,9 +22,6 @@ import tech.extree.stats.application.port.in.RegistrationUseCase;
  */
 @RestController
 public class AuthController {
-
-    private static final String SESSION_COOKIE = "extree_stats_session";
-    private static final Duration SESSION_MAX_AGE = Duration.ofDays(7);
 
     private final RegistrationUseCase registrationUseCase;
 
@@ -67,7 +62,7 @@ public class AuthController {
         RegistrationUseCase.VerifyResult result = registrationUseCase.verify(request.email(), request.code());
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, sessionCookie(result.sessionCookie()).toString())
+                    .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())
                     .body(new VerifyResponse(true, new VerifyResponse.VerifyUser(result.email())));
             case INVALID_REQUEST -> badRequest("invalid_request");
             case CODE_NOT_FOUND -> badRequest("code_not_found");
@@ -76,16 +71,6 @@ public class AuthController {
             case WRONG_CODE -> badRequest("wrong_code");
             case INTERNAL_ERROR -> internalError();
         };
-    }
-
-    private static ResponseCookie sessionCookie(String token) {
-        return ResponseCookie.from(SESSION_COOKIE, token)
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(SESSION_MAX_AGE)
-                .build();
     }
 
     private static ResponseEntity<ErrorResponse> badRequest(String error) {
