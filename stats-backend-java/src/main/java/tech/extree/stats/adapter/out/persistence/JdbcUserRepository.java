@@ -1,0 +1,61 @@
+package tech.extree.stats.adapter.out.persistence;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.domain.User;
+
+/**
+ * Читает ту же таблицу stats_users, что users.js (Node) — схема ещё
+ * создаётся/мигрируется Node-сервисом (db.js, ensureSchema), этот
+ * адаптер только читает, DDL сюда намеренно не продублирован: пока оба
+ * сервиса работают с одной БД, источник истины для схемы один.
+ */
+@Repository
+public class JdbcUserRepository implements UserRepository {
+
+    private static final RowMapper<User> USER_ROW_MAPPER =
+            (rs, rowNum) -> new User(
+                    rs.getString("id"),
+                    rs.getString("email"),
+                    rs.getString("password_hash"),
+                    toInstant(rs.getTimestamp("email_verified_at")),
+                    rs.getString("riot_puuid"),
+                    rs.getString("name"),
+                    rs.getString("nickname"));
+
+    private final JdbcTemplate jdbcTemplate;
+
+    public JdbcUserRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    private static Instant toInstant(Timestamp ts) {
+        return ts != null ? ts.toInstant() : null;
+    }
+
+    @Override
+    public Optional<User> findById(String id) {
+        List<User> rows = jdbcTemplate.query(
+                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname "
+                        + "FROM stats_users WHERE id = ?",
+                USER_ROW_MAPPER,
+                id);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public Optional<User> findByEmail(String email) {
+        List<User> rows = jdbcTemplate.query(
+                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname "
+                        + "FROM stats_users WHERE email = ?",
+                USER_ROW_MAPPER,
+                email);
+        return rows.stream().findFirst();
+    }
+}
