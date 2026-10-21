@@ -96,8 +96,13 @@ export function verifyCode(email: string, code: string) {
     return postJson<{ ok: true; user: { email: string } }>('/auth/verify', { email, code });
 }
 
-export function login(email: string, password: string, turnstileToken: string) {
-    return postJson<{ ok: true; user: { email: string } }>('/auth/login', { email, password, turnstileToken });
+export function login(email: string, password: string, turnstileToken: string, rememberMe: boolean = true) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login', {
+        email,
+        password,
+        turnstileToken,
+        rememberMe,
+    });
 }
 
 export function resendLoginCode(email: string) {

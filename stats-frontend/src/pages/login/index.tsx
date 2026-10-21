@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
+import { Checkbox } from '../../shared/ui/Checkbox';
 import { Turnstile } from '../../shared/ui/Turnstile';
 import { TURNSTILE_SITE_KEY } from '../../shared/config';
 import { login, ApiError } from '../../shared/api/statsAuth';
@@ -20,13 +21,14 @@ export function LoginPage() {
     // key пересоздаёт виджет и даёт свежий токен вместо попытки
     // переиспользовать уже потраченный.
     const [turnstileKey, setTurnstileKey] = useState(0);
+    const [rememberMe, setRememberMe] = useState(true);
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
         setError(null);
         setPending(true);
         try {
-            await login(email, password, turnstileToken);
+            await login(email, password, turnstileToken, rememberMe);
             navigate('/account');
         } catch (err) {
             if (err instanceof ApiError && err.code === 'email_not_verified') {
@@ -83,9 +85,17 @@ export function LoginPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                 />
-                <Link to="/forgot-password" className={styles.forgot}>
-                    Forgot password?
-                </Link>
+                <div className={styles.row}>
+                    <Checkbox
+                        id="remember-me"
+                        label="Remember me"
+                        checked={rememberMe}
+                        onChange={e => setRememberMe(e.target.checked)}
+                    />
+                    <Link to="/forgot-password" className={styles.forgot}>
+                        Forgot password?
+                    </Link>
+                </div>
                 <Turnstile
                     key={turnstileKey}
                     siteKey={TURNSTILE_SITE_KEY}

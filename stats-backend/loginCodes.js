@@ -15,28 +15,29 @@ function generateCode() {
     return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-async function upsertCode(email, code, { ip, country, city }) {
+async function upsertCode(email, code, { ip, country, city, remember = true }) {
     await ensureSchema();
     const expiresAt = new Date(Date.now() + CODE_TTL_MS);
     await getPool().query(
-        `INSERT INTO stats_login_codes (email, code, attempts, ip, country, city, expires_at, created_at)
-         VALUES ($1, $2, 0, $3, $4, $5, $6, now())
+        `INSERT INTO stats_login_codes (email, code, attempts, ip, country, city, remember, expires_at, created_at)
+         VALUES ($1, $2, 0, $3, $4, $5, $6, $7, now())
          ON CONFLICT (email) DO UPDATE
            SET code = EXCLUDED.code,
                attempts = 0,
                ip = EXCLUDED.ip,
                country = EXCLUDED.country,
                city = EXCLUDED.city,
+               remember = EXCLUDED.remember,
                expires_at = EXCLUDED.expires_at,
                created_at = now()`,
-        [email, code, ip ?? null, country ?? null, city ?? null, expiresAt]
+        [email, code, ip ?? null, country ?? null, city ?? null, remember, expiresAt]
     );
 }
 
 async function getCode(email) {
     await ensureSchema();
     const { rows } = await getPool().query(
-        `SELECT code, attempts, ip, country, city, expires_at, created_at FROM stats_login_codes WHERE email = $1`,
+        `SELECT code, attempts, ip, country, city, remember, expires_at, created_at FROM stats_login_codes WHERE email = $1`,
         [email]
     );
     return rows[0] ?? null;

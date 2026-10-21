@@ -132,12 +132,17 @@ function getSessionFromReq(req) {
 // в одну и ту же cookie зашифрованный payload, разной формы ({sub, ...}
 // для Riot, {userId, ...} для email-аккаунта); /api/account/me и
 // /api/session читают из неё то поле, которое им нужно.
-function setSessionCookie(res, payload) {
+// rememberMe=false — сессионная cookie без maxAge (браузер стирает её при
+// закрытии), тот же подход, что у большинства сервисов для "не запоминать
+// меня". Везде, кроме формы входа (RSO, верификация email, сброс пароля),
+// rememberMe не передаётся и по умолчанию true — это не места, где у
+// пользователя стоял выбор, нет причин внезапно укорачивать сессию.
+function setSessionCookie(res, payload, rememberMe = true) {
     res.cookie(SESSION_COOKIE, encryptSession({ ...payload, issuedAt: Date.now() }, SESSION_SECRET), {
         httpOnly: true,
         secure: true,
         sameSite: 'lax',
-        maxAge: SESSION_MAX_AGE_MS,
+        ...(rememberMe ? { maxAge: SESSION_MAX_AGE_MS } : {}),
     });
 }
 
@@ -339,6 +344,9 @@ app.post('/auth/login', async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
     const ip = geo.getClientIp(req);
+    // Молчаливый флаг, не ошибка валидации: отсутствующее поле (старый
+    // клиент, прямой curl) тоже значит "запомнить", как было до чекбокса.
+    const rememberMe = req.body?.rememberMe !== false;
 
     // Проверяем Turnstile раньше всего остального — смысл капчи в том,
     // чтобы отсекать ботов/перебор credential stuffing до того, как мы
@@ -379,7 +387,7 @@ app.post('/auth/login', async (req, res) => {
             return;
         }
         try {
-            await issueAndSendLoginCode(email, { ip, country, city });
+            await issueAndSendLoginCode(email, { ip, country, city, remember: rememberMe });
         } catch (err) {
             console.error('stats-backend: ошибка отправки кода подтверждения нового места входа:', err);
             res.status(500).json({ error: 'internal_error' });
@@ -399,7 +407,7 @@ app.post('/auth/login', async (req, res) => {
         console.error('stats-backend: ошибка отправки уведомления о входе:', err);
     }
 
-    setSessionCookie(res, { userId: user.id });
+    setSessionCookie(res, { userId: user.id }, rememberMe);
     res.json({ ok: true, user: { email: user.email } });
 });
 
@@ -423,7 +431,12 @@ app.post('/auth/login/resend-code', async (req, res) => {
     }
 
     try {
-        await issueAndSendLoginCode(email, { ip: pending.ip, country: pending.country, city: pending.city });
+        await issueAndSendLoginCode(email, {
+            ip: pending.ip,
+            country: pending.country,
+            city: pending.city,
+            remember: pending.remember,
+        });
         res.json({ ok: true });
     } catch (err) {
         console.error('stats-backend: ошибка повторной отправки кода подтверждения входа:', err);
@@ -472,7 +485,7 @@ app.post('/auth/login/confirm-location', async (req, res) => {
     await loginEvents.recordLogin(user.id, { ip: row.ip, country: row.country, city: row.city });
     await loginCodes.deleteCode(email);
 
-    setSessionCookie(res, { userId: user.id });
+    setSessionCookie(res, { userId: user.id }, row.remember);
     res.json({ ok: true, user: { email: user.email } });
 });
 
