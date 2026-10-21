@@ -14,7 +14,20 @@ spring:
         url: ${DATABASE_URL_JDBC:jdbc:postgresql://localhost:5432/discordbot}
         username: ${POSTGRES_USER:discordbot}
         password: ${POSTGRES_PASSWORD:discordbot}
+    mail:
+        host: smtp.mail.me.com
+        port: 587
+        username: ${STATS_MAIL_USER:}
+        password: ${STATS_MAIL_APP_PASSWORD:}
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+                        required: true
 
 extree:
     session-secret: ${STATS_SESSION_SECRET:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
+    mail-from: ${STATS_MAIL_FROM:}
