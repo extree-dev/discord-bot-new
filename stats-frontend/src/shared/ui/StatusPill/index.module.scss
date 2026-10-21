@@ -27,6 +27,16 @@
     }
 }
 
+.inProgress {
+    color: #f0b429;
+    background: rgba(240, 180, 41, 0.12);
+
+    .dot {
+        background: #f0b429;
+        box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.18);
+    }
+}
+
 .closed {
     color: var(--text-faint);
     background: var(--surface-2);

@@ -6,9 +6,10 @@
 // схемой этого проекта.
 //
 // view_token — отдельный секрет для просмотра/ответа на тикет без входа
-// (ссылка в письме-подтверждении): raw UUID тикета не годится для этого —
-// он уже известен админке по id в адресной строке /admin/tickets/:id,
-// если бы это был один и тот же идентификатор, из URL админки можно было
+// (ссылка в письме-подтверждении): человекочитаемый ticket_number тикета
+// не годится для этого — он уже известен админке по /admin/tickets/:number
+// в адресной строке, и это просто инкремент, легко перебираемый. Если бы
+// это был один и тот же идентификатор, из номера в URL админки можно было
 // бы угадать ссылку просмотра чужого тикета.
 const crypto = require('crypto');
 const { getPool, ensureSchema } = require('./db');
@@ -51,12 +52,12 @@ async function createTicket({ userId, email, subject, message, category }) {
     await ensureSchema();
     const id = crypto.randomUUID();
     const viewToken = generateViewToken();
-    await getPool().query(
+    const { rows } = await getPool().query(
         `INSERT INTO stats_support_tickets (id, user_id, email, subject, message, category, view_token)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ticket_number`,
         [id, userId ?? null, email, subject, message, category, viewToken]
     );
-    return { id, viewToken };
+    return { id, viewToken, ticketNumber: Number(rows[0].ticket_number) };
 }
 
 // Для админки — без текста сообщения (не нужен в списке, подтягивается
@@ -66,20 +67,22 @@ async function listTickets({ status } = {}) {
     const pool = getPool();
     const { rows } = status
         ? await pool.query(
-              `SELECT id, email, subject, category, status, created_at FROM stats_support_tickets
+              `SELECT ticket_number, email, subject, category, status, created_at FROM stats_support_tickets
                WHERE status = $1 ORDER BY created_at DESC LIMIT 200`,
               [status]
           )
         : await pool.query(
-              `SELECT id, email, subject, category, status, created_at FROM stats_support_tickets
+              `SELECT ticket_number, email, subject, category, status, created_at FROM stats_support_tickets
                ORDER BY created_at DESC LIMIT 200`
           );
     return rows;
 }
 
-async function getTicketById(id) {
+async function getTicketByNumber(ticketNumber) {
     await ensureSchema();
-    const { rows } = await getPool().query(`SELECT * FROM stats_support_tickets WHERE id = $1`, [id]);
+    const { rows } = await getPool().query(`SELECT * FROM stats_support_tickets WHERE ticket_number = $1`, [
+        ticketNumber,
+    ]);
     return rows[0] ?? null;
 }
 
@@ -119,7 +122,7 @@ module.exports = {
     isOnCooldown,
     isReplyOnCooldown,
     listTickets,
-    getTicketById,
+    getTicketByNumber,
     getTicketByToken,
     listReplies,
     addReply,

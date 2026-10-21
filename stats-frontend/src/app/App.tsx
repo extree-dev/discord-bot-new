@@ -38,7 +38,7 @@ export function App() {
             <Route path="/support" element={<SupportPage />} />
             <Route path="/support/ticket/:token" element={<TicketPage />} />
             <Route path="/admin/tickets" element={<AdminTicketsPage />} />
-            <Route path="/admin/tickets/:id" element={<AdminTicketPage />} />
+            <Route path="/admin/tickets/:number" element={<AdminTicketPage />} />
         </Routes>
     );
 }

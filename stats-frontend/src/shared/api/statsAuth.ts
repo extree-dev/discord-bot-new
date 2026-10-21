@@ -117,7 +117,7 @@ export function resetPassword(token: string, password: string) {
 }
 
 export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
-    return postJson<{ ok: true; ticketId: string }>('/api/support/tickets', { subject, message, category, email });
+    return postJson<{ ok: true; ticketNumber: number }>('/api/support/tickets', { subject, message, category, email });
 }
 
 export function lookupRiotId(riotId: string) {
@@ -160,10 +160,13 @@ export async function getLoginHistory(): Promise<LoginEvent[]> {
     return data.events ?? [];
 }
 
-export type TicketStatus = 'open' | 'closed';
+// Те же три значения, что TICKET_STATUSES в server.js — синхронизируются
+// вручную, как и категории тикетов выше (отдельного shared-пакета между
+// frontend/backend в проекте нет).
+export type TicketStatus = 'open' | 'in_progress' | 'closed';
 
 export interface TicketSummary {
-    id: string;
+    number: number;
     email: string;
     subject: string;
     category: string;
@@ -179,7 +182,7 @@ export interface TicketReply {
 }
 
 export interface TicketDetail {
-    id: string;
+    number: number;
     subject: string;
     message: string;
     status: TicketStatus;
@@ -193,22 +196,48 @@ export interface AdminTicketDetail extends TicketDetail {
 
 // Админка тикетов (/admin/tickets) — тот же SUPPORT_ADMIN_EMAILS-гейт,
 // что на бэкенде (см. server.js); сюда доходят только залогиненные
-// аккаунты Extree Stats, не Apple ID и не что-то ещё.
+// аккаунты Extree Stats, не Apple ID и не что-то ещё. Адресуются по
+// человекочитаемому ticket_number (#42), не по внутреннему UUID.
 export function getAdminTickets(status?: TicketStatus) {
     const query = status ? `?status=${status}` : '';
     return getJson<{ tickets: TicketSummary[] }>(`/api/admin/tickets${query}`);
 }
 
-export function getAdminTicket(id: string) {
-    return getJson<{ ticket: AdminTicketDetail; replies: TicketReply[] }>(`/api/admin/tickets/${id}`);
+export function getAdminTicket(number: number | string) {
+    return getJson<{ ticket: AdminTicketDetail; replies: TicketReply[] }>(`/api/admin/tickets/${number}`);
 }
 
-export function replyToTicketAsAdmin(id: string, message: string) {
-    return postJson<{ ok: true }>(`/api/admin/tickets/${id}/reply`, { message });
+export function replyToTicketAsAdmin(number: number | string, message: string) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/reply`, { message });
 }
 
-export function setTicketStatus(id: string, status: TicketStatus) {
-    return postJson<{ ok: true }>(`/api/admin/tickets/${id}/status`, { status });
+export function setTicketStatus(number: number | string, status: TicketStatus) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/status`, { status });
+}
+
+export interface CannedResponse {
+    id: string;
+    title: string;
+    body: string;
+}
+
+// Готовые ответы — общий пул шаблонов для админки, не привязаны к
+// конкретному тикету (см. cannedResponses.js).
+export function getCannedResponses() {
+    return getJson<{ responses: CannedResponse[] }>('/api/admin/canned-responses');
+}
+
+export function createCannedResponse(title: string, body: string) {
+    return postJson<{ ok: true; id: string }>('/api/admin/canned-responses', { title, body });
+}
+
+export async function deleteCannedResponse(id: string): Promise<void> {
+    const res = await fetch(`/api/admin/canned-responses/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
 }
 
 // Просмотр/ответ на свой тикет по секретной ссылке из письма — без входа,

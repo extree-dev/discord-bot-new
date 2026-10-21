@@ -79,7 +79,7 @@ export function SupportPage() {
     const [message, setMessage] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
-    const [ticketId, setTicketId] = useState<string | null>(null);
+    const [ticketNumber, setTicketNumber] = useState<number | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -99,7 +99,7 @@ export function SupportPage() {
         setPending(true);
         try {
             const result = await submitSupportTicket(subject, message, category, accountEmail ? undefined : email);
-            setTicketId(result.ticketId);
+            setTicketNumber(result.ticketNumber);
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
@@ -134,14 +134,14 @@ export function SupportPage() {
                 </>
             }
         >
-            {ticketId ? (
+            {ticketNumber ? (
                 <div className={styles.sent}>
                     <p>
                         Thanks — we got your message. We&apos;ll reply to <strong>{accountEmail ?? email}</strong> as
                         soon as we can.
                     </p>
                     <div className={styles.ticketId}>
-                        Ticket <code>{ticketId}</code>
+                        Ticket <code>#{ticketNumber}</code>
                     </div>
                 </div>
             ) : (

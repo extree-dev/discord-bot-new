@@ -4,6 +4,7 @@ import { DashboardShell } from '../../widgets/dashboard-shell';
 import { TicketThread } from '../../widgets/ticket-thread';
 import { Panel } from '../../shared/ui/Panel';
 import { StatusPill } from '../../shared/ui/StatusPill';
+import { Select } from '../../shared/ui/Select';
 import { TextArea } from '../../shared/ui/TextArea';
 import { Button } from '../../shared/ui/Button';
 import {
@@ -11,10 +12,13 @@ import {
     getAdminTicket,
     replyToTicketAsAdmin,
     setTicketStatus,
+    getCannedResponses,
     ApiError,
     type AccountUser,
     type AdminTicketDetail,
     type TicketReply,
+    type TicketStatus,
+    type CannedResponse,
 } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -25,14 +29,21 @@ const CATEGORY_LABELS: Record<string, string> = {
     other: 'Other',
 };
 
+const STATUS_OPTIONS = [
+    { value: 'open', label: 'Open' },
+    { value: 'in_progress', label: 'In progress' },
+    { value: 'closed', label: 'Closed' },
+];
+
 export function AdminTicketPage() {
-    const { id } = useParams<{ id: string }>();
+    const { number } = useParams<{ number: string }>();
     const navigate = useNavigate();
     const [account, setAccount] = useState<AccountUser | null>(null);
     const [checkingAccount, setCheckingAccount] = useState(true);
     const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
     const [replies, setReplies] = useState<TicketReply[]>([]);
     const [message, setMessage] = useState('');
+    const [canned, setCanned] = useState<CannedResponse[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
     const [statusPending, setStatusPending] = useState(false);
@@ -54,9 +65,9 @@ export function AdminTicketPage() {
     }, [navigate]);
 
     useEffect(() => {
-        if (checkingAccount || !id) return;
+        if (checkingAccount || !number) return;
         let cancelled = false;
-        getAdminTicket(id)
+        getAdminTicket(number)
             .then(result => {
                 if (cancelled) return;
                 setTicket(result.ticket);
@@ -66,20 +77,30 @@ export function AdminTicketPage() {
                 if (cancelled) return;
                 setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
             });
+        getCannedResponses()
+            .then(result => {
+                if (!cancelled) setCanned(result.responses);
+            })
+            .catch(() => {
+                /* не критично — просто не покажем пикер шаблонов */
+            });
         return () => {
             cancelled = true;
         };
-    }, [checkingAccount, id]);
+    }, [checkingAccount, number]);
 
     async function onReply(e: FormEvent) {
         e.preventDefault();
-        if (!id) return;
+        if (!number) return;
         setError(null);
         setPending(true);
         try {
-            await replyToTicketAsAdmin(id, message);
+            await replyToTicketAsAdmin(number, message);
             setReplies(rs => [...rs, { id: crypto.randomUUID(), author: 'admin', message, time: 'Just now' }]);
             setMessage('');
+            // Первый ответ сдвигает статус на бэкенде в in_progress — отражаем
+            // это и тут, чтобы пилюля в заголовке не врала до перезагрузки.
+            setTicket(t => (t && t.status === 'open' ? { ...t, status: 'in_progress' } : t));
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
@@ -87,19 +108,23 @@ export function AdminTicketPage() {
         }
     }
 
-    async function onToggleStatus() {
-        if (!id || !ticket) return;
-        const next = ticket.status === 'open' ? 'closed' : 'open';
+    async function onStatusChange(next: TicketStatus) {
+        if (!number || !ticket) return;
         setStatusPending(true);
         setError(null);
         try {
-            await setTicketStatus(id, next);
+            await setTicketStatus(number, next);
             setTicket(t => t && { ...t, status: next });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
             setStatusPending(false);
         }
+    }
+
+    function onInsertCanned(id: string) {
+        const response = canned.find(c => c.id === id);
+        if (response) setMessage(response.body);
     }
 
     const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
@@ -137,7 +162,7 @@ export function AdminTicketPage() {
             active="tickets"
             breadcrumb={{ to: '/admin/tickets', label: 'All tickets' }}
             title={ticket?.subject ?? 'Ticket'}
-            subtitle={ticket ? `Ticket ${ticket.id}` : undefined}
+            subtitle={ticket ? `#${ticket.number}` : undefined}
             headerExtra={ticket && <StatusPill status={ticket.status} />}
             error={error}
             wide
@@ -147,6 +172,20 @@ export function AdminTicketPage() {
                     <Panel>
                         <TicketThread messages={threadMessages} />
                         <form className={styles.form} onSubmit={onReply}>
+                            {canned.length > 0 && (
+                                <Select
+                                    id="canned-response"
+                                    label="Insert canned response"
+                                    value=""
+                                    options={[
+                                        { value: '', label: 'Choose a template…' },
+                                        ...canned.map(c => ({ value: c.id, label: c.title })),
+                                    ]}
+                                    onChange={e => {
+                                        if (e.target.value) onInsertCanned(e.target.value);
+                                    }}
+                                />
+                            )}
                             <TextArea
                                 id="reply"
                                 label="Reply"
@@ -179,19 +218,14 @@ export function AdminTicketPage() {
                                 <span className={styles.metaLabel}>Opened</span>
                                 <span className={styles.metaValue}>{ticket.time}</span>
                             </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                fullWidth
-                                onClick={onToggleStatus}
+                            <Select
+                                id="ticket-status"
+                                label="Status"
+                                options={STATUS_OPTIONS}
+                                value={ticket.status}
                                 disabled={statusPending}
-                            >
-                                {statusPending
-                                    ? 'Updating…'
-                                    : ticket.status === 'open'
-                                      ? 'Close ticket'
-                                      : 'Reopen ticket'}
-                            </Button>
+                                onChange={e => onStatusChange(e.target.value as TicketStatus)}
+                            />
                         </div>
                     </Panel>
                 </div>
