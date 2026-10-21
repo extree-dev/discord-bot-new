@@ -41,6 +41,9 @@ const ERROR_MESSAGES: Record<string, string> = {
     wrong_password: "That password doesn't look right.",
     same_email: "That's already your email.",
     no_pending_change: "There's no email change to resend a code for.",
+    forbidden: "You don't have access to this.",
+    ticket_not_found: "We couldn't find that ticket.",
+    ticket_closed: 'This ticket is closed.',
 };
 
 function messageFor(code: string): string {
@@ -54,6 +57,16 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
         credentials: 'same-origin',
         body: JSON.stringify(body),
     });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+    return data as T;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+    const res = await fetch(path, { credentials: 'same-origin' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
         const code = typeof data.error === 'string' ? data.error : 'internal_error';
@@ -144,4 +157,65 @@ export async function getLoginHistory(): Promise<LoginEvent[]> {
     const res = await fetch('/api/account/login-history', { credentials: 'same-origin' });
     const data = await res.json().catch(() => ({ events: [] }));
     return data.events ?? [];
+}
+
+export type TicketStatus = 'open' | 'closed';
+
+export interface TicketSummary {
+    id: string;
+    email: string;
+    subject: string;
+    category: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface TicketReply {
+    id: string;
+    author: 'user' | 'admin';
+    message: string;
+    time: string;
+}
+
+export interface TicketDetail {
+    id: string;
+    subject: string;
+    message: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface AdminTicketDetail extends TicketDetail {
+    email: string;
+    category: string;
+}
+
+// Админка тикетов (/admin/tickets) — тот же SUPPORT_ADMIN_EMAILS-гейт,
+// что на бэкенде (см. server.js); сюда доходят только залогиненные
+// аккаунты Extree Stats, не Apple ID и не что-то ещё.
+export function getAdminTickets(status?: TicketStatus) {
+    const query = status ? `?status=${status}` : '';
+    return getJson<{ tickets: TicketSummary[] }>(`/api/admin/tickets${query}`);
+}
+
+export function getAdminTicket(id: string) {
+    return getJson<{ ticket: AdminTicketDetail; replies: TicketReply[] }>(`/api/admin/tickets/${id}`);
+}
+
+export function replyToTicketAsAdmin(id: string, message: string) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${id}/reply`, { message });
+}
+
+export function setTicketStatus(id: string, status: TicketStatus) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${id}/status`, { status });
+}
+
+// Просмотр/ответ на свой тикет по секретной ссылке из письма — без входа,
+// см. view_token в stats-backend/supportTickets.js.
+export function getTicketByToken(token: string) {
+    return getJson<{ ticket: TicketDetail; replies: TicketReply[] }>(`/api/support/tickets/${token}`);
+}
+
+export function replyToTicket(token: string, message: string) {
+    return postJson<{ ok: true }>(`/api/support/tickets/${token}/reply`, { message });
 }

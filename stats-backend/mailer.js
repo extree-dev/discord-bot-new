@@ -268,8 +268,10 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-// Пользователю — подтверждение, что заявка получена, с её номером.
-function renderSupportTicketConfirmationEmail({ ticketId, subject }) {
+// Пользователю — подтверждение, что заявка получена, с её номером и
+// ссылкой на просмотр/ответ (тред теперь живёт на сайте — см. ticketUrl в
+// server.js, — а не в переписке по почте, см. sendSupportTicketReply).
+function renderSupportTicketConfirmationEmail({ ticketId, subject, ticketUrl }) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -312,9 +314,73 @@ We got your support request. Ticket ${ticketId}.
         </td></tr>
       </table>
     </td></tr>
+    <tr><td style="padding:28px 40px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="background:#ff4d5e;border-radius:10px;">
+          <a href="${ticketUrl}" style="display:inline-block;padding:14px 28px;font-size:14.5px;font-weight:700;
+             color:#ffffff;text-decoration:none;">View &amp; reply to your ticket</a>
+        </td></tr>
+      </table>
+    </td></tr>
     <tr><td style="padding:20px 40px 40px;">
       <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;">
-        Didn't send this request? Contact
+        We'll reply on that page, and email you when we do. Didn't send this request? Contact
+        <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>.
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Пользователю — у тикета появился ответ от поддержки, со ссылкой на тред
+// (сама переписка — на сайте, это письмо только уведомление).
+function renderSupportTicketReplyEmail({ ticketId, subject, ticketUrl }) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>New reply to your ticket</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;-webkit-font-smoothing:antialiased;">
+<div style="display:none;font-size:1px;line-height:1px;color:#f4f5f7;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+We replied to your support ticket ${escapeHtml(ticketId)}.
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:48px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
+         style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                color:#111111;">
+    <tr><td style="padding:40px 40px 0;">
+      <span style="font-size:16px;font-weight:700;letter-spacing:-0.2px;color:#111111;">Extree</span>
+      <span style="display:inline-block;background:#ff4d5e;color:#ffffff;font-size:9px;font-weight:700;
+                   letter-spacing:0.5px;padding:3px 6px;border-radius:4px;margin-left:8px;vertical-align:middle;">STATS</span>
+    </td></tr>
+    <tr><td style="padding:32px 40px 0;">
+      <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;">We replied to your ticket</h1>
+    </td></tr>
+    <tr><td style="padding:16px 40px 0;">
+      <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
+        There's a new reply on your support ticket &mdash; <strong>${escapeHtml(subject)}</strong>.
+      </p>
+    </td></tr>
+    <tr><td style="padding:28px 40px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="background:#ff4d5e;border-radius:10px;">
+          <a href="${ticketUrl}" style="display:inline-block;padding:14px 28px;font-size:14.5px;font-weight:700;
+             color:#ffffff;text-decoration:none;">View reply</a>
+        </td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:20px 40px 40px;">
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#888888;">
+        Didn't open this ticket? Contact
         <a href="mailto:support@extree.tech" style="color:#ff4d5e;text-decoration:none;">support@extree.tech</a>.
       </p>
     </td></tr>
@@ -326,8 +392,9 @@ We got your support request. Ticket ${ticketId}.
 }
 
 // Внутреннее письмо команде поддержки (support@extree.tech) с содержимым
-// заявки — Reply-To указывает на адрес отправителя, чтобы ответить можно
-// было обычным "Ответить" в почтовом клиенте, без отдельной админки.
+// заявки — отвечаем теперь в админке (/admin/tickets/:id, ссылка ниже), а
+// не "Ответить" в почтовом клиенте: тред живёт на сайте, Reply-To всё ещё
+// указывает на отправителя просто на случай, если админку кто-то не найдёт.
 const SUPPORT_CATEGORY_LABELS = {
     account: 'Account & login',
     bug: 'Bug report',
@@ -335,7 +402,7 @@ const SUPPORT_CATEGORY_LABELS = {
     other: 'Other',
 };
 
-function renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId }) {
+function renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId, adminUrl }) {
     const categoryLabel = SUPPORT_CATEGORY_LABELS[category] || 'Other';
     return `<!DOCTYPE html>
 <html lang="en">
@@ -358,9 +425,59 @@ function renderSupportTicketNotificationEmail({ ticketId, email, subject, messag
         <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
       </table>
     </td></tr>
-    <tr><td style="padding:20px 32px 28px;">
+    <tr><td style="padding:20px 32px 0;">
       <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#888888;">Message</p>
       <p style="margin:0;font-size:14px;line-height:1.6;color:#111111;white-space:pre-wrap;">${escapeHtml(message)}</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="background:#ff4d5e;border-radius:10px;">
+          <a href="${adminUrl}" style="display:inline-block;padding:12px 24px;font-size:13.5px;font-weight:700;
+             color:#ffffff;text-decoration:none;">Reply in admin</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Пользователь ответил в своём тикете — та же карточка, что уведомление о
+// новой заявке выше, просто без категории (ответ не меняет её).
+function renderSupportTicketUserReplyEmail({ ticketId, email, subject, message, adminUrl }) {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New reply on a support ticket</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;padding:32px 16px;">
+<tr><td align="center">
+  <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;color:#111111;">
+    <tr><td style="padding:28px 32px 0;">
+      <h1 style="margin:0;font-size:18px;font-weight:700;">New reply on an Extree Stats ticket</h1>
+    </td></tr>
+    <tr><td style="padding:16px 32px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;color:#333333;">
+        <tr><td style="padding:4px 0;color:#888888;width:84px;">Ticket</td><td style="padding:4px 0;font-family:'SF Mono','Courier New',Consolas,monospace;">${escapeHtml(ticketId)}</td></tr>
+        <tr><td style="padding:4px 0;color:#888888;">From</td><td style="padding:4px 0;">${escapeHtml(email)}</td></tr>
+        <tr><td style="padding:4px 0;color:#888888;">Subject</td><td style="padding:4px 0;">${escapeHtml(subject)}</td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:20px 32px 0;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#888888;">Reply</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;color:#111111;white-space:pre-wrap;">${escapeHtml(message)}</p>
+    </td></tr>
+    <tr><td style="padding:24px 32px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="background:#ff4d5e;border-radius:10px;">
+          <a href="${adminUrl}" style="display:inline-block;padding:12px 24px;font-size:13.5px;font-weight:700;
+             color:#ffffff;text-decoration:none;">Reply in admin</a>
+        </td></tr>
+      </table>
     </td></tr>
   </table>
 </td></tr>
@@ -644,24 +761,48 @@ async function sendPasswordChanged(email, { ip, country, city, time }) {
     });
 }
 
-async function sendSupportTicketConfirmation(email, { ticketId, subject }) {
+async function sendSupportTicketConfirmation(email, { ticketId, subject, ticketUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: email,
         subject: `We got your request — Extree Stats [${ticketId}]`,
-        html: renderSupportTicketConfirmationEmail({ ticketId, subject }),
+        html: renderSupportTicketConfirmationEmail({ ticketId, subject, ticketUrl }),
     });
 }
 
-async function sendSupportTicketNotification({ ticketId, email, subject, message, category, userId }) {
+async function sendSupportTicketNotification({ ticketId, email, subject, message, category, userId, adminUrl }) {
     const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
     await getTransporter().sendMail({
         from: fromAddress,
         to: 'support@extree.tech',
         replyTo: email,
         subject: `[Ticket ${ticketId}] ${subject}`,
-        html: renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId }),
+        html: renderSupportTicketNotificationEmail({ ticketId, email, subject, message, category, userId, adminUrl }),
+    });
+}
+
+// Поддержке ответили на тикет — уведомляем пользователя, сам ответ читает
+// на сайте (ticketUrl), не в теле письма.
+async function sendSupportTicketReply(email, { ticketId, subject, ticketUrl }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to: email,
+        subject: `Re: ${subject} — Extree Stats [${ticketId}]`,
+        html: renderSupportTicketReplyEmail({ ticketId, subject, ticketUrl }),
+    });
+}
+
+// Пользователь ответил в своём тикете — уведомляем поддержку.
+async function sendSupportTicketUserReply({ ticketId, email, subject, message, adminUrl }) {
+    const fromAddress = process.env.STATS_MAIL_FROM || `Extree Stats <${process.env.STATS_MAIL_USER}>`;
+    await getTransporter().sendMail({
+        from: fromAddress,
+        to: 'support@extree.tech',
+        replyTo: email,
+        subject: `Re: [Ticket ${ticketId}] ${subject}`,
+        html: renderSupportTicketUserReplyEmail({ ticketId, email, subject, message, adminUrl }),
     });
 }
 
@@ -676,6 +817,8 @@ module.exports = {
     sendPasswordChanged,
     sendSupportTicketConfirmation,
     sendSupportTicketNotification,
+    sendSupportTicketReply,
+    sendSupportTicketUserReply,
     renderVerificationEmail,
     renderSignInNotificationEmail,
     renderNewLocationCodeEmail,
@@ -685,5 +828,7 @@ module.exports = {
     renderEmailChangedEmail,
     renderPasswordChangedEmail,
     renderSupportTicketConfirmationEmail,
+    renderSupportTicketReplyEmail,
+    renderSupportTicketUserReplyEmail,
     renderSupportTicketNotificationEmail,
 };
