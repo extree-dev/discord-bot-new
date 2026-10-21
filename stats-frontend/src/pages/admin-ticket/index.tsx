@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AuthCard } from '../../widgets/auth-card';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DashboardShell } from '../../widgets/dashboard-shell';
+import { TicketThread } from '../../widgets/ticket-thread';
+import { Panel } from '../../shared/ui/Panel';
+import { StatusPill } from '../../shared/ui/StatusPill';
 import { TextArea } from '../../shared/ui/TextArea';
 import { Button } from '../../shared/ui/Button';
 import {
@@ -9,14 +12,23 @@ import {
     replyToTicketAsAdmin,
     setTicketStatus,
     ApiError,
+    type AccountUser,
     type AdminTicketDetail,
     type TicketReply,
 } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
+const CATEGORY_LABELS: Record<string, string> = {
+    account: 'Account & login',
+    bug: 'Bug report',
+    billing: 'Billing',
+    other: 'Other',
+};
+
 export function AdminTicketPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [account, setAccount] = useState<AccountUser | null>(null);
     const [checkingAccount, setCheckingAccount] = useState(true);
     const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
     const [replies, setReplies] = useState<TicketReply[]>([]);
@@ -33,6 +45,7 @@ export function AdminTicketPage() {
                 navigate('/login');
                 return;
             }
+            setAccount(user);
             setCheckingAccount(false);
         });
         return () => {
@@ -65,7 +78,7 @@ export function AdminTicketPage() {
         setPending(true);
         try {
             await replyToTicketAsAdmin(id, message);
-            setReplies(rs => [...rs, { id: crypto.randomUUID(), author: 'admin', message, time: 'just now' }]);
+            setReplies(rs => [...rs, { id: crypto.randomUUID(), author: 'admin', message, time: 'Just now' }]);
             setMessage('');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
@@ -89,77 +102,100 @@ export function AdminTicketPage() {
         }
     }
 
+    const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
+
     if (checkingAccount || (!ticket && !error)) {
-        return <AuthCard title="Ticket">Loading…</AuthCard>;
+        return (
+            <DashboardShell user={dashUser} active="tickets" title="Loading…">
+                <Panel>Loading…</Panel>
+            </DashboardShell>
+        );
     }
 
+    const threadMessages = ticket
+        ? [
+              {
+                  id: 'original',
+                  isSupport: false,
+                  authorLabel: ticket.email,
+                  message: ticket.message,
+                  time: ticket.time,
+              },
+              ...replies.map(r => ({
+                  id: r.id,
+                  isSupport: r.author === 'admin',
+                  authorLabel: r.author === 'admin' ? 'Support' : ticket.email,
+                  message: r.message,
+                  time: r.time,
+              })),
+          ]
+        : [];
+
     return (
-        <AuthCard title={ticket?.subject ?? 'Ticket'} error={error}>
-            <Link to="/admin/tickets" className={styles.back}>
-                ← All tickets
-            </Link>
+        <DashboardShell
+            user={dashUser}
+            active="tickets"
+            breadcrumb={{ to: '/admin/tickets', label: 'All tickets' }}
+            title={ticket?.subject ?? 'Ticket'}
+            subtitle={ticket ? `Ticket ${ticket.id}` : undefined}
+            headerExtra={ticket && <StatusPill status={ticket.status} />}
+            error={error}
+            wide
+        >
             {ticket && (
-                <>
-                    <div className={styles.meta}>
-                        <span
-                            className={`${styles.badge} ${ticket.status === 'open' ? styles.badgeOpen : styles.badgeClosed}`}
-                        >
-                            {ticket.status}
-                        </span>
-                        <span>{ticket.email}</span>
-                        <span>{ticket.category}</span>
-                        <span>{ticket.time}</span>
-                    </div>
-
-                    <div className={styles.thread}>
-                        <div className={styles.bubble}>
-                            <span className={styles.bubbleAuthor}>{ticket.email}</span>
-                            {ticket.message}
-                            <span className={styles.bubbleTime}>{ticket.time}</span>
-                        </div>
-                        {replies.map(r => (
-                            <div
-                                key={r.id}
-                                className={
-                                    r.author === 'admin' ? `${styles.bubble} ${styles.bubbleAdmin}` : styles.bubble
-                                }
-                            >
-                                <span className={styles.bubbleAuthor}>
-                                    {r.author === 'admin' ? 'Support' : ticket.email}
-                                </span>
-                                {r.message}
-                                <span className={styles.bubbleTime}>{r.time}</span>
+                <div className={styles.layout}>
+                    <Panel>
+                        <TicketThread messages={threadMessages} />
+                        <form className={styles.form} onSubmit={onReply}>
+                            <TextArea
+                                id="reply"
+                                label="Reply"
+                                required
+                                maxLength={5000}
+                                value={message}
+                                onChange={e => setMessage(e.target.value)}
+                            />
+                            <div className={styles.formActions}>
+                                <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
+                                    {pending ? 'Sending…' : 'Send reply'}
+                                </Button>
                             </div>
-                        ))}
-                    </div>
+                        </form>
+                    </Panel>
 
-                    <form className={styles.form} onSubmit={onReply}>
-                        <TextArea
-                            id="reply"
-                            label="Reply"
-                            required
-                            maxLength={5000}
-                            value={message}
-                            onChange={e => setMessage(e.target.value)}
-                        />
-                        <Button type="submit" variant="flat" fullWidth disabled={pending || !message.trim()}>
-                            {pending ? 'Sending…' : 'Send reply'}
-                        </Button>
-                    </form>
-
-                    <div className={styles.statusRow}>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            fullWidth
-                            onClick={onToggleStatus}
-                            disabled={statusPending}
-                        >
-                            {statusPending ? 'Updating…' : ticket.status === 'open' ? 'Close ticket' : 'Reopen ticket'}
-                        </Button>
-                    </div>
-                </>
+                    <Panel title="Details">
+                        <div className={styles.metaList}>
+                            <div className={styles.metaRow}>
+                                <span className={styles.metaLabel}>Requester</span>
+                                <span className={styles.metaValue}>{ticket.email}</span>
+                            </div>
+                            <div className={styles.metaRow}>
+                                <span className={styles.metaLabel}>Category</span>
+                                <span className={styles.metaValue}>
+                                    {CATEGORY_LABELS[ticket.category] ?? ticket.category}
+                                </span>
+                            </div>
+                            <div className={styles.metaRow}>
+                                <span className={styles.metaLabel}>Opened</span>
+                                <span className={styles.metaValue}>{ticket.time}</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                fullWidth
+                                onClick={onToggleStatus}
+                                disabled={statusPending}
+                            >
+                                {statusPending
+                                    ? 'Updating…'
+                                    : ticket.status === 'open'
+                                      ? 'Close ticket'
+                                      : 'Reopen ticket'}
+                            </Button>
+                        </div>
+                    </Panel>
+                </div>
             )}
-        </AuthCard>
+        </DashboardShell>
     );
 }

@@ -1,0 +1,158 @@
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+}
+
+.brandLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.mark {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(255, 77, 94, 0.35);
+}
+
+.brand {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 28px;
+}
+
+.navLink {
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-decoration: none;
+    transition:
+        color 0.15s ease,
+        background 0.15s ease;
+
+    &:hover {
+        color: var(--text-dim);
+        background: var(--surface-2);
+    }
+}
+
+.navLinkActive {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.spacer {
+    flex: 1;
+}
+
+.userMenu {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+.userEmail {
+    display: none;
+
+    @media (min-width: 640px) {
+        display: inline;
+    }
+}
+
+.signOut {
+    color: var(--text-faint);
+    text-decoration: none;
+    font-weight: 600;
+
+    &:hover {
+        color: var(--accent-soft);
+    }
+}
+
+.main {
+    flex: 1;
+    padding: 40px 24px 80px;
+}
+
+.content {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.contentWide {
+    max-width: 1080px;
+}
+
+.pageHead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+
+.breadcrumb {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-decoration: none;
+
+    &:hover {
+        color: var(--text-dim);
+    }
+}
+
+.pageTitle {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.pageSubtitle {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    color: var(--text-faint);
+}
+
+.error {
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+    line-height: 1.5;
+}
