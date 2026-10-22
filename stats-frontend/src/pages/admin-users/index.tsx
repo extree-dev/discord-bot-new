@@ -42,12 +42,14 @@ export function AdminUsersPage() {
         });
     }, [navigate]);
 
-    async function handleAction(id: string, action: () => Promise<any>, field: keyof AdminUser) {
+    // ИСПРАВЛЕНО: Promise<unknown> вместо Promise<any>
+    async function handleAction(id: string, action: () => Promise<unknown>, field: keyof AdminUser) {
         setPendingId(id);
         try {
             await action();
             setUsers(users.map(u => (u.id === id ? { ...u, [field]: !u[field] } : u)));
-        } catch (e) {
+        } catch {
+            // ИСПРАВЛЕНО: убрана неиспользуемая переменная e
             alert(`Failed to update ${field}`);
         } finally {
             setPendingId(null);
