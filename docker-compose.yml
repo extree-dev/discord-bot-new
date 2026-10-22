@@ -91,6 +91,10 @@ services:
             - .env
         environment:
             SPRING_PROFILES_ACTIVE: prod
+            # ЯВНО УКАЗЫВАЕМ ПАРАМЕТРЫ ПОДКЛЮЧЕНИЯ К БАЗЕ, ЧТОБЫ JAVA НЕ ИСКАЛА ЕЁ НА LOCALHOST
+            SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-discordbot}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-discordbot}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
         ports:
             - '8081:8081'
         depends_on:
