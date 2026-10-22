@@ -46,6 +46,7 @@ public class LoginController {
             case UNKNOWN_LOCATION -> status(HttpStatus.FORBIDDEN, "unknown_location");
             case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
             case INTERNAL_ERROR -> internalError();
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
         };
     }
 
@@ -57,6 +58,7 @@ public class LoginController {
             case INVALID_EMAIL -> badRequest("invalid_email");
             case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
             case INTERNAL_ERROR -> internalError();
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
         };
     }
 
@@ -75,6 +77,7 @@ public class LoginController {
             case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
             case WRONG_CODE -> badRequest("wrong_code");
             case INTERNAL_ERROR -> internalError();
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
         };
     }
 
@@ -90,3 +93,4 @@ public class LoginController {
         return ResponseEntity.status(status).body(new ErrorResponse(error));
     }
 }
+
