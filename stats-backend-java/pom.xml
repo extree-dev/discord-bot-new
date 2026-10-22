@@ -49,6 +49,22 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- Flyway — миграции схемы (src/main/resources/db/migration/).
+             Раньше схему создавал Node-овый db.js идемпотентным DDL; после
+             перехода на Java это единственный источник схемы. baseline-on-migrate
+             позволяет безопасно накатить baseline на прод, где таблицы уже
+             созданы Node-ом — Flyway не будет пытаться пересоздать их, а
+             запишет версию в flyway_schema_history.
+             flyway-database-postgresql обязательна с Flyway 10+ для PostgreSQL
+             15+ (без неё Flyway падает "Unsupported Database: PostgreSQL 16"). -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>

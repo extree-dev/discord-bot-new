@@ -9,6 +9,12 @@ import java.util.regex.Pattern;
  * расхождение здесь означает, что Java-сервис принимает/отклоняет
  * другие пароли или email, чем Node, и для одного и того же аккаунта
  * поведение двух сервисов разойдётся.
+ *
+ * parseRiotId добавлен для Riot Lookup (см. RiotLookupService) —
+ * один в один с одноимённой функцией validation.js: gameName допускает
+ * практически любые символы (ники бывают на любом языке), поэтому тут
+ * только санитарная проверка длины, а не строгий regex; tagLine у Riot
+ * всегда 3-5 букв/цифр.
  */
 public final class Validation {
 
@@ -16,6 +22,11 @@ public final class Validation {
     private static final Pattern NICKNAME_RE = Pattern.compile("^[a-zA-Z0-9_]{3,24}$");
     private static final Pattern HAS_LETTER = Pattern.compile("[a-zA-Z]");
     private static final Pattern HAS_DIGIT = Pattern.compile("[0-9]");
+
+    // Riot ID: "ИмяИгрока#Тег". gameName 1-16 символов (любые, включая
+    // юникод); tagLine 3-5 букв/цифр. Окончательно валидирует сам Riot
+    // API (404, если такого аккаунта нет).
+    private static final Pattern RIOT_TAG_RE = Pattern.compile("^[A-Za-z0-9]{3,5}$");
 
     private Validation() {}
 
@@ -57,5 +68,29 @@ public final class Validation {
 
     public static boolean isValidCategory(String category) {
         return category != null && SUPPORT_CATEGORIES.contains(category);
+    }
+
+    /** Разобранный Riot ID — null, если строка не соответствует формату. */
+    public record RiotId(String gameName, String tagLine) {}
+
+    /** 1:1 с parseRiotId в validation.js. null — невалидный ввод. */
+    public static RiotId parseRiotId(String rawRiotId) {
+        if (rawRiotId == null) {
+            return null;
+        }
+        String trimmed = rawRiotId.trim();
+        int hashIndex = trimmed.lastIndexOf('#');
+        if (hashIndex <= 0 || hashIndex == trimmed.length() - 1) {
+            return null;
+        }
+        String gameName = trimmed.substring(0, hashIndex);
+        String tagLine = trimmed.substring(hashIndex + 1);
+        if (gameName.length() < 1 || gameName.length() > 16) {
+            return null;
+        }
+        if (!RIOT_TAG_RE.matcher(tagLine).matches()) {
+            return null;
+        }
+        return new RiotId(gameName, tagLine);
     }
 }

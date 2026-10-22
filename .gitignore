@@ -20,3 +20,5 @@ data/
 *.backup3
 *.backup4
 backups/
+
+all-code.txt
