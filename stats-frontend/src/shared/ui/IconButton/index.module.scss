@@ -30,7 +30,7 @@
 
 .danger {
     color: var(--accent);
-    
+
     &:hover:not(:disabled) {
         background: rgba(255, 77, 94, 0.1);
         border-color: rgba(255, 77, 94, 0.3);

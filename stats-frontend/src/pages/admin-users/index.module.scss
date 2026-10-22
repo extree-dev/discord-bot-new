@@ -96,13 +96,17 @@
 .statusActive {
     background: rgba(52, 211, 153, 0.1);
     color: #34d399;
-    .dot { background: #34d399; }
+    .dot {
+        background: #34d399;
+    }
 }
 
 .statusBanned {
     background: rgba(255, 77, 94, 0.1);
     color: var(--accent);
-    .dot { background: var(--accent); }
+    .dot {
+        background: var(--accent);
+    }
 }
 
 .adminBadge {
