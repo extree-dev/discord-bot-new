@@ -23,3 +23,4 @@
 ```bash
 cd stats-backend-java
 mvn -B flyway:info   # список миграций и их статус
+```
