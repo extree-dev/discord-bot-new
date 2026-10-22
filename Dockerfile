@@ -18,6 +18,10 @@ WORKDIR /app
 # Отдельный слой под зависимости — пересобирается только когда меняются
 # package.json/package-lock.json, а не при каждой правке исходников.
 COPY package.json package-lock.json ./
+
+# ЗАПРЕЩАЕМ HUSKY ЗАПУСКАТЬСЯ В КОНТЕЙНЕРЕ (там нет dev-зависимостей)
+ENV HUSKY=0
+
 RUN npm ci --omit=dev
 
 COPY . .
