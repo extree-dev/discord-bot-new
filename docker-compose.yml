@@ -20,9 +20,6 @@ services:
         env_file:
             - .env
         environment:
-            # Внутри сети docker compose сервис БД доступен по имени "postgres",
-            # а не localhost — переопределяем DATABASE_URL из .env, если он там
-            # указывает на локальный адрес.
             DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
@@ -30,11 +27,6 @@ services:
         volumes:
             - bot-data:/app/data
 
-    # Ежедневный дамп базы в ./backups на хосте (рядом с docker-compose.yml),
-    # хранятся последние BACKUP_KEEP файлов. Раньше вся база жила только в
-    # томе pgdata без единой копии — потеря тома означала потерю всего.
-    # Первый дамп — сразу при запуске сервиса. Восстановление:
-    # gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U discordbot discordbot
     db-backup:
         image: postgres:16-alpine
         restart: unless-stopped
@@ -66,18 +58,6 @@ services:
                     sleep 86400
                 done
 
-    # Личный кабинет (bot.extree.tech/dashboard) + визитка и её редактор
-    # (extree.tech, extree.tech/admin) — React-SPA (frontend/), отдаёт его
-    # и JSON-API под /api/* этот процесс (dashboard/server.js). Тот же
-    # образ, что у bot (build: .), frontend/dist собирается отдельным
-    # стейджем в Dockerfile и копируется в этот же образ — просто другая
-    # команда запуска: отдельный лёгкий процесс вместо discord.js-клиента.
-    # Сессия — в зашифрованной cookie (dashboard/session.js), а контент
-    # визитки — в Postgres (site/model.js), поэтому DATABASE_URL
-    # переопределяется так же, как у bot — иначе дашборд внутри контейнера
-    # пытался бы достучаться до localhost, которого тут нет. Наружу не
-    # публикуется (нет "ports") — достучаться можно только через Caddy по
-    # имени сервиса внутри docker-сети, см. web/Caddyfile.
     dashboard:
         build: .
         restart: unless-stopped
@@ -90,19 +70,6 @@ services:
                 condition: service_healthy
         command: ['node', 'dashboard/server.js']
 
-    # Бэкенд Extree Stats (RSO-логин + email/пароль-аккаунты,
-    # stats.extree.tech) — тот же образ, что бот/дашборд (build: .),
-    # другой command. Сознательно отдельный сервис, а не ещё один роут в
-    # dashboard/server.js: Extree Stats независимый продукт (своя заявка
-    # в Riot Developer Portal), смешивать его сессии/данные с личным
-    # кабинетом бота значило бы по коду связать два разных продукта.
-    # DATABASE_URL — тот же Postgres-сервер, что у bot/dashboard (ради
-    # экономии ресурсов — не поднимаем второй контейнер БД), но свои
-    # таблицы (stats_users, stats_email_codes, см. stats-backend/db.js),
-    # не bot_stores/dashboard_accounts. RIOT_CLIENT_ID/RIOT_CLIENT_SECRET
-    # пока не заданы (Riot ещё не одобрил заявку) — сервис всё равно
-    # стартует и честно отвечает ошибкой на /auth/riot/login вместо
-    # похода в Riot с пустым client_id; email+пароль работает уже сейчас.
     stats-backend:
         build: .
         restart: unless-stopped
@@ -115,16 +82,21 @@ services:
                 condition: service_healthy
         command: ['node', 'stats-backend/server.js']
 
-    # Страница бота (bot.extree.tech, web/bot-site/) + автоматический TLS
-    # от Let's Encrypt. Caddy сам запрашивает и продлевает сертификаты для
-    # доменов, перечисленных в web/Caddyfile — никакого отдельного certbot.
-    # Файлы монтируются прямо из рабочей копии репозитория (read-only) —
-    # обновление сайта требует только git pull, тот же, что уже делает
-    # deploy.yml на каждый push в main, без пересборки образа. extree.tech
-    # (визитка + её редактор) статики больше не имеет вообще — целиком
-    # React-SPA, см. сервис dashboard. caddy_data хранит сами сертификаты —
-    # без него каждый "docker compose up" заново запрашивал бы их у Let's
-    # Encrypt и быстро упёрся бы в лимит запросов на домен.
+    # --- НОВЫЙ СЕРВИС JAVA ---
+    stats-backend-java:
+        build:
+            context: ./stats-backend-java
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            SPRING_PROFILES_ACTIVE: prod
+        ports:
+            - '8081:8081'
+        depends_on:
+            postgres:
+                condition: service_healthy
+
     caddy:
         image: caddy:2-alpine
         restart: unless-stopped
@@ -138,12 +110,6 @@ services:
             - caddy_data:/data
             - caddy_config:/config
 
-    # Не рантайм-сервис — одноразовый джоб "docker compose run --rm
-    # stats-frontend-builder" (см. deploy.yml), который собирает
-    # stats-frontend/ (Vite + React) и копирует dist/ в ./web/stats-site/
-    # поверх bind-mount'а /output — тот же каталог, что читает caddy
-    # выше. profiles: ["build-only"] — чтобы "docker compose up -d" его
-    # не пытался поднять как обычный сервис.
     stats-frontend-builder:
         build:
             context: ./stats-frontend
