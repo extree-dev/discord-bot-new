@@ -63,10 +63,9 @@ bot.extree.tech {
 
 stats.extree.tech {
     handle /auth/* {
-        reverse_proxy stats-backend:3000
+        reverse_proxy stats-backend-java:8081
     }
     handle /api/* {
-        # ИЗМЕНЕНО: перенаправляем API на Java-бэкенд
         reverse_proxy stats-backend-java:8081
     }
     handle {
