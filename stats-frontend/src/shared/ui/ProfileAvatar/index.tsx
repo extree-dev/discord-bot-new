@@ -25,7 +25,8 @@ export function ProfileAvatar({ currentUrl, email, onUploaded }: ProfileAvatarPr
         try {
             const { avatarUrl } = await uploadAvatar(file);
             onUploaded(avatarUrl);
-        } catch (err) {
+        } catch {
+            // ИСПРАВЛЕНО: убрана переменная err, чтобы ESLint не ругался
             alert('Не удалось загрузить аватар');
         } finally {
             setLoading(false);
