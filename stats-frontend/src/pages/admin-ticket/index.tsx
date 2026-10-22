@@ -14,7 +14,6 @@ import {
     replyToTicketAsAdmin,
     setTicketStatus,
     verifyUser,
-    ApiError,
     type AccountUser,
     type AdminTicketDetail,
     type TicketReply,
