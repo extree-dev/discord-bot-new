@@ -19,7 +19,6 @@ import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.User;
 
-/** Соответствует requireAdmin + /api/admin/tickets*, /api/admin/canned-responses* в server.js. */
 @Service
 public class AdminTicketService implements AdminTicketUseCase {
 
@@ -84,14 +83,26 @@ public class AdminTicketService implements AdminTicketUseCase {
             return DetailResult.error(DetailOutcome.TICKET_NOT_FOUND);
         }
         SupportTicket ticket = maybeTicket.get();
+        
+        // Ищем статус верификации пользователя
+        boolean isUserVerified = false;
+        if (ticket.userId() != null) {
+            isUserVerified = userRepository.findById(ticket.userId())
+                    .map(User::isVerified) // В record User это поле называется isVerified
+                    .orElse(false);
+        }
+
         AdminTicketDetail detail = new AdminTicketDetail(
                 ticket.ticketNumber(),
+                ticket.userId(), // Добавлено
                 ticket.email(),
                 ticket.subject(),
                 ticket.message(),
                 ticket.category(),
                 ticket.status(),
-                UtcTime.format(ticket.createdAt()));
+                UtcTime.format(ticket.createdAt()),
+                isUserVerified // Добавлено
+        );
         List<ReplyView> replies = SupportTicketService.toReplyViews(supportTicketRepository.listReplies(ticket.id()));
         return new DetailResult(DetailOutcome.OK, detail, replies);
     }
@@ -119,8 +130,6 @@ public class AdminTicketService implements AdminTicketUseCase {
         SupportTicket ticket = maybeTicket.get();
 
         supportTicketRepository.addReply(ticket.id(), "admin", message);
-        // Первый ответ админа сдвигает тикет из "open" в "in_progress" —
-        // если статус уже меняли вручную, не трогаем его здесь.
         if ("open".equals(ticket.status())) {
             supportTicketRepository.setStatus(ticket.id(), "in_progress");
         }
@@ -130,8 +139,6 @@ public class AdminTicketService implements AdminTicketUseCase {
             String ticketUrl = SupportTicketService.ticketUrlFor(requestHost, ticket.viewToken());
             mailer.sendSupportTicketReply(ticket.email(), ticket.ticketNumber(), ticket.subject(), message, adminName, ticketUrl);
         } catch (Exception e) {
-            // Ответ уже сохранён и виден в треде — сбой письма не повод
-            // говорить админу, что ответ не отправился.
             log.warn("stats-backend-java: ошибка отправки уведомления об ответе на тикет", e);
         }
         return ReplyOutcome.OK;
@@ -214,9 +221,6 @@ public class AdminTicketService implements AdminTicketUseCase {
             long ticketNumber = Long.parseLong(rawTicketNumber);
             return supportTicketRepository.getTicketByNumber(ticketNumber);
         } catch (NumberFormatException e) {
-            // Node передаёт :number как есть в SQL и получает ошибку драйвера
-            // на нечисловой строке (необработанный 500) — тут честнее и
-            // безопаснее явный "не найдено", не меняя остальной контракт.
             return Optional.empty();
         }
     }

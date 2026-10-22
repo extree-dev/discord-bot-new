@@ -14,6 +14,8 @@ import { SupportPage } from '../pages/support';
 import { TicketPage } from '../pages/ticket';
 import { AdminTicketsPage } from '../pages/admin-tickets';
 import { AdminTicketPage } from '../pages/admin-ticket';
+import { AccountSettingsPage } from '../pages/account-settings';
+import { AdminUsersPage } from '../pages/admin-users';
 
 // RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
 // обсуждение в PR #307: страница рабочая и готова, но пока убрана с
@@ -36,6 +38,8 @@ export function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/support" element={<SupportPage />} />
+            <Route path="/account/settings" element={<AccountSettingsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/support/ticket/:token" element={<TicketPage />} />
             <Route path="/admin/tickets" element={<AdminTicketsPage />} />
             <Route path="/admin/tickets/:number" element={<AdminTicketPage />} />

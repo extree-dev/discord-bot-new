@@ -24,14 +24,6 @@ import tech.extree.stats.domain.LoginCode;
 import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
-/**
- * Соответствует блоку /auth/login, /auth/login/resend-code,
- * /auth/login/confirm-location в server.js — порядок проверок и
- * error-коды повторены один в один, включая "известное место входа"
- * (geo по стране, не по точному IP) и anti-enumeration поведение
- * resendCode. Таймауты те же, что у loginCodes.js (10 минут жизни,
- * 60 секунд между повторной отправкой, 5 попыток).
- */
 @Service
 public class LoginService implements LoginUseCase {
 
@@ -77,8 +69,6 @@ public class LoginService implements LoginUseCase {
     public LoginResult login(String rawEmail, String password, String turnstileToken, String clientIp, boolean rememberMe) {
         String email = Validation.normalizeEmail(rawEmail);
 
-        // Turnstile раньше всего остального — та же причина, что в Node:
-        // отсекаем ботов/перебор credential stuffing до обращения к БД.
         if (!turnstileVerifier.verify(turnstileToken, clientIp)) {
             return LoginResult.error(LoginOutcome.TURNSTILE_FAILED);
         }
@@ -90,7 +80,14 @@ public class LoginService implements LoginUseCase {
         if (maybeUser.isEmpty() || !passwordHasher.verify(password, maybeUser.get().passwordHash())) {
             return LoginResult.error(LoginOutcome.INVALID_CREDENTIALS);
         }
+        
         User user = maybeUser.get();
+        
+        // --- ПРОВЕРКА НА БАН ---
+        if (user.isBanned()) {
+            return LoginResult.error(LoginOutcome.INVALID_CREDENTIALS); // Или можно добавить свой код 'banned'
+        }
+        
         if (!user.emailVerified()) {
             return LoginResult.error(LoginOutcome.EMAIL_NOT_VERIFIED);
         }
@@ -118,8 +115,6 @@ public class LoginService implements LoginUseCase {
         try {
             mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), UtcTime.now());
         } catch (Exception e) {
-            // Уведомление не критично для самого входа — не роняем сессию
-            // из-за временной проблемы с почтой, как и Node.
             log.warn("stats-backend-java: ошибка отправки уведомления о входе", e);
         }
 
@@ -136,8 +131,6 @@ public class LoginService implements LoginUseCase {
 
         Optional<LoginCode> pending = loginCodeRepository.getCode(email);
         if (pending.isEmpty()) {
-            // Не сообщаем, есть ли вообще ожидающий подтверждения вход —
-            // тот же приём, что у /auth/resend-code.
             return ResendLoginCodeOutcome.OK;
         }
         if (isOnCooldown(email)) {
@@ -186,8 +179,6 @@ public class LoginService implements LoginUseCase {
         }
         User user = maybeUser.get();
 
-        // Доверяем месту из исходной попытки входа (row), а не текущему
-        // запросу — его могут подтверждать с другого устройства/сети.
         loginLocationRepository.rememberLocation(user.id(), row.country(), row.city(), row.ip());
         loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city());
         loginCodeRepository.deleteCode(email);

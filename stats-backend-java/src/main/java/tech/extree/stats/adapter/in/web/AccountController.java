@@ -1,30 +1,56 @@
 package tech.extree.stats.adapter.in.web;
 
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
-import tech.extree.stats.application.port.in.GetAccountUseCase;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import tech.extree.stats.adapter.in.web.dto.AccountResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.application.port.in.GetAccountUseCase;
+import tech.extree.stats.application.service.AvatarService;
 import tech.extree.stats.domain.User;
 
-/** Соответствует GET /api/account/me в server.js (Node), включая поле isAdmin (PR #315). */
 @RestController
 public class AccountController {
 
     private static final String SESSION_COOKIE = "extree_stats_session";
 
     private final GetAccountUseCase getAccountUseCase;
+    private final AvatarService avatarService;
 
-    public AccountController(GetAccountUseCase getAccountUseCase) {
+    public AccountController(GetAccountUseCase getAccountUseCase, AvatarService avatarService) {
         this.getAccountUseCase = getAccountUseCase;
+        this.avatarService = avatarService;
     }
 
     @GetMapping("/api/account/me")
     public AccountResponse getAccount(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
-        return getAccountUseCase
-                .getAccount(cookie)
+        return getAccountUseCase.getAccount(cookie)
                 .map(this::toResponse)
                 .orElse(AccountResponse.empty());
+    }
+
+    @PostMapping("/api/account/avatar")
+    public ResponseEntity<?> uploadAvatar(
+            @CookieValue(name = SESSION_COOKIE, required = false) String cookie,
+            @RequestParam("file") MultipartFile file) {
+        return avatarService.uploadAvatar(cookie, file)
+                .<ResponseEntity<?>>map(url -> ResponseEntity.ok(Map.of("avatarUrl", url)))
+                .orElseGet(() -> ResponseEntity.badRequest().body(new ErrorResponse("invalid_file")));
+    }
+
+    @GetMapping("/api/account/avatar/{filename}")
+    public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
+        Path file = Paths.get("uploads/avatars").resolve(filename);
+        Resource resource = new FileSystemResource(file);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "image/" + filename.substring(filename.lastIndexOf(".") + 1))
+                .body(resource);
     }
 
     private AccountResponse toResponse(User user) {
@@ -34,6 +60,9 @@ public class AccountController {
                 user.riotLinked(),
                 user.name(),
                 user.nickname(),
-                getAccountUseCase.isAdmin(user)));
+                getAccountUseCase.isAdmin(user),
+                user.avatarUrl(),
+                user.isVerified() // <-- Добавлено
+        ));
     }
 }

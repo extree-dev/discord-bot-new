@@ -13,38 +13,29 @@ import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.NicknameTakenException;
 import tech.extree.stats.domain.User;
 
-/**
- * Читает ту же таблицу stats_users, что users.js (Node) — схема ещё
- * создаётся/мигрируется Node-сервисом (db.js, ensureSchema), этот
- * адаптер только читает, DDL сюда намеренно не продублирован: пока оба
- * сервиса работают с одной БД, источник истины для схемы один.
- */
 @Repository
 public class JdbcUserRepository implements UserRepository {
 
-    private static final RowMapper<User> USER_ROW_MAPPER =
-            (rs, rowNum) -> new User(
-                    rs.getString("id"),
-                    rs.getString("email"),
-                    rs.getString("password_hash"),
-                    toInstant(rs.getTimestamp("email_verified_at")),
-                    rs.getString("riot_puuid"),
-                    rs.getString("name"),
-                    rs.getString("nickname"));
+    private static final RowMapper<User> USER_ROW_MAPPER = (rs, rowNum) -> new User(
+            rs.getString("id"),
+            rs.getString("email"),
+            rs.getString("password_hash"),
+            toInstant(rs.getTimestamp("email_verified_at")),
+            rs.getString("riot_puuid"),
+            rs.getString("name"),
+            rs.getString("nickname"),
+            rs.getString("avatar_url"),
+            rs.getBoolean("is_verified"),
+            rs.getBoolean("is_banned"),
+            rs.getBoolean("is_admin"));
 
-    // upsertUnverifiedUser/markEmailVerified в users.js возвращают только
-    // id, email, email_verified_at (RETURNING) — остальные поля User тут
-    // не нужны ни одному вызывающему коду, оставляем null, как и Node не
-    // отдаёт их из этих функций.
-    private static final RowMapper<User> UPSERT_RESULT_ROW_MAPPER =
-            (rs, rowNum) -> new User(
-                    rs.getString("id"), rs.getString("email"), null, toInstant(rs.getTimestamp("email_verified_at")),
-                    null, null, null);
+    private static final RowMapper<User> UPSERT_RESULT_ROW_MAPPER = (rs, rowNum) -> new User(
+            rs.getString("id"), rs.getString("email"), null,
+            toInstant(rs.getTimestamp("email_verified_at")),
+            null, null, null, null, false, false, false);
 
-    // updatePasswordHash/updateEmail в users.js возвращают только id, email
-    // (RETURNING) — то же сокращение, что у UPSERT_RESULT_ROW_MAPPER выше.
-    private static final RowMapper<User> ID_EMAIL_ROW_MAPPER =
-            (rs, rowNum) -> new User(rs.getString("id"), rs.getString("email"), null, null, null, null, null);
+    private static final RowMapper<User> ID_EMAIL_ROW_MAPPER = (rs, rowNum) -> new User(
+            rs.getString("id"), rs.getString("email"), null, null, null, null, null, null, false, false, false);
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -59,20 +50,18 @@ public class JdbcUserRepository implements UserRepository {
     @Override
     public Optional<User> findById(String id) {
         List<User> rows = jdbcTemplate.query(
-                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname "
-                        + "FROM stats_users WHERE id = ?",
-                USER_ROW_MAPPER,
-                id);
+                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname, avatar_url, is_verified, is_banned, is_admin " +
+                        "FROM stats_users WHERE id = ?",
+                USER_ROW_MAPPER, id);
         return rows.stream().findFirst();
     }
 
     @Override
     public Optional<User> findByEmail(String email) {
         List<User> rows = jdbcTemplate.query(
-                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname "
-                        + "FROM stats_users WHERE email = ?",
-                USER_ROW_MAPPER,
-                email);
+                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname, avatar_url, is_verified, is_banned, is_admin " +
+                        "FROM stats_users WHERE email = ?",
+                USER_ROW_MAPPER, email);
         return rows.stream().findFirst();
     }
 
@@ -80,22 +69,14 @@ public class JdbcUserRepository implements UserRepository {
     public User upsertUnverifiedUser(String email, String passwordHash, String name, String nickname) {
         try {
             return jdbcTemplate.queryForObject(
-                    "INSERT INTO stats_users (id, email, password_hash, name, nickname) "
-                            + "VALUES (?, ?, ?, ?, ?) "
-                            + "ON CONFLICT (email) DO UPDATE "
-                            + "SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name, "
-                            + "nickname = EXCLUDED.nickname "
-                            + "RETURNING id, email, email_verified_at",
+                    "INSERT INTO stats_users (id, email, password_hash, name, nickname) " +
+                            "VALUES (?, ?, ?, ?, ?) " +
+                            "ON CONFLICT (email) DO UPDATE " +
+                            "SET password_hash = EXCLUDED.password_hash, name = EXCLUDED.name, nickname = EXCLUDED.nickname " +
+                            "RETURNING id, email, email_verified_at",
                     UPSERT_RESULT_ROW_MAPPER,
-                    UUID.randomUUID().toString(),
-                    email,
-                    passwordHash,
-                    name,
-                    nickname);
+                    UUID.randomUUID().toString(), email, passwordHash, name, nickname);
         } catch (DuplicateKeyException e) {
-            // ON CONFLICT (email) выше уже разрешает конфликт по email —
-            // единственный другой UNIQUE на этой таблице (stats_users_nickname_key,
-            // см. db.js) может всплыть только из-за чужого nickname.
             throw new NicknameTakenException(nickname);
         }
     }
@@ -103,10 +84,8 @@ public class JdbcUserRepository implements UserRepository {
     @Override
     public Optional<User> markEmailVerified(String email) {
         List<User> rows = jdbcTemplate.query(
-                "UPDATE stats_users SET email_verified_at = now() WHERE email = ? "
-                        + "RETURNING id, email, email_verified_at",
-                UPSERT_RESULT_ROW_MAPPER,
-                email);
+                "UPDATE stats_users SET email_verified_at = now() WHERE email = ? RETURNING id, email, email_verified_at",
+                UPSERT_RESULT_ROW_MAPPER, email);
         return rows.stream().findFirst();
     }
 
@@ -114,9 +93,7 @@ public class JdbcUserRepository implements UserRepository {
     public Optional<User> updatePasswordHash(String userId, String passwordHash) {
         List<User> rows = jdbcTemplate.query(
                 "UPDATE stats_users SET password_hash = ? WHERE id = ? RETURNING id, email",
-                ID_EMAIL_ROW_MAPPER,
-                passwordHash,
-                userId);
+                ID_EMAIL_ROW_MAPPER, passwordHash, userId);
         return rows.stream().findFirst();
     }
 
@@ -124,9 +101,35 @@ public class JdbcUserRepository implements UserRepository {
     public Optional<User> updateEmail(String userId, String newEmail) {
         List<User> rows = jdbcTemplate.query(
                 "UPDATE stats_users SET email = ?, email_verified_at = now() WHERE id = ? RETURNING id, email",
-                ID_EMAIL_ROW_MAPPER,
-                newEmail,
-                userId);
+                ID_EMAIL_ROW_MAPPER, newEmail, userId);
         return rows.stream().findFirst();
+    }
+
+    @Override
+    public void updateAvatar(String userId, String avatarUrl) {
+        jdbcTemplate.update("UPDATE stats_users SET avatar_url = ? WHERE id = ?", avatarUrl, userId);
+    }
+
+    @Override
+    public void setVerified(String userId, boolean isVerified) {
+        jdbcTemplate.update("UPDATE stats_users SET is_verified = ? WHERE id = ?", isVerified, userId);
+    }
+
+    @Override
+    public void setBanned(String userId, boolean isBanned) {
+        jdbcTemplate.update("UPDATE stats_users SET is_banned = ? WHERE id = ?", isBanned, userId);
+    }
+
+    @Override
+    public void setAdmin(String userId, boolean isAdmin) {
+        jdbcTemplate.update("UPDATE stats_users SET is_admin = ? WHERE id = ?", isAdmin, userId);
+    }
+
+    @Override
+    public List<User> findAllUsers() {
+        return jdbcTemplate.query(
+                "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname, avatar_url, is_verified, is_banned, is_admin " +
+                        "FROM stats_users ORDER BY id DESC LIMIT 100",
+                USER_ROW_MAPPER);
     }
 }
