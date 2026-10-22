@@ -1,0 +1,422 @@
+
+==================================================
+FILE: stats-frontend\src\pages\admin-users\index.tsx
+==================================================
+
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DashboardShell } from '../../widgets/dashboard-shell';
+import { Panel } from '../../shared/ui/Panel';
+import { Button } from '../../shared/ui/Button';
+import { Avatar } from '../../shared/ui/Avatar';
+import {
+    getAccount,
+    getAllUsers,
+    banUser,
+    verifyUser,
+    makeAdmin, // <-- Импорт
+    ApiError,
+    type AccountUser,
+    type AdminUser,
+} from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+export function AdminUsersPage() {
+    const navigate = useNavigate();
+    const [account, setAccount] = useState<AccountUser | null>(null);
+    const [users, setUsers] = useState<AdminUser[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    function loadUsers() {
+        getAllUsers()
+            .then(res => setUsers(res.users))
+            .catch(err => setError(err instanceof ApiError ? err.message : 'Failed to load users'))
+            .finally(() => setLoading(false));
+    }
+
+    useEffect(() => {
+        getAccount().then(u => {
+            if (!u || !u.isAdmin) navigate('/login');
+            else {
+                setAccount(u);
+                loadUsers();
+            }
+        });
+    }, [navigate]);
+
+    async function handleBan(id: string, currentStatus: boolean) {
+        try {
+            await banUser(id, !currentStatus);
+            setUsers(users.map(u => (u.id === id ? { ...u, isBanned: !currentStatus } : u)));
+        } catch (e) {
+            alert('Failed to ban user');
+        }
+    }
+
+    async function handleVerify(id: string, currentStatus: boolean) {
+        try {
+            await verifyUser(id, !currentStatus);
+            setUsers(users.map(u => (u.id === id ? { ...u, isVerified: !currentStatus } : u)));
+        } catch (e) {
+            alert('Failed to verify user');
+        }
+    }
+
+    async function handleMakeAdmin(id: string, currentStatus: boolean) {
+        try {
+            await makeAdmin(id, !currentStatus);
+            setUsers(users.map(u => (u.id === id ? { ...u, isAdmin: !currentStatus } : u)));
+        } catch (e) {
+            alert('Failed to change admin status');
+        }
+    }
+
+    if (loading) {
+        return (
+            <DashboardShell user={null} title="Loading...">
+                Loading...
+            </DashboardShell>
+        );
+    }
+
+    return (
+        <DashboardShell user={account!} title="User Management" wide>
+            <Panel>
+                {error && <p style={{ color: 'var(--accent)' }}>{error}</p>}
+                <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Status</th>
+                                <th>Role</th>
+                                <th style={{ textAlign: 'right' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map(u => (
+                                <tr key={u.id} className={u.isBanned ? styles.bannedRow : ''}>
+                                    <td>
+                                        <div className={styles.userCell}>
+                                            <Avatar label={u.name || u.email} />
+                                            <div>
+                                                <div className={styles.userName}>
+                                                    {u.nickname || u.name || 'Unknown'}
+                                                    {u.isVerified && <span className={styles.blueTick}>✓</span>}
+                                                </div>
+                                                <div className={styles.userEmail}>{u.email}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span
+                                            className={`${styles.statusBadge} ${u.isBanned ? styles.statusBanned : styles.statusActive}`}
+                                        >
+                                            {u.isBanned ? 'Banned' : 'Active'}
+                                        </span>
+                                    </td>
+                                    <td>{u.isAdmin ? <span className={styles.adminBadge}>Admin</span> : 'User'}</td>
+                                    <td>
+                                        <div className={styles.actions}>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleVerify(u.id, u.isVerified)}
+                                            >
+                                                {u.isVerified ? 'Unverify' : 'Verify'}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleMakeAdmin(u.id, u.isAdmin)}
+                                            >
+                                                {u.isAdmin ? 'Demote' : 'Make Admin'}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleBan(u.id, u.isBanned)}
+                                                style={{ color: u.isBanned ? 'var(--win)' : 'var(--accent)' }}
+                                            >
+                                                {u.isBanned ? 'Unban' : 'Ban'}
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Panel>
+        </DashboardShell>
+    );
+}
+
+==================================================
+FILE: stats-frontend\src\pages\admin-users\index.module.scss
+==================================================
+
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+
+    th {
+        padding: 16px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+    }
+
+    td {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+}
+
+.userCell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.userName {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.userEmail {
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+.blueTick {
+    color: #3b82f6;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.statusBadge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.statusActive {
+    background: rgba(52, 211, 153, 0.1);
+    color: var(--win);
+}
+
+.statusBanned {
+    background: rgba(255, 77, 94, 0.1);
+    color: var(--accent);
+}
+
+.adminBadge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fbbf24;
+    text-transform: uppercase;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bannedRow {
+    opacity: 0.6;
+    background: rgba(255, 77, 94, 0.02);
+}
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Panel\index.module.scss
+==================================================
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.03) inset,
+        0 12px 32px -20px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.headerBare {
+    border-bottom: none;
+    padding-bottom: 4px;
+}
+
+.title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+.body {
+    padding: 24px;
+}
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Avatar\index.tsx
+==================================================
+
+import styles from './index.module.scss';
+
+function initialsFrom(label: string): string {
+    const name = label.split('@')[0];
+    return name.slice(0, 2).toUpperCase();
+}
+
+// Инициалы вместо настоящих аватарок — у аккаунтов Extree Stats нет
+// загружаемой фотографии профиля, а пустой кружок-заглушка выглядит
+// дешевле, чем пара букв на фирменном фоне (тот же приём, что Linear/
+// GitHub используют для аккаунтов без аватара).
+export function Avatar({ label, isSupport = false }: { label: string; isSupport?: boolean }) {
+    return (
+        <span className={`${styles.avatar} ${isSupport ? styles.support : ''}`} aria-hidden="true">
+            {isSupport ? 'EX' : initialsFrom(label)}
+        </span>
+    );
+}
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Avatar\index.module.scss
+==================================================
+
+.avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+}
+
+.support {
+    background: rgba(255, 77, 94, 0.12);
+    border-color: rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+}
+
+==================================================
+FILE: stats-frontend\src\widgets\dashboard-shell\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
+import styles from './index.module.scss';
+
+interface DashboardUser {
+    email: string;
+    isAdmin: boolean;
+}
+
+interface DashboardShellProps {
+    user: DashboardUser | null;
+    breadcrumb?: { to: string; label: string };
+    title: string;
+    subtitle?: string;
+    headerExtra?: ReactNode;
+    error?: string | null;
+    wide?: boolean;
+    children: ReactNode;
+}
+
+export function DashboardShell({
+    user,
+    breadcrumb,
+    title,
+    subtitle,
+    headerExtra,
+    error,
+    wide,
+    children,
+}: DashboardShellProps) {
+    return (
+        <div className={styles.page}>
+            <header className={styles.topbar}>
+                <Link to="/" className={styles.brandLink}>
+                    <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
+                    <span className={styles.brand}>Extree Stats</span>
+                </Link>
+
+                <div className={styles.spacer} />
+
+                {user && (
+                    <div className={styles.userMenu}>
+                        <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
+                    </div>
+                )}
+            </header>
+
+            <main className={styles.main}>
+                <div className={`${styles.content} ${wide ? styles.contentWide : ''}`}>
+                    <div>
+                        {breadcrumb && (
+                            <Link to={breadcrumb.to} className={styles.breadcrumb}>
+                                ← {breadcrumb.label}
+                            </Link>
+                        )}
+                        <div className={styles.pageHead}>
+                            <div>
+                                <h1 className={styles.pageTitle}>{title}</h1>
+                                {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
+                            </div>
+                            {headerExtra}
+                        </div>
+                    </div>
+                    {error && (
+                        <p className={styles.error} role="alert">
+                            {error}
+                        </p>
+                    )}
+                    {children}
+                </div>
+            </main>
+        </div>
+    );
+}
