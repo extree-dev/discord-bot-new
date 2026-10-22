@@ -1,22 +1,32 @@
-# Переменные окружения намеренно переиспользуют имена из ../.env.example
-# там, где смысл совпадает 1:1 с Node-сервисом (STATS_SESSION_SECRET,
-# SUPPORT_ADMIN_EMAILS) — один .env на оба сервиса, пока они работают
-# бок о бок. Исключение — datasource.url: Spring ждёт JDBC-форму
-# (jdbc:postgresql://...), а DATABASE_URL в .env.example — в формате
-# postgresql://user:pass@host/db (как принимает node-postgres), поэтому
-# тут отдельная переменная DATABASE_URL_JDBC до тех пор, пока оба сервиса
-# не согласуют один формат при реальном переключении трафика.
-server:
-    port: ${STATS_BACKEND_JAVA_PORT:8081}
-
+# Spring Boot умеет читать .env-подобные файлы через spring.config.import.
+# Файл .env лежит рядом с pom.xml (stats-backend-java/.env), в git не
+# коммитится (.gitignore) — там локальные пароли/секреты. На проде (в
+# Docker) .env прокидывается через env_file: docker-compose.yml, и
+# optional: импорт просто ничего не находит — переменные всё равно
+# приходят из окружения контейнера.
 spring:
+    config:
+        import: optional:file:./.env[.properties]
     datasource:
         url: ${DATABASE_URL_JDBC:jdbc:postgresql://localhost:5432/discordbot}
         username: ${POSTGRES_USER:discordbot}
         password: ${POSTGRES_PASSWORD:discordbot}
+    # Flyway — единственный источник схемы stats_* после перехода с Node.
+    # baseline-on-migrate: на проде, где таблицы уже созданы Node-овым
+    # db.js и flyway_schema_history ещё нет, Flyway сначала накатит
+    # baseline (запишет, что схема соответствует baseline-version: 0),
+    # затем применит V1__init.sql — все CREATE TABLE IF NOT EXISTS пройдут
+    # без ошибок, потому что таблицы уже есть. На пустой БД (новый стенд)
+    # baseline не срабатывает (нет существующей схемы) и V1 создаёт всё с
+    # нуля. В обоих случаях flyway_schema_history в итоге указывает на V1.
+    flyway:
+        enabled: true
+        baseline-on-migrate: true
+        baseline-version: 0
+        locations: classpath:db/migration
     mail:
-        host: smtp.mail.me.com
-        port: 587
+        host: ${SPRING_MAIL_HOST:smtp.mail.me.com}
+        port: ${SPRING_MAIL_PORT:587}
         username: ${STATS_MAIL_USER:}
         password: ${STATS_MAIL_APP_PASSWORD:}
         properties:
@@ -27,8 +37,15 @@ spring:
                         enable: true
                         required: true
 
+server:
+    port: ${STATS_BACKEND_JAVA_PORT:8081}
+
 extree:
     session-secret: ${STATS_SESSION_SECRET:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
     mail-from: ${STATS_MAIL_FROM:}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
+    riot:
+        client-id: ${RIOT_CLIENT_ID:}
+        client-secret: ${RIOT_CLIENT_SECRET:}
+        api-key: ${RIOT_API_KEY:}
