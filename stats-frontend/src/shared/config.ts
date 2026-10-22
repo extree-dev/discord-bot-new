@@ -2,7 +2,7 @@
 // Site Key у любой капчи, предназначен для встраивания в клиентский код.
 // Secret Key остаётся только на бэкенде (TURNSTILE_SECRET_KEY в .env, см.
 // stats-backend/turnstile.js) и сюда никогда не попадает.
-export const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAAFdnUKZ3Flc1LQFG';
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAFdnUKZ3Flc1LQFG';
 
 // DSN мониторинга ошибок (Sentry, проект stats-frontend в организации
 // extree-stats) — как и DSN вообще, не секрет: предназначен именно для
