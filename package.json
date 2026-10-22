@@ -11,7 +11,13 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "node --test test/*.test.js"
+        "test": "node --test test/*.test.js",
+        "prepare": "husky"
+    },
+    "lint-staged": {
+        "*.{js,jsx,ts,tsx,json,css,scss,md}": [
+            "prettier --write"
+        ]
     },
     "keywords": [],
     "author": "",
@@ -37,6 +43,8 @@
         "eslint": "^9.39.5",
         "eslint-config-prettier": "^9.1.2",
         "globals": "^15.15.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.6.0",
         "prettier": "^3.9.7"
     },
     "overrides": {
