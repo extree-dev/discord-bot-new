@@ -8,9 +8,6 @@ import { Button } from '../../shared/ui/Button';
 import { submitSupportTicket, getAccount, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
-// Категории — те же ключи, что stats-backend/validation.js
-// (SUPPORT_CATEGORIES), значения синхронизированы вручную на обеих
-// сторонах (отдельного shared-пакета между frontend/backend в проекте нет).
 const CATEGORIES = [
     { value: 'account', label: 'Account & login' },
     { value: 'bug', label: 'Bug report' },
@@ -41,11 +38,6 @@ const FAQ = [
     },
 ];
 
-// Свой аккордеон вместо нативных <details>/<summary> — у них открытие/
-// закрытие происходит мгновенно, без анимации, и этого браузер ничем не
-// даёт настроить. Высота анимируется трюком с grid-template-rows (0fr →
-// 1fr) — работает с динамическим контентом без JS-измерения высоты, в
-// отличие от max-height.
 function FaqItem({ q, a }: { q: string; a: ReactNode }) {
     const [open, setOpen] = useState(false);
     return (
@@ -66,10 +58,6 @@ function FaqItem({ q, a }: { q: string; a: ReactNode }) {
     );
 }
 
-// Доступна и без входа (см. обсуждение) — залогиненному пользователю email
-// берём из аккаунта и не даём редактировать (бэкенд игнорировал бы
-// присланный, но меньше путаницы показать это явно), без сессии просят
-// ввести email в форме.
 export function SupportPage() {
     const [accountEmail, setAccountEmail] = useState<string | null>(null);
     const [checkingAccount, setCheckingAccount] = useState(true);
@@ -88,9 +76,7 @@ export function SupportPage() {
             setAccountEmail(user?.email ?? null);
             setCheckingAccount(false);
         });
-        return () => {
-            cancelled = true;
-        };
+        return () => { cancelled = true; };
     }, []);
 
     async function onSubmit(e: FormEvent) {
@@ -164,11 +150,9 @@ export function SupportPage() {
                         />
                     )}
                     <Select
-                        id="category"
-                        label="Category"
                         options={CATEGORIES}
                         value={category}
-                        onChange={e => setCategory(e.target.value)}
+                        onChange={setCategory}
                     />
                     <TextField
                         id="subject"

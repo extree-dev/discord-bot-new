@@ -13,7 +13,7 @@ import {
     getAdminTicket,
     replyToTicketAsAdmin,
     setTicketStatus,
-    verifyUser, // <-- Импортируем функцию
+    verifyUser,
     ApiError,
     type AccountUser,
     type AdminTicketDetail,
@@ -37,19 +37,12 @@ export function AdminTicketPage() {
     const [replies, setReplies] = useState<TicketReply[]>([]);
     const [message, setMessage] = useState('');
     const [pending, setPending] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    // Состояние для верификации
     const [isVerifying, setIsVerifying] = useState(false);
-    const [isVerified, setIsVerified] = useState(false);
 
     useEffect(() => {
         getAccount().then(u => {
             if (!u) navigate('/login');
-            else {
-                setAccount(u);
-                setChecking(false);
-            }
+            else { setAccount(u); setChecking(false); }
         });
     }, [navigate]);
 
@@ -59,26 +52,22 @@ export function AdminTicketPage() {
             .then(res => {
                 setTicket(res.ticket);
                 setReplies(res.replies);
-                // Если у тикета есть признак верификации пользователя, ставим его
-                // (при условии, что ты добавил это поле в интерфейс AdminTicketDetail)
-                // setIsVerified(res.ticket.userIsVerified || false);
             })
-            .catch(err => setError(err instanceof ApiError ? err.message : 'Error'));
+            .catch(() => {});
     }, [checking, number]);
 
     async function onReply(e: FormEvent) {
         e.preventDefault();
         if (!number || !message.trim()) return;
         setPending(true);
-        setError(null);
         try {
             await replyToTicketAsAdmin(number, message);
             setMessage('');
             const res = await getAdminTicket(number);
             setTicket(res.ticket);
             setReplies(res.replies);
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error');
+        } catch {
+            alert('Failed to send reply');
         } finally {
             setPending(false);
         }
@@ -88,32 +77,27 @@ export function AdminTicketPage() {
         if (!number) return;
         try {
             await setTicketStatus(number, newStatus as TicketStatus);
-            setTicket(t => (t ? { ...t, status: newStatus as TicketStatus } : null));
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Error');
+            setTicket(t => t ? { ...t, status: newStatus as TicketStatus } : null);
+        } catch {
+            alert('Failed to update status');
         }
     }
 
     async function handleVerify() {
-        if (!ticket || !ticket.userId) return; // Нам нужен userId
+        if (!ticket || !ticket.userId) return;
         setIsVerifying(true);
         try {
-            await verifyUser(ticket.userId, !isVerified);
-            setIsVerified(!isVerified); // Переключаем локальное состояние
-            alert('User verification status updated!');
-        } catch (e) {
+            const newStatus = !ticket.isUserVerified;
+            await verifyUser(ticket.userId, newStatus);
+            setTicket(t => t ? { ...t, isUserVerified: newStatus } : null);
+        } catch {
             alert('Failed to update verification status');
         } finally {
             setIsVerifying(false);
         }
     }
 
-    if (checking || !ticket)
-        return (
-            <DashboardShell user={null} title="Loading...">
-                Loading...
-            </DashboardShell>
-        );
+    if (checking || !ticket) return <DashboardShell user={null} title="Loading...">Loading...</DashboardShell>;
 
     const threadMessages = [
         { id: 'original', isSupport: false, authorLabel: 'User', message: ticket.message, time: ticket.time },
@@ -131,13 +115,9 @@ export function AdminTicketPage() {
             <div className={styles.container}>
                 <div className={styles.header}>
                     <div>
-                        <Link to="/admin/tickets" className={styles.backBtn}>
-                            ← Back to all tickets
-                        </Link>
+                        <Link to="/admin/tickets" className={styles.backBtn}>← Back to all tickets</Link>
                         <h1 className={styles.title}>{ticket.subject}</h1>
-                        <div className={styles.meta}>
-                            Ticket #{ticket.number} • {ticket.email}
-                        </div>
+                        <div className={styles.meta}>Ticket #{ticket.number} • {ticket.email}</div>
                     </div>
                     <StatusPill status={ticket.status} />
                 </div>
@@ -168,7 +148,6 @@ export function AdminTicketPage() {
                     </div>
 
                     <aside className={styles.sidebar}>
-                        {/* Блок с информацией о пользователе и кнопкой верификации */}
                         <Panel title="User Profile">
                             <div className={styles.propertyRow}>
                                 <span className={styles.propertyLabel}>Email</span>
@@ -176,21 +155,19 @@ export function AdminTicketPage() {
                             </div>
                             <div className={styles.propertyRow}>
                                 <span className={styles.propertyLabel}>Verified</span>
-                                <span className={styles.propertyValue}>{isVerified ? 'Yes' : 'No'}</span>
+                                <span className={styles.propertyValue}>
+                                    {ticket.isUserVerified ? 'Yes' : 'No'}
+                                </span>
                             </div>
                             <div style={{ marginTop: '16px' }}>
-                                <Button
-                                    variant="flat"
-                                    fullWidth
-                                    onClick={handleVerify}
-                                    disabled={isVerifying}
-                                    style={{ backgroundColor: isVerified ? 'var(--surface-2)' : 'var(--accent)' }}
+                                <Button 
+                                    variant="flat" 
+                                    fullWidth 
+                                    onClick={handleVerify} 
+                                    disabled={isVerifying || !ticket.userId}
+                                    style={{ backgroundColor: ticket.isUserVerified ? 'var(--surface-2)' : 'var(--accent)' }}
                                 >
-                                    {isVerifying
-                                        ? 'Updating...'
-                                        : isVerified
-                                          ? 'Remove Checkmark'
-                                          : 'Give Blue Checkmark'}
+                                    {isVerifying ? 'Updating...' : (ticket.isUserVerified ? 'Remove Checkmark' : 'Give Blue Checkmark')}
                                 </Button>
                             </div>
                         </Panel>
@@ -199,14 +176,16 @@ export function AdminTicketPage() {
                             <div className={styles.propertyRow}>
                                 <span className={styles.propertyLabel}>Status</span>
                                 <div style={{ width: '140px' }}>
-                                    <Select options={STATUS_OPTIONS} value={ticket.status} onChange={onStatusChange} />
+                                    <Select
+                                        options={STATUS_OPTIONS}
+                                        value={ticket.status}
+                                        onChange={onStatusChange}
+                                    />
                                 </div>
                             </div>
                             <div className={styles.propertyRow}>
                                 <span className={styles.propertyLabel}>Category</span>
-                                <span className={styles.propertyValue} style={{ textTransform: 'capitalize' }}>
-                                    {ticket.category}
-                                </span>
+                                <span className={styles.propertyValue} style={{ textTransform: 'capitalize' }}>{ticket.category}</span>
                             </div>
                             <div className={styles.propertyRow}>
                                 <span className={styles.propertyLabel}>Created</span>

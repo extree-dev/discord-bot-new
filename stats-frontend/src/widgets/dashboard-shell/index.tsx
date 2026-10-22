@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ProfileDropdown } from '../../shared/ui/ProfileDropdown'; // <-- Импорт нашего меню
+import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
 import styles from './index.module.scss';
 
 interface DashboardUser {
@@ -10,7 +10,6 @@ interface DashboardUser {
 
 interface DashboardShellProps {
     user: DashboardUser | null;
-    active?: 'account' | 'tickets';
     breadcrumb?: { to: string; label: string };
     title: string;
     subtitle?: string;
@@ -22,7 +21,6 @@ interface DashboardShellProps {
 
 export function DashboardShell({
     user,
-    active,
     breadcrumb,
     title,
     subtitle,
@@ -38,14 +36,11 @@ export function DashboardShell({
                     <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
                     <span className={styles.brand}>Extree Stats</span>
                 </Link>
-
-                {/* Вкладки навигации убраны отсюда, они переехали в ProfileDropdown */}
-
+                
                 <div className={styles.spacer} />
-
+                
                 {user && (
                     <div className={styles.userMenu}>
-                        {/* Заменили email + кнопку на выпадающее меню */}
                         <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
                     </div>
                 )}
