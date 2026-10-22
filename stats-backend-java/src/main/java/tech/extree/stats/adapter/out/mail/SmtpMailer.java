@@ -3,6 +3,7 @@ package tech.extree.stats.adapter.out.mail;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import tech.extree.stats.application.port.out.Mailer;
  * .env (STATS_MAIL_USER/STATS_MAIL_APP_PASSWORD), что у Node-сервиса.
  */
 @Component
+@Profile("!dev")
 public class SmtpMailer implements Mailer {
 
     private final JavaMailSender mailSender;

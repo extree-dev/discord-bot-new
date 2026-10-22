@@ -1,33 +1,25 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
-import { TicketThread } from '../../widgets/ticket-thread';
 import { Panel } from '../../shared/ui/Panel';
 import { StatusPill } from '../../shared/ui/StatusPill';
 import { Select } from '../../shared/ui/Select';
 import { TextArea } from '../../shared/ui/TextArea';
 import { Button } from '../../shared/ui/Button';
+import { TicketThread } from '../../widgets/ticket-thread';
+import { CannedResponsesPanel } from '../../widgets/canned-responses';
 import {
     getAccount,
     getAdminTicket,
     replyToTicketAsAdmin,
     setTicketStatus,
-    getCannedResponses,
-    ApiError,
+    verifyUser,
     type AccountUser,
     type AdminTicketDetail,
     type TicketReply,
     type TicketStatus,
-    type CannedResponse,
 } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
-
-const CATEGORY_LABELS: Record<string, string> = {
-    account: 'Account & login',
-    bug: 'Bug report',
-    billing: 'Billing',
-    other: 'Other',
-};
 
 const STATUS_OPTIONS = [
     { value: 'open', label: 'Open' },
@@ -39,197 +31,185 @@ export function AdminTicketPage() {
     const { number } = useParams<{ number: string }>();
     const navigate = useNavigate();
     const [account, setAccount] = useState<AccountUser | null>(null);
-    const [checkingAccount, setCheckingAccount] = useState(true);
+    const [checking, setChecking] = useState(true);
     const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
     const [replies, setReplies] = useState<TicketReply[]>([]);
     const [message, setMessage] = useState('');
-    const [canned, setCanned] = useState<CannedResponse[]>([]);
-    const [error, setError] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
-    const [statusPending, setStatusPending] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(false);
 
     useEffect(() => {
-        let cancelled = false;
-        getAccount().then(user => {
-            if (cancelled) return;
-            if (!user) {
-                navigate('/login');
-                return;
+        getAccount().then(u => {
+            if (!u) navigate('/login');
+            else {
+                setAccount(u);
+                setChecking(false);
             }
-            setAccount(user);
-            setCheckingAccount(false);
         });
-        return () => {
-            cancelled = true;
-        };
     }, [navigate]);
 
     useEffect(() => {
-        if (checkingAccount || !number) return;
-        let cancelled = false;
+        if (checking || !number) return;
         getAdminTicket(number)
-            .then(result => {
-                if (cancelled) return;
-                setTicket(result.ticket);
-                setReplies(result.replies);
+            .then(res => {
+                setTicket(res.ticket);
+                setReplies(res.replies);
             })
-            .catch(err => {
-                if (cancelled) return;
-                setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
-            });
-        getCannedResponses()
-            .then(result => {
-                if (!cancelled) setCanned(result.responses);
-            })
-            .catch(() => {
-                /* не критично — просто не покажем пикер шаблонов */
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [checkingAccount, number]);
+            .catch(() => {});
+    }, [checking, number]);
 
     async function onReply(e: FormEvent) {
         e.preventDefault();
-        if (!number) return;
-        setError(null);
+        if (!number || !message.trim()) return;
         setPending(true);
         try {
             await replyToTicketAsAdmin(number, message);
-            setReplies(rs => [...rs, { id: crypto.randomUUID(), author: 'admin', message, time: 'Just now' }]);
             setMessage('');
-            // Первый ответ сдвигает статус на бэкенде в in_progress — отражаем
-            // это и тут, чтобы пилюля в заголовке не врала до перезагрузки.
-            setTicket(t => (t && t.status === 'open' ? { ...t, status: 'in_progress' } : t));
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
+            const res = await getAdminTicket(number);
+            setTicket(res.ticket);
+            setReplies(res.replies);
+        } catch {
+            alert('Failed to send reply');
         } finally {
             setPending(false);
         }
     }
 
-    async function onStatusChange(next: TicketStatus) {
-        if (!number || !ticket) return;
-        setStatusPending(true);
-        setError(null);
+    async function onStatusChange(newStatus: string) {
+        if (!number) return;
         try {
-            await setTicketStatus(number, next);
-            setTicket(t => t && { ...t, status: next });
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
-        } finally {
-            setStatusPending(false);
+            await setTicketStatus(number, newStatus as TicketStatus);
+            setTicket(t => (t ? { ...t, status: newStatus as TicketStatus } : null));
+        } catch {
+            alert('Failed to update status');
         }
     }
 
-    function onInsertCanned(id: string) {
-        const response = canned.find(c => c.id === id);
-        if (response) setMessage(response.body);
+    async function handleVerify() {
+        if (!ticket || !ticket.userId) return;
+        setIsVerifying(true);
+        try {
+            const newStatus = !ticket.isUserVerified;
+            await verifyUser(ticket.userId, newStatus);
+            setTicket(t => (t ? { ...t, isUserVerified: newStatus } : null));
+        } catch {
+            alert('Failed to update verification status');
+        } finally {
+            setIsVerifying(false);
+        }
     }
 
-    const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
-
-    if (checkingAccount || (!ticket && !error)) {
+    if (checking || !ticket)
         return (
-            <DashboardShell user={dashUser} active="tickets" title="Loading…">
-                <Panel>Loading…</Panel>
+            <DashboardShell user={null} title="Loading...">
+                Loading...
             </DashboardShell>
         );
-    }
 
-    const threadMessages = ticket
-        ? [
-              {
-                  id: 'original',
-                  isSupport: false,
-                  authorLabel: ticket.email,
-                  message: ticket.message,
-                  time: ticket.time,
-              },
-              ...replies.map(r => ({
-                  id: r.id,
-                  isSupport: r.author === 'admin',
-                  authorLabel: r.author === 'admin' ? 'Support' : ticket.email,
-                  message: r.message,
-                  time: r.time,
-              })),
-          ]
-        : [];
+    const threadMessages = [
+        { id: 'original', isSupport: false, authorLabel: 'User', message: ticket.message, time: ticket.time },
+        ...replies.map(r => ({
+            id: r.id,
+            isSupport: r.author === 'admin',
+            authorLabel: r.author === 'admin' ? 'Support (You)' : 'User',
+            message: r.message,
+            time: r.time,
+        })),
+    ];
 
     return (
-        <DashboardShell
-            user={dashUser}
-            active="tickets"
-            breadcrumb={{ to: '/admin/tickets', label: 'All tickets' }}
-            title={ticket?.subject ?? 'Ticket'}
-            subtitle={ticket ? `#${ticket.number}` : undefined}
-            headerExtra={ticket && <StatusPill status={ticket.status} />}
-            error={error}
-            wide
-        >
-            {ticket && (
+        <DashboardShell user={{ email: account!.email, isAdmin: account!.isAdmin }} title="" wide>
+            <div className={styles.container}>
+                <div className={styles.header}>
+                    <div>
+                        <Link to="/admin/tickets" className={styles.backBtn}>
+                            ← Back to all tickets
+                        </Link>
+                        <h1 className={styles.title}>{ticket.subject}</h1>
+                        <div className={styles.meta}>
+                            Ticket #{ticket.number} • {ticket.email}
+                        </div>
+                    </div>
+                    <StatusPill status={ticket.status} />
+                </div>
+
                 <div className={styles.layout}>
-                    <Panel>
-                        <TicketThread messages={threadMessages} />
-                        <form className={styles.form} onSubmit={onReply}>
-                            {canned.length > 0 && (
-                                <Select
-                                    id="canned-response"
-                                    label="Insert canned response"
-                                    value=""
-                                    options={[
-                                        { value: '', label: 'Choose a template…' },
-                                        ...canned.map(c => ({ value: c.id, label: c.title })),
-                                    ]}
-                                    onChange={e => {
-                                        if (e.target.value) onInsertCanned(e.target.value);
-                                    }}
-                                />
+                    <div className={styles.main}>
+                        <Panel>
+                            <TicketThread messages={threadMessages} />
+
+                            {ticket.status !== 'closed' ? (
+                                <form className={styles.replyForm} onSubmit={onReply}>
+                                    <TextArea
+                                        id="reply"
+                                        label="Reply"
+                                        placeholder="Type your reply here..."
+                                        required
+                                        value={message}
+                                        onChange={e => setMessage(e.target.value)}
+                                    />
+                                    <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
+                                        {pending ? 'Sending…' : 'Send reply'}
+                                    </Button>
+                                </form>
+                            ) : (
+                                <p className={styles.closedNotice}>This ticket is closed.</p>
                             )}
-                            <TextArea
-                                id="reply"
-                                label="Reply"
-                                required
-                                maxLength={5000}
-                                value={message}
-                                onChange={e => setMessage(e.target.value)}
-                            />
-                            <div className={styles.formActions}>
-                                <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
-                                    {pending ? 'Sending…' : 'Send reply'}
+                        </Panel>
+                    </div>
+
+                    <aside className={styles.sidebar}>
+                        <Panel title="User Profile">
+                            <div className={styles.propertyRow}>
+                                <span className={styles.propertyLabel}>Email</span>
+                                <span className={styles.propertyValue}>{ticket.email}</span>
+                            </div>
+                            <div className={styles.propertyRow}>
+                                <span className={styles.propertyLabel}>Verified</span>
+                                <span className={styles.propertyValue}>{ticket.isUserVerified ? 'Yes' : 'No'}</span>
+                            </div>
+                            <div style={{ marginTop: '16px' }}>
+                                <Button
+                                    variant="flat"
+                                    fullWidth
+                                    onClick={handleVerify}
+                                    disabled={isVerifying || !ticket.userId}
+                                    style={{
+                                        backgroundColor: ticket.isUserVerified ? 'var(--surface-2)' : 'var(--accent)',
+                                    }}
+                                >
+                                    {isVerifying
+                                        ? 'Updating...'
+                                        : ticket.isUserVerified
+                                          ? 'Remove Checkmark'
+                                          : 'Give Blue Checkmark'}
                                 </Button>
                             </div>
-                        </form>
-                    </Panel>
+                        </Panel>
 
-                    <Panel title="Details">
-                        <div className={styles.metaList}>
-                            <div className={styles.metaRow}>
-                                <span className={styles.metaLabel}>Requester</span>
-                                <span className={styles.metaValue}>{ticket.email}</span>
+                        <Panel title="Properties">
+                            <div className={styles.propertyRow}>
+                                <span className={styles.propertyLabel}>Status</span>
+                                <div style={{ width: '140px' }}>
+                                    <Select options={STATUS_OPTIONS} value={ticket.status} onChange={onStatusChange} />
+                                </div>
                             </div>
-                            <div className={styles.metaRow}>
-                                <span className={styles.metaLabel}>Category</span>
-                                <span className={styles.metaValue}>
-                                    {CATEGORY_LABELS[ticket.category] ?? ticket.category}
+                            <div className={styles.propertyRow}>
+                                <span className={styles.propertyLabel}>Category</span>
+                                <span className={styles.propertyValue} style={{ textTransform: 'capitalize' }}>
+                                    {ticket.category}
                                 </span>
                             </div>
-                            <div className={styles.metaRow}>
-                                <span className={styles.metaLabel}>Opened</span>
-                                <span className={styles.metaValue}>{ticket.time}</span>
+                            <div className={styles.propertyRow}>
+                                <span className={styles.propertyLabel}>Created</span>
+                                <span className={styles.propertyValue}>{ticket.time}</span>
                             </div>
-                            <Select
-                                id="ticket-status"
-                                label="Status"
-                                options={STATUS_OPTIONS}
-                                value={ticket.status}
-                                disabled={statusPending}
-                                onChange={e => onStatusChange(e.target.value as TicketStatus)}
-                            />
-                        </div>
-                    </Panel>
+                        </Panel>
+
+                        <CannedResponsesPanel />
+                    </aside>
                 </div>
-            )}
+            </div>
         </DashboardShell>
     );
 }

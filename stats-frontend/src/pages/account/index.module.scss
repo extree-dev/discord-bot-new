@@ -1,179 +1,171 @@
-.row {
+/* Контейнер */
+.heroContainer {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 20px;
+    text-align: center;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-
-    &:last-child {
-        border-bottom: none;
-    }
 }
 
-.label {
-    font-size: 12.5px;
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.value {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-@keyframes account-fade-in {
-    from {
-        opacity: 0;
-        transform: translateY(-4px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.sectionError {
-    margin: 0 0 14px;
-    padding: 10px 14px;
-    border-radius: 8px;
+/* Бейдж статуса */
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
-    color: var(--accent-soft);
+    color: #ff4d5e;
+    padding: 8px 16px;
+    border-radius: 20px;
     font-size: 13px;
-    line-height: 1.5;
-    animation: account-fade-in 0.2s ease;
+    font-weight: 600;
+    margin-bottom: 24px;
+    border: 1px solid rgba(255, 77, 94, 0.2);
 }
 
-.sectionNotice {
-    margin: 0 0 14px;
-    font-size: 13px;
-    color: var(--win);
-    animation: account-fade-in 0.2s ease;
+.statusDot {
+    width: 6px;
+    height: 6px;
+    background: #ff4d5e;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #ff4d5e;
+    animation: pulse 2s infinite;
 }
 
-.sectionHint {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--text-faint);
+/* Заголовки */
+.heroTitle {
+    font-size: 56px;
+    line-height: 1.1;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 24px 0;
+    letter-spacing: -2px;
+}
 
-    strong {
-        color: var(--text-dim);
+.textRed {
+    color: #ff4d5e;
+}
+
+.heroSubtitle {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #888;
+    max-width: 600px;
+    margin: 0 0 40px 0;
+}
+
+/* Кнопки */
+.actions {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 80px;
+
+    @media (max-width: 600px) {
+        flex-direction: column;
+        width: 100%;
     }
 }
 
-.form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.passwordField {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.mismatch {
-    margin: 7px 0 0;
-    font-size: 12px;
-    color: var(--accent);
-}
-
-.linkButton {
-    background: none;
+.primaryBtn {
+    background: #ff4d5e;
+    color: #fff;
     border: none;
-    padding: 0;
-    font-family: inherit;
-    font-size: 12.5px;
-    color: var(--text-faint);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    cursor: pointer;
-    text-align: center;
-
-    &:hover {
-        color: var(--text-dim);
-    }
-
-    &:disabled {
-        cursor: default;
-        opacity: 0.6;
-    }
-}
-
-.loginList {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.loginItem {
-    padding: 9px 0;
-    border-bottom: 1px solid var(--border);
-
-    &:last-child {
-        border-bottom: none;
-    }
-}
-
-.loginItemTime {
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.loginItemMeta {
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--text-faint);
-}
-
-.loginItemIp {
-    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
-}
-
-.riotDesc {
-    font-size: 13px;
-    color: var(--text-faint);
-    line-height: 1.5;
-    margin: 0 0 16px;
-}
-
-.riotButton {
-    width: 100%;
-    padding: 11px 16px;
-    background: var(--surface-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--text-faint);
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
     cursor: not-allowed;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+
+    // При наведении (если бы кнопка была активна)
+    &:hover:not(:disabled) {
+        opacity: 1;
+    }
 }
 
-.riotDisclaimer {
-    margin: 10px 0 0;
-    color: var(--text-faint);
-    font-size: 10px;
-    line-height: 1.5;
-    opacity: 0.75;
-}
-
-.footerLink {
-    display: block;
-    text-align: center;
-    margin-top: 4px;
-    font-size: 13px;
-    color: var(--text-faint);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+.secondaryBtn {
+    background: #2a2d35;
+    color: #fff;
+    border: 1px solid #3a3d45;
+    padding: 14px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
 
     &:hover {
-        color: var(--text-dim);
+        background: #353942;
+    }
+}
+
+/* Сетка фич */
+.featuresGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    width: 100%;
+    text-align: left;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.featureCard {
+    background: #15171b;
+    border: 1px solid #2a2d35;
+    border-radius: 12px;
+    padding: 32px 24px;
+    transition:
+        border-color 0.2s,
+        transform 0.2s;
+
+    &:hover {
+        border-color: #3a3d45;
+        transform: translateY(-2px);
+    }
+
+    h3 {
+        color: #fff;
+        font-size: 18px;
+        margin: 16px 0 8px 0;
+    }
+
+    p {
+        color: #888;
+        font-size: 14px;
+        line-height: 1.5;
+        margin: 0;
+    }
+}
+
+/* Иконки */
+.iconWrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 77, 94, 0.1);
+    color: #ff4d5e;
+    border-radius: 10px;
+}
+
+/* Анимации */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 8px #ff4d5e;
+    }
+    50% {
+        opacity: 0.5;
+        box-shadow: 0 0 2px #ff4d5e;
+    }
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 8px #ff4d5e;
     }
 }

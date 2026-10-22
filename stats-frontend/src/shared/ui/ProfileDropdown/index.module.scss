@@ -1,0 +1,105 @@
+.container {
+    position: relative;
+}
+
+.avatarBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid var(--border-strong);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover,
+    &.active {
+        background: #2a2d35;
+    }
+}
+
+.menu {
+    position: absolute;
+    top: calc(100% + 16px);
+    right: 0;
+    width: 260px; /* Чуть уже, так как пунктов стало меньше */
+    background: #15171b;
+    border: 1px solid #2a2d35;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.menuHeader {
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2d35;
+}
+
+.brandName {
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+}
+
+.menuList {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #aaa;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition:
+        color 0.2s,
+        background 0.2s;
+
+    svg {
+        color: #666;
+        transition: color 0.2s;
+    }
+
+    &:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.03);
+
+        svg {
+            color: #ff4d5e;
+        }
+    }
+}
+
+.divider {
+    height: 1px;
+    background: #2a2d35;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

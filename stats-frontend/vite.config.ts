@@ -10,6 +10,21 @@ import react from '@vitejs/plugin-react';
 // раздаёт его оттуда как чистую статику, без Node-процесса в рантайме.
 export default defineConfig({
     plugins: [react()],
+    server: {
+        proxy: {
+            // Проксируем все запросы к API на Java-бэкенд (порт 8081)
+            '/auth': {
+                target: 'http://localhost:8081',
+                changeOrigin: true,
+                cookieDomainRewrite: 'localhost', // <-- ДОБАВЛЕНО: чтобы куки работали на localhost
+            },
+            '/api': {
+                target: 'http://localhost:8081',
+                changeOrigin: true,
+                cookieDomainRewrite: 'localhost', // <-- ДОБАВЛЕНО: проксируем /api/account/me
+            },
+        },
+    },
     build: {
         outDir: 'dist',
         emptyOutDir: true,

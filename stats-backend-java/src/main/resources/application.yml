@@ -12,13 +12,6 @@ spring:
         username: ${POSTGRES_USER:discordbot}
         password: ${POSTGRES_PASSWORD:discordbot}
     # Flyway — единственный источник схемы stats_* после перехода с Node.
-    # baseline-on-migrate: на проде, где таблицы уже созданы Node-овым
-    # db.js и flyway_schema_history ещё нет, Flyway сначала накатит
-    # baseline (запишет, что схема соответствует baseline-version: 0),
-    # затем применит V1__init.sql — все CREATE TABLE IF NOT EXISTS пройдут
-    # без ошибок, потому что таблицы уже есть. На пустой БД (новый стенд)
-    # baseline не срабатывает (нет существующей схемы) и V1 создаёт всё с
-    # нуля. В обоих случаях flyway_schema_history в итоге указывает на V1.
     flyway:
         enabled: true
         baseline-on-migrate: true
@@ -49,3 +42,20 @@ extree:
         client-id: ${RIOT_CLIENT_ID:}
         client-secret: ${RIOT_CLIENT_SECRET:}
         api-key: ${RIOT_API_KEY:}
+
+# Базовые настройки логирования (для всех профилей)
+logging:
+    level:
+        tech.extree.stats: DEBUG
+        org.springframework.web: DEBUG
+
+
+# Настройки, которые применяются ТОЛЬКО при профиле dev
+---
+spring:
+    config:
+        activate:
+            on-profile: dev
+logging:
+    level:
+        tech.extree.stats: DEBUG

@@ -1,6 +1,3 @@
-// Тонкая обёртка над stats-backend/server.js — email+пароль-аккаунты
-// (RSO остаётся отдельным флоу через прямую ссылку /auth/riot/login, не
-// через этот клиент, см. features/riot-sign-in/RiotSignInButton).
 export class ApiError extends Error {
     code: string;
 
@@ -82,6 +79,8 @@ export interface AccountUser {
     name: string | null;
     nickname: string | null;
     isAdmin: boolean;
+    avatarUrl: string | null;
+    isVerified: boolean;
 }
 
 export function register(email: string, password: string, name: string, nickname: string) {
@@ -145,8 +144,24 @@ export function changePassword(currentPassword: string, newPassword: string) {
     return postJson<{ ok: true }>('/auth/account/change-password', { currentPassword, newPassword });
 }
 
+export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/account/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        throw new ApiError('upload_failed', 'Не удалось загрузить аватар');
+    }
+    return res.json();
+}
+
 export async function getAccount(): Promise<AccountUser | null> {
-    const res = await fetch('/api/account/me', { credentials: 'same-origin' });
+    const res = await fetch('/api/account/me', { credentials: 'include' });
     const data = await res.json().catch(() => ({ user: null }));
     return data.user ?? null;
 }
@@ -165,9 +180,6 @@ export async function getLoginHistory(): Promise<LoginEvent[]> {
     return data.events ?? [];
 }
 
-// Те же три значения, что TICKET_STATUSES в server.js — синхронизируются
-// вручную, как и категории тикетов выше (отдельного shared-пакета между
-// frontend/backend в проекте нет).
 export type TicketStatus = 'open' | 'in_progress' | 'closed';
 
 export interface TicketSummary {
@@ -197,12 +209,10 @@ export interface TicketDetail {
 export interface AdminTicketDetail extends TicketDetail {
     email: string;
     category: string;
+    userId: string | null;
+    isUserVerified: boolean;
 }
 
-// Админка тикетов (/admin/tickets) — тот же SUPPORT_ADMIN_EMAILS-гейт,
-// что на бэкенде (см. server.js); сюда доходят только залогиненные
-// аккаунты Extree Stats, не Apple ID и не что-то ещё. Адресуются по
-// человекочитаемому ticket_number (#42), не по внутреннему UUID.
 export function getAdminTickets(status?: TicketStatus) {
     const query = status ? `?status=${status}` : '';
     return getJson<{ tickets: TicketSummary[] }>(`/api/admin/tickets${query}`);
@@ -226,8 +236,6 @@ export interface CannedResponse {
     body: string;
 }
 
-// Готовые ответы — общий пул шаблонов для админки, не привязаны к
-// конкретному тикету (см. cannedResponses.js).
 export function getCannedResponses() {
     return getJson<{ responses: CannedResponse[] }>('/api/admin/canned-responses');
 }
@@ -245,12 +253,39 @@ export async function deleteCannedResponse(id: string): Promise<void> {
     }
 }
 
-// Просмотр/ответ на свой тикет по секретной ссылке из письма — без входа,
-// см. view_token в stats-backend/supportTickets.js.
 export function getTicketByToken(token: string) {
     return getJson<{ ticket: TicketDetail; replies: TicketReply[] }>(`/api/support/tickets/${token}`);
 }
 
 export function replyToTicket(token: string, message: string) {
     return postJson<{ ok: true }>(`/api/support/tickets/${token}/reply`, { message });
+}
+
+// --- АДМИНКА ПОЛЬЗОВАТЕЛЕЙ ---
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+    isVerified: boolean;
+    isBanned: boolean;
+    isAdmin: boolean;
+}
+
+export function getAllUsers() {
+    return getJson<{ users: AdminUser[] }>('/api/admin/users');
+}
+
+export function banUser(userId: string, isBanned: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/ban?isBanned=${isBanned}`, {});
+}
+
+export function verifyUser(userId: string, isVerified: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/verify?isVerified=${isVerified}`, {});
+}
+
+export function makeAdmin(userId: string, isAdmin: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
 }

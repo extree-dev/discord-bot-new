@@ -1,0 +1,90 @@
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+
+    th {
+        padding: 16px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+    }
+
+    td {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+}
+
+.userCell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.userName {
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.userEmail {
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+.blueTick {
+    color: #3b82f6;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.statusBadge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.statusActive {
+    background: rgba(52, 211, 153, 0.1);
+    color: var(--win);
+}
+
+.statusBanned {
+    background: rgba(255, 77, 94, 0.1);
+    color: var(--accent);
+}
+
+.adminBadge {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fbbf24;
+    text-transform: uppercase;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bannedRow {
+    opacity: 0.6;
+    background: rgba(255, 77, 94, 0.02);
+}

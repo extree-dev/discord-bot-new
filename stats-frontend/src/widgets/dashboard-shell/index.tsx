@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
 import styles from './index.module.scss';
 
 interface DashboardUser {
@@ -9,7 +10,6 @@ interface DashboardUser {
 
 interface DashboardShellProps {
     user: DashboardUser | null;
-    active?: 'account' | 'tickets';
     breadcrumb?: { to: string; label: string };
     title: string;
     subtitle?: string;
@@ -19,14 +19,8 @@ interface DashboardShellProps {
     children: ReactNode;
 }
 
-// Раскладка для "рабочих" (не auth-) экранов Extree Stats — аккаунт,
-// тикеты. В отличие от AuthCard (одна узкая карточка под формы входа),
-// тут настоящая верхняя навигация (бренд + вкладки + юзер-меню) и широкий
-// контент из нескольких Panel — тот же каркас, что у профессиональных
-// SaaS-панелей (DigitalOcean/Linear), а не центрированная форма.
 export function DashboardShell({
     user,
-    active,
     breadcrumb,
     title,
     subtitle,
@@ -42,31 +36,12 @@ export function DashboardShell({
                     <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
                     <span className={styles.brand}>Extree Stats</span>
                 </Link>
-                {user && (
-                    <nav className={styles.nav}>
-                        <Link
-                            to="/account"
-                            className={`${styles.navLink} ${active === 'account' ? styles.navLinkActive : ''}`}
-                        >
-                            Account
-                        </Link>
-                        {user.isAdmin && (
-                            <Link
-                                to="/admin/tickets"
-                                className={`${styles.navLink} ${active === 'tickets' ? styles.navLinkActive : ''}`}
-                            >
-                                Tickets
-                            </Link>
-                        )}
-                    </nav>
-                )}
+
                 <div className={styles.spacer} />
+
                 {user && (
                     <div className={styles.userMenu}>
-                        <span className={styles.userEmail}>{user.email}</span>
-                        <a className={styles.signOut} href="/auth/logout">
-                            Sign out
-                        </a>
+                        <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
                     </div>
                 )}
             </header>
