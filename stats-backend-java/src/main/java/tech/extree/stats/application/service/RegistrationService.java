@@ -17,19 +17,6 @@ import tech.extree.stats.domain.NicknameTakenException;
 import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
-/**
- * Соответствует блоку /auth/register, /auth/resend-code, /auth/verify в
- * server.js (Node) — правило в правило, включая тайминги (10 минут жизни
- * кода, 60 секунд между повторной отправкой, 5 попыток) и anti-enumeration
- * поведение resendCode (один и тот же OK независимо от того, существует
- * ли email).
- *
- * <p>Чего здесь ещё нет (сознательно, см. README): в отличие от Node
- * /auth/verify, этот verify() не трогает geo/loginLocations — "известное
- * место входа" понадобится только вместе с переносом /auth/login
- * (следующий срез), которого здесь ещё нет. Сессию тем не менее выдаёт —
- * как и Node, верификация сразу логинит пользователя.
- */
 @Service
 public class RegistrationService implements RegistrationUseCase {
 
@@ -89,14 +76,16 @@ public class RegistrationService implements RegistrationUseCase {
         } catch (NicknameTakenException e) {
             return RegisterOutcome.NICKNAME_TAKEN;
         } catch (Exception e) {
+            System.err.println("!!! ОШИБКА ПРИ СОХРАНЕНИИ ПОЛЬЗОВАТЕЛЯ: " + e.getMessage());
+            e.printStackTrace(); // <-- ВЫВЕДЕТ ОШИБКУ В ЛОГ
             return RegisterOutcome.INTERNAL_ERROR;
         }
 
         try {
             issueAndSendCode(email);
         } catch (Exception e) {
-            // Как и в Node: аккаунт уже создан (не откатываем), но ответ —
-            // ошибка, раз код подтверждения не ушёл.
+            System.err.println("!!! ОШИБКА ПРИ ОТПРАВКЕ EMAIL: " + e.getMessage());
+            e.printStackTrace(); // <-- ВЫВЕДЕТ ОШИБКУ В ЛОГ
             return RegisterOutcome.INTERNAL_ERROR;
         }
         return RegisterOutcome.OK;
@@ -111,7 +100,6 @@ public class RegistrationService implements RegistrationUseCase {
 
         Optional<User> existing = userRepository.findByEmail(email);
         if (existing.isEmpty() || existing.get().emailVerified()) {
-            // Не сообщаем, зарегистрирован ли email и подтверждён ли он.
             return ResendOutcome.OK;
         }
         if (isOnCooldown(email)) {
@@ -121,6 +109,7 @@ public class RegistrationService implements RegistrationUseCase {
         try {
             issueAndSendCode(email);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResendOutcome.INTERNAL_ERROR;
         }
         return ResendOutcome.OK;
