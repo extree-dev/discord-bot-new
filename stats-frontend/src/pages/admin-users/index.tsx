@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
-import { Button } from '../../shared/ui/Button';
 import { Avatar } from '../../shared/ui/Avatar';
+import { IconButton } from '../../shared/ui/IconButton';
+import { IconCheck, IconX, ShieldIcon, IconShieldOff } from '../../shared/ui/Icons';
 import {
     getAccount,
     getAllUsers,
     banUser,
     verifyUser,
-    makeAdmin, // <-- Импорт
+    makeAdmin,
     ApiError,
     type AccountUser,
     type AdminUser,
@@ -22,6 +23,7 @@ export function AdminUsersPage() {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [pendingId, setPendingId] = useState<string | null>(null);
 
     function loadUsers() {
         getAllUsers()
@@ -40,53 +42,41 @@ export function AdminUsersPage() {
         });
     }, [navigate]);
 
-    async function handleBan(id: string, currentStatus: boolean) {
+    // ИСПРАВЛЕНО: Promise<unknown> вместо Promise<any>
+    async function handleAction(id: string, action: () => Promise<unknown>, field: keyof AdminUser) {
+        setPendingId(id);
         try {
-            await banUser(id, !currentStatus);
-            setUsers(users.map(u => (u.id === id ? { ...u, isBanned: !currentStatus } : u)));
-        } catch (e) {
-            alert('Failed to ban user');
-        }
-    }
-
-    async function handleVerify(id: string, currentStatus: boolean) {
-        try {
-            await verifyUser(id, !currentStatus);
-            setUsers(users.map(u => (u.id === id ? { ...u, isVerified: !currentStatus } : u)));
-        } catch (e) {
-            alert('Failed to verify user');
-        }
-    }
-
-    async function handleMakeAdmin(id: string, currentStatus: boolean) {
-        try {
-            await makeAdmin(id, !currentStatus);
-            setUsers(users.map(u => (u.id === id ? { ...u, isAdmin: !currentStatus } : u)));
-        } catch (e) {
-            alert('Failed to change admin status');
+            await action();
+            setUsers(users.map(u => (u.id === id ? { ...u, [field]: !u[field] } : u)));
+        } catch {
+            // ИСПРАВЛЕНО: убрана неиспользуемая переменная e
+            alert(`Failed to update ${field}`);
+        } finally {
+            setPendingId(null);
         }
     }
 
     if (loading) {
         return (
             <DashboardShell user={null} title="Loading...">
-                Loading...
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-faint)' }}>Loading...</div>
             </DashboardShell>
         );
     }
 
     return (
         <DashboardShell user={account!} title="User Management" wide>
-            <Panel>
-                {error && <p style={{ color: 'var(--accent)' }}>{error}</p>}
+            {error && <div className={styles.errorBanner}>{error}</div>}
+
+            <Panel noBodyPadding>
                 <div className={styles.tableWrapper}>
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                <th>User</th>
-                                <th>Status</th>
-                                <th>Role</th>
-                                <th style={{ textAlign: 'right' }}>Actions</th>
+                                <th style={{ width: '40%' }}>User</th>
+                                <th style={{ width: '15%' }}>Status</th>
+                                <th style={{ width: '15%' }}>Role</th>
+                                <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -94,11 +84,22 @@ export function AdminUsersPage() {
                                 <tr key={u.id} className={u.isBanned ? styles.bannedRow : ''}>
                                     <td>
                                         <div className={styles.userCell}>
-                                            <Avatar label={u.name || u.email} />
+                                            <Avatar label={u.nickname || u.name || u.email} />
                                             <div>
                                                 <div className={styles.userName}>
                                                     {u.nickname || u.name || 'Unknown'}
-                                                    {u.isVerified && <span className={styles.blueTick}>✓</span>}
+                                                    {u.isVerified && (
+                                                        <span className={styles.blueTick} title="Verified">
+                                                            <svg
+                                                                width="14"
+                                                                height="14"
+                                                                viewBox="0 0 24 24"
+                                                                fill="currentColor"
+                                                            >
+                                                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                                            </svg>
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className={styles.userEmail}>{u.email}</div>
                                             </div>
@@ -108,34 +109,57 @@ export function AdminUsersPage() {
                                         <span
                                             className={`${styles.statusBadge} ${u.isBanned ? styles.statusBanned : styles.statusActive}`}
                                         >
+                                            <span className={styles.dot} />
                                             {u.isBanned ? 'Banned' : 'Active'}
                                         </span>
                                     </td>
-                                    <td>{u.isAdmin ? <span className={styles.adminBadge}>Admin</span> : 'User'}</td>
+                                    <td>
+                                        {u.isAdmin ? (
+                                            <span className={styles.adminBadge}>
+                                                <ShieldIcon /> Admin
+                                            </span>
+                                        ) : (
+                                            <span className={styles.roleUser}>User</span>
+                                        )}
+                                    </td>
                                     <td>
                                         <div className={styles.actions}>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleVerify(u.id, u.isVerified)}
+                                            <IconButton
+                                                variant={u.isVerified ? 'active' : 'default'}
+                                                onClick={() =>
+                                                    handleAction(
+                                                        u.id,
+                                                        () => verifyUser(u.id, !u.isVerified),
+                                                        'isVerified'
+                                                    )
+                                                }
+                                                disabled={pendingId === u.id}
+                                                title={u.isVerified ? 'Remove Verification' : 'Verify User'}
                                             >
-                                                {u.isVerified ? 'Unverify' : 'Verify'}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleMakeAdmin(u.id, u.isAdmin)}
+                                                {u.isVerified ? <IconX /> : <IconCheck />}
+                                            </IconButton>
+
+                                            <IconButton
+                                                variant={u.isAdmin ? 'active' : 'default'}
+                                                onClick={() =>
+                                                    handleAction(u.id, () => makeAdmin(u.id, !u.isAdmin), 'isAdmin')
+                                                }
+                                                disabled={pendingId === u.id}
+                                                title={u.isAdmin ? 'Remove Admin' : 'Make Admin'}
                                             >
-                                                {u.isAdmin ? 'Demote' : 'Make Admin'}
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleBan(u.id, u.isBanned)}
-                                                style={{ color: u.isBanned ? 'var(--win)' : 'var(--accent)' }}
+                                                {u.isAdmin ? <IconShieldOff /> : <ShieldIcon />}
+                                            </IconButton>
+
+                                            <IconButton
+                                                variant={u.isBanned ? 'default' : 'danger'}
+                                                onClick={() =>
+                                                    handleAction(u.id, () => banUser(u.id, !u.isBanned), 'isBanned')
+                                                }
+                                                disabled={pendingId === u.id}
+                                                title={u.isBanned ? 'Unban User' : 'Ban User'}
                                             >
-                                                {u.isBanned ? 'Unban' : 'Ban'}
-                                            </Button>
+                                                {u.isBanned ? <IconCheck /> : <IconX />}
+                                            </IconButton>
                                         </div>
                                     </td>
                                 </tr>
