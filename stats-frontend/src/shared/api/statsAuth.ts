@@ -30,6 +30,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     token_not_found: 'This reset link is invalid — request a new one.',
     token_expired: 'This reset link has expired — request a new one.',
     turnstile_failed: 'Verification failed — please try again.',
+    banned: 'Your account has been banned. Please contact support.', // <-- ДОБАВЛЕНО
     invalid_riot_id: 'Enter a Riot ID in the form Name#Tag.',
     riot_account_not_found: "We couldn't find a Riot account with that Riot ID.",
     riot_api_not_configured: "Riot lookup isn't configured right now — try again later.",

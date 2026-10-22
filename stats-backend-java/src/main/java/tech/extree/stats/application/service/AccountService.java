@@ -8,7 +8,6 @@ import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
-/** Соответствует requireAdmin/GET api/account/me в server.js. */
 @Service
 public class AccountService implements GetAccountUseCase {
 
@@ -31,7 +30,13 @@ public class AccountService implements GetAccountUseCase {
         if (session.isEmpty() || session.get().userId() == null) {
             return Optional.empty();
         }
-        return userRepository.findById(session.get().userId());
+        
+        Optional<User> user = userRepository.findById(session.get().userId());
+        if (user.isPresent() && user.get().isBanned()) {
+            return Optional.empty();
+        }
+        
+        return user;
     }
 
     @Override

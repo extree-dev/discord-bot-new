@@ -11,7 +11,8 @@ public interface LoginUseCase {
         EMAIL_NOT_VERIFIED,
         UNKNOWN_LOCATION,
         CODE_ON_COOLDOWN,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BANNED
     }
 
     /** sessionCookie заполнен только при OK. */
@@ -25,7 +26,8 @@ public interface LoginUseCase {
         OK,
         INVALID_EMAIL,
         CODE_ON_COOLDOWN,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BANNED
     }
 
     enum ConfirmLocationOutcome {
@@ -35,7 +37,8 @@ public interface LoginUseCase {
         CODE_EXPIRED,
         TOO_MANY_ATTEMPTS,
         WRONG_CODE,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BANNED
     }
 
     /**
@@ -55,3 +58,4 @@ public interface LoginUseCase {
 
     ConfirmLocationResult confirmLocation(String email, String code);
 }
+

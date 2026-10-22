@@ -6,6 +6,7 @@ import java.util.Map;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,10 +30,18 @@ public class AccountController {
     }
 
     @GetMapping("/api/account/me")
-    public AccountResponse getAccount(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
-        return getAccountUseCase.getAccount(cookie)
-                .map(this::toResponse)
-                .orElse(AccountResponse.empty());
+    public ResponseEntity<?> getAccount(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
+        if (cookie == null) {
+            return ResponseEntity.ok(AccountResponse.empty());
+        }
+
+        var userOpt = getAccountUseCase.getAccount(cookie);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse("unauthorized"));
+        }
+
+        return ResponseEntity.ok(toResponse(userOpt.get()));
     }
 
     @PostMapping("/api/account/avatar")
@@ -62,7 +71,7 @@ public class AccountController {
                 user.nickname(),
                 getAccountUseCase.isAdmin(user),
                 user.avatarUrl(),
-                user.isVerified() // <-- Добавлено
+                user.isVerified()
         ));
     }
 }
