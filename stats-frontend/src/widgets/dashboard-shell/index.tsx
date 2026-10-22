@@ -36,9 +36,9 @@ export function DashboardShell({
                     <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
                     <span className={styles.brand}>Extree Stats</span>
                 </Link>
-                
+
                 <div className={styles.spacer} />
-                
+
                 {user && (
                     <div className={styles.userMenu}>
                         <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />

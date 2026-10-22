@@ -76,7 +76,9 @@ export function SupportPage() {
             setAccountEmail(user?.email ?? null);
             setCheckingAccount(false);
         });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     async function onSubmit(e: FormEvent) {
@@ -149,11 +151,7 @@ export function SupportPage() {
                             onChange={e => setEmail(e.target.value)}
                         />
                     )}
-                    <Select
-                        options={CATEGORIES}
-                        value={category}
-                        onChange={setCategory}
-                    />
+                    <Select options={CATEGORIES} value={category} onChange={setCategory} />
                     <TextField
                         id="subject"
                         label="Subject"

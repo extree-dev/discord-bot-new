@@ -47,7 +47,9 @@ export function AdminTicketsPage() {
             setAccount(user);
             setCheckingAccount(false);
         });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [navigate]);
 
     useEffect(() => {
@@ -63,7 +65,9 @@ export function AdminTicketsPage() {
                 if (cancelled) return;
                 setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
             });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [checkingAccount, status]);
 
     const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
