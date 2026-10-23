@@ -96,7 +96,7 @@ class PasswordResetServiceTest {
         var result = service.resetPassword("token", "newpassword1", "ip");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
         verify(passwordResetRepository).deleteReset("token");
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City");
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", null);
         verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 }

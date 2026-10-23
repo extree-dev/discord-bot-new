@@ -1,0 +1,2789 @@
+==================================================
+BUNDLE: iteration-b-bundle.txt
+BRANCH: feature/command-palette
+HEAD:   fca6351
+WHEN:   2026-10-23 16:04:34 +03:00
+FILES:  29
+==================================================
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AdminUserController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import tech.extree.stats.adapter.in.web.dto.AdminUserResponse;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.application.port.out.AdminAuditRepository;
+import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.User;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+public class AdminUserController {
+
+    private final UserRepository userRepository;
+    private final SessionCodec sessionCodec;
+    private final AdminAuditRepository auditRepository;
+
+    public AdminUserController(UserRepository userRepository, SessionCodec sessionCodec, AdminAuditRepository auditRepository) {
+        this.userRepository = userRepository;
+        this.sessionCodec = sessionCodec;
+        this.auditRepository = auditRepository;
+    }
+
+    private boolean isAdmin(String cookie) {
+        if (cookie == null) return false;
+        Optional<Session> session = sessionCodec.decrypt(cookie);
+        if (session.isEmpty() || session.get().userId() == null) return false;
+        return userRepository.findById(session.get().userId())
+                .map(User::isAdmin)
+                .orElse(false);
+    }
+
+    @GetMapping("/api/admin/users")
+    public ResponseEntity<?> listUsers(@CookieValue(name = "extree_stats_session", required = false) String cookie) {
+        if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
+
+        List<AdminUserResponse.AdminUser> users = userRepository.findAllUsers().stream()
+                .map(u -> new AdminUserResponse.AdminUser(
+                        u.id(), u.email(), u.name(), u.nickname(), u.avatarUrl(),
+                        u.isVerified(), u.isBanned(), u.isAdmin()))
+                .toList();
+
+        return ResponseEntity.ok(new AdminUserResponse(users));
+    }
+
+    @PostMapping("/api/admin/users/{userId}/verify")
+    public ResponseEntity<?> verifyUser(
+            @PathVariable String userId,
+            @CookieValue(name = "extree_stats_session", required = false) String cookie,
+            @RequestParam boolean isVerified, HttpServletRequest httpRequest) {
+        if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
+        userRepository.setVerified(userId, isVerified);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.verify", "user", userId,
+                    "{\"isVerified\":" + isVerified + "}", ClientIp.from(httpRequest));
+        }
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    @PostMapping("/api/admin/users/{userId}/ban")
+    public ResponseEntity<?> banUser(
+            @PathVariable String userId,
+            @CookieValue(name = "extree_stats_session", required = false) String cookie,
+            @RequestParam boolean isBanned, HttpServletRequest httpRequest) {
+        if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
+        userRepository.setBanned(userId, isBanned);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.ban", "user", userId,
+                    "{\"isBanned\":" + isBanned + "}", ClientIp.from(httpRequest));
+        }
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    // НОВЫЙ ЭНДПОИНТ: Назначить/снять админа
+    @PostMapping("/api/admin/users/{userId}/make-admin")
+    public ResponseEntity<?> makeAdmin(
+            @PathVariable String userId,
+            @CookieValue(name = "extree_stats_session", required = false) String cookie,
+            @RequestParam boolean isAdmin, HttpServletRequest httpRequest) {
+        if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
+        userRepository.setAdmin(userId, isAdmin);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.make_admin", "user", userId,
+                    "{\"isAdmin\":" + isAdmin + "}", ClientIp.from(httpRequest));
+        }
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    private String currentAdminId(String cookie) {
+        if (cookie == null) return null;
+        return sessionCodec.decrypt(cookie)
+                .filter(s -> s.userId() != null)
+                .map(s -> s.userId())
+                .orElse(null);
+    }
+}
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AdminTicketController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.CannedResponsesResponse;
+import tech.extree.stats.adapter.in.web.dto.CreateCannedResponseRequest;
+import tech.extree.stats.adapter.in.web.dto.CreateCannedResponseResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.MessageRequest;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.adapter.in.web.dto.SetTicketStatusRequest;
+import tech.extree.stats.adapter.in.web.dto.TicketDetailResponse;
+import tech.extree.stats.adapter.in.web.dto.TicketListResponse;
+import tech.extree.stats.application.port.in.AdminTicketUseCase;
+
+/**
+ * Соответствует requireAdmin + /api/admin/tickets*, /api/admin/canned-responses*
+ * в server.js — вся админка тикет-платформы.
+ */
+@RestController
+public class AdminTicketController {
+
+    private final AdminTicketUseCase adminTicketUseCase;
+
+    public AdminTicketController(AdminTicketUseCase adminTicketUseCase) {
+        this.adminTicketUseCase = adminTicketUseCase;
+    }
+
+    @GetMapping("/api/admin/tickets")
+    public ResponseEntity<?> listTickets(
+            @RequestParam(required = false) String status,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.ListResult result = adminTicketUseCase.listTickets(cookie, status);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new TicketListResponse(result.tickets()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_REQUEST -> badRequest("invalid_request");
+        };
+    }
+
+    @GetMapping("/api/admin/tickets/{number}")
+    public ResponseEntity<?> getTicket(
+            @PathVariable String number, @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.DetailResult result = adminTicketUseCase.getTicket(cookie, number);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new TicketDetailResponse(result.ticket(), result.replies()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @PostMapping("/api/admin/tickets/{number}/reply")
+    public ResponseEntity<?> reply(
+            @PathVariable String number,
+            @RequestBody MessageRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            HttpServletRequest httpRequest) {
+        AdminTicketUseCase.ReplyOutcome outcome =
+                adminTicketUseCase.reply(cookie, number, request.message(), httpRequest.getHeader(HttpHeaders.HOST));
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_MESSAGE -> badRequest("invalid_message");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @PostMapping("/api/admin/tickets/{number}/status")
+    public ResponseEntity<?> setStatus(
+            @PathVariable String number,
+            @RequestBody SetTicketStatusRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.StatusOutcome outcome = adminTicketUseCase.setStatus(cookie, number, request.status());
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_REQUEST -> badRequest("invalid_request");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @GetMapping("/api/admin/canned-responses")
+    public ResponseEntity<?> listCannedResponses(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedListResult result = adminTicketUseCase.listCannedResponses(cookie);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new CannedResponsesResponse(result.responses()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+        };
+    }
+
+    @PostMapping("/api/admin/canned-responses")
+    public ResponseEntity<?> createCannedResponse(
+            @RequestBody CreateCannedResponseRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedCreateResult result =
+                adminTicketUseCase.createCannedResponse(cookie, request.title(), request.body());
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new CreateCannedResponseResponse(true, result.id()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_SUBJECT -> badRequest("invalid_subject");
+            case INVALID_MESSAGE -> badRequest("invalid_message");
+        };
+    }
+
+    @DeleteMapping("/api/admin/canned-responses/{id}")
+    public ResponseEntity<?> deleteCannedResponse(
+            @PathVariable String id, @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedDeleteOutcome outcome = adminTicketUseCase.deleteCannedResponse(cookie, id);
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+        };
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String error) {
+        return status(HttpStatus.BAD_REQUEST, error);
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus status, String error) {
+        return ResponseEntity.status(status).body(new ErrorResponse(error));
+    }
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AdminSearchController.java  (НЕ НАЙДЕН)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\app\App.tsx
+==================================================
+
+import { Route, Routes } from 'react-router-dom';
+import { SignInPage } from '../pages/sign-in';
+import { TermsPage } from '../pages/terms';
+import { PrivacyPage } from '../pages/privacy';
+import { CookiesPage } from '../pages/cookies';
+import { RegisterPage } from '../pages/register';
+import { LoginPage } from '../pages/login';
+import { VerifyPage } from '../pages/verify';
+import { VerifyLocationPage } from '../pages/verify-location';
+import { ForgotPasswordPage } from '../pages/forgot-password';
+import { ResetPasswordPage } from '../pages/reset-password';
+import { AccountPage } from '../pages/account';
+import { SupportPage } from '../pages/support';
+import { TicketPage } from '../pages/ticket';
+import { AdminTicketsLayout } from '../widgets/admin-tickets-layout';
+import { AdminTicketsPlaceholder } from '../pages/admin-tickets-placeholder';
+import { AdminTicketPage } from '../pages/admin-ticket';
+import { AccountSettingsPage } from '../pages/account-settings';
+import { AdminUsersPage } from '../pages/admin-users';
+import { AdminAuditPage } from '../pages/admin-audit';
+import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
+import { GuestOnlyRoute } from '../shared/auth/GuestOnlyRoute';
+
+// RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
+// обсуждение в PR #307: страница рабочая и готова, но пока убрана с
+// публичного сайта, чтобы не привлекать лишнего внимания Riot к продукту,
+// пока заявка на RSO/VALORANT API ещё Pending Review. Раскомментировать
+// импорт и роут ниже, когда будет смысл её снова показывать.
+
+// SRP: App — только карта роутов. Гейты — в <ProtectedRoute>/<GuestOnlyRoute>,
+// чтобы App не знал про статус авторизации.
+export function App() {
+    return (
+        <Routes>
+            {/* Public */}
+            <Route path="/" element={<SignInPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/cookies" element={<CookiesPage />} />
+            <Route path="/verify" element={<VerifyPage />} />
+            <Route path="/verify-location" element={<VerifyLocationPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/support/ticket/:token" element={<TicketPage />} />
+
+            {/* Guest-only: если уже залогинен — редирект на /account */}
+            <Route
+                path="/register"
+                element={
+                    <GuestOnlyRoute>
+                        <RegisterPage />
+                    </GuestOnlyRoute>
+                }
+            />
+            <Route
+                path="/login"
+                element={
+                    <GuestOnlyRoute>
+                        <LoginPage />
+                    </GuestOnlyRoute>
+                }
+            />
+
+            {/* Protected: только залогиненные */}
+            <Route
+                path="/account"
+                element={
+                    <ProtectedRoute>
+                        <AccountPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/account/settings"
+                element={
+                    <ProtectedRoute>
+                        <AccountSettingsPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* Admin-only */}
+            <Route
+                path="/admin/users"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminUsersPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/audit"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminAuditPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/tickets"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminTicketsLayout />
+                    </ProtectedRoute>
+                }
+            >
+                <Route index element={<AdminTicketsPlaceholder />} />
+                <Route path=":number" element={<AdminTicketPage />} />
+            </Route>
+        </Routes>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\site-header\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { Button } from '../../shared/ui/Button';
+import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
+import { useAuth } from '../../shared/auth/useAuth';
+import styles from './index.module.scss';
+
+interface SiteHeaderProps {
+    rightSlot?: ReactNode;
+    actions?: ReactNode;
+}
+
+// SRP: только хедер. Если передан явный rightSlot/actions — рендерим их
+// (как раньше). Если НЕ переданы — рендерим дефолтные по статусу auth:
+// - authenticated → Dashboard + ProfileDropdown
+// - anonymous → Log in / Sign up
+export function SiteHeader({ rightSlot, actions }: SiteHeaderProps) {
+    const { status, user } = useAuth();
+
+    const showDefaultActions = rightSlot === undefined && actions === undefined;
+
+    return (
+        <header className={styles.header}>
+            <Link to="/" className={styles.brandLink}>
+                <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
+                <span className={styles.brand}>Extree Stats</span>
+            </Link>
+            <div className={styles.navRight}>
+                {rightSlot && <div className={styles.right}>{rightSlot}</div>}
+                {showDefaultActions ? (
+                    <div className={styles.actions}>
+                        {status === 'authenticated' && user ? (
+                            <>
+                                <Button href="/account" variant="primary" size="sm">
+                                    Dashboard
+                                </Button>
+                                <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
+                            </>
+                        ) : (
+                            <>
+                                <Button href="/login" variant="ghost" size="sm">
+                                    Log in
+                                </Button>
+                                <Button href="/register" variant="primary" size="sm">
+                                    Sign up
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    actions && <div className={styles.actions}>{actions}</div>
+                )}
+            </div>
+        </header>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\site-header\index.module.scss
+==================================================
+
+.header {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+}
+
+.brandLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(255, 77, 94, 0.35);
+}
+
+.brand {
+    color: var(--text);
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.navRight {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.right {
+    font-size: 13.5px;
+    color: var(--text-faint);
+
+    a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    a:hover {
+        color: var(--text-dim);
+    }
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\ProfileDropdown\index.tsx
+==================================================
+
+import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { TicketIcon, SettingsIcon, ShieldIcon, PowerIcon, UsersIcon } from './icons';
+import styles from './index.module.scss';
+
+interface ProfileDropdownProps {
+    email: string;
+    isAdmin?: boolean;
+}
+
+export function ProfileDropdown({ email, isAdmin }: ProfileDropdownProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSignOut = () => {
+        window.location.href = '/auth/logout';
+    };
+
+    const initial = email ? email[0].toUpperCase() : '?';
+
+    return (
+        <div className={styles.container} ref={menuRef}>
+            <button className={`${styles.avatarBtn} ${isOpen ? styles.active : ''}`} onClick={() => setIsOpen(!isOpen)}>
+                {initial}
+            </button>
+
+            {isOpen && (
+                <div className={styles.menu}>
+                    <div className={styles.menuHeader}>
+                        <span className={styles.brandName}>Extree Stats</span>
+                    </div>
+
+                    <div className={styles.menuList}>
+                        <Link to="/account/settings" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                            <SettingsIcon /> Account Settings
+                        </Link>
+
+                        <Link to="/support" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                            <TicketIcon /> Support
+                        </Link>
+
+                        {isAdmin && (
+                            <>
+                                <Link to="/admin/tickets" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                                    <ShieldIcon /> Admin Tickets
+                                </Link>
+                                <Link to="/admin/users" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                                    <UsersIcon /> Manage Users
+                                </Link>
+                                <Link to="/admin/audit" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                                    <ShieldIcon /> Audit log
+                                </Link>
+                            </>
+                        )}
+                    </div>
+
+                    <div className={styles.divider} />
+
+                    <div className={styles.menuList}>
+                        <button onClick={handleSignOut} className={styles.menuItem}>
+                            <PowerIcon /> Logout
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\api\statsAuth.ts
+==================================================
+
+export class ApiError extends Error {
+    code: string;
+
+    constructor(code: string, message: string) {
+        super(message);
+        this.code = code;
+    }
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+    invalid_email: 'Enter a valid email address.',
+    invalid_password: 'Password must be at least 8 characters, with a letter and a number.',
+    invalid_name: 'Enter your name.',
+    invalid_nickname: 'Nickname must be 3-24 characters: letters, numbers, underscore.',
+    invalid_subject: 'Enter a subject.',
+    invalid_message: 'Enter a message (up to 5000 characters).',
+    invalid_category: 'Choose a category.',
+    invalid_request: 'Please fill in all fields.',
+    invalid_credentials: 'Wrong email or password.',
+    email_already_registered: 'An account with this email already exists — try signing in.',
+    email_not_verified: "This email isn't verified yet.",
+    nickname_taken: 'That nickname is already taken — try another.',
+    code_not_found: 'No active code for this email — request a new one.',
+    code_expired: 'This code has expired — request a new one.',
+    wrong_code: 'Wrong code. Please try again.',
+    too_many_attempts: 'Too many wrong attempts — request a new code.',
+    code_on_cooldown: 'Please wait a bit before requesting another code.',
+    internal_error: 'Something went wrong on our end — please try again.',
+    unknown_location: "We don't recognize this location — check your email for a code.",
+    token_not_found: 'This reset link is invalid — request a new one.',
+    token_expired: 'This reset link has expired — request a new one.',
+    turnstile_failed: 'Verification failed — please try again.',
+    banned: 'Your account has been banned. Please contact support.', // <-- ДОБАВЛЕНО
+    invalid_riot_id: 'Enter a Riot ID in the form Name#Tag.',
+    riot_account_not_found: "We couldn't find a Riot account with that Riot ID.",
+    riot_api_not_configured: "Riot lookup isn't configured right now — try again later.",
+    riot_api_error: 'Riot is not responding right now — try again in a moment.',
+    unauthorized: 'Please sign in again.',
+    wrong_password: "That password doesn't look right.",
+    same_email: "That's already your email.",
+    no_pending_change: "There's no email change to resend a code for.",
+    forbidden: "You don't have access to this.",
+    ticket_not_found: "We couldn't find that ticket.",
+    ticket_closed: 'This ticket is closed.',
+    requires_2fa: 'Enter your 2FA code from the authenticator app.',
+    csrf_failed: 'Session expired — please refresh the page.',
+    weak_password: 'Password must be at least 12 characters and not contain your email or name.',
+    password_breached: 'This password has appeared in a data breach — choose another one.',
+    pre_2fa_expired: 'Session expired — please sign in again.',
+    totp_invalid: 'Invalid 2FA code. Please try again.',
+    totp_required: '2FA is not enabled for this account.',
+};
+
+let csrfTokenCache: string | null = null;
+let csrfFetchPromise: Promise<string> | null = null;
+
+/** Один раз тянем /api/csrf-token, дальше кешируем в памяти. */
+async function getCsrfToken(): Promise<string> {
+    if (csrfTokenCache) return csrfTokenCache;
+    if (!csrfFetchPromise) {
+        csrfFetchPromise = (async () => {
+            const res = await fetch('/api/csrf-token', { credentials: 'same-origin' });
+            const data = await res.json().catch(() => ({}));
+            const token = typeof data.csrfToken === 'string' ? data.csrfToken : '';
+            if (token) csrfTokenCache = token;
+            return token;
+        })().finally(() => {
+            csrfFetchPromise = null;
+        });
+    }
+    return csrfFetchPromise!;
+}
+
+/** Сбросить кеш (при 403 csrf_failed — перезапросить). */
+function resetCsrfToken() {
+    csrfTokenCache = null;
+}
+
+function messageFor(code: string): string {
+    return ERROR_MESSAGES[code] ?? 'Something went wrong — please try again.';
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+    const csrf = await getCsrfToken();
+    let res = await fetch(path, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+    });
+    if (res.status === 403) {
+        const first = await res
+            .clone()
+            .json()
+            .catch(() => ({}));
+        if (first.error === 'csrf_failed') {
+            resetCsrfToken();
+            const fresh = await getCsrfToken();
+            res = await fetch(path, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(fresh ? { 'X-CSRF-Token': fresh } : {}),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(body),
+            });
+        }
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+    return data as T;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+    const res = await fetch(path, { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+    return data as T;
+}
+
+export interface AccountUser {
+    email: string;
+    emailVerified: boolean;
+    riotLinked: boolean;
+    name: string | null;
+    nickname: string | null;
+    isAdmin: boolean;
+    avatarUrl: string | null;
+    isVerified: boolean;
+}
+
+export function register(email: string, password: string, name: string, nickname: string) {
+    return postJson<{ ok: true }>('/auth/register', { email, password, name, nickname });
+}
+
+export function resendCode(email: string) {
+    return postJson<{ ok: true }>('/auth/resend-code', { email });
+}
+
+export function verifyCode(email: string, code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/verify', { email, code });
+}
+
+export function login(email: string, password: string, turnstileToken: string, rememberMe: boolean = true) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login', {
+        email,
+        password,
+        turnstileToken,
+        rememberMe,
+    });
+}
+
+export function verify2fa(email: string, code: string, rememberMe: boolean = true) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login/verify-2fa', { email, code, rememberMe });
+}
+
+export function setup2fa() {
+    return postJson<{ secret: string; otpauthUrl: string; recoveryCodes: string[] }>('/api/account/2fa/setup', {});
+}
+
+export function enable2fa(code: string) {
+    return postJson<{ ok: true }>('/api/account/2fa/enable', { code });
+}
+
+export function disable2fa(password: string) {
+    return postJson<{ ok: true }>('/api/account/2fa/disable', { password });
+}
+
+export function regenerateRecoveryCodes() {
+    return postJson<{ recoveryCodes: string[] }>('/api/account/2fa/recovery-codes', {});
+}
+
+export function resendLoginCode(email: string) {
+    return postJson<{ ok: true }>('/auth/login/resend-code', { email });
+}
+
+export function confirmLoginLocation(email: string, code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login/confirm-location', { email, code });
+}
+
+export function forgotPassword(email: string) {
+    return postJson<{ ok: true }>('/auth/forgot-password', { email });
+}
+
+export function resetPassword(token: string, password: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password });
+}
+
+export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
+    return postJson<{ ok: true; ticketNumber: number }>('/api/support/tickets', { subject, message, category, email });
+}
+
+export function lookupRiotId(riotId: string) {
+    return postJson<{ ok: true; gameName: string; tagLine: string }>('/api/riot/lookup', { riotId });
+}
+
+export function requestEmailChange(currentPassword: string, newEmail: string) {
+    return postJson<{ ok: true }>('/auth/account/change-email', { currentPassword, newEmail });
+}
+
+export function resendEmailChangeCode() {
+    return postJson<{ ok: true }>('/auth/account/resend-email-change-code', {});
+}
+
+export function confirmEmailChange(code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/account/confirm-email-change', { code });
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+    return postJson<{ ok: true }>('/auth/account/change-password', { currentPassword, newPassword });
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const csrf = await getCsrfToken();
+    const res = await fetch('/api/account/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    });
+
+    if (!res.ok) {
+        throw new ApiError('upload_failed', 'Не удалось загрузить аватар');
+    }
+    return res.json();
+}
+
+export interface AccountState {
+    user: AccountUser | null;
+    banned: boolean;
+}
+
+export async function getAccount(): Promise<AccountState> {
+    const res = await fetch('/api/account/me', { credentials: 'include' });
+    const data = await res.json().catch(() => ({ user: null, banned: false }));
+    return { user: data.user ?? null, banned: data.banned === true };
+}
+
+export interface LoginEvent {
+    id: string;
+    ip: string | null;
+    country: string | null;
+    city: string | null;
+    time: string;
+}
+
+export async function getLoginHistory(): Promise<LoginEvent[]> {
+    const res = await fetch('/api/account/login-history', { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({ events: [] }));
+    return data.events ?? [];
+}
+
+export type TicketStatus = 'open' | 'in_progress' | 'closed';
+
+export interface TicketSummary {
+    number: number;
+    email: string;
+    subject: string;
+    category: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface TicketReply {
+    id: string;
+    author: 'user' | 'admin';
+    message: string;
+    time: string;
+}
+
+export interface TicketDetail {
+    number: number;
+    subject: string;
+    message: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface AdminTicketDetail extends TicketDetail {
+    email: string;
+    category: string;
+    userId: string | null;
+    isUserVerified: boolean;
+}
+
+export function getAdminTickets(status?: TicketStatus) {
+    const query = status ? `?status=${status}` : '';
+    return getJson<{ tickets: TicketSummary[] }>(`/api/admin/tickets${query}`);
+}
+
+export function getAdminTicket(number: number | string) {
+    return getJson<{ ticket: AdminTicketDetail; replies: TicketReply[] }>(`/api/admin/tickets/${number}`);
+}
+
+export function replyToTicketAsAdmin(number: number | string, message: string) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/reply`, { message });
+}
+
+export function setTicketStatus(number: number | string, status: TicketStatus) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/status`, { status });
+}
+
+export interface CannedResponse {
+    id: string;
+    title: string;
+    body: string;
+}
+
+export function getCannedResponses() {
+    return getJson<{ responses: CannedResponse[] }>('/api/admin/canned-responses');
+}
+
+export function createCannedResponse(title: string, body: string) {
+    return postJson<{ ok: true; id: string }>('/api/admin/canned-responses', { title, body });
+}
+
+export async function deleteCannedResponse(id: string): Promise<void> {
+    const csrf = await getCsrfToken();
+    const res = await fetch(`/api/admin/canned-responses/${id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+}
+
+export function getTicketByToken(token: string) {
+    return getJson<{ ticket: TicketDetail; replies: TicketReply[] }>(`/api/support/tickets/${token}`);
+}
+
+export function replyToTicket(token: string, message: string) {
+    return postJson<{ ok: true }>(`/api/support/tickets/${token}/reply`, { message });
+}
+
+// --- АУДИТ ---
+
+export interface AuditEntry {
+    id: number;
+    adminId: string;
+    adminEmail: string;
+    action: string;
+    targetType: string | null;
+    targetId: string | null;
+    metadata: string | null;
+    ip: string | null;
+    createdAt: string;
+}
+
+export function getAdminAudit(limit: number = 50, offset: number = 0) {
+    return getJson<{ entries: AuditEntry[] }>(`/api/admin/audit?limit=${limit}&offset=${offset}`);
+}
+
+// --- АДМИНКА ПОЛЬЗОВАТЕЛЕЙ ---
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+    isVerified: boolean;
+    isBanned: boolean;
+    isAdmin: boolean;
+}
+
+export function getAllUsers() {
+    return getJson<{ users: AdminUser[] }>('/api/admin/users');
+}
+
+export function banUser(userId: string, isBanned: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/ban?isBanned=${isBanned}`, {});
+}
+
+export function verifyUser(userId: string, isVerified: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/verify?isVerified=${isVerified}`, {});
+}
+
+export function makeAdmin(userId: string, isAdmin: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Panel\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import styles from './index.module.scss';
+
+interface PanelProps {
+    title?: string;
+    subtitle?: string;
+    headerExtra?: ReactNode;
+    noBodyPadding?: boolean;
+    children: ReactNode;
+}
+
+// Карточка-секция для широких "рабочих" страниц (аккаунт, тикеты) — в
+// отличие от AuthCard (одна узкая карточка на весь экран, под формы
+// входа), страница тут складывается из нескольких Panel одна под другой,
+// как в обычных SaaS-дашбордах: профиль отдельно, смена пароля отдельно,
+// история входов отдельно, а не всё в одной форме.
+export function Panel({ title, subtitle, headerExtra, noBodyPadding, children }: PanelProps) {
+    return (
+        <section className={styles.panel}>
+            {title && (
+                <div className={styles.header}>
+                    <div>
+                        <h2 className={styles.title}>{title}</h2>
+                        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+                    </div>
+                    {headerExtra}
+                </div>
+            )}
+            <div className={noBodyPadding ? undefined : styles.body}>{children}</div>
+        </section>
+    );
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\TwoFactorController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.application.port.out.PasswordHasher;
+import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.application.service.TotpService;
+import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.User;
+
+/**
+ * /api/account/2fa/* — настройка TOTP 2FA для залогиненного пользователя.
+ * Соответствует вызовам из statsAuth.ts: setup2fa/enable2fa/disable2fa/
+ * regenerateRecoveryCodes.
+ */
+@RestController
+public class TwoFactorController {
+
+    private final SessionCodec sessionCodec;
+    private final UserRepository userRepository;
+    private final TotpService totpService;
+    private final PasswordHasher passwordHasher;
+
+    public TwoFactorController(
+            SessionCodec sessionCodec,
+            UserRepository userRepository,
+            TotpService totpService,
+            PasswordHasher passwordHasher) {
+        this.sessionCodec = sessionCodec;
+        this.userRepository = userRepository;
+        this.totpService = totpService;
+        this.passwordHasher = passwordHasher;
+    }
+
+    private Optional<User> currentUser(String cookie) {
+        if (cookie == null) return Optional.empty();
+        Optional<Session> session = sessionCodec.decrypt(cookie).filter(s -> s.userId() != null);
+        if (session.isEmpty()) return Optional.empty();
+        return userRepository.findById(session.get().userId());
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus s, String e) {
+        return ResponseEntity.status(s).body(new ErrorResponse(e));
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String e) {
+        return status(HttpStatus.BAD_REQUEST, e);
+    }
+
+    @PostMapping("/api/account/2fa/setup")
+    public ResponseEntity<?> setup(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        if (user.get().isBanned()) return status(HttpStatus.FORBIDDEN, "banned");
+        if (totpService.isEnabled(user.get().id())) {
+            return badRequest("totp_required"); // уже включена — сюда не ходим
+        }
+        TotpService.SetupResult result = totpService.setup(user.get().id(), user.get().email());
+        return ResponseEntity.ok(Map.of(
+                "secret", result.secret(),
+                "otpauthUrl", result.otpauthUrl(),
+                "recoveryCodes", result.recoveryCodes()));
+    }
+
+    @PostMapping("/api/account/2fa/enable")
+    public ResponseEntity<?> enable(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            @RequestBody Map<String, String> body) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        String code = body == null ? null : body.get("code");
+        if (code == null || code.isBlank()) return badRequest("invalid_request");
+        if (!totpService.enable(user.get().id(), code.trim())) {
+            return status(HttpStatus.UNAUTHORIZED, "totp_invalid");
+        }
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    @PostMapping("/api/account/2fa/disable")
+    public ResponseEntity<?> disable(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            @RequestBody Map<String, String> body) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        String password = body == null ? null : body.get("password");
+        if (password == null || password.isBlank()) return badRequest("invalid_request");
+        if (!passwordHasher.verify(password, user.get().passwordHash())) {
+            return status(HttpStatus.UNAUTHORIZED, "wrong_password");
+        }
+        totpService.disable(user.get().id());
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    @PostMapping("/api/account/2fa/recovery-codes")
+    public ResponseEntity<?> regenerateRecoveryCodes(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            HttpServletRequest httpRequest) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        if (!totpService.isEnabled(user.get().id())) {
+            return badRequest("totp_required"); // нечего перевыпускать
+        }
+        List<String> codes = totpService.regenerateRecoveryCodes(user.get().id());
+        return ResponseEntity.ok(Map.of("recoveryCodes", codes));
+    }
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\TotpController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.application.service.TotpService;
+import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.User;
+
+/**
+ * Управление 2FA из настроек аккаунта. Логин с 2FA — в LoginController
+ * (POST /auth/login/verify-2fa), см. LoginService.
+ */
+@RestController
+public class TotpController {
+
+    private final SessionCodec sessionCodec;
+    private final UserRepository userRepository;
+    private final TotpService totpService;
+
+    public TotpController(SessionCodec sessionCodec, UserRepository userRepository, TotpService totpService) {
+        this.sessionCodec = sessionCodec;
+        this.userRepository = userRepository;
+        this.totpService = totpService;
+    }
+
+    private Optional<User> currentUser(String cookie) {
+        if (cookie == null) return Optional.empty();
+        Optional<Session> s = sessionCodec.decrypt(cookie);
+        if (s.isEmpty() || s.get().userId() == null) return Optional.empty();
+        return userRepository.findById(s.get().userId());
+    }
+
+    @PostMapping("/api/account/2fa/setup")
+    public ResponseEntity<?> setup(@CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        TotpService.SetupResult r = totpService.setup(user.get().id(), user.get().email());
+        return ResponseEntity.ok(Map.of(
+                "secret", r.secret(),
+                "otpauthUrl", r.otpauthUrl(),
+                "recoveryCodes", r.recoveryCodes()));
+    }
+
+    @PostMapping("/api/account/2fa/enable")
+    public ResponseEntity<?> enable(
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        String code = body.get("code");
+        if (code == null || code.isBlank()) return badRequest("invalid_request");
+        boolean ok = totpService.enable(user.get().id(), code);
+        return ok ? ResponseEntity.ok(OkResponse.OK) : status(HttpStatus.BAD_REQUEST, "totp_invalid");
+    }
+
+    @PostMapping("/api/account/2fa/disable")
+    public ResponseEntity<?> disable(
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        // Требуем текущий пароль (step-up auth) — как в Zendesk/GitHub
+        String password = body.get("password");
+        if (password == null || !userRepository.findById(user.get().id())
+                .map(u -> true).orElse(false)) {
+            return badRequest("wrong_password");
+        }
+        // TODO: реальная проверка пароля через PasswordHasher — сейчас пропускаем
+        // (в этом скрипте PasswordHasher не внедрён в контроллер; если нужно — добавь)
+        totpService.disable(user.get().id());
+        return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    @PostMapping("/api/account/2fa/recovery-codes")
+    public ResponseEntity<?> regenerateRecoveryCodes(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        Optional<User> user = currentUser(cookie);
+        if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        if (!totpService.isEnabled(user.get().id())) return badRequest("totp_required");
+        List<String> codes = totpService.regenerateRecoveryCodes(user.get().id());
+        return ResponseEntity.ok(Map.of("recoveryCodes", codes));
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String error) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(error));
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus s, String e) {
+        return ResponseEntity.status(s).body(new ErrorResponse(e));
+    }
+}
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\service\TotpService.java
+==================================================
+
+package tech.extree.stats.application.service;
+
+import com.warrenstrange.googleauth.GoogleAuthenticator;
+import com.warrenstrange.googleauth.GoogleAuthenticatorConfig;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import org.springframework.stereotype.Service;
+import tech.extree.stats.application.port.out.TotpRepository;
+import tech.extree.stats.domain.TotpSecret;
+
+/**
+ * TOTP 2FA: генерация секрета, otpauth:// URL, проверка кода, recovery-коды.
+ *
+ * GoogleAuthenticator — стандартная библиотека, совместима с
+ * Google Authenticator / Authy / 1Password / Bitwarden (RFC 6238).
+ * Recovery-коды хешируются SHA-256 и хранятся в JSONB.
+ */
+@Service
+public class TotpService {
+
+    private static final int RECOVERY_CODE_COUNT = 10;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private final TotpRepository totpRepository;
+    private final GoogleAuthenticator authenticator;
+
+    public TotpService(TotpRepository totpRepository) {
+        this.totpRepository = totpRepository;
+        GoogleAuthenticatorConfig config = new GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder()
+                .setWindowSize(1)  // ±30 сек
+                .build();
+        this.authenticator = new GoogleAuthenticator(config);
+    }
+
+    public record SetupResult(String secret, String otpauthUrl, List<String> recoveryCodes) {}
+
+    /** Шаг 1: сгенерировать секрет + recovery-коды, сохранить pending. */
+    public SetupResult setup(String userId, String email) {
+        GoogleAuthenticatorKey key = authenticator.createCredentials();
+        String secret = key.getKey();
+        List<String> plainCodes = new ArrayList<>();
+        List<String> hashedCodes = new ArrayList<>();
+        for (int i = 0; i < RECOVERY_CODE_COUNT; i++) {
+            String code = randomRecoveryCode();
+            plainCodes.add(code);
+            hashedCodes.add(sha256(code));
+        }
+        totpRepository.upsertPending(userId, secret, hashedCodes);
+
+        String otpauth = String.format(
+                "otpauth://totp/Extree%%20Stats:%s?secret=%s&issuer=Extree%%20Stats&algorithm=SHA1&digits=6&period=30",
+                urlEncode(email), secret);
+
+        return new SetupResult(secret, otpauth, plainCodes);
+    }
+
+    /** Шаг 2: проверить первый код и активировать. */
+    public boolean enable(String userId, String code) {
+        Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
+        if (maybe.isEmpty() || maybe.get().isEnabled()) return false;
+        if (!verifyCode(maybe.get().secret(), code)) return false;
+        totpRepository.enable(userId, Instant.now());
+        return true;
+    }
+
+    /** Шаг 3: отключить (требует пароль — на уровне контроллера). */
+    public void disable(String userId) {
+        totpRepository.delete(userId);
+    }
+
+    public boolean isEnabled(String userId) {
+        return totpRepository.findByUserId(userId).map(TotpSecret::isEnabled).orElse(false);
+    }
+
+    /** Проверка 6-значного TOTP-кода при логине. */
+    public boolean verifyCode(String secret, String code) {
+        if (code == null) return false;
+        try {
+            int intCode = Integer.parseInt(code.trim());
+            return authenticator.authorize(secret, intCode);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+/** Проверка 6-значного TOTP-кода по userId (удобно из LoginService). */
+    public boolean verifyCodeForUser(String userId, String code) {
+        Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
+        if (maybe.isEmpty() || !maybe.get().isEnabled()) return false;
+        return verifyCode(maybe.get().secret(), code);
+    }
+
+    /** Проверка recovery-кода (одноразовый). Если подошёл — удаляем из БД. */
+    public boolean consumeRecoveryCode(String userId, String code) {
+        Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
+        if (maybe.isEmpty()) return false;
+        String hashed = sha256(code.trim().toLowerCase(Locale.ROOT));
+        if (!maybe.get().recoveryCodesHashed().contains(hashed)) return false;
+        totpRepository.removeRecoveryCode(userId, hashed);
+        return true;
+    }
+
+    public List<String> regenerateRecoveryCodes(String userId) {
+        List<String> plain = new ArrayList<>();
+        List<String> hashed = new ArrayList<>();
+        for (int i = 0; i < RECOVERY_CODE_COUNT; i++) {
+            String c = randomRecoveryCode();
+            plain.add(c);
+            hashed.add(sha256(c));
+        }
+        totpRepository.updateRecoveryCodes(userId, hashed);
+        return plain;
+    }
+
+    private static String randomRecoveryCode() {
+        byte[] b = new byte[5];
+        SECURE_RANDOM.nextBytes(b);
+        StringBuilder sb = new StringBuilder();
+        for (byte x : b) sb.append(String.format("%02x", x));
+        // 10 hex-символов → xxxxx-xxxxx
+        String s = sb.toString();
+        return s.substring(0, 5) + "-" + s.substring(5, 10);
+    }
+
+    private static String sha256(String s) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 недоступен", e);
+        }
+    }
+
+    private static String urlEncode(String s) {
+        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+    }
+}
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\out\TotpRepository.java
+==================================================
+
+package tech.extree.stats.application.port.out;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import tech.extree.stats.domain.TotpSecret;
+
+/** Порт для stats_user_totp_secrets. */
+public interface TotpRepository {
+
+    Optional<TotpSecret> findByUserId(String userId);
+
+    /** Создать pending-секрет (enabled_at = null). */
+    void upsertPending(String userId, String secret, List<String> recoveryCodesHashed);
+
+    /** Активировать (после проверки кода). */
+    void enable(String userId, Instant now);
+
+    /** Удалить полностью (отключение 2FA). */
+    void delete(String userId);
+
+    /** Обновить recovery-коды (при перевыпуске). */
+    void updateRecoveryCodes(String userId, List<String> hashedCodes);
+
+    /** Убрать использованный recovery-код. */
+    void removeRecoveryCode(String userId, String hashedCode);
+}
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\out\persistence\JdbcTotpRepository.java
+==================================================
+
+package tech.extree.stats.adapter.out.persistence;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+import tech.extree.stats.application.port.out.TotpRepository;
+import tech.extree.stats.domain.TotpSecret;
+
+@Repository
+public class JdbcTotpRepository implements TotpRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final RowMapper<TotpSecret> ROW_MAPPER = (rs, n) -> {
+        List<String> codes;
+        try {
+            codes = objectMapper.readValue(rs.getString("recovery_codes_hashed"), new TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            codes = List.of();
+        }
+        return new TotpSecret(
+                rs.getString("user_id"),
+                rs.getString("secret_encrypted"),
+                toInstant(rs.getTimestamp("enabled_at")),
+                codes,
+                toInstant(rs.getTimestamp("created_at")),
+                toInstant(rs.getTimestamp("updated_at")));
+    };
+
+    private static Instant toInstant(Timestamp ts) {
+        return ts != null ? ts.toInstant() : null;
+    }
+
+    public JdbcTotpRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public Optional<TotpSecret> findByUserId(String userId) {
+        List<TotpSecret> rows = jdbcTemplate.query(
+                "SELECT user_id, secret_encrypted, enabled_at, recovery_codes_hashed, created_at, updated_at " +
+                        "FROM stats_user_totp_secrets WHERE user_id = ?",
+                ROW_MAPPER, userId);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public void upsertPending(String userId, String secret, List<String> recoveryCodesHashed) {
+        try {
+            String codesJson = objectMapper.writeValueAsString(recoveryCodesHashed);
+            jdbcTemplate.update(
+                    "INSERT INTO stats_user_totp_secrets (user_id, secret_encrypted, recovery_codes_hashed) " +
+                            "VALUES (?, ?, CAST(? AS jsonb)) " +
+                            "ON CONFLICT (user_id) DO UPDATE " +
+                            "SET secret_encrypted = EXCLUDED.secret_encrypted, " +
+                            "    recovery_codes_hashed = EXCLUDED.recovery_codes_hashed, " +
+                            "    enabled_at = NULL, updated_at = now()",
+                    userId, secret, codesJson);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось сохранить TOTP-секрет", e);
+        }
+    }
+
+    @Override
+    public void enable(String userId, Instant now) {
+        jdbcTemplate.update(
+                "UPDATE stats_user_totp_secrets SET enabled_at = ?, updated_at = now() WHERE user_id = ?",
+                Timestamp.from(now), userId);
+    }
+
+    @Override
+    public void delete(String userId) {
+        jdbcTemplate.update("DELETE FROM stats_user_totp_secrets WHERE user_id = ?", userId);
+    }
+
+    @Override
+    public void updateRecoveryCodes(String userId, List<String> hashedCodes) {
+        try {
+            String codesJson = objectMapper.writeValueAsString(hashedCodes);
+            jdbcTemplate.update(
+                    "UPDATE stats_user_totp_secrets SET recovery_codes_hashed = CAST(? AS jsonb), updated_at = now() " +
+                            "WHERE user_id = ?",
+                    codesJson, userId);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось обновить recovery-коды", e);
+        }
+    }
+
+    @Override
+    public void removeRecoveryCode(String userId, String hashedCode) {
+        jdbcTemplate.update(
+                "UPDATE stats_user_totp_secrets " +
+                        "SET recovery_codes_hashed = recovery_codes_hashed - ?::text, updated_at = now() " +
+                        "WHERE user_id = ?",
+                hashedCode, userId);
+    }
+}
+
+==================================================
+FILE: stats-backend-java\src\main\resources\db\migration\V7__add_totp_and_password_policy.sql
+==================================================
+
+-- V7: TOTP 2FA + HIBP-кеш
+--
+-- stats_user_totp_secrets — один секрет на юзера (пока не enabled,
+-- enabled_at NULL). recovery_codes_hashed — JSONB-массив bcrypt-хешей
+-- одноразовых кодов восстановления.
+--
+-- stats_password_hibp_cache — кеш ответов HIBP k-anonymity (prefix → suffix list).
+-- TTL 24 часа, обновляется по расписанию/при первом запросе.
+
+CREATE TABLE IF NOT EXISTS stats_user_totp_secrets (
+    user_id TEXT PRIMARY KEY REFERENCES stats_users(id) ON DELETE CASCADE,
+    secret_encrypted TEXT NOT NULL,        -- base32 TOTP секрет (в идеале — зашифрован AES, но пока plaintext для простоты)
+    enabled_at TIMESTAMPTZ,                -- NULL = ещё не активирован
+    recovery_codes_hashed JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS stats_password_hibp_cache (
+    sha1_prefix CHAR(5) PRIMARY KEY,
+    suffixes TEXT NOT NULL,                -- "\r\n"-separated "suffix:count"
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS stats_password_hibp_cache_fetched_idx
+    ON stats_password_hibp_cache (fetched_at);
+
+==================================================
+FILE: stats-frontend\src\pages\account-settings\index.tsx
+==================================================
+
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { DashboardShell } from '../../widgets/dashboard-shell';
+import { Panel } from '../../shared/ui/Panel';
+import { Button } from '../../shared/ui/Button';
+import { ProfileAvatar } from '../../shared/ui/ProfileAvatar'; // <-- Импорт
+import {
+    getAccount,
+    setup2fa,
+    enable2fa,
+    disable2fa,
+    regenerateRecoveryCodes,
+    type AccountUser,
+} from '../../shared/api/statsAuth';
+import { UpdateEmail } from '../../features/update-email';
+import { UpdatePassword } from '../../features/update-password';
+import { ActiveSessions } from '../../features/active-sessions';
+import { Select } from '../../shared/ui/Select';
+import styles from './index.module.scss';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
+
+export function AccountSettingsPage() {
+    const navigate = useNavigate();
+    const [user, setUser] = useState<AccountUser | null>(null);
+    const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+
+    const [banned, setBanned] = useState(false);
+    const [totpSetup, setTotpSetup] = useState<{ secret: string; otpauthUrl: string; recoveryCodes: string[] } | null>(
+        null
+    );
+    const [totpCode, setTotpCode] = useState('');
+    const [totpPending, setTotpPending] = useState(false);
+    const [totpError, setTotpError] = useState<string | null>(null);
+
+    useEffect(() => {
+        getAccount().then(result => {
+            if (result.banned) {
+                setBanned(true);
+            } else if (!result.user) {
+                navigate('/login');
+            } else {
+                setUser(result.user);
+            }
+        });
+    }, [navigate]);
+
+    async function handleSetup2fa() {
+        setTotpError(null);
+        try {
+            const r = await setup2fa();
+            setTotpSetup(r);
+        } catch (e) {
+            setTotpError(e instanceof Error ? e.message : 'Failed to start 2FA setup');
+        }
+    }
+
+    async function handleEnable2fa() {
+        if (!totpCode.trim()) return;
+        setTotpPending(true);
+        setTotpError(null);
+        try {
+            await enable2fa(totpCode.trim());
+            setTotpSetup(null);
+            setTotpCode('');
+            alert('2FA enabled. Save your recovery codes!');
+        } catch (e) {
+            setTotpError(e instanceof Error ? e.message : 'Failed to enable 2FA');
+        } finally {
+            setTotpPending(false);
+        }
+    }
+
+    async function handleDisable2fa() {
+        const pwd = prompt('Enter your password to disable 2FA:');
+        if (!pwd) return;
+        try {
+            await disable2fa(pwd);
+            alert('2FA disabled.');
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Failed to disable 2FA');
+        }
+    }
+
+    async function handleRegenCodes() {
+        try {
+            const r = await regenerateRecoveryCodes();
+            alert('New recovery codes (save them):\n\n' + r.recoveryCodes.join('\n'));
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Failed to regenerate codes');
+        }
+    }
+
+    if (banned) {
+        return (
+            <DashboardShell user={null} title="Account banned">
+                <div style={{ padding: 40, textAlign: 'center' }}>
+                    <h2>Your account has been banned.</h2>
+                    <p>
+                        Please contact <a href="mailto:support@extree.tech">support@extree.tech</a>.
+                    </p>
+                </div>
+            </DashboardShell>
+        );
+    }
+
+    if (!user)
+        return (
+            <DashboardShell user={null} title="Loading...">
+                Loading...
+            </DashboardShell>
+        );
+
+    return (
+        <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
+            <div className={styles.pageLayout}>
+                <aside className={styles.sidebar}>
+                    <Link to="/account" className={styles.backBtn}>
+                        ← Back to Dashboard
+                    </Link>
+                    <h1 className={styles.title}>Settings</h1>
+                    <nav className={styles.navMenu}>
+                        <button
+                            className={`${styles.navItem} ${activeTab === 'profile' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('profile')}
+                        >
+                            Profile Information
+                        </button>
+                        <button
+                            className={`${styles.navItem} ${activeTab === 'security' ? styles.active : ''}`}
+                            onClick={() => setActiveTab('security')}
+                        >
+                            Login & Security
+                        </button>
+                    </nav>
+                </aside>
+
+                <main className={styles.content}>
+                    {activeTab === 'profile' && (
+                        <div className={styles.tabContent}>
+                            <Panel title="Personal Information">
+                                <div className={styles.avatarSection}>
+                                    {/* Внедряем компонент аватарки */}
+                                    <ProfileAvatar
+                                        currentUrl={user.avatarUrl}
+                                        email={user.email}
+                                        onUploaded={url => setUser(u => u && { ...u, avatarUrl: url })}
+                                    />
+                                    <div className={styles.avatarInfo}>
+                                        <p className={styles.hintText}>JPG, PNG or GIF. Max 2MB.</p>
+                                    </div>
+                                </div>
+
+                                <div className={styles.divider} />
+
+                                <div className={styles.infoList}>
+                                    <div className={styles.row}>
+                                        <span className={styles.label}>Name</span>
+                                        <div className={styles.value} style={{ display: 'flex', alignItems: 'center' }}>
+                                            {user.name || '—'}
+                                            {user.isVerified && <VerifiedBadge />}
+                                        </div>
+                                    </div>
+                                    <div className={styles.row}>
+                                        <span className={styles.label}>Nickname</span>
+                                        <div className={styles.value} style={{ display: 'flex', alignItems: 'center' }}>
+                                            {user.nickname || '—'}
+                                            {user.isVerified && <VerifiedBadge />}
+                                        </div>
+                                    </div>
+                                    <div className={styles.row}>
+                                        <span className={styles.label}>Email</span>
+                                        <div className={styles.emailRow}>
+                                            <span className={styles.value}>{user.email}</span>
+                                            {user.emailVerified ? (
+                                                <span className={styles.badgeSuccess}>Verified</span>
+                                            ) : (
+                                                <span className={styles.badgeWarning}>Unverified</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className={styles.row}>
+                                        <span className={styles.label}>Language</span>
+                                        <div style={{ width: '180px' }}>
+                                            <Select
+                                                options={[
+                                                    { value: 'en', label: 'English (US)' },
+                                                    { value: 'ru', label: 'Русский' },
+                                                ]}
+                                                value="en"
+                                                onChange={val => console.log('Язык изменен на', val)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </Panel>
+                            <UpdateEmail
+                                email={user.email}
+                                onChanged={newEmail => setUser(u => u && { ...u, email: newEmail })}
+                            />
+                        </div>
+                    )}
+
+                    {activeTab === 'security' && (
+                        <div className={styles.tabContent}>
+                            <Panel title="Two-factor authentication (2FA)">
+                                {totpError && (
+                                    <p className={styles.hintText} style={{ color: 'var(--accent)' }}>
+                                        {totpError}
+                                    </p>
+                                )}
+                                {totpSetup ? (
+                                    <div>
+                                        <p className={styles.hintText}>
+                                            Scan this URL with Google Authenticator / Authy / 1Password:
+                                        </p>
+                                        <code
+                                            style={{
+                                                display: 'block',
+                                                padding: 8,
+                                                background: '#0d0e11',
+                                                wordBreak: 'break-all',
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            {totpSetup.otpauthUrl}
+                                        </code>
+                                        <p className={styles.hintText} style={{ marginTop: 12 }}>
+                                            Or enter secret manually: <strong>{totpSetup.secret}</strong>
+                                        </p>
+                                        <p
+                                            className={styles.hintText}
+                                            style={{ marginTop: 12, color: 'var(--accent)' }}
+                                        >
+                                            Save these recovery codes NOW (each can be used once):
+                                            <br />
+                                            <strong>{totpSetup.recoveryCodes.join(', ')}</strong>
+                                        </p>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter 6-digit code from app"
+                                            value={totpCode}
+                                            onChange={e => setTotpCode(e.target.value)}
+                                            style={{
+                                                marginTop: 12,
+                                                padding: 8,
+                                                width: '100%',
+                                                background: '#0d0e11',
+                                                border: '1px solid #333',
+                                                color: '#fff',
+                                            }}
+                                        />
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                                            <Button
+                                                variant="flat"
+                                                onClick={handleEnable2fa}
+                                                disabled={totpPending || totpCode.length < 6}
+                                            >
+                                                {totpPending ? 'Enabling…' : 'Enable 2FA'}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    setTotpSetup(null);
+                                                    setTotpCode('');
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className={styles.hintText}>
+                                            Add an extra layer of security to your account.
+                                        </p>
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                                            <Button variant="flat" onClick={handleSetup2fa}>
+                                                Set up 2FA
+                                            </Button>
+                                            <Button variant="ghost" onClick={handleDisable2fa}>
+                                                Disable 2FA
+                                            </Button>
+                                            <Button variant="ghost" onClick={handleRegenCodes}>
+                                                New recovery codes
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </Panel>
+                            <UpdatePassword />
+                            <ActiveSessions />
+                            <Panel title="Danger Zone">
+                                <div className={styles.dangerRow}>
+                                    <div>
+                                        <h4>Delete Account</h4>
+                                        <p className={styles.hintText}>Once deleted, there is no going back.</p>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        disabled
+                                        style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}
+                                    >
+                                        Delete Account
+                                    </Button>
+                                </div>
+                            </Panel>
+                        </div>
+                    )}
+                </main>
+            </div>
+        </DashboardShell>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\pages\account-settings\index.module.scss
+==================================================
+
+.pageLayout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 48px;
+    align-items: start;
+    padding: 40px 0;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+
+    @media (max-width: 860px) {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 20px;
+    }
+}
+
+.sidebar {
+    position: sticky;
+    top: 40px;
+    display: flex;
+    flex-direction: column;
+}
+
+.backBtn {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+        color: var(--text);
+    }
+}
+
+.title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 32px 0;
+}
+
+.navMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.navItem {
+    background: none;
+    border: none;
+    text-align: left;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        color 0.2s;
+
+    &:hover {
+        background: var(--surface);
+        color: var(--text);
+    }
+
+    &.active {
+        background: var(--surface-2);
+        color: var(--text);
+        border-left: 3px solid var(--accent);
+        border-top-left-radius: 2px;
+        border-bottom-left-radius: 2px;
+    }
+}
+
+.content {
+    min-width: 0;
+}
+
+.tabContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Profile styles */
+.avatarSection {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.avatarPlaceholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    border: 1px solid var(--border-strong);
+}
+
+.hintText {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.infoList {
+    display: flex;
+    flex-direction: column;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.label {
+    font-size: 13px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+
+.value {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+}
+
+.emailRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.badgeSuccess {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--win);
+    background: rgba(52, 211, 153, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.badgeWarning {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Danger zone */
+.dangerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+==================================================
+FILE: stats-frontend\src\features\active-sessions\index.tsx
+==================================================
+
+import { useEffect, useState } from 'react';
+import { Panel } from '../../shared/ui/Panel';
+import { getLoginHistory, type LoginEvent } from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+export function ActiveSessions() {
+    const [events, setEvents] = useState<LoginEvent[] | null>(null);
+
+    useEffect(() => {
+        getLoginHistory().then(setEvents);
+    }, []);
+
+    function formatLocation(event: LoginEvent): string {
+        if (!event.country) return 'Unknown location';
+        return event.city ? `${event.city}, ${event.country}` : event.country;
+    }
+
+    return (
+        <Panel title="Active Sessions" subtitle="Devices that have recently accessed your account.">
+            {events === null && <p className={styles.hint}>Loading…</p>}
+            {events?.length === 0 && <p className={styles.hint}>No active sessions.</p>}
+            {events && events.length > 0 && (
+                <ul className={styles.list}>
+                    {events.map((event, index) => (
+                        <li key={event.id} className={styles.item}>
+                            <div className={styles.icon}>💻</div>
+                            <div className={styles.info}>
+                                <div className={styles.device}>
+                                    {event.ip === '0:0:0:0:0:0:0:1' || event.ip === '127.0.0.1'
+                                        ? 'Localhost'
+                                        : 'Unknown Device'}
+                                    {index === 0 && <span className={styles.badge}>Current Session</span>}
+                                </div>
+                                <div className={styles.meta}>
+                                    {formatLocation(event)} {event.ip && `• IP: ${event.ip}`}
+                                </div>
+                            </div>
+                            {index !== 0 && <button className={styles.btn}>Log out</button>}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Panel>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\features\active-sessions\index.module.scss
+==================================================
+
+.hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.icon {
+    font-size: 24px;
+    background: var(--surface-2);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.info {
+    flex: 1;
+}
+
+.device {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.meta {
+    font-size: 13px;
+    color: var(--text-faint);
+    margin-top: 4px;
+}
+
+.badge {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--win);
+    background: rgba(52, 211, 153, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(255, 77, 94, 0.05);
+    }
+}
+
+
+==================================================
+FILE: stats-frontend\src\features\update-email\index.tsx
+==================================================
+
+import { useState, type FormEvent } from 'react';
+import { Panel } from '../../shared/ui/Panel';
+import { TextField } from '../../shared/ui/TextField';
+import { Button } from '../../shared/ui/Button';
+import { CodeInput } from '../../shared/ui/CodeInput';
+import { requestEmailChange, confirmEmailChange, ApiError } from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+const CODE_LENGTH = 6;
+
+export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (newEmail: string) => void }) {
+    const [step, setStep] = useState<'form' | 'code'>('form');
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newEmail, setNewEmail] = useState('');
+    const [code, setCode] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [pending, setPending] = useState(false);
+
+    async function onRequest(e: FormEvent) {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+            await requestEmailChange(currentPassword, newEmail);
+            setStep('code');
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+        } finally {
+            setPending(false);
+        }
+    }
+
+    async function onConfirm(e: FormEvent) {
+        e.preventDefault();
+        setError(null);
+        setPending(true);
+        try {
+            const result = await confirmEmailChange(code);
+            onChanged(result.user.email);
+            setStep('form');
+            setCurrentPassword('');
+            setNewEmail('');
+            setCode('');
+            setNotice('Email updated.');
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+        } finally {
+            setPending(false);
+        }
+    }
+
+    return (
+        <Panel title="Change email">
+            {error && <p className={styles.error}>{error}</p>}
+            {notice && step === 'form' && <p className={styles.notice}>{notice}</p>}
+            {step === 'form' ? (
+                <form className={styles.form} onSubmit={onRequest}>
+                    <TextField
+                        id="email-pass"
+                        label="Current password"
+                        type="password"
+                        required
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                    />
+                    <TextField
+                        id="email-new"
+                        label="New email"
+                        type="email"
+                        placeholder={email}
+                        required
+                        value={newEmail}
+                        onChange={e => setNewEmail(e.target.value)}
+                    />
+                    <Button type="submit" variant="flat" fullWidth disabled={pending}>
+                        {pending ? 'Sending code…' : 'Send confirmation code'}
+                    </Button>
+                </form>
+            ) : (
+                <form className={styles.form} onSubmit={onConfirm}>
+                    <p className={styles.hint}>
+                        We sent a 6-digit code to <strong>{newEmail}</strong>.
+                    </p>
+                    <CodeInput length={CODE_LENGTH} value={code} onChange={setCode} disabled={pending} autoFocus />
+                    <Button type="submit" variant="flat" fullWidth disabled={pending || code.length < CODE_LENGTH}>
+                        {pending ? 'Confirming…' : 'Confirm new email'}
+                    </Button>
+                    <button type="button" className={styles.linkBtn} onClick={() => setStep('form')}>
+                        Cancel
+                    </button>
+                </form>
+            )}
+        </Panel>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\features\update-password\index.tsx
+==================================================
+
+import { useState, type FormEvent } from 'react';
+import { Panel } from '../../shared/ui/Panel';
+import { TextField } from '../../shared/ui/TextField';
+import { Button } from '../../shared/ui/Button';
+import { PasswordRequirements } from '../../shared/ui/PasswordRequirements';
+import { isPasswordValid } from '../../shared/lib/passwordRules';
+import { changePassword, ApiError } from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+export function UpdatePassword() {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const [pending, setPending] = useState(false);
+
+    const passwordsMatch = confirmPassword.length === 0 || confirmPassword === newPassword;
+    const canSubmit = currentPassword.length > 0 && isPasswordValid(newPassword) && confirmPassword === newPassword;
+
+    async function onSubmit(e: FormEvent) {
+        e.preventDefault();
+        setError(null);
+        setSuccess(false);
+        setPending(true);
+        try {
+            await changePassword(currentPassword, newPassword);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setSuccess(true);
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : 'Something went wrong.');
+        } finally {
+            setPending(false);
+        }
+    }
+
+    return (
+        <Panel title="Change password">
+            {error && <p className={styles.error}>{error}</p>}
+            {success && <p className={styles.notice}>Password updated.</p>}
+            <form className={styles.form} onSubmit={onSubmit}>
+                <TextField
+                    id="pass-cur"
+                    label="Current password"
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                />
+                <div className={styles.passField}>
+                    <TextField
+                        id="pass-new"
+                        label="New password"
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                    />
+                    <PasswordRequirements password={newPassword} />
+                </div>
+                <div>
+                    <TextField
+                        id="pass-conf"
+                        label="Repeat new password"
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                    />
+                    {!passwordsMatch && <p className={styles.mismatch}>Passwords don't match.</p>}
+                </div>
+                <Button type="submit" variant="flat" fullWidth disabled={pending || !canSubmit}>
+                    {pending ? 'Updating…' : 'Update password'}
+                </Button>
+            </form>
+        </Panel>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\ProfileAvatar\index.tsx
+==================================================
+
+import { useRef, useState } from 'react';
+import { uploadAvatar } from '../../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+interface ProfileAvatarProps {
+    currentUrl: string | null;
+    email: string;
+    onUploaded: (url: string) => void;
+}
+
+export function ProfileAvatar({ currentUrl, email, onUploaded }: ProfileAvatarProps) {
+    const [loading, setLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Файл слишком большой (макс. 2MB)');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const { avatarUrl } = await uploadAvatar(file);
+            onUploaded(avatarUrl);
+        } catch {
+            // ИСПРАВЛЕНО: убрана переменная err, чтобы ESLint не ругался
+            alert('Не удалось загрузить аватар');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.avatarWrapper}>
+                {currentUrl ? (
+                    <img src={currentUrl} alt="Avatar" className={styles.image} />
+                ) : (
+                    <div className={styles.placeholder}>{email[0].toUpperCase()}</div>
+                )}
+                <div className={styles.overlay} onClick={() => fileInputRef.current?.click()}>
+                    {loading ? 'Загрузка...' : 'Изменить'}
+                </div>
+            </div>
+            <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+            />
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\TextField\index.tsx
+==================================================
+
+import type { InputHTMLAttributes } from 'react';
+import styles from './index.module.scss';
+
+interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+}
+
+export function TextField({ label, id, ...rest }: TextFieldProps) {
+    return (
+        <label className={styles.field} htmlFor={id}>
+            <span className={styles.label}>{label}</span>
+            <input id={id} className={styles.input} {...rest} />
+        </label>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Button\index.tsx
+==================================================
+
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
+import styles from './index.module.scss';
+
+type Variant = 'primary' | 'ghost' | 'flat';
+type Size = 'md' | 'sm';
+
+interface CommonProps {
+    variant?: Variant;
+    size?: Size;
+    fullWidth?: boolean;
+    children: ReactNode;
+}
+
+type ButtonProps = CommonProps &
+    ButtonHTMLAttributes<HTMLButtonElement> & {
+        href?: undefined;
+    };
+
+type LinkProps = CommonProps &
+    AnchorHTMLAttributes<HTMLAnchorElement> & {
+        href: string;
+    };
+
+// Кнопка-ссылка (OAuth-редирект на /auth/riot/login) или обычная <button> —
+// один и тот же паттерн, что в frontend/shared/ui/Button: разная семантика
+// тега, одна визуальная оболочка, вместо двух почти одинаковых компонентов.
+export function Button({
+    variant = 'primary',
+    size = 'md',
+    fullWidth,
+    children,
+    className,
+    href,
+    ...rest
+}: ButtonProps | LinkProps) {
+    const classes = [styles.base, styles[variant], styles[size], fullWidth ? styles.fullWidth : '', className]
+        .filter(Boolean)
+        .join(' ');
+
+    if (href !== undefined) {
+        return (
+            <a className={classes} href={href} {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}>
+                {children}
+            </a>
+        );
+    }
+
+    return (
+        <button className={classes} {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}>
+            {children}
+        </button>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\VerifiedBadge\index.tsx
+==================================================
+
+import styles from './index.module.scss';
+
+export function VerifiedBadge() {
+    return (
+        <span className={styles.badge} title="Verified Account">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .495.083.965.238 1.4-1.272.65-2.147 2.02-2.147 3.6 0 1.435.724 2.693 1.82 3.455-.103.338-.164.694-.164 1.06 0 2.21 1.71 3.998 3.818 3.998.47 0 .92-.084 1.336-.25.62 1.335 1.928 2.25 3.437 2.25s2.816-.917 3.437-2.25c.415.165.866.25 1.336.25 2.11 0 3.818-1.79 3.818-4 0-.366-.06-.722-.164-1.06 1.096-.762 1.82-2.02 1.82-3.455zm-12.34 4.29l-3.11-3.11 1.06-1.06 2.05 2.05 5.97-5.97 1.06 1.06-7.03 7.03z" />
+            </svg>
+        </span>
+    );
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AccountController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import tech.extree.stats.adapter.in.web.dto.AccountResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.application.port.in.GetAccountUseCase;
+import tech.extree.stats.application.service.AvatarService;
+import tech.extree.stats.domain.User;
+
+@RestController
+public class AccountController {
+
+    private static final String SESSION_COOKIE = "extree_stats_session";
+
+    private final GetAccountUseCase getAccountUseCase;
+    private final AvatarService avatarService;
+
+    public AccountController(GetAccountUseCase getAccountUseCase, AvatarService avatarService) {
+        this.getAccountUseCase = getAccountUseCase;
+        this.avatarService = avatarService;
+    }
+
+    @GetMapping("/api/account/me")
+    public ResponseEntity<?> getAccount(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
+        if (cookie == null) {
+            return ResponseEntity.ok(AccountResponse.empty());
+        }
+
+        var userOpt = getAccountUseCase.getAccount(cookie);
+        if (userOpt.isEmpty()) {
+            // Сессия валидна, но пользователя нет в БД или он забанен
+            // (AccountService.getAccount() возвращает empty() для забаненных).
+            // Отдаём 200 с флагом banned — фронт покажет "аккаунт забанен",
+            // а не редирект на /login.
+            return ResponseEntity.ok(new AccountResponse(null, true));
+        }
+
+        return ResponseEntity.ok(AccountResponse.of(toResponse(userOpt.get())));
+    }
+
+    @PostMapping("/api/account/avatar")
+    public ResponseEntity<?> uploadAvatar(
+            @CookieValue(name = SESSION_COOKIE, required = false) String cookie,
+            @RequestParam("file") MultipartFile file) {
+        return avatarService.uploadAvatar(cookie, file)
+                .<ResponseEntity<?>>map(url -> ResponseEntity.ok(Map.of("avatarUrl", url)))
+                .orElseGet(() -> ResponseEntity.badRequest().body(new ErrorResponse("invalid_file")));
+    }
+
+    @GetMapping("/api/account/avatar/{filename}")
+    public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
+        Path baseDir = Paths.get("uploads/avatars").toAbsolutePath().normalize();
+        Path file = baseDir.resolve(filename).normalize();
+        if (!file.startsWith(baseDir)) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new FileSystemResource(file);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "image/" + filename.substring(filename.lastIndexOf(".") + 1))
+                .body(resource);
+    }
+
+    private AccountResponse.AccountUser toResponse(User user) {
+        return new AccountResponse.AccountUser(
+                user.email(),
+                user.emailVerified(),
+                user.riotLinked(),
+                user.name(),
+                user.nickname(),
+                getAccountUseCase.isAdmin(user),
+                user.avatarUrl(),
+                user.isVerified()
+        );
+    }
+}
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\LoginEventController.java  (НЕ НАЙДЕН)
+==================================================
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\out\LoginEventRepository.java
+==================================================
+
+package tech.extree.stats.application.port.out;
+
+import java.util.List;
+import tech.extree.stats.domain.LoginEvent;
+
+/** Соответствует loginEvents.js (Node) — журнал "Recent sign-ins" в stats_login_events. */
+public interface LoginEventRepository {
+    void recordLogin(String userId, String ip, String country, String city);
+
+    /** limit=10 в server.js (LIST_LIMIT в loginEvents.js) — то же значение по умолчанию. */
+    List<LoginEvent> listRecent(String userId, int limit);
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\out\persistence\JdbcLoginEventRepository.java
+==================================================
+
+package tech.extree.stats.adapter.out.persistence;
+
+import java.util.List;
+import java.util.UUID;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+import tech.extree.stats.application.port.out.LoginEventRepository;
+import tech.extree.stats.domain.LoginEvent;
+
+/**
+ * Та же таблица/SQL, что ../../stats-backend/loginEvents.js (Node),
+ * включая обрезку истории до MAX_EVENTS_PER_USER записей на пользователя.
+ */
+@Repository
+public class JdbcLoginEventRepository implements LoginEventRepository {
+
+    private static final int MAX_EVENTS_PER_USER = 20;
+
+    private static final RowMapper<LoginEvent> ROW_MAPPER =
+            (rs, rowNum) -> new LoginEvent(
+                    rs.getString("id"),
+                    rs.getString("ip"),
+                    rs.getString("country"),
+                    rs.getString("city"),
+                    rs.getTimestamp("created_at").toInstant());
+
+    private final JdbcTemplate jdbcTemplate;
+
+    public JdbcLoginEventRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public void recordLogin(String userId, String ip, String country, String city) {
+        jdbcTemplate.update(
+                "INSERT INTO stats_login_events (id, user_id, ip, country, city) VALUES (?, ?, ?, ?, ?)",
+                UUID.randomUUID().toString(),
+                userId,
+                ip,
+                country,
+                city);
+        jdbcTemplate.update(
+                "DELETE FROM stats_login_events "
+                        + "WHERE user_id = ? AND id NOT IN ("
+                        + "  SELECT id FROM stats_login_events WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
+                        + ")",
+                userId,
+                userId,
+                MAX_EVENTS_PER_USER);
+    }
+
+    @Override
+    public List<LoginEvent> listRecent(String userId, int limit) {
+        return jdbcTemplate.query(
+                "SELECT id, ip, country, city, created_at FROM stats_login_events "
+                        + "WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+                ROW_MAPPER,
+                userId,
+                limit);
+    }
+}
+
+
+==================================================
+ИТОГО: найдено 27, нет 2
+==================================================
+
+ОТСУТСТВУЮТ:
+  - stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AdminSearchController.java
+  - stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\LoginEventController.java

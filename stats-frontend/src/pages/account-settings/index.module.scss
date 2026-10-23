@@ -197,3 +197,44 @@
         transform: translateY(0);
     }
 }
+
+/* === Профиль: режим просмотра === */
+.viewHeader {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+}
+
+.viewHeaderText {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.viewName {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    line-height: 1.2;
+}
+
+.viewEmail {
+    font-size: 14px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.profileActions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}

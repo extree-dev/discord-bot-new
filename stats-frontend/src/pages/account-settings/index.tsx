@@ -18,11 +18,14 @@ import { ActiveSessions } from '../../features/active-sessions';
 import { Select } from '../../shared/ui/Select';
 import styles from './index.module.scss';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
+import { TextField } from '../../shared/ui/TextField';
+import { QRCodeSVG } from 'qrcode.react';
 
 export function AccountSettingsPage() {
     const navigate = useNavigate();
     const [user, setUser] = useState<AccountUser | null>(null);
     const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
 
     const [banned, setBanned] = useState(false);
     const [totpSetup, setTotpSetup] = useState<{ secret: string; otpauthUrl: string; recoveryCodes: string[] } | null>(
@@ -138,60 +141,105 @@ export function AccountSettingsPage() {
                     {activeTab === 'profile' && (
                         <div className={styles.tabContent}>
                             <Panel title="Personal Information">
-                                <div className={styles.avatarSection}>
-                                    {/* Внедряем компонент аватарки */}
-                                    <ProfileAvatar
-                                        currentUrl={user.avatarUrl}
-                                        email={user.email}
-                                        onUploaded={url => setUser(u => u && { ...u, avatarUrl: url })}
-                                    />
-                                    <div className={styles.avatarInfo}>
-                                        <p className={styles.hintText}>JPG, PNG or GIF. Max 2MB.</p>
-                                    </div>
-                                </div>
-
-                                <div className={styles.divider} />
-
-                                <div className={styles.infoList}>
-                                    <div className={styles.row}>
-                                        <span className={styles.label}>Name</span>
-                                        <div className={styles.value} style={{ display: 'flex', alignItems: 'center' }}>
-                                            {user.name || '—'}
-                                            {user.isVerified && <VerifiedBadge />}
-                                        </div>
-                                    </div>
-                                    <div className={styles.row}>
-                                        <span className={styles.label}>Nickname</span>
-                                        <div className={styles.value} style={{ display: 'flex', alignItems: 'center' }}>
-                                            {user.nickname || '—'}
-                                            {user.isVerified && <VerifiedBadge />}
-                                        </div>
-                                    </div>
-                                    <div className={styles.row}>
-                                        <span className={styles.label}>Email</span>
-                                        <div className={styles.emailRow}>
-                                            <span className={styles.value}>{user.email}</span>
-                                            {user.emailVerified ? (
-                                                <span className={styles.badgeSuccess}>Verified</span>
-                                            ) : (
-                                                <span className={styles.badgeWarning}>Unverified</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className={styles.row}>
-                                        <span className={styles.label}>Language</span>
-                                        <div style={{ width: '180px' }}>
-                                            <Select
-                                                options={[
-                                                    { value: 'en', label: 'English (US)' },
-                                                    { value: 'ru', label: 'Русский' },
-                                                ]}
-                                                value="en"
-                                                onChange={val => console.log('Язык изменен на', val)}
+                                {isEditingProfile ? (
+                                    <>
+                                        {/* === РЕЖИМ РЕДАКТИРОВАНИЯ === */}
+                                        <div className={styles.avatarSection}>
+                                            <ProfileAvatar
+                                                currentUrl={user.avatarUrl}
+                                                email={user.email}
+                                                onUploaded={url => setUser(u => u && { ...u, avatarUrl: url })}
                                             />
+                                            <div className={styles.avatarInfo}>
+                                                <p className={styles.hintText}>JPG, PNG or GIF. Max 2MB.</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
+                                        <div className={styles.divider} />
+                                        <div className={styles.infoList}>
+                                            <div className={styles.row}>
+                                                <span className={styles.label}>Name</span>
+                                                <div style={{ width: '60%' }}>
+                                                    <TextField
+                                                        id="profile-name"
+                                                        label=""
+                                                        value={user.name || ''}
+                                                        onChange={e =>
+                                                            setUser(u => u && { ...u, name: e.target.value })
+                                                        }
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className={styles.row}>
+                                                <span className={styles.label}>Nickname</span>
+                                                <div style={{ width: '60%' }}>
+                                                    <TextField
+                                                        id="profile-nickname"
+                                                        label=""
+                                                        value={user.nickname || ''}
+                                                        onChange={e =>
+                                                            setUser(u => u && { ...u, nickname: e.target.value })
+                                                        }
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className={styles.row}>
+                                                <span className={styles.label}>Email</span>
+                                                <span className={styles.value}>{user.email}</span>
+                                            </div>
+                                            <div className={styles.row}>
+                                                <span className={styles.label}>Language</span>
+                                                <div style={{ width: '180px' }}>
+                                                    <Select
+                                                        options={[
+                                                            { value: 'en', label: 'English (US)' },
+                                                            { value: 'ru', label: 'Русский' },
+                                                        ]}
+                                                        value="en"
+                                                        onChange={val => console.log('Язык изменен на', val)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={styles.profileActions}>
+                                            <Button variant="flat" onClick={() => setIsEditingProfile(false)}>
+                                                Save
+                                            </Button>
+                                            <Button variant="ghost" onClick={() => setIsEditingProfile(false)}>
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* === РЕЖИМ ПРОСМОТРА === */}
+                                        <div className={styles.viewHeader}>
+                                            <ProfileAvatar
+                                                currentUrl={user.avatarUrl}
+                                                email={user.email}
+                                                onUploaded={url => setUser(u => u && { ...u, avatarUrl: url })}
+                                            />
+                                            <div className={styles.viewHeaderText}>
+                                                <div className={styles.viewName}>
+                                                    {user.name || '—'}
+                                                    {user.isVerified && <VerifiedBadge />}
+                                                </div>
+                                                <div className={styles.viewEmail}>
+                                                    {user.email}
+                                                    {user.emailVerified ? (
+                                                        <span className={styles.badgeSuccess}>Verified</span>
+                                                    ) : (
+                                                        <span className={styles.badgeWarning}>Unverified</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className={styles.profileActions}>
+                                            <Button variant="flat" onClick={() => setIsEditingProfile(true)}>
+                                                Edit profile
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             </Panel>
                             <UpdateEmail
                                 email={user.email}
@@ -213,17 +261,18 @@ export function AccountSettingsPage() {
                                         <p className={styles.hintText}>
                                             Scan this URL with Google Authenticator / Authy / 1Password:
                                         </p>
-                                        <code
+                                        <div
                                             style={{
-                                                display: 'block',
-                                                padding: 8,
-                                                background: '#0d0e11',
-                                                wordBreak: 'break-all',
-                                                fontSize: 12,
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                padding: 16,
+                                                background: '#fff',
+                                                borderRadius: 8,
+                                                width: 'fit-content',
                                             }}
                                         >
-                                            {totpSetup.otpauthUrl}
-                                        </code>
+                                            <QRCodeSVG value={totpSetup.otpauthUrl} size={200} />
+                                        </div>
                                         <p className={styles.hintText} style={{ marginTop: 12 }}>
                                             Or enter secret manually: <strong>{totpSetup.secret}</strong>
                                         </p>
