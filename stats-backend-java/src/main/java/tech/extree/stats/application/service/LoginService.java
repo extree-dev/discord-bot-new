@@ -86,7 +86,7 @@ public class LoginService implements LoginUseCase {
     }
 
     @Override
-    public LoginResult login(String rawEmail, String password, String turnstileToken, String clientIp, boolean rememberMe) {
+    public LoginResult login(String rawEmail, String password, String turnstileToken, String clientIp, String userAgent, boolean rememberMe) {
         String email = Validation.normalizeEmail(rawEmail);
 
         if (!turnstileVerifier.verify(turnstileToken, clientIp)) {
@@ -148,7 +148,7 @@ public class LoginService implements LoginUseCase {
         }
 
         loginLocationRepository.rememberLocation(user.id(), location.country(), location.city(), clientIp);
-        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), null);
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent);
         loginAttemptRepository.record(email, clientIp, location.country(), true, "ok");
         try {
             mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), UtcTime.now());
@@ -187,7 +187,7 @@ public class LoginService implements LoginUseCase {
     }
 
     @Override
-    public ConfirmLocationResult confirmLocation(String rawEmail, String rawCode) {
+    public ConfirmLocationResult confirmLocation(String rawEmail, String rawCode, String userAgent) {
         String email = Validation.normalizeEmail(rawEmail);
         String code = rawCode == null ? "" : rawCode.trim();
         if (!Validation.isValidEmail(email) || code.isEmpty()) {
@@ -218,7 +218,7 @@ public class LoginService implements LoginUseCase {
         User user = maybeUser.get();
 
         loginLocationRepository.rememberLocation(user.id(), row.country(), row.city(), row.ip());
-        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city(), null);
+        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city(), userAgent);
         loginCodeRepository.deleteCode(email);
 
         String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));

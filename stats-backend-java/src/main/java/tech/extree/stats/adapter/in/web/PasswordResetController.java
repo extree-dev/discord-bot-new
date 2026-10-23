@@ -38,7 +38,7 @@ public class PasswordResetController {
     @PostMapping("/auth/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request, HttpServletRequest httpRequest) {
         PasswordResetUseCase.ResetPasswordResult result =
-                passwordResetUseCase.resetPassword(request.token(), request.password(), ClientIp.from(httpRequest));
+                passwordResetUseCase.resetPassword(request.token(), request.password(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())

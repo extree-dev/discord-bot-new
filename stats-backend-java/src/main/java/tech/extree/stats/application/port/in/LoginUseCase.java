@@ -64,11 +64,11 @@ public interface LoginUseCase {
         BANNED
     }
 
-    LoginResult login(String email, String password, String turnstileToken, String clientIp, boolean rememberMe);
+    LoginResult login(String email, String password, String turnstileToken, String clientIp, String userAgent, boolean rememberMe);
 
     ResendLoginCodeOutcome resendCode(String email);
 
-    ConfirmLocationResult confirmLocation(String email, String code);
+    ConfirmLocationResult confirmLocation(String email, String code, String userAgent);
 
     /** Второй шаг 2FA: pre2faToken из cookie + totpCode. */
     Verify2faResult verify2fa(String pre2faToken, String totpCode);

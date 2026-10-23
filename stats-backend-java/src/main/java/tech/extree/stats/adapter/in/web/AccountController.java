@@ -13,6 +13,7 @@ import tech.extree.stats.adapter.in.web.dto.AccountResponse;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.application.port.in.GetAccountUseCase;
 import tech.extree.stats.application.service.AvatarService;
+import tech.extree.stats.application.service.TotpService;
 import tech.extree.stats.domain.User;
 
 @RestController
@@ -22,10 +23,12 @@ public class AccountController {
 
     private final GetAccountUseCase getAccountUseCase;
     private final AvatarService avatarService;
+    private final TotpService totpService;
 
-    public AccountController(GetAccountUseCase getAccountUseCase, AvatarService avatarService) {
+    public AccountController(GetAccountUseCase getAccountUseCase, AvatarService avatarService, TotpService totpService) {
         this.getAccountUseCase = getAccountUseCase;
         this.avatarService = avatarService;
+        this.totpService = totpService;
     }
 
     @GetMapping("/api/account/me")
@@ -80,7 +83,8 @@ public class AccountController {
                 user.nickname(),
                 getAccountUseCase.isAdmin(user),
                 user.avatarUrl(),
-                user.isVerified()
+                user.isVerified(),
+                totpService.isEnabled(user.id())
         );
     }
 }

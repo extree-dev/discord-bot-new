@@ -80,7 +80,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     }
 
     @Override
-    public ResetPasswordResult resetPassword(String rawToken, String newPassword, String clientIp) {
+    public ResetPasswordResult resetPassword(String rawToken, String newPassword, String clientIp, String userAgent) {
         String token = rawToken == null ? "" : rawToken.trim();
         if (token.isEmpty()) {
             return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_REQUEST);
@@ -111,7 +111,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         User user = maybeUser.get();
 
         Location location = geoLookup.lookup(clientIp);
-        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), null);
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent);
         try {
             mailer.sendPasswordChanged(user.email(), clientIp, location.country(), location.city(), UtcTime.now());
         } catch (Exception e) {

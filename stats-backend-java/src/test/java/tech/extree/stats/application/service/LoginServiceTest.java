@@ -76,7 +76,7 @@ class LoginServiceTest {
     @Test
     void loginTurnstileFails() {
         when(turnstileVerifier.verify("bad-token", "ip")).thenReturn(false);
-        var result = service.login("test@test.com", "pass", "bad-token", "ip", true);
+        var result = service.login("test@test.com", "pass", "bad-token", "ip", "ua", true);
         assertEquals(LoginUseCase.LoginOutcome.TURNSTILE_FAILED, result.outcome());
     }
 
@@ -84,7 +84,7 @@ class LoginServiceTest {
     void loginInvalidCredentials() {
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
         when(passwordHasher.verify("wrong", "hashed")).thenReturn(false);
-        var result = service.login("test@test.com", "wrong", "token", "ip", true);
+        var result = service.login("test@test.com", "wrong", "token", "ip", "ua", true);
         assertEquals(LoginUseCase.LoginOutcome.INVALID_CREDENTIALS, result.outcome());
     }
 
@@ -95,7 +95,7 @@ class LoginServiceTest {
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(unverified));
         when(passwordHasher.verify("pass", "hashed")).thenReturn(true);
 
-        var result = service.login("test@test.com", "pass", "token", "ip", true);
+        var result = service.login("test@test.com", "pass", "token", "ip", "ua", true);
         assertEquals(LoginUseCase.LoginOutcome.EMAIL_NOT_VERIFIED, result.outcome());
     }
 
@@ -106,10 +106,10 @@ class LoginServiceTest {
         when(loginLocationRepository.hasAnyKnownLocation("user-id")).thenReturn(true);
         when(loginLocationRepository.isKnownLocation("user-id", "US")).thenReturn(true);
 
-        var result = service.login("test@test.com", "pass", "token", "ip", true);
+        var result = service.login("test@test.com", "pass", "token", "ip", "ua", true);
         assertEquals(LoginUseCase.LoginOutcome.OK, result.outcome());
         assertEquals("cookie", result.sessionCookie());
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", null);
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua");
         verify(mailer).sendSignInNotification(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 }

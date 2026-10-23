@@ -34,7 +34,7 @@ public class JdbcLoginEventRepository implements LoginEventRepository {
     @Override
     public void recordLogin(String userId, String ip, String country, String city, String userAgent) {
         jdbcTemplate.update(
-                "INSERT INTO stats_login_events (id, user_id, ip, country, city) VALUES (?, ?, ?, ?, ?, ?)", UUID.randomUUID().toString(), userId, ip, country, city, userAgent);
+                "INSERT INTO stats_login_events (id, user_id, ip, country, city, user_agent) VALUES (?, ?, ?, ?, ?, ?)", UUID.randomUUID().toString(), userId, ip, country, city, userAgent);
         jdbcTemplate.update(
                 "DELETE FROM stats_login_events "
                         + "WHERE user_id = ? AND id NOT IN ("
