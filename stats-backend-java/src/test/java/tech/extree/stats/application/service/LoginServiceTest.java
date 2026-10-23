@@ -109,7 +109,7 @@ class LoginServiceTest {
         var result = service.login("test@test.com", "pass", "token", "ip", true);
         assertEquals(LoginUseCase.LoginOutcome.OK, result.outcome());
         assertEquals("cookie", result.sessionCookie());
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City");
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", null);
         verify(mailer).sendSignInNotification(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 }

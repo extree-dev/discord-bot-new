@@ -148,7 +148,7 @@ public class LoginService implements LoginUseCase {
         }
 
         loginLocationRepository.rememberLocation(user.id(), location.country(), location.city(), clientIp);
-        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city());
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), null);
         loginAttemptRepository.record(email, clientIp, location.country(), true, "ok");
         try {
             mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), UtcTime.now());
@@ -218,7 +218,7 @@ public class LoginService implements LoginUseCase {
         User user = maybeUser.get();
 
         loginLocationRepository.rememberLocation(user.id(), row.country(), row.city(), row.ip());
-        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city());
+        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city(), null);
         loginCodeRepository.deleteCode(email);
 
         String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));

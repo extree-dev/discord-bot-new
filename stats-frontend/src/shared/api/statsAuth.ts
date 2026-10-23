@@ -255,6 +255,7 @@ export interface LoginEvent {
     country: string | null;
     city: string | null;
     time: string;
+    device: string;
 }
 
 export async function getLoginHistory(): Promise<LoginEvent[]> {
@@ -394,4 +395,19 @@ export function verifyUser(userId: string, isVerified: boolean) {
 
 export function makeAdmin(userId: string, isAdmin: boolean) {
     return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
+}
+
+export function logoutSession(id: string) {
+    return postJson<{ ok: true }>(`/api/account/logout-session/${id}`, {});
+}
+
+// --- GLOBAL SEARCH (Cmd+K) ---
+
+export interface GlobalSearchResult {
+    tickets: { number: number; email: string; subject: string; status: string }[];
+    users: { id: string; email: string; name: string; nickname: string }[];
+}
+
+export function globalSearch(q: string) {
+    return getJson<GlobalSearchResult>(`/api/admin/search?q=${encodeURIComponent(q)}`);
 }

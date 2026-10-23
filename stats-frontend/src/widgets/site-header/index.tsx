@@ -5,6 +5,33 @@ import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
 import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
+// Кнопка ⌘K — открывает CommandPalette. Слушает keydown на уровне документа
+// через хук в CommandPalette, поэтому здесь достаточно dispatch-нуть event.
+function CmdKButton() {
+    function onClick() {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    }
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '4px 8px',
+                fontSize: 12,
+                color: 'var(--text-faint)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+            }}
+            aria-label="Open command palette"
+        >
+            ⌘K
+        </button>
+    );
+}
+
 interface SiteHeaderProps {
     rightSlot?: ReactNode;
     actions?: ReactNode;
@@ -34,6 +61,7 @@ export function SiteHeader({ rightSlot, actions }: SiteHeaderProps) {
                                 <Button href="/account" variant="primary" size="sm">
                                     Dashboard
                                 </Button>
+                                <CmdKButton />
                                 <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
                             </>
                         ) : (

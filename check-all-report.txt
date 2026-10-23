@@ -2,9 +2,9 @@
   CHECK-ALL REPORT
 ================================================================
   Repo:   C:\Users\roman.gorbach\discord-bot-new
-  Branch: feature/security-hardening
-  HEAD:   0e74098
-  When:   2026-10-23 15:53:15 +03:00
+  Branch: feature/command-palette
+  HEAD:   fca6351
+  When:   2026-10-23 16:18:15 +03:00
   OS:     Microsoft Windows NT 10.0.26200.0
   PS:     7.6.7
 ================================================================
@@ -26,7 +26,7 @@ Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
 
 EXIT CODE: 0
-DURATION:  8 сек
+DURATION:  4 сек
 
 ================================================================
 STEP: mvn test-compile
@@ -37,7 +37,7 @@ Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8
 
 
 EXIT CODE: 0
-DURATION:  6 сек
+DURATION:  4 сек
 
 ================================================================
 STEP: mvn test
@@ -52,7 +52,7 @@ WARNING: If a serviceability tool is not in use, please run with -Djdk.instrumen
 WARNING: Dynamic loading of agents will be disallowed by default in a future release
 Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
 Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-15:53:46.098 [main] WARN tech.extree.stats.application.service.RiotAuthService -- stats-backend-java: ?????? ?????? ???? ?? ????? Riot
+16:18:38.083 [main] WARN tech.extree.stats.application.service.RiotAuthService -- stats-backend-java: ?????? ?????? ???? ?? ????? Riot
 java.lang.RuntimeException: network down
 	at tech.extree.stats.application.service.RiotAuthService.handleCallback(RiotAuthService.java:65)
 	at tech.extree.stats.application.service.RiotAuthServiceTest.callbackSurvivesAdapterException(RiotAuthServiceTest.java:94)
@@ -125,7 +125,7 @@ java.lang.RuntimeException: network down
 	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
 	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-15:53:46.139 [main] WARN tech.extree.stats.application.service.RiotAuthService -- stats-backend-java: ?????? ?????? ???? ?? ????? Riot
+16:18:38.104 [main] WARN tech.extree.stats.application.service.RiotAuthService -- stats-backend-java: ?????? ?????? ???? ?? ????? Riot
 java.lang.RuntimeException: userinfo down
 	at tech.extree.stats.application.service.RiotAuthService.handleCallback(RiotAuthService.java:66)
 	at tech.extree.stats.application.service.RiotAuthServiceTest.callbackSurvivesIdentityException(RiotAuthServiceTest.java:104)
@@ -198,7 +198,7 @@ java.lang.RuntimeException: userinfo down
 	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
 	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-15:53:46.223 [main] WARN tech.extree.stats.application.service.RiotLookupService -- stats-backend-java: ?????? ?????? Riot-????????
+16:18:38.171 [main] WARN tech.extree.stats.application.service.RiotLookupService -- stats-backend-java: ?????? ?????? Riot-????????
 java.lang.RuntimeException: network down
 	at tech.extree.stats.application.service.RiotLookupService.lookup(RiotLookupService.java:38)
 	at tech.extree.stats.application.service.RiotLookupServiceTest.returnsApiErrorOnAdapterException(RiotLookupServiceTest.java:90)
@@ -274,7 +274,7 @@ java.lang.RuntimeException: network down
 
 
 EXIT CODE: 0
-DURATION:  16 сек
+DURATION:  15 сек
 
 === FRONTEND ===
 
@@ -303,17 +303,17 @@ CMD:  npm run build
 
 [36mvite v6.4.4 [32mbuilding for production...[36m[39m
 transforming...
-[32mΓ£ô[39m 429 modules transformed.
+[32mΓ£ô[39m 433 modules transformed.
 rendering chunks...
 computing gzip size...
 [2mdist/[22m[32mindex.html                 [39m[1m[2m  1.04 kB[22m[1m[22m[2m Γöé gzip:   0.47 kB[22m
-[2mdist/[22m[35massets/index-CD5SH5-d.css  [39m[1m[2m 52.20 kB[22m[1m[22m[2m Γöé gzip:   9.74 kB[22m
-[2mdist/[22m[36massets/index-rZXVV5_m.js   [39m[1m[2m462.24 kB[22m[1m[22m[2m Γöé gzip: 147.48 kB[22m
-[32mΓ£ô built in 4.42s[39m
+[2mdist/[22m[35massets/index-PFd99sV0.css  [39m[1m[2m 54.14 kB[22m[1m[22m[2m Γöé gzip:  10.06 kB[22m
+[2mdist/[22m[36massets/index-B3wndH91.js   [39m[1m[2m483.81 kB[22m[1m[22m[2m Γöé gzip: 155.49 kB[22m
+[32mΓ£ô built in 4.10s[39m
 
 
 EXIT CODE: 0
-DURATION:  11 сек
+DURATION:  10 сек
 
 ================================================================
 STEP: npm lint
@@ -348,41 +348,68 @@ EXIT CODE: 0
 DURATION:  9 сек
 
 === GIT STATUS ===
- M .gitignore
- M stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/AdminUserController.java
- M stats-backend-java/src/main/java/tech/extree/stats/application/service/AdminTicketService.java
- M stats-backend-java/src/test/java/tech/extree/stats/application/service/AdminTicketServiceTest.java
-?? check-all-report.txt
-?? stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/TwoFactorController.java
-?? stats-backend-java/src/main/resources/db/migration/V8__add_admin_audit.sql
-?? stats-backend-java/src/main/resources/db/migration/V9__add_login_attempts.sql
-?? stats-backend-java/src/test/java/tech/extree/stats/application/service/PasswordPolicyServiceTest.java
+ M check-all-report.txt
+ D stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/TotpController.java
+ M stats-backend-java/src/main/java/tech/extree/stats/adapter/out/persistence/JdbcLoginEventRepository.java
+ M stats-backend-java/src/main/java/tech/extree/stats/application/port/out/LoginEventRepository.java
+ M stats-backend-java/src/main/java/tech/extree/stats/application/service/LoginService.java
+ M stats-backend-java/src/main/java/tech/extree/stats/application/service/PasswordResetService.java
+ M stats-backend-java/src/main/java/tech/extree/stats/domain/LoginEvent.java
+ M stats-backend-java/src/test/java/tech/extree/stats/application/service/LoginServiceTest.java
+ M stats-backend-java/src/test/java/tech/extree/stats/application/service/PasswordResetServiceTest.java
+ M stats-frontend/package-lock.json
+ M stats-frontend/package.json
+ M stats-frontend/src/app/App.tsx
+ M stats-frontend/src/features/active-sessions/index.tsx
+ M stats-frontend/src/pages/account-settings/index.module.scss
+ M stats-frontend/src/pages/account-settings/index.tsx
+ M stats-frontend/src/shared/api/statsAuth.ts
+ M stats-frontend/src/widgets/site-header/index.tsx
+?? iteration-b-bundle.txt
+?? stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/AdminSearchController.java
+?? stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/LoginEventController.java
+?? stats-backend-java/src/main/java/tech/extree/stats/application/service/UserAgentParser.java
+?? stats-backend-java/src/main/resources/db/migration/V10__add_user_agent_to_login_events.sql
+?? stats-frontend/src/shared/lib/useKeyboardShortcut.ts
+?? stats-frontend/src/widgets/command-palette/
 
 
 === GIT DIFF --stat ===
-warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'stats-backend-java/src/main/java/tech/extree/stats/adapter/in/web/AdminUserController.java', CRLF will be replaced by LF the next time Git touches it
-warning: in the working copy of 'stats-backend-java/src/main/java/tech/extree/stats/application/service/AdminTicketService.java', CRLF will be replaced by LF the next time Git touches it
-warning: in the working copy of 'stats-backend-java/src/test/java/tech/extree/stats/application/service/AdminTicketServiceTest.java', CRLF will be replaced by LF the next time Git touches it
- .gitignore                                         |  7 +++++
- .../stats/adapter/in/web/AdminUserController.java  | 35 +++++++++++++++++++---
- .../application/service/AdminTicketService.java    | 22 ++++++++++++--
- .../service/AdminTicketServiceTest.java            |  6 +++-
- 4 files changed, 63 insertions(+), 7 deletions(-)
+warning: in the working copy of 'stats-backend-java/src/main/java/tech/extree/stats/adapter/out/persistence/JdbcLoginEventRepository.java', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'stats-backend-java/src/main/java/tech/extree/stats/application/port/out/LoginEventRepository.java', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'stats-backend-java/src/main/java/tech/extree/stats/domain/LoginEvent.java', CRLF will be replaced by LF the next time Git touches it
+ check-all-report.txt                               |  83 ++++-------
+ .../stats/adapter/in/web/TotpController.java       | 103 -------------
+ .../out/persistence/JdbcLoginEventRepository.java  |  23 +--
+ .../application/port/out/LoginEventRepository.java |   6 +-
+ .../stats/application/service/LoginService.java    |   4 +-
+ .../application/service/PasswordResetService.java  |   2 +-
+ .../java/tech/extree/stats/domain/LoginEvent.java  |   2 +-
+ .../application/service/LoginServiceTest.java      |   2 +-
+ .../service/PasswordResetServiceTest.java          |   2 +-
+ stats-frontend/package-lock.json                   |  10 ++
+ stats-frontend/package.json                        |   1 +
+ stats-frontend/src/app/App.tsx                     | 154 +++++++++----------
+ .../src/features/active-sessions/index.tsx         |  29 +++-
+ .../src/pages/account-settings/index.module.scss   |  41 ++++++
+ .../src/pages/account-settings/index.tsx           | 163 ++++++++++++++-------
+ stats-frontend/src/shared/api/statsAuth.ts         |  16 ++
+ stats-frontend/src/widgets/site-header/index.tsx   |  28 ++++
+ 17 files changed, 356 insertions(+), 313 deletions(-)
 
 
 ================================================================
   SUMMARY
 ================================================================
-  [OK  ] mvn compile             8 сек
-  [OK  ] mvn test-compile        6 сек
-  [OK  ] mvn test               16 сек
+  [OK  ] mvn compile             4 сек
+  [OK  ] mvn test-compile        4 сек
+  [OK  ] mvn test               15 сек
   [OK  ] npm typecheck           6 сек
-  [OK  ] npm build              11 сек
+  [OK  ] npm build              10 сек
   [OK  ] npm lint                4 сек
   [OK  ] npm format:check        9 сек
 
-  Total: 62 сек
+  Total: 52 сек
 
   ✅ ВСЁ ЗЕЛЁНОЕ — можно коммитить
 
