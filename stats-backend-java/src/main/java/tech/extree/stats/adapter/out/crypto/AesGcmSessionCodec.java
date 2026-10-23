@@ -13,6 +13,7 @@ import java.util.Optional;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tech.extree.stats.application.port.out.SessionCodec;
@@ -43,13 +44,15 @@ public class AesGcmSessionCodec implements SessionCodec {
     private final SecureRandom secureRandom = new SecureRandom();
 
     // Обратная совместимость со старыми тестами и кодом, который создаёт
-// AesGcmSessionCodec(String) — просто вызывает основной конструктор
+    // AesGcmSessionCodec(String) — просто вызывает основной конструктор
     // с пустым previousSecret.
     public AesGcmSessionCodec(String secret) {
         this(secret, "");
     }
 
-    public AesGcmSessionCodec(String secret,
+    @Autowired
+    public AesGcmSessionCodec(
+            @Value("${extree.session-secret}") String secret,
             @Value("${extree.session-secret-previous:}") String previousSecret) {
         this.keys.add(deriveKey(secret));
         if (previousSecret != null && !previousSecret.isBlank()) {
@@ -130,7 +133,7 @@ public class AesGcmSessionCodec implements SessionCodec {
             byte[] ciphertextWithTag = cipher.doFinal(plaintext);
             int ciphertextLength = ciphertextWithTag.length - TAG_LENGTH_BYTES;
 
-            // Node кладёt tag сразу после iv, перед шифротекстом — тот же
+            // Node кладёт tag сразу после iv, перед шифротекстом — тот же
             // порядок, что decrypt() выше ожидает при чтении.
             byte[] out = new byte[IV_LENGTH + TAG_LENGTH_BYTES + ciphertextLength];
             System.arraycopy(iv, 0, out, 0, IV_LENGTH);
