@@ -6,7 +6,6 @@ import java.util.Map;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,10 +36,14 @@ public class AccountController {
 
         var userOpt = getAccountUseCase.getAccount(cookie);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.ok(AccountResponse.banned());
+            // Сессия валидна, но пользователя нет в БД или он забанен
+            // (AccountService.getAccount() возвращает empty() для забаненных).
+            // Отдаём 200 с флагом banned — фронт покажет "аккаунт забанен",
+            // а не редирект на /login.
+            return ResponseEntity.ok(new AccountResponse(null, true));
         }
 
-        return ResponseEntity.ok(toResponse(userOpt.get()));
+        return ResponseEntity.ok(AccountResponse.of(toResponse(userOpt.get())));
     }
 
     @PostMapping("/api/account/avatar")
@@ -68,8 +71,8 @@ public class AccountController {
                 .body(resource);
     }
 
-    private AccountResponse toResponse(User user) {
-        return new AccountResponse(new AccountResponse.AccountUser(
+    private AccountResponse.AccountUser toResponse(User user) {
+        return new AccountResponse.AccountUser(
                 user.email(),
                 user.emailVerified(),
                 user.riotLinked(),
@@ -78,6 +81,6 @@ public class AccountController {
                 getAccountUseCase.isAdmin(user),
                 user.avatarUrl(),
                 user.isVerified()
-        ));
+        );
     }
 }

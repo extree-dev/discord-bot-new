@@ -9,14 +9,14 @@ public record AccountResponse(AccountUser user, boolean banned) {
             String nickname,
             boolean isAdmin,
             String avatarUrl,
-            boolean isVerified // <-- Новое поле
+            boolean isVerified
     ) {}
 
     public static AccountResponse empty() {
         return new AccountResponse(null, false);
     }
 
-    public static AccountResponse banned() {
-        return new AccountResponse(null, true);
+    public static AccountResponse of(AccountUser user) {
+        return new AccountResponse(user, false);
     }
 }
