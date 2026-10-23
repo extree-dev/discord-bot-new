@@ -30,6 +30,9 @@ spring:
                     starttls:
                         enable: true
                         required: true
+                    connectiontimeout: 5000
+                    timeout: 5000
+                    writetimeout: 5000
 
 server:
     port: ${STATS_BACKEND_JAVA_PORT:8081}

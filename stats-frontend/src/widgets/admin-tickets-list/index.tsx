@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
 import { type TicketStatus, type TicketSummary } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -24,9 +25,9 @@ interface AdminTicketsListProps {
     onStatusChange: (status: '' | TicketStatus) => void;
 }
 
-// SRP: левая колонка — только фильтры, поиск и рендер карточек.
-// Про роутер не знает (onSelect), про бэк не знает (получает tickets).
-// Композиция и fetch — в AdminTicketsLayout.
+// SRP: левая колонка — только фильтры, поиск, карточки. Про роутер и
+// бэк не знает. Активный тикет — акцентная левая полоса + фон, без
+// "нативной рамки" (как в первой итерации).
 export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onStatusChange }: AdminTicketsListProps) {
     const [search, setSearch] = useState('');
 
@@ -59,6 +60,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                     <h1 className={styles.title}>Inbox</h1>
                     {tickets && <span className={styles.badge}>{counts.total}</span>}
                 </div>
+
                 <div className={styles.searchWrapper}>
                     <svg
                         className={styles.searchIcon}
@@ -81,6 +83,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
+
                 <nav className={styles.filters} aria-label="Filter tickets by status">
                     {STATUS_FILTERS.map(f => (
                         <button
@@ -115,7 +118,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                                     <div className={styles.cardTop}>
                                         <StatusDot status={t.status} />
                                         <span className={styles.number}>#{t.number}</span>
-                                        <span className={styles.time}>{t.time}</span>
+                                        <span className={styles.time}>{formatRelativeTime(t.time)}</span>
                                     </div>
                                     <div className={styles.subject}>{t.subject}</div>
                                     <div className={styles.meta}>
@@ -134,9 +137,6 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
     );
 }
 
-// Маленькая точка-индикатор статуса слева от номера — компактнее,
-// чем полноценная StatusPill в каждой карточке (та живёт в шапке правой
-// колонки). Тот же цветовой язык, что и у StatusPill.
 function StatusDot({ status }: { status: TicketStatus }) {
     return <span className={`${styles.dot} ${styles[`dot_${status}`]}`} aria-hidden="true" />;
 }

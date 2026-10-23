@@ -1,8 +1,14 @@
 @use '../../shared/styles/variables' as v;
 
+/*
+ * Master-detail: левая колонка — свой фон (--surface), правая — основной
+ * --bg. Это даёт чёткую визуальную границу "список / детали" без лишних
+ * рамок. Ширина 380px — оптимум для списка тикетов (subject в 2 строки
+ * + meta + время помещается), на узких экранах — стек.
+ */
 .layout {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 380px 1fr;
     height: calc(100vh - 56px);
     min-height: 0;
     margin: -40px -24px -80px;
@@ -10,6 +16,7 @@
 
 .list {
     min-height: 0;
+    background: var(--surface);
     border-right: 1px solid var(--border);
     overflow: hidden;
     display: flex;
@@ -18,6 +25,7 @@
 
 .detail {
     min-height: 0;
+    background: var(--bg);
     overflow-y: auto;
     display: flex;
     flex-direction: column;

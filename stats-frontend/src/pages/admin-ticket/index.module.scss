@@ -24,11 +24,12 @@
     font-size: 13px;
 }
 
+/* Sticky header с чётким фоном — контент не просвечивает при скролле */
 .header {
     display: flex;
     align-items: flex-start;
     gap: 14px;
-    padding: 20px 28px;
+    padding: 20px 32px 18px;
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
@@ -40,16 +41,17 @@
     display: none;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 4px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text-dim);
-    font-size: 16px;
+    font-size: 15px;
     cursor: pointer;
+    transition: all 0.12s ease;
 
     &:hover {
         color: var(--text);
@@ -82,9 +84,9 @@
 
 .title {
     margin: 0 0 6px;
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
     line-height: 1.35;
     color: var(--text);
 }
@@ -106,7 +108,7 @@
     text-transform: capitalize;
 }
 
-.dotDivider {
+.sep {
     color: var(--text-faint);
     opacity: 0.5;
 }
@@ -123,29 +125,29 @@
     }
 }
 
-.statusSelect {
-    width: 150px;
-
-    @media (max-width: 860px) {
-        width: 100%;
-    }
+.statusIcon {
+    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+    font-size: 14px;
+    line-height: 1;
 }
 
 .body {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 24px 28px 40px;
+    gap: 24px;
+    padding: 8px 32px 40px;
 }
 
-.threadWrap {
-    padding: 24px;
+.thread {
+    padding: 8px 0;
 }
 
 .replyForm {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
 }
 
 .replyActions {
@@ -158,29 +160,4 @@
         flex-direction: column-reverse;
         align-items: stretch;
     }
-}
-
-.closedRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-
-    @media (max-width: 640px) {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-}
-
-.closedTitle {
-    margin: 0 0 4px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text);
-}
-
-.closedLead {
-    margin: 0;
-    font-size: 13px;
-    color: var(--text-faint);
 }

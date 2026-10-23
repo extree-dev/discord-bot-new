@@ -1,4 +1,5 @@
 import { Avatar } from '../../shared/ui/Avatar';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
 import styles from './index.module.scss';
 
 interface ThreadMessage {
@@ -13,26 +14,24 @@ interface TicketThreadProps {
     messages: ThreadMessage[];
 }
 
-// Общий компонент треда для /admin/tickets/:id и /support/ticket/:token —
-// оба раньше дублировали одну и ту же вёрстку "пузырей" с небольшими
-// расхождениями в подписях (Support/You/email). Собирать итоговый список
-// ThreadMessage — забота каждой страницы (она знает, кто смотрит), сам
-// компонент просто рисует чат с аватаркой-инициалами на сообщение, как в
-// обычных тикет-системах, а не абзацы подряд без разделения по автору.
+// Comment-style thread (Linear / GitHub Issues): без пузырей, только
+// Avatar + author + relative time + свободный текст. Меньше визуального
+// шума, легче читается длинная переписка. Используется и в админке,
+// и в публичной странице тикета.
 export function TicketThread({ messages }: TicketThreadProps) {
     return (
         <div className={styles.thread}>
             {messages.map(m => (
-                <div key={m.id} className={styles.message}>
+                <article key={m.id} className={`${styles.comment} ${m.isSupport ? styles.commentSupport : ''}`}>
                     <Avatar label={m.authorLabel} isSupport={m.isSupport} />
-                    <div className={styles.bubbleCol}>
-                        <div className={styles.bubbleHead}>
+                    <div className={styles.body}>
+                        <header className={styles.head}>
                             <span className={styles.author}>{m.authorLabel}</span>
-                            <span className={styles.time}>{m.time}</span>
-                        </div>
-                        <div className={`${styles.bubble} ${m.isSupport ? styles.bubbleSupport : ''}`}>{m.message}</div>
+                            <span className={styles.time}>{formatRelativeTime(m.time)}</span>
+                        </header>
+                        <div className={styles.message}>{m.message}</div>
                     </div>
-                </div>
+                </article>
             ))}
         </div>
     );
