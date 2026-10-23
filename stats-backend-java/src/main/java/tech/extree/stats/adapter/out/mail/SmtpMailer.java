@@ -5,6 +5,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import tech.extree.stats.application.port.out.Mailer;
 
@@ -53,9 +54,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить письмо с кодом подтверждения нового места входа", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendPasswordResetEmail(String email, String resetUrl) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -68,9 +68,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить письмо сброса пароля", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendEmailChangeCode(String newEmail, String code) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -83,9 +82,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить письмо с кодом смены email", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendEmailChangeNotice(String oldEmail, String newEmail) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -98,9 +96,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить уведомление о запросе смены email", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendEmailChanged(String to, String oldEmail, String newEmail) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -113,9 +110,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить подтверждение смены email", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendPasswordChanged(String email, String ip, String country, String city, String time) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -128,9 +124,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить уведомление о смене пароля", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendSupportTicketConfirmation(String email, long ticketNumber, String subject, String ticketUrl) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -143,9 +138,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить подтверждение заявки в поддержку", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendSupportTicketNotification(
             long ticketNumber, String email, String subject, String message, String category, String userId, String adminUrl) {
         try {
@@ -162,9 +156,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить уведомление команде поддержки о новой заявке", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendSupportTicketReply(
             String email, long ticketNumber, String subject, String message, String adminName, String ticketUrl) {
         try {
@@ -178,9 +171,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить уведомление об ответе на тикет", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendSupportTicketUserReply(long ticketNumber, String email, String subject, String message, String adminUrl) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -194,9 +186,8 @@ public class SmtpMailer implements Mailer {
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось отправить уведомление команде поддержки об ответе пользователя", e);
         }
-    }
-
-    @Override
+    }    @Override
+    @Async
     public void sendSignInNotification(String email, String ip, String country, String city, String time) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
