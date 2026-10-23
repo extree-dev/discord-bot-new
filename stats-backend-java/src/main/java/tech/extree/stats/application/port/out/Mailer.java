@@ -8,6 +8,8 @@ public interface Mailer {
 
     void sendSignInNotification(String email, String ip, String country, String city, String time);
 
+    void sendFailedLoginAlert(String email, String ip, String country, String time);
+
     void sendPasswordResetEmail(String email, String resetUrl);
 
     void sendEmailChangeCode(String newEmail, String code);

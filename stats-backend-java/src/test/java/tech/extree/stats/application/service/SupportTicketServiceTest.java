@@ -64,7 +64,8 @@ class SupportTicketServiceTest {
         assertEquals(SupportTicketUseCase.CreateOutcome.OK, result.outcome());
         assertEquals(1L, result.ticketNumber());
         verify(mailer).sendSupportTicketConfirmation(eq("test@test.com"), eq(1L), eq("Subject"), anyString());
-        verify(mailer).sendSupportTicketNotification(eq(1L), eq("test@test.com"), eq("Subject"), eq("Message"), eq("bug"), eq("user-id"), anyString());
+        verify(mailer).sendSupportTicketNotification(eq(1L), eq("test@test.com"), eq("Subject"), eq("Message"),
+                eq("bug"), eq("user-id"), anyString());
     }
 
     @Test

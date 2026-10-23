@@ -202,6 +202,22 @@ public class SmtpMailer implements Mailer {
         }
     }
 
+    @Override
+    @Async
+    public void sendFailedLoginAlert(String email, String ip, String country, String time) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
+            helper.setFrom(fromAddress);
+            helper.setTo(email);
+            helper.setSubject("Multiple failed sign-in attempts — Extree Stats");
+            helper.setText(renderSignInNotificationEmail(ip, country, null, time), true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("Не удалось отправить письмо об неудачных попытках входа", e);
+        }
+    }
+
     private static String formatLocation(String country, String city) {
         if (country == null) {
             return "an unknown location";

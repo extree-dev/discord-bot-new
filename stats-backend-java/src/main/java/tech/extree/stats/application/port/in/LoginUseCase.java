@@ -12,7 +12,9 @@ public interface LoginUseCase {
         UNKNOWN_LOCATION,
         CODE_ON_COOLDOWN,
         INTERNAL_ERROR,
-        BANNED
+        BANNED,
+        TOO_MANY_ATTEMPTS,
+        REQUIRES_2FA
     }
 
     /** sessionCookie заполнен только при OK. */
@@ -41,15 +43,25 @@ public interface LoginUseCase {
         BANNED
     }
 
-    /**
-     * remember — значение, сохранённое в stats_login_codes на момент
-     * исходной попытки входа (row.remember в Node), а не из этого
-     * запроса: контроллер использует его для Max-Age cookie.
-     */
     record ConfirmLocationResult(ConfirmLocationOutcome outcome, String email, String sessionCookie, boolean remember) {
         public static ConfirmLocationResult error(ConfirmLocationOutcome outcome) {
             return new ConfirmLocationResult(outcome, null, null, false);
         }
+    }
+
+    record Verify2faResult(Verify2faOutcome outcome, String email, String sessionCookie, boolean remember) {
+        public static Verify2faResult error(Verify2faOutcome outcome) {
+            return new Verify2faResult(outcome, null, null, false);
+        }
+    }
+
+    enum Verify2faOutcome {
+        OK,
+        INVALID_REQUEST,
+        PRE_2FA_EXPIRED,
+        TOTP_INVALID,
+        INTERNAL_ERROR,
+        BANNED
     }
 
     LoginResult login(String email, String password, String turnstileToken, String clientIp, boolean rememberMe);
@@ -57,5 +69,7 @@ public interface LoginUseCase {
     ResendLoginCodeOutcome resendCode(String email);
 
     ConfirmLocationResult confirmLocation(String email, String code);
-}
 
+    /** Второй шаг 2FA: pre2faToken из cookie + totpCode. */
+    Verify2faResult verify2fa(String pre2faToken, String totpCode);
+}

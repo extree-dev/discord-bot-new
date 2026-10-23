@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -36,12 +38,23 @@ public class AesGcmSessionCodec implements SessionCodec {
     private static final int TAG_LENGTH_BYTES = 16;
     private static final int TAG_LENGTH_BITS = TAG_LENGTH_BYTES * 8;
 
-    private final byte[] key;
+    private final List<byte[]> keys = new ArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AesGcmSessionCodec(@Value("${extree.session-secret}") String secret) {
-        this.key = deriveKey(secret);
+    // Обратная совместимость со старыми тестами и кодом, который создаёт
+// AesGcmSessionCodec(String) — просто вызывает основной конструктор
+    // с пустым previousSecret.
+    public AesGcmSessionCodec(String secret) {
+        this(secret, "");
+    }
+
+    public AesGcmSessionCodec(String secret,
+            @Value("${extree.session-secret-previous:}") String previousSecret) {
+        this.keys.add(deriveKey(secret));
+        if (previousSecret != null && !previousSecret.isBlank()) {
+            this.keys.add(deriveKey(previousSecret));
+        }
     }
 
     private static byte[] deriveKey(String secret) {
@@ -74,7 +87,7 @@ public class AesGcmSessionCodec implements SessionCodec {
             Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
             cipher.init(
                     Cipher.DECRYPT_MODE,
-                    new SecretKeySpec(key, "AES"),
+                    new SecretKeySpec(keys.get(0), "AES"),
                     new GCMParameterSpec(TAG_LENGTH_BITS, iv));
             byte[] plaintext = cipher.doFinal(ciphertextWithTag);
 
@@ -112,7 +125,7 @@ public class AesGcmSessionCodec implements SessionCodec {
             Cipher cipher = Cipher.getInstance(CIPHER_ALGO);
             cipher.init(
                     Cipher.ENCRYPT_MODE,
-                    new SecretKeySpec(key, "AES"),
+                    new SecretKeySpec(keys.get(0), "AES"),
                     new GCMParameterSpec(TAG_LENGTH_BITS, iv));
             byte[] ciphertextWithTag = cipher.doFinal(plaintext);
             int ciphertextLength = ciphertextWithTag.length - TAG_LENGTH_BYTES;

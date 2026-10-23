@@ -4,7 +4,14 @@ import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
 import { Button } from '../../shared/ui/Button';
 import { ProfileAvatar } from '../../shared/ui/ProfileAvatar'; // <-- Импорт
-import { getAccount, type AccountUser } from '../../shared/api/statsAuth';
+import {
+    getAccount,
+    setup2fa,
+    enable2fa,
+    disable2fa,
+    regenerateRecoveryCodes,
+    type AccountUser,
+} from '../../shared/api/statsAuth';
 import { UpdateEmail } from '../../features/update-email';
 import { UpdatePassword } from '../../features/update-password';
 import { ActiveSessions } from '../../features/active-sessions';
@@ -18,6 +25,12 @@ export function AccountSettingsPage() {
     const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
 
     const [banned, setBanned] = useState(false);
+    const [totpSetup, setTotpSetup] = useState<{ secret: string; otpauthUrl: string; recoveryCodes: string[] } | null>(
+        null
+    );
+    const [totpCode, setTotpCode] = useState('');
+    const [totpPending, setTotpPending] = useState(false);
+    const [totpError, setTotpError] = useState<string | null>(null);
 
     useEffect(() => {
         getAccount().then(result => {
@@ -30,6 +43,52 @@ export function AccountSettingsPage() {
             }
         });
     }, [navigate]);
+
+    async function handleSetup2fa() {
+        setTotpError(null);
+        try {
+            const r = await setup2fa();
+            setTotpSetup(r);
+        } catch (e) {
+            setTotpError(e instanceof Error ? e.message : 'Failed to start 2FA setup');
+        }
+    }
+
+    async function handleEnable2fa() {
+        if (!totpCode.trim()) return;
+        setTotpPending(true);
+        setTotpError(null);
+        try {
+            await enable2fa(totpCode.trim());
+            setTotpSetup(null);
+            setTotpCode('');
+            alert('2FA enabled. Save your recovery codes!');
+        } catch (e) {
+            setTotpError(e instanceof Error ? e.message : 'Failed to enable 2FA');
+        } finally {
+            setTotpPending(false);
+        }
+    }
+
+    async function handleDisable2fa() {
+        const pwd = prompt('Enter your password to disable 2FA:');
+        if (!pwd) return;
+        try {
+            await disable2fa(pwd);
+            alert('2FA disabled.');
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Failed to disable 2FA');
+        }
+    }
+
+    async function handleRegenCodes() {
+        try {
+            const r = await regenerateRecoveryCodes();
+            alert('New recovery codes (save them):\n\n' + r.recoveryCodes.join('\n'));
+        } catch (e) {
+            alert(e instanceof Error ? e.message : 'Failed to regenerate codes');
+        }
+    }
 
     if (banned) {
         return (
@@ -143,6 +202,91 @@ export function AccountSettingsPage() {
 
                     {activeTab === 'security' && (
                         <div className={styles.tabContent}>
+                            <Panel title="Two-factor authentication (2FA)">
+                                {totpError && (
+                                    <p className={styles.hintText} style={{ color: 'var(--accent)' }}>
+                                        {totpError}
+                                    </p>
+                                )}
+                                {totpSetup ? (
+                                    <div>
+                                        <p className={styles.hintText}>
+                                            Scan this URL with Google Authenticator / Authy / 1Password:
+                                        </p>
+                                        <code
+                                            style={{
+                                                display: 'block',
+                                                padding: 8,
+                                                background: '#0d0e11',
+                                                wordBreak: 'break-all',
+                                                fontSize: 12,
+                                            }}
+                                        >
+                                            {totpSetup.otpauthUrl}
+                                        </code>
+                                        <p className={styles.hintText} style={{ marginTop: 12 }}>
+                                            Or enter secret manually: <strong>{totpSetup.secret}</strong>
+                                        </p>
+                                        <p
+                                            className={styles.hintText}
+                                            style={{ marginTop: 12, color: 'var(--accent)' }}
+                                        >
+                                            Save these recovery codes NOW (each can be used once):
+                                            <br />
+                                            <strong>{totpSetup.recoveryCodes.join(', ')}</strong>
+                                        </p>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter 6-digit code from app"
+                                            value={totpCode}
+                                            onChange={e => setTotpCode(e.target.value)}
+                                            style={{
+                                                marginTop: 12,
+                                                padding: 8,
+                                                width: '100%',
+                                                background: '#0d0e11',
+                                                border: '1px solid #333',
+                                                color: '#fff',
+                                            }}
+                                        />
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                                            <Button
+                                                variant="flat"
+                                                onClick={handleEnable2fa}
+                                                disabled={totpPending || totpCode.length < 6}
+                                            >
+                                                {totpPending ? 'Enabling…' : 'Enable 2FA'}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    setTotpSetup(null);
+                                                    setTotpCode('');
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className={styles.hintText}>
+                                            Add an extra layer of security to your account.
+                                        </p>
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                                            <Button variant="flat" onClick={handleSetup2fa}>
+                                                Set up 2FA
+                                            </Button>
+                                            <Button variant="ghost" onClick={handleDisable2fa}>
+                                                Disable 2FA
+                                            </Button>
+                                            <Button variant="ghost" onClick={handleRegenCodes}>
+                                                New recovery codes
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </Panel>
                             <UpdatePassword />
                             <ActiveSessions />
                             <Panel title="Danger Zone">

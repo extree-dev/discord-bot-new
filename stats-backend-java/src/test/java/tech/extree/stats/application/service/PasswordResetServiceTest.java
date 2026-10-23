@@ -32,10 +32,10 @@ class PasswordResetServiceTest {
     private Mailer mailer;
     private GeoLookup geoLookup;
     private LoginEventRepository loginEventRepository;
+    private PasswordPolicyService passwordPolicy;
     private SessionCodec sessionCodec;
     private PasswordResetService service;
 
-    // 11 аргументов
     private final User user = new User(
             "user-id", "test@test.com", "hashed", Instant.now(), null, "Test", "test", null, false, false, false);
 
@@ -47,14 +47,17 @@ class PasswordResetServiceTest {
         mailer = mock(Mailer.class);
         geoLookup = mock(GeoLookup.class);
         loginEventRepository = mock(LoginEventRepository.class);
+        passwordPolicy = mock(PasswordPolicyService.class);
         sessionCodec = mock(SessionCodec.class);
 
         when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
         when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        // Политика паролей — разрешаем всё, в этих тестах не про неё
+        when(passwordPolicy.validate(anyString(), any(), any(), any())).thenReturn(PasswordPolicyService.Result.ok());
 
         service = new PasswordResetService(
                 userRepository, passwordResetRepository, passwordHasher,
-                mailer, geoLookup, loginEventRepository, sessionCodec);
+                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionCodec);
     }
 
     @Test
@@ -88,8 +91,7 @@ class PasswordResetServiceTest {
                 "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
         when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
         when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
-        when(userRepository.updatePasswordHash("user-id", "newhash"))
-                .thenReturn(Optional.of(user));
+        when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
 
         var result = service.resetPassword("token", "newpassword1", "ip");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());

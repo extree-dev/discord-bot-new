@@ -17,6 +17,7 @@ import { AdminTicketsPlaceholder } from '../pages/admin-tickets-placeholder';
 import { AdminTicketPage } from '../pages/admin-ticket';
 import { AccountSettingsPage } from '../pages/account-settings';
 import { AdminUsersPage } from '../pages/admin-users';
+import { AdminAuditPage } from '../pages/admin-audit';
 
 // RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
 // обсуждение в PR #307: страница рабочая и готова, но пока убрана с
@@ -41,6 +42,7 @@ export function App() {
             <Route path="/support" element={<SupportPage />} />
             <Route path="/account/settings" element={<AccountSettingsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/support/ticket/:token" element={<TicketPage />} />
             <Route path="/admin/tickets" element={<AdminTicketsLayout />}>
                 <Route index element={<AdminTicketsPlaceholder />} />

@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,12 +16,6 @@ import tech.extree.stats.adapter.in.web.dto.ResendCodeRequest;
 import tech.extree.stats.adapter.in.web.dto.VerifyRequest;
 import tech.extree.stats.application.port.in.LoginUseCase;
 
-/**
- * Соответствует /auth/login, /auth/login/resend-code,
- * /auth/login/confirm-location в server.js — см. LoginService для логики
- * "известного места входа". VerifyRequest (email+code) переиспользован
- * для confirm-location — структурно то же тело, что у /auth/verify.
- */
 @RestController
 public class LoginController {
 
@@ -47,6 +42,29 @@ public class LoginController {
             case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
             case INTERNAL_ERROR -> internalError();
             case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
+            case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
+            case REQUIRES_2FA -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, SessionCookies.buildPre2fa(result.sessionCookie()).toString())
+                    .body(new ErrorResponse("requires_2fa"));
+        };
+    }
+
+    @PostMapping("/auth/login/verify-2fa")
+    public ResponseEntity<?> verify2fa(
+            @RequestBody VerifyRequest request,
+            @CookieValue(name = SessionCookies.PRE_2FA_COOKIE, required = false) String pre2faToken) {
+        LoginUseCase.Verify2faResult result = loginUseCase.verify2fa(pre2faToken, request.code());
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE,
+                            SessionCookies.build(result.sessionCookie(), result.remember()).toString(),
+                            SessionCookies.clearPre2fa().toString())
+                    .body(new LoginResponse(true, new LoginResponse.LoginUser(result.email())));
+            case INVALID_REQUEST -> badRequest("invalid_request");
+            case PRE_2FA_EXPIRED -> status(HttpStatus.UNAUTHORIZED, "pre_2fa_expired");
+            case TOTP_INVALID -> status(HttpStatus.UNAUTHORIZED, "totp_invalid");
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
+            case INTERNAL_ERROR -> internalError();
         };
     }
 
@@ -67,8 +85,7 @@ public class LoginController {
         LoginUseCase.ConfirmLocationResult result = loginUseCase.confirmLocation(request.email(), request.code());
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
-                    .header(
-                            HttpHeaders.SET_COOKIE,
+                    .header(HttpHeaders.SET_COOKIE,
                             SessionCookies.build(result.sessionCookie(), result.remember()).toString())
                     .body(new LoginResponse(true, new LoginResponse.LoginUser(result.email())));
             case INVALID_REQUEST -> badRequest("invalid_request");
@@ -92,5 +109,18 @@ public class LoginController {
     private static ResponseEntity<ErrorResponse> status(HttpStatus status, String error) {
         return ResponseEntity.status(status).body(new ErrorResponse(error));
     }
+
 }
+
+    
+        
+    
+
+    
+        
+    
+
+    
+        
+    
 

@@ -28,10 +28,10 @@ class RegistrationServiceTest {
     private EmailCodeRepository emailCodeRepository;
     private PasswordHasher passwordHasher;
     private Mailer mailer;
+    private PasswordPolicyService passwordPolicy;
     private SessionCodec sessionCodec;
     private RegistrationService service;
 
-    // 11 аргументов
     private final User user = new User(
             "user-id", "test@test.com", "hashed", Instant.now(), null, "Test", "test", null, false, false, false);
 
@@ -41,13 +41,17 @@ class RegistrationServiceTest {
         emailCodeRepository = mock(EmailCodeRepository.class);
         passwordHasher = mock(PasswordHasher.class);
         mailer = mock(Mailer.class);
+        passwordPolicy = mock(PasswordPolicyService.class);
         sessionCodec = mock(SessionCodec.class);
 
         when(passwordHasher.hash("password1")).thenReturn("hashed");
         when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        // Политика паролей — разрешаем всё (в тестах не про неё)
+        when(passwordPolicy.validate(anyString(), any(), any(), any())).thenReturn(PasswordPolicyService.Result.ok());
 
         service = new RegistrationService(
-                userRepository, emailCodeRepository, passwordHasher, mailer, sessionCodec);
+                userRepository, emailCodeRepository, passwordHasher,
+                mailer, passwordPolicy, sessionCodec);
     }
 
     @Test
@@ -83,8 +87,7 @@ class RegistrationServiceTest {
 
     @Test
     void verifyWrongCode() {
-        EmailCode pending = new EmailCode(
-                "123456", 0, Instant.now().plusSeconds(600), Instant.now());
+        EmailCode pending = new EmailCode("123456", 0, Instant.now().plusSeconds(600), Instant.now());
         when(emailCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(pending));
 
         var result = service.verify("test@test.com", "000000");
@@ -94,8 +97,7 @@ class RegistrationServiceTest {
 
     @Test
     void verifyOk() {
-        EmailCode pending = new EmailCode(
-                "123456", 0, Instant.now().plusSeconds(600), Instant.now());
+        EmailCode pending = new EmailCode("123456", 0, Instant.now().plusSeconds(600), Instant.now());
         when(emailCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(pending));
         when(userRepository.markEmailVerified("test@test.com")).thenReturn(Optional.of(user));
 
