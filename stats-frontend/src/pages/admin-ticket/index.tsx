@@ -1,20 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { DashboardShell } from '../../widgets/dashboard-shell';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Panel } from '../../shared/ui/Panel';
 import { StatusPill } from '../../shared/ui/StatusPill';
 import { Select } from '../../shared/ui/Select';
 import { TextArea } from '../../shared/ui/TextArea';
 import { Button } from '../../shared/ui/Button';
 import { TicketThread } from '../../widgets/ticket-thread';
-import { CannedResponsesPanel } from '../../widgets/canned-responses';
+import { CannedTemplatePicker } from '../../widgets/canned-responses';
 import {
-    getAccount,
     getAdminTicket,
     replyToTicketAsAdmin,
     setTicketStatus,
     verifyUser,
-    type AccountUser,
     type AdminTicketDetail,
     type TicketReply,
     type TicketStatus,
@@ -30,38 +27,30 @@ const STATUS_OPTIONS = [
 export function AdminTicketPage() {
     const { number } = useParams<{ number: string }>();
     const navigate = useNavigate();
-    const [account, setAccount] = useState<AccountUser | null>(null);
-    const [checking, setChecking] = useState(true);
     const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
     const [replies, setReplies] = useState<TicketReply[]>([]);
     const [message, setMessage] = useState('');
     const [pending, setPending] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     useEffect(() => {
-        getAccount().then(({ user, banned }) => {
-            if (banned) {
-                navigate('/login');
-                return;
-            }
-            if (!user) {
-                navigate('/login');
-            } else {
-                setAccount(user);
-                setChecking(false);
-            }
-        });
-    }, [navigate]);
-
-    useEffect(() => {
-        if (checking || !number) return;
+        if (!number) return;
+        let cancelled = false;
+        setLoadError(null);
         getAdminTicket(number)
             .then(res => {
+                if (cancelled) return;
                 setTicket(res.ticket);
                 setReplies(res.replies);
             })
-            .catch(() => {});
-    }, [checking, number]);
+            .catch(() => {
+                if (!cancelled) setLoadError('Failed to load ticket.');
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [number]);
 
     async function onReply(e: FormEvent) {
         e.preventDefault();
@@ -104,12 +93,17 @@ export function AdminTicketPage() {
         }
     }
 
-    if (checking || !ticket)
+    if (loadError) {
         return (
-            <DashboardShell user={null} title="Loading...">
-                Loading...
-            </DashboardShell>
+            <div className={styles.center}>
+                <p className={styles.errorText}>{loadError}</p>
+            </div>
         );
+    }
+
+    if (!ticket) {
+        return <div className={styles.center}>Loading…</div>;
+    }
 
     const threadMessages = [
         { id: 'original', isSupport: false, authorLabel: 'User', message: ticket.message, time: ticket.time },
@@ -123,98 +117,87 @@ export function AdminTicketPage() {
     ];
 
     return (
-        <DashboardShell user={{ email: account!.email, isAdmin: account!.isAdmin }} title="" wide>
-            <div className={styles.container}>
-                <div className={styles.header}>
-                    <div>
-                        <Link to="/admin/tickets" className={styles.backBtn}>
-                            ← Back to all tickets
-                        </Link>
-                        <h1 className={styles.title}>{ticket.subject}</h1>
-                        <div className={styles.meta}>
-                            Ticket #{ticket.number} • {ticket.email}
-                        </div>
+        <div className={styles.page}>
+            <header className={styles.header}>
+                <button
+                    type="button"
+                    className={styles.backBtn}
+                    onClick={() => navigate('/admin/tickets')}
+                    aria-label="Back to tickets"
+                >
+                    ←
+                </button>
+                <div className={styles.headerMain}>
+                    <div className={styles.headerTop}>
+                        <span className={styles.number}>#{ticket.number}</span>
+                        <StatusPill status={ticket.status} />
                     </div>
-                    <StatusPill status={ticket.status} />
+                    <h1 className={styles.title}>{ticket.subject}</h1>
+                    <div className={styles.meta}>
+                        <span className={styles.email}>{ticket.email}</span>
+                        <span className={styles.dotDivider} aria-hidden="true">
+                            ·
+                        </span>
+                        <span className={styles.category}>{ticket.category}</span>
+                        <span className={styles.dotDivider} aria-hidden="true">
+                            ·
+                        </span>
+                        <span className={styles.time}>{ticket.time}</span>
+                    </div>
                 </div>
-
-                <div className={styles.layout}>
-                    <div className={styles.main}>
-                        <Panel>
-                            <TicketThread messages={threadMessages} />
-
-                            {ticket.status !== 'closed' ? (
-                                <form className={styles.replyForm} onSubmit={onReply}>
-                                    <TextArea
-                                        id="reply"
-                                        label="Reply"
-                                        placeholder="Type your reply here..."
-                                        required
-                                        value={message}
-                                        onChange={e => setMessage(e.target.value)}
-                                    />
-                                    <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
-                                        {pending ? 'Sending…' : 'Send reply'}
-                                    </Button>
-                                </form>
-                            ) : (
-                                <p className={styles.closedNotice}>This ticket is closed.</p>
-                            )}
-                        </Panel>
+                <div className={styles.headerActions}>
+                    <div className={styles.statusSelect}>
+                        <Select options={STATUS_OPTIONS} value={ticket.status} onChange={onStatusChange} />
                     </div>
+                    <Button variant="ghost" size="sm" onClick={handleVerify} disabled={isVerifying || !ticket.userId}>
+                        {isVerifying ? 'Updating…' : ticket.isUserVerified ? 'Remove checkmark' : 'Give checkmark'}
+                    </Button>
+                </div>
+            </header>
 
-                    <aside className={styles.sidebar}>
-                        <Panel title="User Profile">
-                            <div className={styles.propertyRow}>
-                                <span className={styles.propertyLabel}>Email</span>
-                                <span className={styles.propertyValue}>{ticket.email}</span>
-                            </div>
-                            <div className={styles.propertyRow}>
-                                <span className={styles.propertyLabel}>Verified</span>
-                                <span className={styles.propertyValue}>{ticket.isUserVerified ? 'Yes' : 'No'}</span>
-                            </div>
-                            <div style={{ marginTop: '16px' }}>
-                                <Button
-                                    variant="flat"
-                                    fullWidth
-                                    onClick={handleVerify}
-                                    disabled={isVerifying || !ticket.userId}
-                                    style={{
-                                        backgroundColor: ticket.isUserVerified ? 'var(--surface-2)' : 'var(--accent)',
-                                    }}
-                                >
-                                    {isVerifying
-                                        ? 'Updating...'
-                                        : ticket.isUserVerified
-                                          ? 'Remove Checkmark'
-                                          : 'Give Blue Checkmark'}
+            <div className={styles.body}>
+                <Panel noBodyPadding>
+                    <div className={styles.threadWrap}>
+                        <TicketThread messages={threadMessages} />
+                    </div>
+                </Panel>
+
+                {ticket.status !== 'closed' ? (
+                    <Panel>
+                        <form className={styles.replyForm} onSubmit={onReply}>
+                            <TextArea
+                                id="reply"
+                                label="Reply"
+                                placeholder="Type your reply here…"
+                                required
+                                value={message}
+                                onChange={e => setMessage(e.target.value)}
+                            />
+                            <div className={styles.replyActions}>
+                                <CannedTemplatePicker
+                                    onPick={body => setMessage(prev => (prev ? `${prev}\n\n${body}` : body))}
+                                    disabled={pending}
+                                />
+                                <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
+                                    {pending ? 'Sending…' : 'Send reply'}
                                 </Button>
                             </div>
-                        </Panel>
-
-                        <Panel title="Properties">
-                            <div className={styles.propertyRow}>
-                                <span className={styles.propertyLabel}>Status</span>
-                                <div style={{ width: '140px' }}>
-                                    <Select options={STATUS_OPTIONS} value={ticket.status} onChange={onStatusChange} />
-                                </div>
+                        </form>
+                    </Panel>
+                ) : (
+                    <Panel>
+                        <div className={styles.closedRow}>
+                            <div>
+                                <h3 className={styles.closedTitle}>This ticket is closed</h3>
+                                <p className={styles.closedLead}>Reopen it to send a new reply.</p>
                             </div>
-                            <div className={styles.propertyRow}>
-                                <span className={styles.propertyLabel}>Category</span>
-                                <span className={styles.propertyValue} style={{ textTransform: 'capitalize' }}>
-                                    {ticket.category}
-                                </span>
-                            </div>
-                            <div className={styles.propertyRow}>
-                                <span className={styles.propertyLabel}>Created</span>
-                                <span className={styles.propertyValue}>{ticket.time}</span>
-                            </div>
-                        </Panel>
-
-                        <CannedResponsesPanel />
-                    </aside>
-                </div>
+                            <Button variant="ghost" size="sm" onClick={() => onStatusChange('open')}>
+                                Reopen ticket
+                            </Button>
+                        </div>
+                    </Panel>
+                )}
             </div>
-        </DashboardShell>
+        </div>
     );
 }

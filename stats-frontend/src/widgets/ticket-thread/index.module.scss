@@ -1,12 +1,12 @@
 .thread {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
 }
 
 .message {
     display: flex;
-    gap: 12px;
+    gap: 14px;
 }
 
 .bubbleCol {
@@ -17,26 +17,28 @@
 .bubbleHead {
     display: flex;
     align-items: baseline;
-    gap: 8px;
-    margin-bottom: 4px;
+    gap: 10px;
+    margin-bottom: 6px;
 }
 
 .author {
     font-size: 13px;
     font-weight: 700;
+    color: var(--text);
 }
 
 .time {
     font-size: 11.5px;
     color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
 }
 
 .bubble {
-    padding: 14px 16px;
-    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    border-radius: 10px;
     border-top-left-radius: 4px;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.65;
     white-space: pre-wrap;
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -45,6 +47,6 @@
 
 .bubbleSupport {
     background: rgba(255, 77, 94, 0.06);
-    border-color: rgba(255, 77, 94, 0.18);
+    border-color: rgba(255, 77, 94, 0.2);
     color: var(--text);
 }
