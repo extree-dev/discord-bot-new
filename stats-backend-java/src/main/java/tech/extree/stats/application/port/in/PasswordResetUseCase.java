@@ -33,5 +33,5 @@ public interface PasswordResetUseCase {
     }
 
     /** Успешный сброс сразу логинит (как и Node) — sessionCookie заполнен только при OK. */
-    ResetPasswordResult resetPassword(String token, String newPassword, String clientIp);
+    ResetPasswordResult resetPassword(String token, String newPassword, String clientIp, String userAgent);
 }

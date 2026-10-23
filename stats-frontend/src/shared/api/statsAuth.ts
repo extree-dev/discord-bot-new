@@ -137,6 +137,7 @@ export interface AccountUser {
     isAdmin: boolean;
     avatarUrl: string | null;
     isVerified: boolean;
+    isTwoFactorEnabled: boolean;
 }
 
 export function register(email: string, password: string, name: string, nickname: string) {

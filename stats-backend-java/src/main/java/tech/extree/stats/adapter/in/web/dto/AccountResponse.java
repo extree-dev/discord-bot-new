@@ -9,7 +9,8 @@ public record AccountResponse(AccountUser user, boolean banned) {
             String nickname,
             boolean isAdmin,
             String avatarUrl,
-            boolean isVerified
+            boolean isVerified,
+            boolean isTwoFactorEnabled
     ) {}
 
     public static AccountResponse empty() {

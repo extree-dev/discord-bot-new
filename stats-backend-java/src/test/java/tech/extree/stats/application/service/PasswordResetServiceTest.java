@@ -81,7 +81,7 @@ class PasswordResetServiceTest {
     @Test
     void resetPasswordTokenNotFound() {
         when(passwordResetRepository.getReset("token")).thenReturn(Optional.empty());
-        var result = service.resetPassword("token", "newpassword1", "ip");
+        var result = service.resetPassword("token", "newpassword1", "ip", "ua");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOKEN_NOT_FOUND, result.outcome());
     }
 
@@ -93,10 +93,10 @@ class PasswordResetServiceTest {
         when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
         when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
 
-        var result = service.resetPassword("token", "newpassword1", "ip");
+        var result = service.resetPassword("token", "newpassword1", "ip", "ua");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
         verify(passwordResetRepository).deleteReset("token");
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", null);
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua");
         verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 }

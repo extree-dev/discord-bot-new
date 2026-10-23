@@ -78,6 +78,8 @@ export function AccountSettingsPage() {
         if (!pwd) return;
         try {
             await disable2fa(pwd);
+            const fresh = await getAccount();
+            if (fresh.user) setUser(fresh.user);
             alert('2FA disabled.');
         } catch (e) {
             alert(e instanceof Error ? e.message : 'Failed to disable 2FA');
@@ -319,20 +321,33 @@ export function AccountSettingsPage() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <p className={styles.hintText}>
-                                            Add an extra layer of security to your account.
-                                        </p>
-                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                                            <Button variant="flat" onClick={handleSetup2fa}>
-                                                Set up 2FA
-                                            </Button>
-                                            <Button variant="ghost" onClick={handleDisable2fa}>
-                                                Disable 2FA
-                                            </Button>
-                                            <Button variant="ghost" onClick={handleRegenCodes}>
-                                                New recovery codes
-                                            </Button>
-                                        </div>
+                                        {user.isTwoFactorEnabled ? (
+                                            <>
+                                                <p className={styles.hintText}>
+                                                    ✅ 2FA is <strong>enabled</strong>. You will be asked for a code
+                                                    from your authenticator app when signing in.
+                                                </p>
+                                                <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                                                    <Button variant="ghost" onClick={handleDisable2fa}>
+                                                        Disable 2FA
+                                                    </Button>
+                                                    <Button variant="ghost" onClick={handleRegenCodes}>
+                                                        New recovery codes
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className={styles.hintText}>
+                                                    Add an extra layer of security to your account.
+                                                </p>
+                                                <div style={{ marginTop: 12 }}>
+                                                    <Button variant="flat" onClick={handleSetup2fa}>
+                                                        Set up 2FA
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </Panel>

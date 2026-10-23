@@ -29,7 +29,7 @@ public class LoginController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         boolean rememberMe = request.rememberMeOrDefault();
         LoginUseCase.LoginResult result = loginUseCase.login(
-                request.email(), request.password(), request.turnstileToken(), ClientIp.from(httpRequest), rememberMe);
+                request.email(), request.password(), request.turnstileToken(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"), rememberMe);
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), rememberMe).toString())
@@ -81,8 +81,8 @@ public class LoginController {
     }
 
     @PostMapping("/auth/login/confirm-location")
-    public ResponseEntity<?> confirmLocation(@RequestBody VerifyRequest request) {
-        LoginUseCase.ConfirmLocationResult result = loginUseCase.confirmLocation(request.email(), request.code());
+    public ResponseEntity<?> confirmLocation(@RequestBody VerifyRequest request, HttpServletRequest httpRequest) {
+        LoginUseCase.ConfirmLocationResult result = loginUseCase.confirmLocation(request.email(), request.code(), httpRequest.getHeader("User-Agent"));
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE,
