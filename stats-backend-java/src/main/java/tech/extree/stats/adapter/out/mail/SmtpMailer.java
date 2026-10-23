@@ -3,21 +3,12 @@ package tech.extree.stats.adapter.out.mail;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
 import tech.extree.stats.application.port.out.Mailer;
 
-/**
- * Зеркалит sendVerificationCode/renderVerificationEmail из
- * ../../stats-backend/mailer.js письмо в письмо — тот же HTML, тема,
- * отправитель. SMTP-транспорт (smtp.mail.me.com, 587/STARTTLS)
- * настроен через spring.mail в application.yml, а не здесь — тот же
- * .env (STATS_MAIL_USER/STATS_MAIL_APP_PASSWORD), что у Node-сервиса.
- */
 @Component
-@Profile("!dev")
 public class SmtpMailer implements Mailer {
 
     private final JavaMailSender mailSender;
@@ -161,10 +152,6 @@ public class SmtpMailer implements Mailer {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
             helper.setFrom(fromAddress);
-            // Фиксированный адрес команды поддержки, не STATS_MAIL_FROM/TO —
-            // та же константа, что в mailer.js. Reply-To на отправителя —
-            // на случай, если кто-то ответит прямо из почтового клиента, не
-            // заметив админку.
             helper.setTo("support@extree.tech");
             helper.setReplyTo(email);
             helper.setSubject("[Ticket #" + ticketNumber + "] " + subject);
@@ -224,9 +211,6 @@ public class SmtpMailer implements Mailer {
         }
     }
 
-    // Как и formatLocation в mailer.js (Node) — city здесь всегда null
-    // (см. IpCountryGeoLookup), поэтому письма от этого сервиса всегда
-    // попадают в ветку "страна без города", что уже штатно поддерживается.
     private static String formatLocation(String country, String city) {
         if (country == null) {
             return "an unknown location";
@@ -234,10 +218,6 @@ public class SmtpMailer implements Mailer {
         return city != null ? city + ", " + country : country;
     }
 
-    // Экранирование HTML-спецсимволов — та же escapeHtml, что в mailer.js
-    // (Node), нужна именно тут: newEmail/oldEmail ниже это значения email
-    // аккаунта (пользовательский ввод при регистрации/смене), в отличие от
-    // geo/code/ip, которые сервис генерирует/вычисляет сам.
     private static String escapeHtml(String value) {
         return value.replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -760,9 +740,6 @@ public class SmtpMailer implements Mailer {
                 + "</html>";
     }
 
-    // Интерполяция без экранирования — так же, как в mailer.js: ip/location/
-    // code/time тут не сырой пользовательский ввод (геолокация и
-    // сгенерированный код), тот же уровень доверия, что у Node-оригинала.
     private static String renderSignInNotificationEmail(String ip, String country, String city, String time) {
         String location = formatLocation(country, city);
         String ipText = ip != null ? ip : "unknown";
