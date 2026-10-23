@@ -9,6 +9,7 @@ import tech.extree.stats.application.UtcTime;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.AdminTicketUseCase;
 import tech.extree.stats.application.port.in.SupportTicketUseCase.ReplyView;
+import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.CannedResponseRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.SessionCodec;
@@ -31,6 +32,7 @@ public class AdminTicketService implements AdminTicketUseCase {
     private final SupportTicketRepository supportTicketRepository;
     private final CannedResponseRepository cannedResponseRepository;
     private final Mailer mailer;
+    private final AdminAuditRepository auditRepository;
 
     public AdminTicketService(
             SessionCodec sessionCodec,
@@ -38,13 +40,14 @@ public class AdminTicketService implements AdminTicketUseCase {
             SupportAdminEmails supportAdminEmails,
             SupportTicketRepository supportTicketRepository,
             CannedResponseRepository cannedResponseRepository,
-            Mailer mailer) {
+            Mailer mailer, AdminAuditRepository auditRepository) {
         this.sessionCodec = sessionCodec;
         this.userRepository = userRepository;
         this.supportAdminEmails = supportAdminEmails;
         this.supportTicketRepository = supportTicketRepository;
         this.cannedResponseRepository = cannedResponseRepository;
         this.mailer = mailer;
+        this.auditRepository = auditRepository;
     }
 
     @Override
@@ -129,6 +132,7 @@ public class AdminTicketService implements AdminTicketUseCase {
         SupportTicket ticket = maybeTicket.get();
 
         supportTicketRepository.addReply(ticket.id(), "admin", message);
+        audit(admin, "ticket.reply", "ticket", String.valueOf(ticket.ticketNumber()), "{\"reply\":true}");
         if ("open".equals(ticket.status())) {
             supportTicketRepository.setStatus(ticket.id(), "in_progress");
         }
@@ -152,6 +156,7 @@ public class AdminTicketService implements AdminTicketUseCase {
         if (access.admin() == null) {
             return StatusOutcome.FORBIDDEN;
         }
+        User admin = access.admin();
         if (!TICKET_STATUSES.contains(status)) {
             return StatusOutcome.INVALID_REQUEST;
         }
@@ -160,7 +165,9 @@ public class AdminTicketService implements AdminTicketUseCase {
         if (maybeTicket.isEmpty()) {
             return StatusOutcome.TICKET_NOT_FOUND;
         }
-        supportTicketRepository.setStatus(maybeTicket.get().id(), status);
+        SupportTicket t = maybeTicket.get();
+        supportTicketRepository.setStatus(t.id(), status);
+        audit(admin, "ticket.status", "ticket", String.valueOf(t.ticketNumber()), "{\"status\":\"" + status + "\"}");
         return StatusOutcome.OK;
     }
 
@@ -199,6 +206,7 @@ public class AdminTicketService implements AdminTicketUseCase {
         }
 
         String id = cannedResponseRepository.create(title, body);
+        audit(access.admin(), "canned.create", "canned", id, "{\"title\":\"canned\"}");
         return new CannedCreateResult(CannedCreateOutcome.OK, id);
     }
 
@@ -212,6 +220,7 @@ public class AdminTicketService implements AdminTicketUseCase {
             return CannedDeleteOutcome.FORBIDDEN;
         }
         cannedResponseRepository.delete(id);
+        audit(access.admin(), "canned.delete", "canned", id, null);
         return CannedDeleteOutcome.OK;
     }
 
@@ -239,5 +248,14 @@ public class AdminTicketService implements AdminTicketUseCase {
             return new AdminAccess(true, null);
         }
         return new AdminAccess(true, user.get());
+    }
+
+    private void audit(User admin, String action, String targetType, String targetId, String metadataJson) {
+        if (admin == null) return;
+        try {
+            auditRepository.record(admin.id(), action, targetType, targetId, metadataJson, null);
+        } catch (Exception e) {
+            log.warn("stats-backend-java: не удалось записать audit {} {}", action, targetId, e);
+        }
     }
 }

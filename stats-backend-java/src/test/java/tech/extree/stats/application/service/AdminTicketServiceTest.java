@@ -16,6 +16,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.extree.stats.application.port.in.AdminTicketUseCase;
+import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.CannedResponseRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.SessionCodec;
@@ -32,6 +33,7 @@ class AdminTicketServiceTest {
     private SupportTicketRepository supportTicketRepository;
     private CannedResponseRepository cannedResponseRepository;
     private Mailer mailer;
+    private AdminAuditRepository auditRepository;
     private AdminTicketService service;
 
     // 11 аргументов
@@ -47,6 +49,7 @@ class AdminTicketServiceTest {
         supportTicketRepository = mock(SupportTicketRepository.class);
         cannedResponseRepository = mock(CannedResponseRepository.class);
         mailer = mock(Mailer.class);
+        auditRepository = mock(AdminAuditRepository.class);
         SessionCodec sessionCodec = mock(SessionCodec.class);
 
         when(sessionCodec.decrypt("admin-cookie"))
@@ -62,7 +65,7 @@ class AdminTicketServiceTest {
 
         service = new AdminTicketService(
                 sessionCodec, userRepository, supportAdminEmails,
-                supportTicketRepository, cannedResponseRepository, mailer);
+                supportTicketRepository, cannedResponseRepository, mailer, auditRepository);
     }
 
     @Test
@@ -103,6 +106,7 @@ class AdminTicketServiceTest {
         verify(supportTicketRepository).addReply(eq("t1"), eq("admin"), eq("reply text"));
         verify(supportTicketRepository).setStatus("t1", "in_progress");
         verify(mailer).sendSupportTicketReply(anyString(), eq(1L), anyString(), anyString(), anyString(), anyString());
+        verify(auditRepository).record(eq("admin-id"), eq("ticket.reply"), eq("ticket"), eq("1"), anyString(), any());
     }
 
     @Test
