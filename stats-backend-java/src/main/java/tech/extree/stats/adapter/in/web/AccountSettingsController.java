@@ -4,7 +4,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,7 +11,6 @@ import tech.extree.stats.adapter.in.web.dto.ChangeEmailRequest;
 import tech.extree.stats.adapter.in.web.dto.ChangePasswordRequest;
 import tech.extree.stats.adapter.in.web.dto.CodeRequest;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
-import tech.extree.stats.adapter.in.web.dto.LoginHistoryResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.adapter.in.web.dto.VerifyResponse;
 import tech.extree.stats.application.port.in.AccountSettingsUseCase;
@@ -20,7 +18,12 @@ import tech.extree.stats.application.port.in.AccountSettingsUseCase;
 /**
  * Соответствует requireSession + /auth/account/change-email,
  * /resend-email-change-code, /confirm-email-change,
- * /auth/account/change-password, /api/account/login-history в server.js.
+ * /auth/account/change-password в server.js.
+ *
+ * GET /api/account/login-history удалён из этого контроллера —
+ * он дублирует LoginEventController#history (Ambiguous mapping
+ * на старте Spring Boot). Вся логика login-history — в
+ * LoginEventController.
  */
 @RestController
 public class AccountSettingsController {
@@ -96,16 +99,6 @@ public class AccountSettingsController {
             case WRONG_PASSWORD -> status(HttpStatus.UNAUTHORIZED, "wrong_password");
             case INTERNAL_ERROR -> internalError();
         };
-    }
-
-    @GetMapping("/api/account/login-history")
-    public ResponseEntity<?> loginHistory(
-            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
-        AccountSettingsUseCase.LoginHistoryResult result = accountSettingsUseCase.loginHistory(cookie);
-        if (result.outcome() == AccountSettingsUseCase.LoginHistoryOutcome.UNAUTHORIZED) {
-            return status(HttpStatus.UNAUTHORIZED, "unauthorized");
-        }
-        return ResponseEntity.ok(new LoginHistoryResponse(result.events()));
     }
 
     private static ResponseEntity<ErrorResponse> badRequest(String error) {
