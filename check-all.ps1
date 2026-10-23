@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Прогоняет все проверки (mvn compile/test-compile/test, npm typecheck/build/lint)
-  и сохраняет полный вывод в check-all-report.txt.
+  Прогоняет все проверки (mvn compile/test-compile/test, npm typecheck/build/lint,
+  npm format:check) и сохраняет полный вывод в check-all-report.txt.
 
 .EXAMPLE
   .\check-all.ps1
@@ -10,7 +10,8 @@
   .\check-all.ps1 -Out my-report.txt
 
 .NOTES
-  Не меняет файлы. Только читает и запускает команды.
+  Не меняет исходники. Только читает и запускает команды.
+  Соответствует CI-пайплайну: если тут зелёное — и в CI должно быть зелёное.
 #>
 
 param(
@@ -131,6 +132,16 @@ if (Test-Path "stats-frontend\package.json") {
     Run-Step "npm lint"      "stats-frontend" "npm" @("run","lint","--","--max-warnings","999")
 } else {
     Write-Both "  ! stats-frontend\package.json не найден — пропускаю frontend" "Yellow"
+}
+
+# ---------- FORMAT (Prettier — глобальный, как в CI) ----------
+Write-Both ""
+Write-Both "=== FORMAT (Prettier) ===" "Magenta"
+
+if (Test-Path "package.json") {
+    Run-Step "npm format:check" "." "npm" @("run","format:check")
+} else {
+    Write-Both "  ! package.json не найден в корне — пропускаю format:check" "Yellow"
 }
 
 # ---------- GIT STATUS ----------
