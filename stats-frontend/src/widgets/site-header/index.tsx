@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '../../shared/ui/Button';
+import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
 interface SiteHeaderProps {
@@ -7,15 +10,15 @@ interface SiteHeaderProps {
     actions?: ReactNode;
 }
 
-// Вынесен из pages/sign-in в отдельный виджет, когда появилась вторая
-// страница (pages/terms) — один и тот же хедер (марка + вордмарк,
-// кликабельный, ведёт на "/") нужен на обеих, дублировать разметку
-// значило бы разойтись при следующей правке бренда. rightSlot — для
-// простых текстовых ссылок (Terms/Privacy); actions — отдельный слот под
-// настоящие Button-компоненты (Log in/Sign up) — раньше они жили в
-// rightSlot вперемешку с текстовыми ссылками, и глобальный `.right a`
-// (цвет/без подчёркивания) ломал вид самих кнопок.
+// SRP: только хедер. Если передан явный rightSlot/actions — рендерим их
+// (как раньше). Если НЕ переданы — рендерим дефолтные по статусу auth:
+// - authenticated → Dashboard + ProfileDropdown
+// - anonymous → Log in / Sign up
 export function SiteHeader({ rightSlot, actions }: SiteHeaderProps) {
+    const { status, user } = useAuth();
+
+    const showDefaultActions = rightSlot === undefined && actions === undefined;
+
     return (
         <header className={styles.header}>
             <Link to="/" className={styles.brandLink}>
@@ -24,7 +27,29 @@ export function SiteHeader({ rightSlot, actions }: SiteHeaderProps) {
             </Link>
             <div className={styles.navRight}>
                 {rightSlot && <div className={styles.right}>{rightSlot}</div>}
-                {actions && <div className={styles.actions}>{actions}</div>}
+                {showDefaultActions ? (
+                    <div className={styles.actions}>
+                        {status === 'authenticated' && user ? (
+                            <>
+                                <Button href="/account" variant="primary" size="sm">
+                                    Dashboard
+                                </Button>
+                                <ProfileDropdown email={user.email} isAdmin={user.isAdmin} />
+                            </>
+                        ) : (
+                            <>
+                                <Button href="/login" variant="ghost" size="sm">
+                                    Log in
+                                </Button>
+                                <Button href="/register" variant="primary" size="sm">
+                                    Sign up
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    actions && <div className={styles.actions}>{actions}</div>
+                )}
             </div>
         </header>
     );

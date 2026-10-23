@@ -18,6 +18,8 @@ import { AdminTicketPage } from '../pages/admin-ticket';
 import { AccountSettingsPage } from '../pages/account-settings';
 import { AdminUsersPage } from '../pages/admin-users';
 import { AdminAuditPage } from '../pages/admin-audit';
+import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
+import { GuestOnlyRoute } from '../shared/auth/GuestOnlyRoute';
 
 // RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
 // обсуждение в PR #307: страница рабочая и готова, но пока убрана с
@@ -25,26 +27,84 @@ import { AdminAuditPage } from '../pages/admin-audit';
 // пока заявка на RSO/VALORANT API ещё Pending Review. Раскомментировать
 // импорт и роут ниже, когда будет смысл её снова показывать.
 
+// SRP: App — только карта роутов. Гейты — в <ProtectedRoute>/<GuestOnlyRoute>,
+// чтобы App не знал про статус авторизации.
 export function App() {
     return (
         <Routes>
+            {/* Public */}
             <Route path="/" element={<SignInPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
             <Route path="/cookies" element={<CookiesPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/login" element={<LoginPage />} />
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/verify-location" element={<VerifyLocationPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/account" element={<AccountPage />} />
             <Route path="/support" element={<SupportPage />} />
-            <Route path="/account/settings" element={<AccountSettingsPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
-            <Route path="/admin/audit" element={<AdminAuditPage />} />
             <Route path="/support/ticket/:token" element={<TicketPage />} />
-            <Route path="/admin/tickets" element={<AdminTicketsLayout />}>
+
+            {/* Guest-only: если уже залогинен — редирект на /account */}
+            <Route
+                path="/register"
+                element={
+                    <GuestOnlyRoute>
+                        <RegisterPage />
+                    </GuestOnlyRoute>
+                }
+            />
+            <Route
+                path="/login"
+                element={
+                    <GuestOnlyRoute>
+                        <LoginPage />
+                    </GuestOnlyRoute>
+                }
+            />
+
+            {/* Protected: только залогиненные */}
+            <Route
+                path="/account"
+                element={
+                    <ProtectedRoute>
+                        <AccountPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/account/settings"
+                element={
+                    <ProtectedRoute>
+                        <AccountSettingsPage />
+                    </ProtectedRoute>
+                }
+            />
+
+            {/* Admin-only */}
+            <Route
+                path="/admin/users"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminUsersPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/audit"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminAuditPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/tickets"
+                element={
+                    <ProtectedRoute adminOnly>
+                        <AdminTicketsLayout />
+                    </ProtectedRoute>
+                }
+            >
                 <Route index element={<AdminTicketsPlaceholder />} />
                 <Route path=":number" element={<AdminTicketPage />} />
             </Route>
