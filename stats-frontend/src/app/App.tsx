@@ -12,7 +12,8 @@ import { ResetPasswordPage } from '../pages/reset-password';
 import { AccountPage } from '../pages/account';
 import { SupportPage } from '../pages/support';
 import { TicketPage } from '../pages/ticket';
-import { AdminTicketsPage } from '../pages/admin-tickets';
+import { AdminTicketsLayout } from '../widgets/admin-tickets-layout';
+import { AdminTicketsPlaceholder } from '../pages/admin-tickets-placeholder';
 import { AdminTicketPage } from '../pages/admin-ticket';
 import { AccountSettingsPage } from '../pages/account-settings';
 import { AdminUsersPage } from '../pages/admin-users';
@@ -41,8 +42,10 @@ export function App() {
             <Route path="/account/settings" element={<AccountSettingsPage />} />
             <Route path="/admin/users" element={<AdminUsersPage />} />
             <Route path="/support/ticket/:token" element={<TicketPage />} />
-            <Route path="/admin/tickets" element={<AdminTicketsPage />} />
-            <Route path="/admin/tickets/:number" element={<AdminTicketPage />} />
+            <Route path="/admin/tickets" element={<AdminTicketsLayout />}>
+                <Route index element={<AdminTicketsPlaceholder />} />
+                <Route path=":number" element={<AdminTicketPage />} />
+            </Route>
         </Routes>
     );
 }

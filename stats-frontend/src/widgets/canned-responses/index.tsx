@@ -1,88 +1,89 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Panel } from '../../shared/ui/Panel';
-import { TextField } from '../../shared/ui/TextField';
-import { TextArea } from '../../shared/ui/TextArea';
-import { Button } from '../../shared/ui/Button';
-import {
-    getCannedResponses,
-    createCannedResponse,
-    deleteCannedResponse,
-    ApiError,
-    type CannedResponse,
-} from '../../shared/api/statsAuth';
+import { useEffect, useRef, useState } from 'react';
+import { getCannedResponses, type CannedResponse } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
-export function CannedResponsesPanel() {
-    const [responses, setResponses] = useState<CannedResponse[] | null>(null);
-    const [title, setTitle] = useState('');
-    const [body, setBody] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [pending, setPending] = useState(false);
+interface CannedTemplatePickerProps {
+    onPick: (body: string) => void;
+    disabled?: boolean;
+}
 
-    function load() {
+// SRP: компонент только выбирает шаблон и отдаёт его через onPick.
+// CRUD шаблонов (создание/удаление) — отдельная страница в следующей
+// итерации. Здесь же — только "вставить существующий", как в Zendesk/
+// Intercom (кнопка Insert template ▾ над textarea).
+export function CannedTemplatePicker({ onPick, disabled }: CannedTemplatePickerProps) {
+    const [open, setOpen] = useState(false);
+    const [templates, setTemplates] = useState<CannedResponse[] | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open || templates !== null) return;
         getCannedResponses()
-            .then(result => setResponses(result.responses))
-            .catch(() => setResponses([]));
-    }
+            .then(result => setTemplates(result.responses))
+            .catch(() => setLoadError('Failed to load templates'));
+    }, [open, templates]);
 
-    useEffect(load, []);
-
-    async function onAdd(e: FormEvent) {
-        e.preventDefault();
-        setError(null);
-        setPending(true);
-        try {
-            await createCannedResponse(title, body);
-            setTitle('');
-            setBody('');
-            load();
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
-        } finally {
-            setPending(false);
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
         }
-    }
+        if (open) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [open]);
 
-    async function onDelete(id: string) {
-        await deleteCannedResponse(id);
-        load();
+    function handlePick(body: string) {
+        onPick(body);
+        setOpen(false);
     }
 
     return (
-        <Panel title="Canned responses" subtitle="Reusable reply templates, available when replying to a ticket.">
-            {error && (
-                <p className={styles.error} role="alert">
-                    {error}
-                </p>
-            )}
+        <div className={styles.wrapper} ref={containerRef}>
+            <button
+                type="button"
+                className={styles.trigger}
+                onClick={() => setOpen(v => !v)}
+                disabled={disabled}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+            >
+                <span>Insert template</span>
+                <svg
+                    className={`${styles.caret} ${open ? styles.caretOpen : ''}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
 
-            {responses && responses.length > 0 && (
-                <ul className={styles.list}>
-                    {responses.map(r => (
-                        <li key={r.id} className={styles.item}>
-                            <div className={styles.itemTitle}>{r.title}</div>
-                            <div className={styles.itemBody}>{r.body}</div>
-                            <button type="button" className={styles.deleteBtn} onClick={() => onDelete(r.id)}>
-                                Delete
-                            </button>
-                        </li>
-                    ))}
-                </ul>
+            {open && (
+                <div className={styles.menu} role="listbox">
+                    {loadError && <div className={styles.error}>{loadError}</div>}
+                    {templates === null && !loadError && <div className={styles.empty}>Loading…</div>}
+                    {templates?.length === 0 && <div className={styles.empty}>No templates yet.</div>}
+                    {templates && templates.length > 0 && (
+                        <ul className={styles.list}>
+                            {templates.map(t => (
+                                <li key={t.id}>
+                                    <button type="button" className={styles.item} onClick={() => handlePick(t.body)}>
+                                        <span className={styles.itemTitle}>{t.title}</span>
+                                        <span className={styles.itemBody}>{t.body}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             )}
-
-            <form className={styles.form} onSubmit={onAdd}>
-                <TextField
-                    id="canned-title"
-                    label="Title"
-                    required
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                />
-                <TextArea id="canned-body" label="Body" required value={body} onChange={e => setBody(e.target.value)} />
-                <Button type="submit" variant="ghost" disabled={pending || !title.trim() || !body.trim()}>
-                    {pending ? 'Adding…' : 'Add canned response'}
-                </Button>
-            </form>
-        </Panel>
+        </div>
     );
 }
