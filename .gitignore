@@ -22,3 +22,13 @@ data/
 backups/
 
 all-code.txt
+# Локальная диагностика (не коммитить)
+all-codes.txt
+collect-all.ps1
+fix-all.ps1
+fix-prod-auth.ps1
+diagnose-*.txt
+feature_branch_audit.txt
+slow_requests_audit.txt
+app-docker.log
+app-console.log

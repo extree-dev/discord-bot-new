@@ -83,25 +83,24 @@ public class AdminTicketService implements AdminTicketUseCase {
             return DetailResult.error(DetailOutcome.TICKET_NOT_FOUND);
         }
         SupportTicket ticket = maybeTicket.get();
-        
-        // Ищем статус верификации пользователя
+
         boolean isUserVerified = false;
         if (ticket.userId() != null) {
             isUserVerified = userRepository.findById(ticket.userId())
-                    .map(User::isVerified) // В record User это поле называется isVerified
+                    .map(User::isVerified)
                     .orElse(false);
         }
 
         AdminTicketDetail detail = new AdminTicketDetail(
                 ticket.ticketNumber(),
-                ticket.userId(), // Добавлено
+                ticket.userId(),
                 ticket.email(),
                 ticket.subject(),
                 ticket.message(),
                 ticket.category(),
                 ticket.status(),
                 UtcTime.format(ticket.createdAt()),
-                isUserVerified // Добавлено
+                isUserVerified
         );
         List<ReplyView> replies = SupportTicketService.toReplyViews(supportTicketRepository.listReplies(ticket.id()));
         return new DetailResult(DetailOutcome.OK, detail, replies);

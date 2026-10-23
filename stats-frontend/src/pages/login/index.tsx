@@ -39,6 +39,10 @@ export function LoginPage() {
                 navigate(`/verify-location?email=${encodeURIComponent(email)}`);
                 return;
             }
+            if (err instanceof ApiError && err.code === 'banned') {
+                setError(err.message);
+                return;
+            }
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
             setTurnstileToken('');
             setTurnstileKey(k => k + 1);

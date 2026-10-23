@@ -161,10 +161,15 @@ export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
     return res.json();
 }
 
-export async function getAccount(): Promise<AccountUser | null> {
+export interface AccountState {
+    user: AccountUser | null;
+    banned: boolean;
+}
+
+export async function getAccount(): Promise<AccountState> {
     const res = await fetch('/api/account/me', { credentials: 'include' });
-    const data = await res.json().catch(() => ({ user: null }));
-    return data.user ?? null;
+    const data = await res.json().catch(() => ({ user: null, banned: false }));
+    return { user: data.user ?? null, banned: data.banned === true };
 }
 
 export interface LoginEvent {

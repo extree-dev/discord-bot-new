@@ -42,6 +42,7 @@ public class AuthController {
             case EMAIL_ALREADY_REGISTERED -> status(HttpStatus.CONFLICT, "email_already_registered");
             case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
             case NICKNAME_TAKEN -> status(HttpStatus.CONFLICT, "nickname_taken");
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
             case INTERNAL_ERROR -> internalError();
         };
     }

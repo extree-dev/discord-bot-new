@@ -95,6 +95,13 @@ services:
             SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-discordbot}
             SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-discordbot}
             SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            # Почта: пробрасываем явно, чтобы без STATS_MAIL_* контейнер не поднялся
+            # с пустым SMTP и не падал на первом /auth/register с 500.
+            SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.mail.me.com}
+            SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+            SPRING_MAIL_USERNAME: ${STATS_MAIL_USER:?STATS_MAIL_USER is required}
+            SPRING_MAIL_PASSWORD: ${STATS_MAIL_APP_PASSWORD:?STATS_MAIL_APP_PASSWORD is required}
+            EXTREE_MAIL_FROM: ${STATS_MAIL_FROM:-}
         ports:
             - '8081:8081'
         depends_on:

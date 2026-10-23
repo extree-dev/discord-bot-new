@@ -20,14 +20,14 @@ public interface AdminTicketUseCase {
     ListResult listTickets(String cookieValue, String status);
 
     record AdminTicketDetail(
-            long number, 
-            String userId, 
-            String email, 
-            String subject, 
-            String message, 
-            String category, 
-            String status, 
-            String time, 
+            long number,
+            String userId,
+            String email,
+            String subject,
+            String message,
+            String category,
+            String status,
+            String time,
             boolean isUserVerified) {}
 
     enum DetailOutcome {

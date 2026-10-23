@@ -38,9 +38,9 @@ export function AdminTicketsPage() {
 
     useEffect(() => {
         let cancelled = false;
-        getAccount().then(user => {
+        getAccount().then(({ user, banned }) => {
             if (cancelled) return;
-            if (!user) {
+            if (banned || !user) {
                 navigate('/login');
                 return;
             }

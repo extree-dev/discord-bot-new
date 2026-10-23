@@ -6,7 +6,6 @@ import java.util.Map;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,11 +36,14 @@ public class AccountController {
 
         var userOpt = getAccountUseCase.getAccount(cookie);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ErrorResponse("unauthorized"));
+            // Сессия валидна, но пользователя нет в БД или он забанен
+            // (AccountService.getAccount() возвращает empty() для забаненных).
+            // Отдаём 200 с флагом banned — фронт покажет "аккаунт забанен",
+            // а не редирект на /login.
+            return ResponseEntity.ok(new AccountResponse(null, true));
         }
 
-        return ResponseEntity.ok(toResponse(userOpt.get()));
+        return ResponseEntity.ok(AccountResponse.of(toResponse(userOpt.get())));
     }
 
     @PostMapping("/api/account/avatar")
@@ -55,15 +57,22 @@ public class AccountController {
 
     @GetMapping("/api/account/avatar/{filename}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
-        Path file = Paths.get("uploads/avatars").resolve(filename);
+        Path baseDir = Paths.get("uploads/avatars").toAbsolutePath().normalize();
+        Path file = baseDir.resolve(filename).normalize();
+        if (!file.startsWith(baseDir)) {
+            return ResponseEntity.notFound().build();
+        }
         Resource resource = new FileSystemResource(file);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, "image/" + filename.substring(filename.lastIndexOf(".") + 1))
                 .body(resource);
     }
 
-    private AccountResponse toResponse(User user) {
-        return new AccountResponse(new AccountResponse.AccountUser(
+    private AccountResponse.AccountUser toResponse(User user) {
+        return new AccountResponse.AccountUser(
                 user.email(),
                 user.emailVerified(),
                 user.riotLinked(),
@@ -72,6 +81,6 @@ public class AccountController {
                 getAccountUseCase.isAdmin(user),
                 user.avatarUrl(),
                 user.isVerified()
-        ));
+        );
     }
 }
