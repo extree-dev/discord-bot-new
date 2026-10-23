@@ -45,7 +45,7 @@ sentry:
 
 extree:
     session-secret: ${STATS_SESSION_SECRET:}
-    session-secret-previous: "$\{STATS_SESSION_SECRET_PREVIOUS:\}"
+    session-secret-previous: ${STATS_SESSION_SECRET_PREVIOUS:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
     mail-from: ${STATS_MAIL_FROM:}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
