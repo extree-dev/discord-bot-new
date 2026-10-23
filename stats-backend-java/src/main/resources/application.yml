@@ -22,6 +22,7 @@ spring:
         port: ${SPRING_MAIL_PORT:587}
         username: ${STATS_MAIL_USER:}
         password: ${STATS_MAIL_APP_PASSWORD:}
+        test-connection: false
         properties:
             mail:
                 smtp:
@@ -43,13 +44,11 @@ extree:
         client-secret: ${RIOT_CLIENT_SECRET:}
         api-key: ${RIOT_API_KEY:}
 
-# Базовые настройки логирования (для всех профилей)
+# Логирование: INFO по умолчанию. DEBUG — только в профиле dev (ниже).
 logging:
     level:
-        tech.extree.stats: DEBUG
-        org.springframework.web: DEBUG
-
-
+        tech.extree.stats: INFO
+        org.springframework.mail: INFO
 # Настройки, которые применяются ТОЛЬКО при профиле dev
 ---
 spring:

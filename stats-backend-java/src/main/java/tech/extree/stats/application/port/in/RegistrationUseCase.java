@@ -12,7 +12,8 @@ public interface RegistrationUseCase {
         EMAIL_ALREADY_REGISTERED,
         CODE_ON_COOLDOWN,
         NICKNAME_TAKEN,
-        INTERNAL_ERROR
+        INTERNAL_ERROR,
+        BANNED
     }
 
     enum ResendOutcome {

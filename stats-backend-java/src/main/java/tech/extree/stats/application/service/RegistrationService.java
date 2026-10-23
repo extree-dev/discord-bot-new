@@ -4,6 +4,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.RegistrationUseCase;
@@ -19,6 +21,8 @@ import tech.extree.stats.domain.User;
 
 @Service
 public class RegistrationService implements RegistrationUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(RegistrationService.class);
 
     private static final long CODE_TTL_MINUTES = 10;
     private static final long RESEND_COOLDOWN_SECONDS = 60;
@@ -64,8 +68,13 @@ public class RegistrationService implements RegistrationUseCase {
         }
 
         Optional<User> existing = userRepository.findByEmail(email);
-        if (existing.isPresent() && existing.get().emailVerified()) {
-            return RegisterOutcome.EMAIL_ALREADY_REGISTERED;
+        if (existing.isPresent()) {
+            if (existing.get().isBanned()) {
+                return RegisterOutcome.BANNED;
+            }
+            if (existing.get().emailVerified()) {
+                return RegisterOutcome.EMAIL_ALREADY_REGISTERED;
+            }
         }
         if (isOnCooldown(email)) {
             return RegisterOutcome.CODE_ON_COOLDOWN;
@@ -76,16 +85,14 @@ public class RegistrationService implements RegistrationUseCase {
         } catch (NicknameTakenException e) {
             return RegisterOutcome.NICKNAME_TAKEN;
         } catch (Exception e) {
-            System.err.println("!!! ОШИБКА ПРИ СОХРАНЕНИИ ПОЛЬЗОВАТЕЛЯ: " + e.getMessage());
-            e.printStackTrace(); // <-- ВЫВЕДЕТ ОШИБКУ В ЛОГ
+            log.error("stats-backend-java: ошибка сохранения пользователя {}", email, e);
             return RegisterOutcome.INTERNAL_ERROR;
         }
 
         try {
             issueAndSendCode(email);
         } catch (Exception e) {
-            System.err.println("!!! ОШИБКА ПРИ ОТПРАВКЕ EMAIL: " + e.getMessage());
-            e.printStackTrace(); // <-- ВЫВЕДЕТ ОШИБКУ В ЛОГ
+            log.error("stats-backend-java: не удалось отправить код подтверждения на {}", email, e);
             return RegisterOutcome.INTERNAL_ERROR;
         }
         return RegisterOutcome.OK;
@@ -109,7 +116,6 @@ public class RegistrationService implements RegistrationUseCase {
         try {
             issueAndSendCode(email);
         } catch (Exception e) {
-            e.printStackTrace();
             return ResendOutcome.INTERNAL_ERROR;
         }
         return ResendOutcome.OK;

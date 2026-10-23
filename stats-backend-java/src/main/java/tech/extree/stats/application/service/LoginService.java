@@ -85,7 +85,7 @@ public class LoginService implements LoginUseCase {
         
         // --- ПРОВЕРКА НА БАН ---
         if (user.isBanned()) {
-            return LoginResult.error(LoginOutcome.INVALID_CREDENTIALS); // Или можно добавить свой код 'banned'
+            return LoginResult.error(LoginOutcome.BANNED);
         }
         
         if (!user.emailVerified()) {

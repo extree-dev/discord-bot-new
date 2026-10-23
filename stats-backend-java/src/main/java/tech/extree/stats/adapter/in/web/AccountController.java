@@ -37,8 +37,7 @@ public class AccountController {
 
         var userOpt = getAccountUseCase.getAccount(cookie);
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new ErrorResponse("unauthorized"));
+            return ResponseEntity.ok(AccountResponse.banned());
         }
 
         return ResponseEntity.ok(toResponse(userOpt.get()));
@@ -55,8 +54,15 @@ public class AccountController {
 
     @GetMapping("/api/account/avatar/{filename}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
-        Path file = Paths.get("uploads/avatars").resolve(filename);
+        Path baseDir = Paths.get("uploads/avatars").toAbsolutePath().normalize();
+        Path file = baseDir.resolve(filename).normalize();
+        if (!file.startsWith(baseDir)) {
+            return ResponseEntity.notFound().build();
+        }
         Resource resource = new FileSystemResource(file);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, "image/" + filename.substring(filename.lastIndexOf(".") + 1))
                 .body(resource);

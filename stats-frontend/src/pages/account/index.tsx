@@ -56,12 +56,32 @@ export function AccountPage() {
     const navigate = useNavigate();
     const [user, setUser] = useState<AccountUser | null>(null);
 
+    const [banned, setBanned] = useState(false);
+
     useEffect(() => {
         getAccount().then(result => {
-            if (!result) navigate('/login');
-            else setUser(result);
+            if (result.banned) {
+                setBanned(true);
+            } else if (!result.user) {
+                navigate('/login');
+            } else {
+                setUser(result.user);
+            }
         });
     }, [navigate]);
+
+    if (banned) {
+        return (
+            <DashboardShell user={null} title="Account banned">
+                <div style={{ padding: 40, textAlign: 'center' }}>
+                    <h2>Your account has been banned.</h2>
+                    <p>
+                        Please contact <a href="mailto:support@extree.tech">support@extree.tech</a>.
+                    </p>
+                </div>
+            </DashboardShell>
+        );
+    }
 
     if (!user) {
         return (
