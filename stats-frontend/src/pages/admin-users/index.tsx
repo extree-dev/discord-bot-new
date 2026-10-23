@@ -1,56 +1,35 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconButton } from '../../shared/ui/IconButton';
 import { IconCheck, IconX, ShieldIcon, IconShieldOff } from '../../shared/ui/Icons';
-import {
-    getAccount,
-    getAllUsers,
-    banUser,
-    verifyUser,
-    makeAdmin,
-    ApiError,
-    type AccountUser,
-    type AdminUser,
-} from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
+import { getAllUsers, banUser, verifyUser, makeAdmin, ApiError, type AdminUser } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
+// SRP: только рендер страницы. Данные о текущем юзере — из useAuth
+// (ProtectedRoute adminOnly гарантирует, что user !== null и isAdmin).
 export function AdminUsersPage() {
-    const navigate = useNavigate();
-    const [account, setAccount] = useState<AccountUser | null>(null);
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pendingId, setPendingId] = useState<string | null>(null);
 
-    function loadUsers() {
+    useEffect(() => {
         getAllUsers()
             .then(res => setUsers(res.users))
             .catch(err => setError(err instanceof ApiError ? err.message : 'Failed to load users'))
             .finally(() => setLoading(false));
-    }
+    }, []);
 
-    useEffect(() => {
-        getAccount().then(({ user, banned }) => {
-            if (banned || !user || !user.isAdmin) {
-                navigate('/login');
-                return;
-            }
-            setAccount(user);
-            loadUsers();
-        });
-    }, [navigate]);
-
-    // ИСПРАВЛЕНО: Promise<unknown> вместо Promise<any>
     async function handleAction(id: string, action: () => Promise<unknown>, field: keyof AdminUser) {
         setPendingId(id);
         try {
             await action();
             setUsers(users.map(u => (u.id === id ? { ...u, [field]: !u[field] } : u)));
         } catch {
-            // ИСПРАВЛЕНО: убрана неиспользуемая переменная e
             alert(`Failed to update ${field}`);
         } finally {
             setPendingId(null);
@@ -66,7 +45,11 @@ export function AdminUsersPage() {
     }
 
     return (
-        <DashboardShell user={account!} title="User Management" wide>
+        <DashboardShell
+            user={currentUser ? { email: currentUser.email, isAdmin: currentUser.isAdmin } : null}
+            title="User Management"
+            wide
+        >
             {error && <div className={styles.errorBanner}>{error}</div>}
 
             <Panel noBodyPadding>

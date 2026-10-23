@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
-import { getAccount, type AccountUser } from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
-// --- SVG Иконки ---
+// SVG иконки (без изменений)
 function ChartIcon() {
     return (
         <svg
@@ -17,13 +16,12 @@ function ChartIcon() {
             strokeLinecap="round"
             strokeLinejoin="round"
         >
-            <line x1="18" y1="20" x2="18" y2="10"></line>
-            <line x1="12" y1="20" x2="12" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="14"></line>
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
     );
 }
-
 function TargetIcon() {
     return (
         <svg
@@ -36,13 +34,12 @@ function TargetIcon() {
             strokeLinecap="round"
             strokeLinejoin="round"
         >
-            <circle cx="12" cy="12" r="10"></circle>
-            <circle cx="12" cy="12" r="6"></circle>
-            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
         </svg>
     );
 }
-
 function DiscordIcon() {
     return (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -50,25 +47,12 @@ function DiscordIcon() {
         </svg>
     );
 }
-// -----------------
 
+// SRP: только рендер страницы. Данные — из useAuth (не делаем getAccount()).
+// ProtectedRoute гарантирует, что user !== null и status === 'authenticated'.
 export function AccountPage() {
     const navigate = useNavigate();
-    const [user, setUser] = useState<AccountUser | null>(null);
-
-    const [banned, setBanned] = useState(false);
-
-    useEffect(() => {
-        getAccount().then(result => {
-            if (result.banned) {
-                setBanned(true);
-            } else if (!result.user) {
-                navigate('/login');
-            } else {
-                setUser(result.user);
-            }
-        });
-    }, [navigate]);
+    const { user, banned } = useAuth();
 
     if (banned) {
         return (
@@ -84,6 +68,7 @@ export function AccountPage() {
     }
 
     if (!user) {
+        // ProtectedRoute уже редиректит анонимных — сюда не должны попасть.
         return (
             <DashboardShell user={null} title="Loading...">
                 Loading...
@@ -94,7 +79,6 @@ export function AccountPage() {
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
             <div className={styles.heroContainer}>
-                {/* Бейдж статуса */}
                 <div className={styles.statusBadge}>
                     <span className={styles.statusDot}></span>
                     Waiting for Riot Approval
@@ -120,7 +104,6 @@ export function AccountPage() {
                     </button>
                 </div>
 
-                {/* Блок с фичами, которые скоро появятся */}
                 <div className={styles.featuresGrid}>
                     <div className={styles.featureCard}>
                         <div className={styles.iconWrapper}>
