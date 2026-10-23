@@ -1,9 +1,11 @@
 package tech.extree.stats.adapter.in.web;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tech.extree.stats.adapter.in.web.dto.AdminUserResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.SessionCodec;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Session;
@@ -17,10 +19,12 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final SessionCodec sessionCodec;
+    private final AdminAuditRepository auditRepository;
 
-    public AdminUserController(UserRepository userRepository, SessionCodec sessionCodec) {
+    public AdminUserController(UserRepository userRepository, SessionCodec sessionCodec, AdminAuditRepository auditRepository) {
         this.userRepository = userRepository;
         this.sessionCodec = sessionCodec;
+        this.auditRepository = auditRepository;
     }
 
     private boolean isAdmin(String cookie) {
@@ -49,9 +53,14 @@ public class AdminUserController {
     public ResponseEntity<?> verifyUser(
             @PathVariable String userId,
             @CookieValue(name = "extree_stats_session", required = false) String cookie,
-            @RequestParam boolean isVerified) {
+            @RequestParam boolean isVerified, HttpServletRequest httpRequest) {
         if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
         userRepository.setVerified(userId, isVerified);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.verify", "user", userId,
+                    "{\"isVerified\":" + isVerified + "}", ClientIp.from(httpRequest));
+        }
         return ResponseEntity.ok(OkResponse.OK);
     }
 
@@ -59,9 +68,14 @@ public class AdminUserController {
     public ResponseEntity<?> banUser(
             @PathVariable String userId,
             @CookieValue(name = "extree_stats_session", required = false) String cookie,
-            @RequestParam boolean isBanned) {
+            @RequestParam boolean isBanned, HttpServletRequest httpRequest) {
         if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
         userRepository.setBanned(userId, isBanned);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.ban", "user", userId,
+                    "{\"isBanned\":" + isBanned + "}", ClientIp.from(httpRequest));
+        }
         return ResponseEntity.ok(OkResponse.OK);
     }
 
@@ -70,9 +84,22 @@ public class AdminUserController {
     public ResponseEntity<?> makeAdmin(
             @PathVariable String userId,
             @CookieValue(name = "extree_stats_session", required = false) String cookie,
-            @RequestParam boolean isAdmin) {
+            @RequestParam boolean isAdmin, HttpServletRequest httpRequest) {
         if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
         userRepository.setAdmin(userId, isAdmin);
+        String adminId = currentAdminId(cookie);
+        if (adminId != null) {
+            auditRepository.record(adminId, "user.make_admin", "user", userId,
+                    "{\"isAdmin\":" + isAdmin + "}", ClientIp.from(httpRequest));
+        }
         return ResponseEntity.ok(OkResponse.OK);
+    }
+
+    private String currentAdminId(String cookie) {
+        if (cookie == null) return null;
+        return sessionCodec.decrypt(cookie)
+                .filter(s -> s.userId() != null)
+                .map(s -> s.userId())
+                .orElse(null);
     }
 }

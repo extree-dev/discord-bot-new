@@ -32,3 +32,10 @@ feature_branch_audit.txt
 slow_requests_audit.txt
 app-docker.log
 app-console.log
+
+# local scripts artifacts
+full-bundle.txt
+audit-check-bundle.txt
+next-bundle.txt
+missing-bundle.txt
+*.bak-*
