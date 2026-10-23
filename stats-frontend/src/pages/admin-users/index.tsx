@@ -33,12 +33,13 @@ export function AdminUsersPage() {
     }
 
     useEffect(() => {
-        getAccount().then(u => {
-            if (!u || !u.isAdmin) navigate('/login');
-            else {
-                setAccount(u);
-                loadUsers();
+        getAccount().then(({ user, banned }) => {
+            if (banned || !user || !user.isAdmin) {
+                navigate('/login');
+                return;
             }
+            setAccount(user);
+            loadUsers();
         });
     }, [navigate]);
 

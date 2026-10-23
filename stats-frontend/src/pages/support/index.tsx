@@ -71,7 +71,7 @@ export function SupportPage() {
 
     useEffect(() => {
         let cancelled = false;
-        getAccount().then(user => {
+        getAccount().then(({ user }) => {
             if (cancelled) return;
             setAccountEmail(user?.email ?? null);
             setCheckingAccount(false);

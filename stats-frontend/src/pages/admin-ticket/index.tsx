@@ -39,10 +39,15 @@ export function AdminTicketPage() {
     const [isVerifying, setIsVerifying] = useState(false);
 
     useEffect(() => {
-        getAccount().then(u => {
-            if (!u) navigate('/login');
-            else {
-                setAccount(u);
+        getAccount().then(({ user, banned }) => {
+            if (banned) {
+                navigate('/login');
+                return;
+            }
+            if (!user) {
+                navigate('/login');
+            } else {
+                setAccount(user);
                 setChecking(false);
             }
         });
