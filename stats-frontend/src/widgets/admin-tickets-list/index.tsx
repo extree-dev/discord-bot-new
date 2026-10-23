@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import { type TicketStatus, type TicketSummary } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -25,9 +26,6 @@ interface AdminTicketsListProps {
     onStatusChange: (status: '' | TicketStatus) => void;
 }
 
-// SRP: левая колонка — только фильтры, поиск, карточки. Про роутер и
-// бэк не знает. Активный тикет — акцентная левая полоса + фон, без
-// "нативной рамки" (как в первой итерации).
 export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onStatusChange }: AdminTicketsListProps) {
     const [search, setSearch] = useState('');
 
@@ -100,7 +98,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
             </div>
 
             <div className={styles.scrollArea}>
-                {tickets === null && <div className={styles.placeholder}>Loading…</div>}
+                {tickets === null && <TicketListSkeleton />}
                 {visible && visible.length === 0 && (
                     <div className={styles.placeholder}>
                         {search.trim() ? 'No tickets match your search.' : 'No tickets in this filter.'}
@@ -139,4 +137,20 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
 
 function StatusDot({ status }: { status: TicketStatus }) {
     return <span className={`${styles.dot} ${styles[`dot_${status}`]}`} aria-hidden="true" />;
+}
+
+// Skeleton для левой колонки — 5 placeholder-карточек, чтобы layout не
+// "прыгал" при загрузке (высота карточки ~60px + отступы).
+function TicketListSkeleton() {
+    return (
+        <div className={styles.skeletonList} aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className={styles.skeletonCard}>
+                    <Skeleton width="40%" height={10} radius={3} />
+                    <Skeleton width="90%" height={14} radius={4} />
+                    <Skeleton width="60%" height={11} radius={3} />
+                </div>
+            ))}
+        </div>
+    );
 }

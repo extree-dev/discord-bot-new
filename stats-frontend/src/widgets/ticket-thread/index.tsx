@@ -1,5 +1,6 @@
 import { Avatar } from '../../shared/ui/Avatar';
 import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import styles from './index.module.scss';
 
 interface ThreadMessage {
@@ -15,10 +16,12 @@ interface TicketThreadProps {
 }
 
 // Comment-style thread (Linear / GitHub Issues): без пузырей, только
-// Avatar + author + relative time + свободный текст. Меньше визуального
-// шума, легче читается длинная переписка. Используется и в админке,
-// и в публичной странице тикета.
+// Avatar + author + relative time + свободный текст. Используется и в
+// админке, и в публичной странице тикета.
 export function TicketThread({ messages }: TicketThreadProps) {
+    if (messages.length === 0) {
+        return <ThreadSkeleton />;
+    }
     return (
         <div className={styles.thread}>
             {messages.map(m => (
@@ -30,6 +33,27 @@ export function TicketThread({ messages }: TicketThreadProps) {
                             <span className={styles.time}>{formatRelativeTime(m.time)}</span>
                         </header>
                         <div className={styles.message}>{m.message}</div>
+                    </div>
+                </article>
+            ))}
+        </div>
+    );
+}
+
+function ThreadSkeleton() {
+    return (
+        <div className={styles.thread} aria-hidden="true">
+            {[0, 1, 2].map(i => (
+                <article key={i} className={styles.comment}>
+                    <Skeleton width={32} height={32} radius="50%" />
+                    <div className={styles.body}>
+                        <div className={styles.skeletonHead}>
+                            <Skeleton width={80} height={12} radius={3} />
+                            <Skeleton width={48} height={10} radius={3} />
+                        </div>
+                        <Skeleton width="100%" height={14} radius={4} />
+                        <div style={{ height: 8 }} />
+                        <Skeleton width="80%" height={14} radius={4} />
                     </div>
                 </article>
             ))}

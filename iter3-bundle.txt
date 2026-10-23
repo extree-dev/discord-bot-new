@@ -1,0 +1,2547 @@
+==================================================
+BUNDLE: iter3-bundle.txt
+BRANCH: feature/admin-tickets-redesign-v2
+HEAD:   9054ebb
+WHEN:   2026-10-23 11:35:46 +03:00
+FILES:  32
+==================================================
+
+==================================================
+FILE: stats-frontend\src\widgets\admin-tickets-layout\index.tsx
+==================================================
+
+import { useCallback, useEffect, useState } from 'react';
+import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { DashboardShell } from '../dashboard-shell';
+import { AdminTicketsList } from '../admin-tickets-list';
+import {
+    getAccount,
+    getAdminTickets,
+    ApiError,
+    type AccountUser,
+    type TicketStatus,
+    type TicketSummary,
+} from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+// SRP: этот компонент — только композиция (shell + две колонки + fetch
+// списка + навигация по выбору). Сама левая колонка — AdminTicketsList.
+// Сама правая — Outlet (AdminTicketPage / AdminTicketsPlaceholder).
+//
+// Про роутер: useParams/useNavigate, но не про API деталей тикета.
+// Про API: только list (getAdminTickets) + account. Детали тикета тянет
+// AdminTicketPage сам, в своей зоне ответственности.
+export function AdminTicketsLayout() {
+    const navigate = useNavigate();
+    const params = useParams<{ number?: string }>();
+    const activeNumber = params.number ? Number(params.number) : null;
+
+    const [account, setAccount] = useState<AccountUser | null>(null);
+    const [checkingAccount, setCheckingAccount] = useState(true);
+    const [status, setStatus] = useState<'' | TicketStatus>('');
+    const [tickets, setTickets] = useState<TicketSummary[] | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        getAccount().then(({ user, banned }) => {
+            if (cancelled) return;
+            if (banned || !user) {
+                navigate('/login');
+                return;
+            }
+            setAccount(user);
+            setCheckingAccount(false);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [navigate]);
+
+    useEffect(() => {
+        if (checkingAccount) return;
+        let cancelled = false;
+        setTickets(null);
+        setError(null);
+        getAdminTickets(status || undefined)
+            .then(result => {
+                if (!cancelled) setTickets(result.tickets);
+            })
+            .catch(err => {
+                if (cancelled) return;
+                setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [checkingAccount, status]);
+
+    const handleSelect = useCallback(
+        (number: number) => {
+            navigate(`/admin/tickets/${number}`);
+        },
+        [navigate]
+    );
+
+    const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
+
+    return (
+        <DashboardShell user={dashUser} title="" wide>
+            <div className={styles.layout}>
+                <aside className={styles.list}>
+                    {checkingAccount ? (
+                        <div className={styles.center}>Loading…</div>
+                    ) : error ? (
+                        <div className={styles.center}>
+                            <p className={styles.error}>{error}</p>
+                        </div>
+                    ) : (
+                        <AdminTicketsList
+                            tickets={tickets}
+                            activeNumber={activeNumber}
+                            onSelect={handleSelect}
+                            status={status}
+                            onStatusChange={setStatus}
+                        />
+                    )}
+                </aside>
+                <main className={styles.detail}>
+                    <Outlet />
+                </main>
+            </div>
+        </DashboardShell>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\admin-tickets-layout\index.module.scss
+==================================================
+
+@use '../../shared/styles/variables' as v;
+
+/*
+ * Master-detail: левая колонка — свой фон (--surface), правая — основной
+ * --bg. Это даёт чёткую визуальную границу "список / детали" без лишних
+ * рамок. Ширина 380px — оптимум для списка тикетов (subject в 2 строки
+ * + meta + время помещается), на узких экранах — стек.
+ */
+.layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: calc(100vh - 56px);
+    min-height: 0;
+    margin: -40px -24px -80px;
+}
+
+.list {
+    min-height: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.detail {
+    min-height: 0;
+    background: var(--bg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+}
+
+.error {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+}
+
+@media (max-width: v.$breakpoint-tablet) {
+    .layout {
+        grid-template-columns: 1fr;
+        margin: -24px -16px -40px;
+    }
+
+    .list {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\admin-tickets-list\index.tsx
+==================================================
+
+import { useMemo, useState } from 'react';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import { type TicketStatus, type TicketSummary } from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+const CATEGORY_LABELS: Record<string, string> = {
+    account: 'Account & login',
+    bug: 'Bug report',
+    billing: 'Billing',
+    other: 'Other',
+};
+
+const STATUS_FILTERS: Array<{ key: '' | TicketStatus; label: string }> = [
+    { key: '', label: 'All' },
+    { key: 'open', label: 'Open' },
+    { key: 'in_progress', label: 'In progress' },
+    { key: 'closed', label: 'Closed' },
+];
+
+interface AdminTicketsListProps {
+    tickets: TicketSummary[] | null;
+    activeNumber: number | null;
+    onSelect: (number: number) => void;
+    status: '' | TicketStatus;
+    onStatusChange: (status: '' | TicketStatus) => void;
+}
+
+// SRP: левая колонка — только фильтры, поиск, карточки. Про роутер и
+// бэк не знает. Активный тикет — акцентная левая полоса + фон, без
+// "нативной рамки" (как в первой итерации).
+export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onStatusChange }: AdminTicketsListProps) {
+    const [search, setSearch] = useState('');
+
+    const counts = useMemo(() => {
+        if (!tickets) return { total: 0, open: 0, in_progress: 0, closed: 0 };
+        return {
+            total: tickets.length,
+            open: tickets.filter(t => t.status === 'open').length,
+            in_progress: tickets.filter(t => t.status === 'in_progress').length,
+            closed: tickets.filter(t => t.status === 'closed').length,
+        };
+    }, [tickets]);
+
+    const visible = useMemo(() => {
+        if (!tickets) return null;
+        const q = search.trim().toLowerCase();
+        if (!q) return tickets;
+        return tickets.filter(t => t.subject.toLowerCase().includes(q) || t.email.toLowerCase().includes(q));
+    }, [tickets, search]);
+
+    function countFor(key: '' | TicketStatus): number {
+        if (key === '') return counts.total;
+        return counts[key];
+    }
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.header}>
+                <div className={styles.titleRow}>
+                    <h1 className={styles.title}>Inbox</h1>
+                    {tickets && <span className={styles.badge}>{counts.total}</span>}
+                </div>
+
+                <div className={styles.searchWrapper}>
+                    <svg
+                        className={styles.searchIcon}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                        type="search"
+                        className={styles.searchInput}
+                        placeholder="Search by subject or email…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                </div>
+
+                <nav className={styles.filters} aria-label="Filter tickets by status">
+                    {STATUS_FILTERS.map(f => (
+                        <button
+                            key={f.key || 'all'}
+                            type="button"
+                            className={`${styles.filterBtn} ${status === f.key ? styles.filterBtnActive : ''}`}
+                            onClick={() => onStatusChange(f.key)}
+                        >
+                            <span>{f.label}</span>
+                            <span className={styles.filterCount}>{countFor(f.key)}</span>
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            <div className={styles.scrollArea}>
+                {tickets === null && <div className={styles.placeholder}>Loading…</div>}
+                {visible && visible.length === 0 && (
+                    <div className={styles.placeholder}>
+                        {search.trim() ? 'No tickets match your search.' : 'No tickets in this filter.'}
+                    </div>
+                )}
+                {visible && visible.length > 0 && (
+                    <ul className={styles.list}>
+                        {visible.map(t => (
+                            <li key={t.number}>
+                                <button
+                                    type="button"
+                                    className={`${styles.card} ${activeNumber === t.number ? styles.cardActive : ''}`}
+                                    onClick={() => onSelect(t.number)}
+                                >
+                                    <div className={styles.cardTop}>
+                                        <StatusDot status={t.status} />
+                                        <span className={styles.number}>#{t.number}</span>
+                                        <span className={styles.time}>{formatRelativeTime(t.time)}</span>
+                                    </div>
+                                    <div className={styles.subject}>{t.subject}</div>
+                                    <div className={styles.meta}>
+                                        <span className={styles.email}>{t.email}</span>
+                                        <span className={styles.category}>
+                                            {CATEGORY_LABELS[t.category] ?? t.category}
+                                        </span>
+                                    </div>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function StatusDot({ status }: { status: TicketStatus }) {
+    return <span className={`${styles.dot} ${styles[`dot_${status}`]}`} aria-hidden="true" />;
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\admin-tickets-list\index.module.scss
+==================================================
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.header {
+    padding: 20px 18px 0;
+    flex-shrink: 0;
+}
+
+.titleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.searchWrapper {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+.searchIcon {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    pointer-events: none;
+}
+
+.searchInput {
+    width: 100%;
+    padding: 8px 11px 8px 32px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s ease;
+
+    &::placeholder {
+        color: var(--text-faint);
+    }
+
+    &:focus {
+        border-color: var(--border-strong);
+    }
+}
+
+/* Вертикальные pills, как в Linear / Intercom sidebar */
+.filters {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0 -18px;
+    padding: 0 10px;
+}
+
+.filterBtn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        color 0.12s ease;
+
+    &:hover {
+        background: var(--surface-2);
+        color: var(--text);
+    }
+}
+
+.filterBtnActive {
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 600;
+}
+
+.filterCount {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-faint);
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.filterBtnActive .filterCount {
+    background: rgba(255, 77, 94, 0.14);
+    color: var(--accent-soft);
+}
+
+.scrollArea {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+    margin-top: 14px;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 12px 14px 12px 16px;
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: inherit;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease;
+
+    &:hover {
+        background: var(--bg);
+    }
+}
+
+.cardActive {
+    background: var(--bg);
+    border-left-color: var(--text);
+}
+
+.cardTop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dot_open {
+    background: var(--win);
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
+}
+
+.dot_in_progress {
+    background: #f0b429;
+    box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.16);
+}
+
+.dot_closed {
+    background: var(--text-faint);
+}
+
+.number {
+    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-faint);
+}
+
+.time {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.subject {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-faint);
+    min-width: 0;
+}
+
+.email {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.category {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text-faint);
+    white-space: nowrap;
+}
+
+.placeholder {
+    padding: 40px 20px;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\ticket-thread\index.tsx
+==================================================
+
+import { Avatar } from '../../shared/ui/Avatar';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import styles from './index.module.scss';
+
+interface ThreadMessage {
+    id: string;
+    isSupport: boolean;
+    authorLabel: string;
+    message: string;
+    time: string;
+}
+
+interface TicketThreadProps {
+    messages: ThreadMessage[];
+}
+
+// Comment-style thread (Linear / GitHub Issues): без пузырей, только
+// Avatar + author + relative time + свободный текст. Меньше визуального
+// шума, легче читается длинная переписка. Используется и в админке,
+// и в публичной странице тикета.
+export function TicketThread({ messages }: TicketThreadProps) {
+    return (
+        <div className={styles.thread}>
+            {messages.map(m => (
+                <article key={m.id} className={`${styles.comment} ${m.isSupport ? styles.commentSupport : ''}`}>
+                    <Avatar label={m.authorLabel} isSupport={m.isSupport} />
+                    <div className={styles.body}>
+                        <header className={styles.head}>
+                            <span className={styles.author}>{m.authorLabel}</span>
+                            <span className={styles.time}>{formatRelativeTime(m.time)}</span>
+                        </header>
+                        <div className={styles.message}>{m.message}</div>
+                    </div>
+                </article>
+            ))}
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\ticket-thread\index.module.scss
+==================================================
+
+.thread {
+    display: flex;
+    flex-direction: column;
+}
+
+.comment {
+    display: flex;
+    gap: 14px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.commentSupport {
+    // поддержка визуально "в своей зоне" — лёгкий акцентный оттенок фона
+    background: linear-gradient(180deg, rgba(255, 77, 94, 0.03), transparent 60%);
+    border-radius: 8px;
+    padding: 20px 12px;
+    margin: 0 -12px;
+
+    & + .comment {
+        border-top: none;
+    }
+}
+
+.body {
+    flex: 1;
+    min-width: 0;
+}
+
+.head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.time {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.message {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+
+==================================================
+FILE: stats-frontend\src\pages\admin-ticket\index.tsx
+==================================================
+
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { StatusPill } from '../../shared/ui/StatusPill';
+import { TextArea } from '../../shared/ui/TextArea';
+import { Button } from '../../shared/ui/Button';
+import { IconButtonGroup } from '../../shared/ui/IconButtonGroup';
+import { EmptyState } from '../../shared/ui/EmptyState';
+import { TicketThread } from '../../widgets/ticket-thread';
+import { CannedTemplatePicker } from '../../widgets/canned-responses';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import {
+    getAdminTicket,
+    replyToTicketAsAdmin,
+    setTicketStatus,
+    verifyUser,
+    type AdminTicketDetail,
+    type TicketReply,
+    type TicketStatus,
+} from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+const STATUS_OPTIONS = [
+    { value: 'open', label: 'Open' },
+    { value: 'in_progress', label: 'In progress' },
+    { value: 'closed', label: 'Closed' },
+] as const;
+
+export function AdminTicketPage() {
+    const { number } = useParams<{ number: string }>();
+    const navigate = useNavigate();
+    const [ticket, setTicket] = useState<AdminTicketDetail | null>(null);
+    const [replies, setReplies] = useState<TicketReply[]>([]);
+    const [message, setMessage] = useState('');
+    const [pending, setPending] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!number) return;
+        let cancelled = false;
+        setLoadError(null);
+        getAdminTicket(number)
+            .then(res => {
+                if (cancelled) return;
+                setTicket(res.ticket);
+                setReplies(res.replies);
+            })
+            .catch(() => {
+                if (!cancelled) setLoadError('Failed to load ticket.');
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [number]);
+
+    async function onReply(e: FormEvent) {
+        e.preventDefault();
+        if (!number || !message.trim()) return;
+        setPending(true);
+        try {
+            await replyToTicketAsAdmin(number, message);
+            setMessage('');
+            const res = await getAdminTicket(number);
+            setTicket(res.ticket);
+            setReplies(res.replies);
+        } catch {
+            alert('Failed to send reply');
+        } finally {
+            setPending(false);
+        }
+    }
+
+    async function onStatusChange(newStatus: TicketStatus) {
+        if (!number) return;
+        try {
+            await setTicketStatus(number, newStatus);
+            setTicket(t => (t ? { ...t, status: newStatus } : null));
+        } catch {
+            alert('Failed to update status');
+        }
+    }
+
+    async function handleVerify() {
+        if (!ticket || !ticket.userId) return;
+        setIsVerifying(true);
+        try {
+            const newStatus = !ticket.isUserVerified;
+            await verifyUser(ticket.userId, newStatus);
+            setTicket(t => (t ? { ...t, isUserVerified: newStatus } : null));
+        } catch {
+            alert('Failed to update verification status');
+        } finally {
+            setIsVerifying(false);
+        }
+    }
+
+    if (loadError) {
+        return (
+            <div className={styles.center}>
+                <p className={styles.errorText}>{loadError}</p>
+            </div>
+        );
+    }
+
+    if (!ticket) {
+        return <div className={styles.center}>Loading…</div>;
+    }
+
+    const threadMessages = [
+        { id: 'original', isSupport: false, authorLabel: 'User', message: ticket.message, time: ticket.time },
+        ...replies.map(r => ({
+            id: r.id,
+            isSupport: r.author === 'admin',
+            authorLabel: r.author === 'admin' ? 'Support (You)' : 'User',
+            message: r.message,
+            time: r.time,
+        })),
+    ];
+
+    const statusIndex = STATUS_OPTIONS.findIndex(o => o.value === ticket.status);
+
+    return (
+        <div className={styles.page}>
+            <header className={styles.header}>
+                <button
+                    type="button"
+                    className={styles.backBtn}
+                    onClick={() => navigate('/admin/tickets')}
+                    aria-label="Back to tickets"
+                >
+                    ←
+                </button>
+                <div className={styles.headerMain}>
+                    <div className={styles.headerTop}>
+                        <span className={styles.number}>#{ticket.number}</span>
+                        <StatusPill status={ticket.status} />
+                    </div>
+                    <h1 className={styles.title}>{ticket.subject}</h1>
+                    <div className={styles.meta}>
+                        <span className={styles.email}>{ticket.email}</span>
+                        <span className={styles.sep}>·</span>
+                        <span className={styles.category}>{ticket.category}</span>
+                        <span className={styles.sep}>·</span>
+                        <span className={styles.time}>opened {formatRelativeTime(ticket.time)}</span>
+                    </div>
+                </div>
+                <div className={styles.headerActions}>
+                    <IconButtonGroup
+                        aria-label="Ticket actions"
+                        items={[
+                            {
+                                key: 'open',
+                                icon: <span className={styles.statusIcon}>○</span>,
+                                label: 'Mark as Open',
+                                onClick: () => onStatusChange('open'),
+                                active: statusIndex === 0,
+                                disabled: ticket.status === 'open',
+                            },
+                            {
+                                key: 'in_progress',
+                                icon: <span className={styles.statusIcon}>◐</span>,
+                                label: 'Mark as In progress',
+                                onClick: () => onStatusChange('in_progress'),
+                                active: statusIndex === 1,
+                                disabled: ticket.status === 'in_progress',
+                            },
+                            {
+                                key: 'closed',
+                                icon: <span className={styles.statusIcon}>●</span>,
+                                label: 'Close ticket',
+                                onClick: () => onStatusChange('closed'),
+                                active: statusIndex === 2,
+                                disabled: ticket.status === 'closed',
+                            },
+                        ]}
+                    />
+                    <IconButtonGroup
+                        aria-label="User actions"
+                        items={[
+                            {
+                                key: 'verify',
+                                icon: <span className={styles.statusIcon}>{ticket.isUserVerified ? '✓' : '☐'}</span>,
+                                label: ticket.isUserVerified ? 'Remove checkmark' : 'Give checkmark',
+                                onClick: handleVerify,
+                                variant: ticket.isUserVerified ? 'default' : 'accent',
+                                active: ticket.isUserVerified,
+                                disabled: isVerifying || !ticket.userId,
+                            },
+                        ]}
+                    />
+                </div>
+            </header>
+
+            <div className={styles.body}>
+                <section className={styles.thread}>
+                    <TicketThread messages={threadMessages} />
+                </section>
+
+                {ticket.status !== 'closed' ? (
+                    <form className={styles.replyForm} onSubmit={onReply}>
+                        <TextArea
+                            id="reply"
+                            label="Reply"
+                            placeholder="Type your reply here…"
+                            required
+                            value={message}
+                            onChange={e => setMessage(e.target.value)}
+                        />
+                        <div className={styles.replyActions}>
+                            <CannedTemplatePicker
+                                onPick={body => setMessage(prev => (prev ? `${prev}\n\n${body}` : body))}
+                                disabled={pending}
+                            />
+                            <Button type="submit" variant="flat" disabled={pending || !message.trim()}>
+                                {pending ? 'Sending…' : 'Send reply'}
+                            </Button>
+                        </div>
+                    </form>
+                ) : (
+                    <EmptyState
+                        title="This ticket is closed"
+                        description="Reopen it to send a new reply."
+                        action={
+                            <Button variant="ghost" size="sm" onClick={() => onStatusChange('open')}>
+                                Reopen ticket
+                            </Button>
+                        }
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\pages\admin-ticket\index.module.scss
+==================================================
+
+.page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px;
+    font-size: 13px;
+    color: var(--text-faint);
+}
+
+.errorText {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+}
+
+/* Sticky header с чётким фоном — контент не просвечивает при скролле */
+.header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px 32px 18px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+}
+
+.backBtn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    margin-top: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+
+    &:hover {
+        color: var(--text);
+        border-color: var(--border-strong);
+    }
+
+    @media (max-width: 860px) {
+        display: inline-flex;
+    }
+}
+
+.headerMain {
+    flex: 1;
+    min-width: 0;
+}
+
+.headerTop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.number {
+    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-faint);
+}
+
+.title {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.35;
+    color: var(--text);
+}
+
+.meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+.email {
+    color: var(--text-dim);
+}
+
+.category {
+    text-transform: capitalize;
+}
+
+.sep {
+    color: var(--text-faint);
+    opacity: 0.5;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    @media (max-width: 860px) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+.statusIcon {
+    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 8px 32px 40px;
+}
+
+.thread {
+    padding: 8px 0;
+}
+
+.replyForm {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.replyActions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    @media (max-width: 640px) {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+}
+
+
+==================================================
+FILE: stats-frontend\src\pages\admin-tickets-placeholder\index.tsx
+==================================================
+
+import { EmptyState } from '../../shared/ui/EmptyState';
+
+export function AdminTicketsPlaceholder() {
+    return (
+        <EmptyState
+            icon={
+                <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+            }
+            title="Select a ticket"
+            description="Pick a ticket from the list on the left to view the conversation and reply."
+        />
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\EmptyState\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import styles from './index.module.scss';
+
+interface EmptyStateProps {
+    icon?: ReactNode;
+    title: string;
+    description?: ReactNode;
+    action?: ReactNode;
+}
+
+// Переиспользуемый placeholder — для /admin/tickets (Select a ticket),
+// для пустого списка тикетов, для "no results" поиска, для 404.
+// Не знает ни про роутер, ни про бизнес-логику (SRP).
+export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+    return (
+        <div className={styles.root}>
+            {icon && <div className={styles.iconWrap}>{icon}</div>}
+            <h3 className={styles.title}>{title}</h3>
+            {description && <p className={styles.description}>{description}</p>}
+            {action && <div className={styles.action}>{action}</div>}
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\EmptyState\index.module.scss
+==================================================
+
+.root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 60px 32px;
+    text-align: center;
+}
+
+.iconWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    margin-bottom: 16px;
+}
+
+.title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.description {
+    margin: 0;
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-faint);
+}
+
+.action {
+    margin-top: 20px;
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\IconButtonGroup\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import styles from './index.module.scss';
+
+interface IconButtonGroupItem {
+    key: string;
+    icon: ReactNode;
+    label: string;
+    onClick?: () => void;
+    variant?: 'default' | 'accent' | 'danger';
+    active?: boolean;
+    disabled?: boolean;
+}
+
+interface IconButtonGroupProps {
+    items: IconButtonGroupItem[];
+    'aria-label'?: string;
+}
+
+// Группа иконочных кнопок в одну панель (как тулбар в Linear / Notion).
+// Не знает ни про ticket, ни про verify — только про items (SRP, DIP).
+// Переиспользуется в любом месте, где нужны compact actions.
+export function IconButtonGroup({ items, 'aria-label': ariaLabel }: IconButtonGroupProps) {
+    return (
+        <div className={styles.group} role="group" aria-label={ariaLabel}>
+            {items.map(item => (
+                <button
+                    key={item.key}
+                    type="button"
+                    className={[
+                        styles.item,
+                        item.variant === 'accent' ? styles.accent : '',
+                        item.variant === 'danger' ? styles.danger : '',
+                        item.active ? styles.active : '',
+                    ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    onClick={item.onClick}
+                    disabled={item.disabled}
+                    aria-label={item.label}
+                    title={item.label}
+                >
+                    {item.icon}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+export type { IconButtonGroupItem, IconButtonGroupProps };
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\IconButtonGroup\index.module.scss
+==================================================
+
+.group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        color 0.12s ease;
+
+    &:hover:not(:disabled) {
+        background: var(--surface-2);
+        color: var(--text);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+}
+
+.accent {
+    color: var(--accent-soft);
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 77, 94, 0.12);
+        color: var(--accent);
+    }
+}
+
+.danger {
+    color: var(--accent);
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 77, 94, 0.12);
+        color: var(--accent);
+    }
+}
+
+.active {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Skeleton\index.tsx  (НЕ НАЙДЕН — будет создан в Итерации 3)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Skeleton\index.module.scss  (НЕ НАЙДЕН — будет создан в Итерации 3)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\shared\lib\formatRelativeTime.ts
+==================================================
+
+// SRP: только форматирование даты. Используется везде, где бэкенд отдаёт
+// ISO-строку или "Wed, 21 Oct 2026 13:57:38 GMT" (UtcTime.format в Java).
+// Возвращает human-friendly "2h ago" / "Yesterday" / "Oct 21".
+// Один формат на весь продукт — никаких "GMT" в UI.
+
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+export function formatRelativeTime(input: string | Date | null | undefined): string {
+    if (!input) return '';
+    const date = input instanceof Date ? input : parseDate(input);
+    if (!date || isNaN(date.getTime())) return '';
+
+    const now = Date.now();
+    const diff = now - date.getTime();
+
+    if (diff < MINUTE) return 'just now';
+    if (diff < HOUR) {
+        const m = Math.floor(diff / MINUTE);
+        return `${m}m ago`;
+    }
+    if (diff < DAY) {
+        const h = Math.floor(diff / HOUR);
+        return `${h}h ago`;
+    }
+    if (diff < 2 * DAY) return 'Yesterday';
+    if (diff < 7 * DAY) {
+        const d = Math.floor(diff / DAY);
+        return `${d}d ago`;
+    }
+
+    // Для старых — компактная дата: "Oct 21" или "Oct 21, 2025" если не этот год
+    const nowDate = new Date(now);
+    const sameYear = date.getFullYear() === nowDate.getFullYear();
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: sameYear ? undefined : 'numeric',
+    });
+}
+
+function parseDate(input: string): Date | null {
+    // "Wed, 21 Oct 2026 13:57:38 GMT" — формат UtcTime.format (Java).
+    // JS Date.parse не всегда ест, поэтому пробуем сами.
+    const direct = new Date(input);
+    if (!isNaN(direct.getTime())) return direct;
+
+    // Дополнительный парсинг RFC 1123 с "GMT" суффиксом
+    const match = input.match(/^\w{3},\s+(\d{1,2})\s+(\w{3})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})\s+GMT$/);
+    if (match) {
+        const [, day, mon, year, hh, mm, ss] = match;
+        const months: Record<string, number> = {
+            Jan: 0,
+            Feb: 1,
+            Mar: 2,
+            Apr: 3,
+            May: 4,
+            Jun: 5,
+            Jul: 6,
+            Aug: 7,
+            Sep: 8,
+            Oct: 9,
+            Nov: 10,
+            Dec: 11,
+        };
+        return new Date(Date.UTC(Number(year), months[mon] ?? 0, Number(day), Number(hh), Number(mm), Number(ss)));
+    }
+    return null;
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\lib\useMediaQuery.ts  (НЕ НАЙДЕН — будет создан в Итерации 3)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\widgets\canned-responses\index.tsx
+==================================================
+
+import { useEffect, useRef, useState } from 'react';
+import { getCannedResponses, type CannedResponse } from '../../shared/api/statsAuth';
+import styles from './index.module.scss';
+
+interface CannedTemplatePickerProps {
+    onPick: (body: string) => void;
+    disabled?: boolean;
+}
+
+// SRP: компонент только выбирает шаблон и отдаёт его через onPick.
+// CRUD шаблонов (создание/удаление) — отдельная страница в следующей
+// итерации. Здесь же — только "вставить существующий", как в Zendesk/
+// Intercom (кнопка Insert template ▾ над textarea).
+export function CannedTemplatePicker({ onPick, disabled }: CannedTemplatePickerProps) {
+    const [open, setOpen] = useState(false);
+    const [templates, setTemplates] = useState<CannedResponse[] | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open || templates !== null) return;
+        getCannedResponses()
+            .then(result => setTemplates(result.responses))
+            .catch(() => setLoadError('Failed to load templates'));
+    }, [open, templates]);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        }
+        if (open) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [open]);
+
+    function handlePick(body: string) {
+        onPick(body);
+        setOpen(false);
+    }
+
+    return (
+        <div className={styles.wrapper} ref={containerRef}>
+            <button
+                type="button"
+                className={styles.trigger}
+                onClick={() => setOpen(v => !v)}
+                disabled={disabled}
+                aria-haspopup="listbox"
+                aria-expanded={open}
+            >
+                <span>Insert template</span>
+                <svg
+                    className={`${styles.caret} ${open ? styles.caretOpen : ''}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+
+            {open && (
+                <div className={styles.menu} role="listbox">
+                    {loadError && <div className={styles.error}>{loadError}</div>}
+                    {templates === null && !loadError && <div className={styles.empty}>Loading…</div>}
+                    {templates?.length === 0 && <div className={styles.empty}>No templates yet.</div>}
+                    {templates && templates.length > 0 && (
+                        <ul className={styles.list}>
+                            {templates.map(t => (
+                                <li key={t.id}>
+                                    <button type="button" className={styles.item} onClick={() => handlePick(t.body)}>
+                                        <span className={styles.itemTitle}>{t.title}</span>
+                                        <span className={styles.itemBody}>{t.body}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\widgets\canned-responses\index.module.scss
+==================================================
+
+.wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease;
+
+    &:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--text);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.caret {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.15s ease;
+
+    &.caretOpen {
+        transform: rotate(180deg);
+    }
+}
+
+.menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    min-width: 320px;
+    max-width: 460px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: #1b1e23;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 6px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    animation: slideUp 0.15s ease-out;
+}
+
+.list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+
+    &:hover {
+        background: var(--surface-2);
+        color: var(--text);
+    }
+}
+
+.itemTitle {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.itemBody {
+    font-size: 12px;
+    color: var(--text-faint);
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.empty {
+    padding: 14px 12px;
+    font-size: 12.5px;
+    color: var(--text-faint);
+    text-align: center;
+}
+
+.error {
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--accent-soft);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+==================================================
+FILE: stats-frontend\src\pages\admin-canned-responses\index.tsx  (НЕ НАЙДЕН — будет создан в Итерации 3)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\pages\admin-canned-responses\index.module.scss  (НЕ НАЙДЕН — будет создан в Итерации 3)
+==================================================
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Panel\index.tsx
+==================================================
+
+import type { ReactNode } from 'react';
+import styles from './index.module.scss';
+
+interface PanelProps {
+    title?: string;
+    subtitle?: string;
+    headerExtra?: ReactNode;
+    noBodyPadding?: boolean;
+    children: ReactNode;
+}
+
+// Карточка-секция для широких "рабочих" страниц (аккаунт, тикеты) — в
+// отличие от AuthCard (одна узкая карточка на весь экран, под формы
+// входа), страница тут складывается из нескольких Panel одна под другой,
+// как в обычных SaaS-дашбордах: профиль отдельно, смена пароля отдельно,
+// история входов отдельно, а не всё в одной форме.
+export function Panel({ title, subtitle, headerExtra, noBodyPadding, children }: PanelProps) {
+    return (
+        <section className={styles.panel}>
+            {title && (
+                <div className={styles.header}>
+                    <div>
+                        <h2 className={styles.title}>{title}</h2>
+                        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+                    </div>
+                    {headerExtra}
+                </div>
+            )}
+            <div className={noBodyPadding ? undefined : styles.body}>{children}</div>
+        </section>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Panel\index.module.scss
+==================================================
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.03) inset,
+        0 12px 32px -20px rgba(0, 0, 0, 0.5);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.headerBare {
+    border-bottom: none;
+    padding-bottom: 4px;
+}
+
+.title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    margin: 2px 0 0;
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+.body {
+    padding: 24px;
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\Button\index.tsx
+==================================================
+
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
+import styles from './index.module.scss';
+
+type Variant = 'primary' | 'ghost' | 'flat';
+type Size = 'md' | 'sm';
+
+interface CommonProps {
+    variant?: Variant;
+    size?: Size;
+    fullWidth?: boolean;
+    children: ReactNode;
+}
+
+type ButtonProps = CommonProps &
+    ButtonHTMLAttributes<HTMLButtonElement> & {
+        href?: undefined;
+    };
+
+type LinkProps = CommonProps &
+    AnchorHTMLAttributes<HTMLAnchorElement> & {
+        href: string;
+    };
+
+// Кнопка-ссылка (OAuth-редирект на /auth/riot/login) или обычная <button> —
+// один и тот же паттерн, что в frontend/shared/ui/Button: разная семантика
+// тега, одна визуальная оболочка, вместо двух почти одинаковых компонентов.
+export function Button({
+    variant = 'primary',
+    size = 'md',
+    fullWidth,
+    children,
+    className,
+    href,
+    ...rest
+}: ButtonProps | LinkProps) {
+    const classes = [styles.base, styles[variant], styles[size], fullWidth ? styles.fullWidth : '', className]
+        .filter(Boolean)
+        .join(' ');
+
+    if (href !== undefined) {
+        return (
+            <a className={classes} href={href} {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)}>
+                {children}
+            </a>
+        );
+    }
+
+    return (
+        <button className={classes} {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}>
+            {children}
+        </button>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\TextField\index.tsx
+==================================================
+
+import type { InputHTMLAttributes } from 'react';
+import styles from './index.module.scss';
+
+interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
+    label: string;
+}
+
+export function TextField({ label, id, ...rest }: TextFieldProps) {
+    return (
+        <label className={styles.field} htmlFor={id}>
+            <span className={styles.label}>{label}</span>
+            <input id={id} className={styles.input} {...rest} />
+        </label>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\TextField\index.module.scss
+==================================================
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+}
+
+.input {
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.input::placeholder {
+    color: var(--text-faint);
+}
+
+.input:focus {
+    border-color: var(--accent);
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\TextArea\index.tsx
+==================================================
+
+import type { TextareaHTMLAttributes } from 'react';
+import styles from './index.module.scss';
+
+interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+    label: string;
+}
+
+// TextField, но для многострочного текста (pages/support) — тот же
+// визуальный язык (uppercase-лейбл, border-radius 4px), просто textarea
+// вместо input.
+export function TextArea({ label, id, ...rest }: TextAreaProps) {
+    return (
+        <label className={styles.field} htmlFor={id}>
+            <span className={styles.label}>{label}</span>
+            <textarea id={id} className={styles.textarea} {...rest} />
+        </label>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\ui\TextArea\index.module.scss
+==================================================
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+}
+
+.textarea {
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.15s ease;
+}
+
+.textarea::placeholder {
+    color: var(--text-faint);
+}
+
+.textarea:focus {
+    border-color: var(--accent);
+}
+
+
+==================================================
+FILE: stats-frontend\src\app\App.tsx
+==================================================
+
+import { Route, Routes } from 'react-router-dom';
+import { SignInPage } from '../pages/sign-in';
+import { TermsPage } from '../pages/terms';
+import { PrivacyPage } from '../pages/privacy';
+import { CookiesPage } from '../pages/cookies';
+import { RegisterPage } from '../pages/register';
+import { LoginPage } from '../pages/login';
+import { VerifyPage } from '../pages/verify';
+import { VerifyLocationPage } from '../pages/verify-location';
+import { ForgotPasswordPage } from '../pages/forgot-password';
+import { ResetPasswordPage } from '../pages/reset-password';
+import { AccountPage } from '../pages/account';
+import { SupportPage } from '../pages/support';
+import { TicketPage } from '../pages/ticket';
+import { AdminTicketsLayout } from '../widgets/admin-tickets-layout';
+import { AdminTicketsPlaceholder } from '../pages/admin-tickets-placeholder';
+import { AdminTicketPage } from '../pages/admin-ticket';
+import { AccountSettingsPage } from '../pages/account-settings';
+import { AdminUsersPage } from '../pages/admin-users';
+
+// RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
+// обсуждение в PR #307: страница рабочая и готова, но пока убрана с
+// публичного сайта, чтобы не привлекать лишнего внимания Riot к продукту,
+// пока заявка на RSO/VALORANT API ещё Pending Review. Раскомментировать
+// импорт и роут ниже, когда будет смысл её снова показывать.
+
+export function App() {
+    return (
+        <Routes>
+            <Route path="/" element={<SignInPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/cookies" element={<CookiesPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/verify" element={<VerifyPage />} />
+            <Route path="/verify-location" element={<VerifyLocationPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/account/settings" element={<AccountSettingsPage />} />
+            <Route path="/admin/users" element={<AdminUsersPage />} />
+            <Route path="/support/ticket/:token" element={<TicketPage />} />
+            <Route path="/admin/tickets" element={<AdminTicketsLayout />}>
+                <Route index element={<AdminTicketsPlaceholder />} />
+                <Route path=":number" element={<AdminTicketPage />} />
+            </Route>
+        </Routes>
+    );
+}
+
+
+==================================================
+FILE: stats-frontend\src\shared\api\statsAuth.ts
+==================================================
+
+export class ApiError extends Error {
+    code: string;
+
+    constructor(code: string, message: string) {
+        super(message);
+        this.code = code;
+    }
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+    invalid_email: 'Enter a valid email address.',
+    invalid_password: 'Password must be at least 8 characters, with a letter and a number.',
+    invalid_name: 'Enter your name.',
+    invalid_nickname: 'Nickname must be 3-24 characters: letters, numbers, underscore.',
+    invalid_subject: 'Enter a subject.',
+    invalid_message: 'Enter a message (up to 5000 characters).',
+    invalid_category: 'Choose a category.',
+    invalid_request: 'Please fill in all fields.',
+    invalid_credentials: 'Wrong email or password.',
+    email_already_registered: 'An account with this email already exists — try signing in.',
+    email_not_verified: "This email isn't verified yet.",
+    nickname_taken: 'That nickname is already taken — try another.',
+    code_not_found: 'No active code for this email — request a new one.',
+    code_expired: 'This code has expired — request a new one.',
+    wrong_code: 'Wrong code. Please try again.',
+    too_many_attempts: 'Too many wrong attempts — request a new code.',
+    code_on_cooldown: 'Please wait a bit before requesting another code.',
+    internal_error: 'Something went wrong on our end — please try again.',
+    unknown_location: "We don't recognize this location — check your email for a code.",
+    token_not_found: 'This reset link is invalid — request a new one.',
+    token_expired: 'This reset link has expired — request a new one.',
+    turnstile_failed: 'Verification failed — please try again.',
+    banned: 'Your account has been banned. Please contact support.', // <-- ДОБАВЛЕНО
+    invalid_riot_id: 'Enter a Riot ID in the form Name#Tag.',
+    riot_account_not_found: "We couldn't find a Riot account with that Riot ID.",
+    riot_api_not_configured: "Riot lookup isn't configured right now — try again later.",
+    riot_api_error: 'Riot is not responding right now — try again in a moment.',
+    unauthorized: 'Please sign in again.',
+    wrong_password: "That password doesn't look right.",
+    same_email: "That's already your email.",
+    no_pending_change: "There's no email change to resend a code for.",
+    forbidden: "You don't have access to this.",
+    ticket_not_found: "We couldn't find that ticket.",
+    ticket_closed: 'This ticket is closed.',
+};
+
+function messageFor(code: string): string {
+    return ERROR_MESSAGES[code] ?? 'Something went wrong — please try again.';
+}
+
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+    return data as T;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+    const res = await fetch(path, { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+    return data as T;
+}
+
+export interface AccountUser {
+    email: string;
+    emailVerified: boolean;
+    riotLinked: boolean;
+    name: string | null;
+    nickname: string | null;
+    isAdmin: boolean;
+    avatarUrl: string | null;
+    isVerified: boolean;
+}
+
+export function register(email: string, password: string, name: string, nickname: string) {
+    return postJson<{ ok: true }>('/auth/register', { email, password, name, nickname });
+}
+
+export function resendCode(email: string) {
+    return postJson<{ ok: true }>('/auth/resend-code', { email });
+}
+
+export function verifyCode(email: string, code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/verify', { email, code });
+}
+
+export function login(email: string, password: string, turnstileToken: string, rememberMe: boolean = true) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login', {
+        email,
+        password,
+        turnstileToken,
+        rememberMe,
+    });
+}
+
+export function resendLoginCode(email: string) {
+    return postJson<{ ok: true }>('/auth/login/resend-code', { email });
+}
+
+export function confirmLoginLocation(email: string, code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login/confirm-location', { email, code });
+}
+
+export function forgotPassword(email: string) {
+    return postJson<{ ok: true }>('/auth/forgot-password', { email });
+}
+
+export function resetPassword(token: string, password: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password });
+}
+
+export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
+    return postJson<{ ok: true; ticketNumber: number }>('/api/support/tickets', { subject, message, category, email });
+}
+
+export function lookupRiotId(riotId: string) {
+    return postJson<{ ok: true; gameName: string; tagLine: string }>('/api/riot/lookup', { riotId });
+}
+
+export function requestEmailChange(currentPassword: string, newEmail: string) {
+    return postJson<{ ok: true }>('/auth/account/change-email', { currentPassword, newEmail });
+}
+
+export function resendEmailChangeCode() {
+    return postJson<{ ok: true }>('/auth/account/resend-email-change-code', {});
+}
+
+export function confirmEmailChange(code: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/account/confirm-email-change', { code });
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+    return postJson<{ ok: true }>('/auth/account/change-password', { currentPassword, newPassword });
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/account/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        throw new ApiError('upload_failed', 'Не удалось загрузить аватар');
+    }
+    return res.json();
+}
+
+export interface AccountState {
+    user: AccountUser | null;
+    banned: boolean;
+}
+
+export async function getAccount(): Promise<AccountState> {
+    const res = await fetch('/api/account/me', { credentials: 'include' });
+    const data = await res.json().catch(() => ({ user: null, banned: false }));
+    return { user: data.user ?? null, banned: data.banned === true };
+}
+
+export interface LoginEvent {
+    id: string;
+    ip: string | null;
+    country: string | null;
+    city: string | null;
+    time: string;
+}
+
+export async function getLoginHistory(): Promise<LoginEvent[]> {
+    const res = await fetch('/api/account/login-history', { credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({ events: [] }));
+    return data.events ?? [];
+}
+
+export type TicketStatus = 'open' | 'in_progress' | 'closed';
+
+export interface TicketSummary {
+    number: number;
+    email: string;
+    subject: string;
+    category: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface TicketReply {
+    id: string;
+    author: 'user' | 'admin';
+    message: string;
+    time: string;
+}
+
+export interface TicketDetail {
+    number: number;
+    subject: string;
+    message: string;
+    status: TicketStatus;
+    time: string;
+}
+
+export interface AdminTicketDetail extends TicketDetail {
+    email: string;
+    category: string;
+    userId: string | null;
+    isUserVerified: boolean;
+}
+
+export function getAdminTickets(status?: TicketStatus) {
+    const query = status ? `?status=${status}` : '';
+    return getJson<{ tickets: TicketSummary[] }>(`/api/admin/tickets${query}`);
+}
+
+export function getAdminTicket(number: number | string) {
+    return getJson<{ ticket: AdminTicketDetail; replies: TicketReply[] }>(`/api/admin/tickets/${number}`);
+}
+
+export function replyToTicketAsAdmin(number: number | string, message: string) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/reply`, { message });
+}
+
+export function setTicketStatus(number: number | string, status: TicketStatus) {
+    return postJson<{ ok: true }>(`/api/admin/tickets/${number}/status`, { status });
+}
+
+export interface CannedResponse {
+    id: string;
+    title: string;
+    body: string;
+}
+
+export function getCannedResponses() {
+    return getJson<{ responses: CannedResponse[] }>('/api/admin/canned-responses');
+}
+
+export function createCannedResponse(title: string, body: string) {
+    return postJson<{ ok: true; id: string }>('/api/admin/canned-responses', { title, body });
+}
+
+export async function deleteCannedResponse(id: string): Promise<void> {
+    const res = await fetch(`/api/admin/canned-responses/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const code = typeof data.error === 'string' ? data.error : 'internal_error';
+        throw new ApiError(code, messageFor(code));
+    }
+}
+
+export function getTicketByToken(token: string) {
+    return getJson<{ ticket: TicketDetail; replies: TicketReply[] }>(`/api/support/tickets/${token}`);
+}
+
+export function replyToTicket(token: string, message: string) {
+    return postJson<{ ok: true }>(`/api/support/tickets/${token}/reply`, { message });
+}
+
+// --- АДМИНКА ПОЛЬЗОВАТЕЛЕЙ ---
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    name: string | null;
+    nickname: string | null;
+    avatarUrl: string | null;
+    isVerified: boolean;
+    isBanned: boolean;
+    isAdmin: boolean;
+}
+
+export function getAllUsers() {
+    return getJson<{ users: AdminUser[] }>('/api/admin/users');
+}
+
+export function banUser(userId: string, isBanned: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/ban?isBanned=${isBanned}`, {});
+}
+
+export function verifyUser(userId: string, isVerified: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/verify?isVerified=${isVerified}`, {});
+}
+
+export function makeAdmin(userId: string, isAdmin: boolean) {
+    return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AdminTicketController.java
+==================================================
+
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.CannedResponsesResponse;
+import tech.extree.stats.adapter.in.web.dto.CreateCannedResponseRequest;
+import tech.extree.stats.adapter.in.web.dto.CreateCannedResponseResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.MessageRequest;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.adapter.in.web.dto.SetTicketStatusRequest;
+import tech.extree.stats.adapter.in.web.dto.TicketDetailResponse;
+import tech.extree.stats.adapter.in.web.dto.TicketListResponse;
+import tech.extree.stats.application.port.in.AdminTicketUseCase;
+
+/**
+ * Соответствует requireAdmin + /api/admin/tickets*, /api/admin/canned-responses*
+ * в server.js — вся админка тикет-платформы.
+ */
+@RestController
+public class AdminTicketController {
+
+    private final AdminTicketUseCase adminTicketUseCase;
+
+    public AdminTicketController(AdminTicketUseCase adminTicketUseCase) {
+        this.adminTicketUseCase = adminTicketUseCase;
+    }
+
+    @GetMapping("/api/admin/tickets")
+    public ResponseEntity<?> listTickets(
+            @RequestParam(required = false) String status,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.ListResult result = adminTicketUseCase.listTickets(cookie, status);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new TicketListResponse(result.tickets()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_REQUEST -> badRequest("invalid_request");
+        };
+    }
+
+    @GetMapping("/api/admin/tickets/{number}")
+    public ResponseEntity<?> getTicket(
+            @PathVariable String number, @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.DetailResult result = adminTicketUseCase.getTicket(cookie, number);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new TicketDetailResponse(result.ticket(), result.replies()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @PostMapping("/api/admin/tickets/{number}/reply")
+    public ResponseEntity<?> reply(
+            @PathVariable String number,
+            @RequestBody MessageRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            HttpServletRequest httpRequest) {
+        AdminTicketUseCase.ReplyOutcome outcome =
+                adminTicketUseCase.reply(cookie, number, request.message(), httpRequest.getHeader(HttpHeaders.HOST));
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_MESSAGE -> badRequest("invalid_message");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @PostMapping("/api/admin/tickets/{number}/status")
+    public ResponseEntity<?> setStatus(
+            @PathVariable String number,
+            @RequestBody SetTicketStatusRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.StatusOutcome outcome = adminTicketUseCase.setStatus(cookie, number, request.status());
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_REQUEST -> badRequest("invalid_request");
+            case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");
+        };
+    }
+
+    @GetMapping("/api/admin/canned-responses")
+    public ResponseEntity<?> listCannedResponses(
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedListResult result = adminTicketUseCase.listCannedResponses(cookie);
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new CannedResponsesResponse(result.responses()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+        };
+    }
+
+    @PostMapping("/api/admin/canned-responses")
+    public ResponseEntity<?> createCannedResponse(
+            @RequestBody CreateCannedResponseRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedCreateResult result =
+                adminTicketUseCase.createCannedResponse(cookie, request.title(), request.body());
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok(new CreateCannedResponseResponse(true, result.id()));
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+            case INVALID_SUBJECT -> badRequest("invalid_subject");
+            case INVALID_MESSAGE -> badRequest("invalid_message");
+        };
+    }
+
+    @DeleteMapping("/api/admin/canned-responses/{id}")
+    public ResponseEntity<?> deleteCannedResponse(
+            @PathVariable String id, @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.CannedDeleteOutcome outcome = adminTicketUseCase.deleteCannedResponse(cookie, id);
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case FORBIDDEN -> status(HttpStatus.FORBIDDEN, "forbidden");
+        };
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String error) {
+        return status(HttpStatus.BAD_REQUEST, error);
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus status, String error) {
+        return ResponseEntity.status(status).body(new ErrorResponse(error));
+    }
+}
+
+
+==================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\in\AdminTicketUseCase.java
+==================================================
+
+package tech.extree.stats.application.port.in;
+
+import java.util.List;
+import tech.extree.stats.application.port.in.SupportTicketUseCase.ReplyView;
+
+public interface AdminTicketUseCase {
+
+    record AdminTicketSummary(long number, String email, String subject, String category, String status, String time) {}
+
+    enum ListOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN, INVALID_REQUEST
+    }
+
+    record ListResult(ListOutcome outcome, List<AdminTicketSummary> tickets) {
+        public static ListResult error(ListOutcome outcome) {
+            return new ListResult(outcome, List.of());
+        }
+    }
+
+    ListResult listTickets(String cookieValue, String status);
+
+    record AdminTicketDetail(
+            long number,
+            String userId,
+            String email,
+            String subject,
+            String message,
+            String category,
+            String status,
+            String time,
+            boolean isUserVerified) {}
+
+    enum DetailOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN, TICKET_NOT_FOUND
+    }
+
+    record DetailResult(DetailOutcome outcome, AdminTicketDetail ticket, List<ReplyView> replies) {
+        public static DetailResult error(DetailOutcome outcome) {
+            return new DetailResult(outcome, null, List.of());
+        }
+    }
+
+    DetailResult getTicket(String cookieValue, String rawTicketNumber);
+
+    enum ReplyOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN, INVALID_MESSAGE, TICKET_NOT_FOUND
+    }
+
+    ReplyOutcome reply(String cookieValue, String rawTicketNumber, String message, String requestHost);
+
+    enum StatusOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN, INVALID_REQUEST, TICKET_NOT_FOUND
+    }
+
+    StatusOutcome setStatus(String cookieValue, String rawTicketNumber, String status);
+
+    record CannedResponseView(String id, String title, String body) {}
+
+    enum CannedListOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN
+    }
+
+    record CannedListResult(CannedListOutcome outcome, List<CannedResponseView> responses) {
+        public static CannedListResult error(CannedListOutcome outcome) {
+            return new CannedListResult(outcome, List.of());
+        }
+    }
+
+    CannedListResult listCannedResponses(String cookieValue);
+
+    enum CannedCreateOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN, INVALID_SUBJECT, INVALID_MESSAGE
+    }
+
+    record CannedCreateResult(CannedCreateOutcome outcome, String id) {
+        public static CannedCreateResult error(CannedCreateOutcome outcome) {
+            return new CannedCreateResult(outcome, null);
+        }
+    }
+
+    CannedCreateResult createCannedResponse(String cookieValue, String title, String body);
+
+    enum CannedDeleteOutcome {
+        OK, UNAUTHORIZED, FORBIDDEN
+    }
+
+    CannedDeleteOutcome deleteCannedResponse(String cookieValue, String id);
+}

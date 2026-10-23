@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import { DashboardShell } from '../dashboard-shell';
 import { AdminTicketsList } from '../admin-tickets-list';
+import { useIsMobile } from '../../shared/lib/useMediaQuery';
 import {
     getAccount,
     getAdminTickets,
@@ -12,16 +13,15 @@ import {
 } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
-// SRP: этот компонент — только композиция (shell + две колонки + fetch
-// списка + навигация по выбору). Сама левая колонка — AdminTicketsList.
-// Сама правая — Outlet (AdminTicketPage / AdminTicketsPlaceholder).
-//
-// Про роутер: useParams/useNavigate, но не про API деталей тикета.
-// Про API: только list (getAdminTickets) + account. Детали тикета тянет
-// AdminTicketPage сам, в своей зоне ответственности.
+// SRP: только композиция (shell + 2 колонки + fetch списка + навигация).
+// Mobile: если URL = /admin/tickets/:number — рендерим ТОЛЬКО правую
+// колонку (детальную); если URL = /admin/tickets — только левую.
+// Так на мобильном в DOM нет "скрытой" колонки — меньше работы и не
+// грузятся лишние fetch-и из невидимого компонента.
 export function AdminTicketsLayout() {
     const navigate = useNavigate();
     const params = useParams<{ number?: string }>();
+    const isMobile = useIsMobile();
     const activeNumber = params.number ? Number(params.number) : null;
 
     const [account, setAccount] = useState<AccountUser | null>(null);
@@ -73,29 +73,39 @@ export function AdminTicketsLayout() {
 
     const dashUser = account ? { email: account.email, isAdmin: account.isAdmin } : null;
 
+    // На мобильном показываем только одну колонку — как список тикетов
+    // в нативном почтовом клиенте (открыл тикет — ушёл в детальную,
+    // нажал "назад" — вернулся в список).
+    const showList = !isMobile || activeNumber === null;
+    const showDetail = !isMobile || activeNumber !== null;
+
     return (
         <DashboardShell user={dashUser} title="" wide>
-            <div className={styles.layout}>
-                <aside className={styles.list}>
-                    {checkingAccount ? (
-                        <div className={styles.center}>Loading…</div>
-                    ) : error ? (
-                        <div className={styles.center}>
-                            <p className={styles.error}>{error}</p>
-                        </div>
-                    ) : (
-                        <AdminTicketsList
-                            tickets={tickets}
-                            activeNumber={activeNumber}
-                            onSelect={handleSelect}
-                            status={status}
-                            onStatusChange={setStatus}
-                        />
-                    )}
-                </aside>
-                <main className={styles.detail}>
-                    <Outlet />
-                </main>
+            <div className={`${styles.layout} ${isMobile ? styles.layoutMobile : ''}`}>
+                {showList && (
+                    <aside className={styles.list}>
+                        {checkingAccount ? (
+                            <div className={styles.center}>Loading…</div>
+                        ) : error ? (
+                            <div className={styles.center}>
+                                <p className={styles.error}>{error}</p>
+                            </div>
+                        ) : (
+                            <AdminTicketsList
+                                tickets={tickets}
+                                activeNumber={activeNumber}
+                                onSelect={handleSelect}
+                                status={status}
+                                onStatusChange={setStatus}
+                            />
+                        )}
+                    </aside>
+                )}
+                {showDetail && (
+                    <main className={styles.detail}>
+                        <Outlet />
+                    </main>
+                )}
             </div>
         </DashboardShell>
     );

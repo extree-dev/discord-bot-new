@@ -15,7 +15,6 @@
 }
 
 .commentSupport {
-    // поддержка визуально "в своей зоне" — лёгкий акцентный оттенок фона
     background: linear-gradient(180deg, rgba(255, 77, 94, 0.03), transparent 60%);
     border-radius: 8px;
     padding: 20px 12px;
@@ -56,4 +55,11 @@
     color: var(--text-dim);
     white-space: pre-wrap;
     word-break: break-word;
+}
+
+.skeletonHead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
 }
