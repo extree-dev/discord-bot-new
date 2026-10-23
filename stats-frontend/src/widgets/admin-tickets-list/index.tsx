@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { formatRelativeTime } from '../../shared/lib/formatRelativeTime';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import { type TicketStatus, type TicketSummary } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -24,9 +26,6 @@ interface AdminTicketsListProps {
     onStatusChange: (status: '' | TicketStatus) => void;
 }
 
-// SRP: левая колонка — только фильтры, поиск и рендер карточек.
-// Про роутер не знает (onSelect), про бэк не знает (получает tickets).
-// Композиция и fetch — в AdminTicketsLayout.
 export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onStatusChange }: AdminTicketsListProps) {
     const [search, setSearch] = useState('');
 
@@ -59,6 +58,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                     <h1 className={styles.title}>Inbox</h1>
                     {tickets && <span className={styles.badge}>{counts.total}</span>}
                 </div>
+
                 <div className={styles.searchWrapper}>
                     <svg
                         className={styles.searchIcon}
@@ -81,6 +81,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
+
                 <nav className={styles.filters} aria-label="Filter tickets by status">
                     {STATUS_FILTERS.map(f => (
                         <button
@@ -97,7 +98,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
             </div>
 
             <div className={styles.scrollArea}>
-                {tickets === null && <div className={styles.placeholder}>Loading…</div>}
+                {tickets === null && <TicketListSkeleton />}
                 {visible && visible.length === 0 && (
                     <div className={styles.placeholder}>
                         {search.trim() ? 'No tickets match your search.' : 'No tickets in this filter.'}
@@ -115,7 +116,7 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
                                     <div className={styles.cardTop}>
                                         <StatusDot status={t.status} />
                                         <span className={styles.number}>#{t.number}</span>
-                                        <span className={styles.time}>{t.time}</span>
+                                        <span className={styles.time}>{formatRelativeTime(t.time)}</span>
                                     </div>
                                     <div className={styles.subject}>{t.subject}</div>
                                     <div className={styles.meta}>
@@ -134,9 +135,22 @@ export function AdminTicketsList({ tickets, activeNumber, onSelect, status, onSt
     );
 }
 
-// Маленькая точка-индикатор статуса слева от номера — компактнее,
-// чем полноценная StatusPill в каждой карточке (та живёт в шапке правой
-// колонки). Тот же цветовой язык, что и у StatusPill.
 function StatusDot({ status }: { status: TicketStatus }) {
     return <span className={`${styles.dot} ${styles[`dot_${status}`]}`} aria-hidden="true" />;
+}
+
+// Skeleton для левой колонки — 5 placeholder-карточек, чтобы layout не
+// "прыгал" при загрузке (высота карточки ~60px + отступы).
+function TicketListSkeleton() {
+    return (
+        <div className={styles.skeletonList} aria-hidden="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className={styles.skeletonCard}>
+                    <Skeleton width="40%" height={10} radius={3} />
+                    <Skeleton width="90%" height={14} radius={4} />
+                    <Skeleton width="60%" height={11} radius={3} />
+                </div>
+            ))}
+        </div>
+    );
 }

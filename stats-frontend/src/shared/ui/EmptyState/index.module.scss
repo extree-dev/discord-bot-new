@@ -1,10 +1,10 @@
-.placeholder {
+.root {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     height: 100%;
-    padding: 40px 24px;
+    padding: 60px 32px;
     text-align: center;
 }
 
@@ -12,33 +12,31 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text-faint);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .title {
-    margin: 0 0 8px;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--text);
+    letter-spacing: -0.01em;
 }
 
-.lead {
+.description {
     margin: 0;
-    max-width: 360px;
-    font-size: 13.5px;
-    line-height: 1.6;
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
     color: var(--text-faint);
 }
 
-.link {
-    color: var(--accent-soft);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+.action {
+    margin-top: 20px;
 }

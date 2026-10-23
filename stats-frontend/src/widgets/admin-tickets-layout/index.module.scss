@@ -1,15 +1,28 @@
 @use '../../shared/styles/variables' as v;
 
+/*
+ * Master-detail: левая колонка — свой фон (--surface), правая — основной
+ * --bg. Чёткая визуальная граница "список / детали" без лишних рамок.
+ */
 .layout {
     display: grid;
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 380px 1fr;
     height: calc(100vh - 56px);
     min-height: 0;
     margin: -40px -24px -80px;
 }
 
+/* На мобильном одна колонка (grid 1fr), вторая колонка не рендерится
+   через JS (useIsMobile → showList/showDetail). Это не display: none,
+   а отсутствие в DOM — меньше работы для браузера. */
+.layoutMobile {
+    grid-template-columns: 1fr;
+    margin: -24px -16px -40px;
+}
+
 .list {
     min-height: 0;
+    background: var(--surface);
     border-right: 1px solid var(--border);
     overflow: hidden;
     display: flex;
@@ -18,6 +31,7 @@
 
 .detail {
     min-height: 0;
+    background: var(--bg);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
