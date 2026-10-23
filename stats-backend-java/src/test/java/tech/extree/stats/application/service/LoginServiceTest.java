@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.extree.stats.application.port.in.LoginUseCase;
 import tech.extree.stats.application.port.out.GeoLookup;
+import tech.extree.stats.application.port.out.LoginAttemptRepository;
 import tech.extree.stats.application.port.out.LoginCodeRepository;
 import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.LoginLocationRepository;
@@ -34,11 +35,13 @@ class LoginServiceTest {
     private LoginLocationRepository loginLocationRepository;
     private LoginEventRepository loginEventRepository;
     private LoginCodeRepository loginCodeRepository;
+    private LoginAttemptRepository loginAttemptRepository;
     private Mailer mailer;
     private SessionCodec sessionCodec;
+    private TotpService totpService;
+    private Pre2faService pre2faService;
     private LoginService service;
 
-    // 11 аргументов
     private final User user = new User(
             "user-id", "test@test.com", "hashed", Instant.now(), null, "Test", "test", null, false, false, false);
 
@@ -51,17 +54,23 @@ class LoginServiceTest {
         loginLocationRepository = mock(LoginLocationRepository.class);
         loginEventRepository = mock(LoginEventRepository.class);
         loginCodeRepository = mock(LoginCodeRepository.class);
+        loginAttemptRepository = mock(LoginAttemptRepository.class);
         mailer = mock(Mailer.class);
         sessionCodec = mock(SessionCodec.class);
+        totpService = mock(TotpService.class);
+        pre2faService = mock(Pre2faService.class);
 
         when(turnstileVerifier.verify("token", "ip")).thenReturn(true);
         when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
         when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        when(loginAttemptRepository.countFailuresSince(anyString(), any())).thenReturn(0);
+        // 2FA выключена по умолчанию — большинство тестов не про неё
+        when(totpService.isEnabled(anyString())).thenReturn(false);
 
         service = new LoginService(
                 userRepository, passwordHasher, turnstileVerifier, geoLookup,
                 loginLocationRepository, loginEventRepository, loginCodeRepository,
-                mailer, sessionCodec);
+                loginAttemptRepository, mailer, sessionCodec, totpService, pre2faService);
     }
 
     @Test
@@ -81,12 +90,11 @@ class LoginServiceTest {
 
     @Test
     void loginEmailNotVerified() {
-        // 11 аргументов
         User unverified = new User(
                 "user-id", "test@test.com", "hashed", null, null, "Test", "test", null, false, false, false);
         when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(unverified));
         when(passwordHasher.verify("pass", "hashed")).thenReturn(true);
-        
+
         var result = service.login("test@test.com", "pass", "token", "ip", true);
         assertEquals(LoginUseCase.LoginOutcome.EMAIL_NOT_VERIFIED, result.outcome());
     }

@@ -6,7 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { Checkbox } from '../../shared/ui/Checkbox';
 import { Turnstile } from '../../shared/ui/Turnstile';
 import { TURNSTILE_SITE_KEY } from '../../shared/config';
-import { login, ApiError } from '../../shared/api/statsAuth';
+import { login, verify2fa, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
 export function LoginPage() {
@@ -22,12 +22,19 @@ export function LoginPage() {
     // переиспользовать уже потраченный.
     const [turnstileKey, setTurnstileKey] = useState(0);
     const [rememberMe, setRememberMe] = useState(true);
+    const [requires2fa, setRequires2fa] = useState(false);
+    const [totpCode, setTotpCode] = useState('');
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
         setError(null);
         setPending(true);
         try {
+            if (requires2fa) {
+                await verify2fa(email, totpCode, rememberMe);
+                navigate('/account');
+                return;
+            }
             await login(email, password, turnstileToken, rememberMe);
             navigate('/account');
         } catch (err) {
@@ -37,6 +44,10 @@ export function LoginPage() {
             }
             if (err instanceof ApiError && err.code === 'unknown_location') {
                 navigate(`/verify-location?email=${encodeURIComponent(email)}`);
+                return;
+            }
+            if (err instanceof ApiError && err.code === 'requires_2fa') {
+                setRequires2fa(true);
                 return;
             }
             if (err instanceof ApiError && err.code === 'banned') {
@@ -106,9 +117,34 @@ export function LoginPage() {
                     onVerify={setTurnstileToken}
                     onExpire={() => setTurnstileToken('')}
                 />
-                <Button type="submit" variant="flat" fullWidth disabled={pending || !turnstileToken}>
-                    {pending ? 'Signing in…' : 'Sign in'}
-                </Button>
+                {requires2fa ? (
+                    <>
+                        <TextField
+                            id="totp-code"
+                            label="2FA code"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            required
+                            value={totpCode}
+                            onChange={e => setTotpCode(e.target.value)}
+                        />
+                        <Button type="submit" variant="flat" fullWidth disabled={pending || totpCode.length < 6}>
+                            {pending ? 'Verifying…' : 'Verify 2FA'}
+                        </Button>
+                    </>
+                ) : (
+                    <>
+                        <Button
+                            type="submit"
+                            variant="flat"
+                            fullWidth
+                            disabled={pending || (requires2fa ? totpCode.length < 6 : !turnstileToken)}
+                        >
+                            {pending ? 'Signing in…' : 'Sign in'}
+                        </Button>
+                    </>
+                )}
             </form>
         </SplitAuthLayout>
     );

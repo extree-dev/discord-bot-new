@@ -32,6 +32,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final Mailer mailer;
     private final GeoLookup geoLookup;
     private final LoginEventRepository loginEventRepository;
+    private final PasswordPolicyService passwordPolicy;
     private final SessionCodec sessionCodec;
 
     public PasswordResetService(
@@ -41,6 +42,7 @@ public class PasswordResetService implements PasswordResetUseCase {
             Mailer mailer,
             GeoLookup geoLookup,
             LoginEventRepository loginEventRepository,
+            PasswordPolicyService passwordPolicy,
             SessionCodec sessionCodec) {
         this.userRepository = userRepository;
         this.passwordResetRepository = passwordResetRepository;
@@ -49,6 +51,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         this.geoLookup = geoLookup;
         this.loginEventRepository = loginEventRepository;
         this.sessionCodec = sessionCodec;
+        this.passwordPolicy = passwordPolicy;
     }
 
     @Override
@@ -96,6 +99,10 @@ public class PasswordResetService implements PasswordResetUseCase {
             return ResetPasswordResult.error(ResetPasswordOutcome.TOKEN_EXPIRED);
         }
 
+        PasswordPolicyService.Result pp = passwordPolicy.validate(newPassword, row.email(), null, null);
+        if (!pp.valid()) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_PASSWORD);
+        }
         Optional<User> maybeUser = userRepository.updatePasswordHash(row.userId(), passwordHasher.hash(newPassword));
         passwordResetRepository.deleteReset(token);
         if (maybeUser.isEmpty()) {

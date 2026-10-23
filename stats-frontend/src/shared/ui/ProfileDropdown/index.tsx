@@ -57,6 +57,9 @@ export function ProfileDropdown({ email, isAdmin }: ProfileDropdownProps) {
                                 <Link to="/admin/users" className={styles.menuItem} onClick={() => setIsOpen(false)}>
                                     <UsersIcon /> Manage Users
                                 </Link>
+                                <Link to="/admin/audit" className={styles.menuItem} onClick={() => setIsOpen(false)}>
+                                    <ShieldIcon /> Audit log
+                                </Link>
                             </>
                         )}
                     </div>

@@ -37,8 +37,15 @@ spring:
 server:
     port: ${STATS_BACKEND_JAVA_PORT:8081}
 
+sentry:
+    dsn: ${SENTRY_DSN_BACKEND:}
+    environment: ${SPRING_PROFILES_ACTIVE:prod}
+    traces-sample-rate: 0.1
+    send-default-pii: false
+
 extree:
     session-secret: ${STATS_SESSION_SECRET:}
+    session-secret-previous: ${STATS_SESSION_SECRET_PREVIOUS:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
     mail-from: ${STATS_MAIL_FROM:}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}

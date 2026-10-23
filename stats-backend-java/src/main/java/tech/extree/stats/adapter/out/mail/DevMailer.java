@@ -8,10 +8,7 @@ import tech.extree.stats.application.port.out.Mailer;
 
 /**
  * Заглушка ТОЛЬКО для локальной разработки (профиль dev).
- * Реальные письма не отправляет, коды в лог НЕ печатает —
- * чтобы случайно не утекли на прод и не приучали искать код в логах.
- * Если нужно увидеть код локально — временно добавь log.info сам,
- * но НЕ коммить это.
+ * Реальные письма не отправляет, коды в лог НЕ печатает.
  */
 @Component
 @Profile("dev")
@@ -26,6 +23,7 @@ public class DevMailer implements Mailer {
     @Override public void sendVerificationCode(String email, String code) { noop("verification", email); }
     @Override public void sendNewLocationCode(String email, String code, String ip, String country, String city) { noop("new-location", email); }
     @Override public void sendSignInNotification(String email, String ip, String country, String city, String time) { noop("sign-in", email); }
+    @Override public void sendFailedLoginAlert(String email, String ip, String country, String time) { noop("failed-login", email); }
     @Override public void sendPasswordResetEmail(String email, String resetUrl) { noop("password-reset", email); }
     @Override public void sendEmailChangeCode(String newEmail, String code) { noop("email-change-code", newEmail); }
     @Override public void sendEmailChangeNotice(String oldEmail, String newEmail) { noop("email-change-notice", oldEmail); }

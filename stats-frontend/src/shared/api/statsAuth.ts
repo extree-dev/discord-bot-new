@@ -42,19 +42,74 @@ const ERROR_MESSAGES: Record<string, string> = {
     forbidden: "You don't have access to this.",
     ticket_not_found: "We couldn't find that ticket.",
     ticket_closed: 'This ticket is closed.',
+    requires_2fa: 'Enter your 2FA code from the authenticator app.',
+    csrf_failed: 'Session expired — please refresh the page.',
+    weak_password: 'Password must be at least 12 characters and not contain your email or name.',
+    password_breached: 'This password has appeared in a data breach — choose another one.',
+    pre_2fa_expired: 'Session expired — please sign in again.',
+    totp_invalid: 'Invalid 2FA code. Please try again.',
+    totp_required: '2FA is not enabled for this account.',
 };
+
+let csrfTokenCache: string | null = null;
+let csrfFetchPromise: Promise<string> | null = null;
+
+/** Один раз тянем /api/csrf-token, дальше кешируем в памяти. */
+async function getCsrfToken(): Promise<string> {
+    if (csrfTokenCache) return csrfTokenCache;
+    if (!csrfFetchPromise) {
+        csrfFetchPromise = (async () => {
+            const res = await fetch('/api/csrf-token', { credentials: 'same-origin' });
+            const data = await res.json().catch(() => ({}));
+            const token = typeof data.csrfToken === 'string' ? data.csrfToken : '';
+            if (token) csrfTokenCache = token;
+            return token;
+        })().finally(() => {
+            csrfFetchPromise = null;
+        });
+    }
+    return csrfFetchPromise!;
+}
+
+/** Сбросить кеш (при 403 csrf_failed — перезапросить). */
+function resetCsrfToken() {
+    csrfTokenCache = null;
+}
 
 function messageFor(code: string): string {
     return ERROR_MESSAGES[code] ?? 'Something went wrong — please try again.';
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(path, {
+    const csrf = await getCsrfToken();
+    let res = await fetch(path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        },
         credentials: 'same-origin',
         body: JSON.stringify(body),
     });
+    if (res.status === 403) {
+        const first = await res
+            .clone()
+            .json()
+            .catch(() => ({}));
+        if (first.error === 'csrf_failed') {
+            resetCsrfToken();
+            const fresh = await getCsrfToken();
+            res = await fetch(path, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(fresh ? { 'X-CSRF-Token': fresh } : {}),
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(body),
+            });
+        }
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
         const code = typeof data.error === 'string' ? data.error : 'internal_error';
@@ -105,6 +160,26 @@ export function login(email: string, password: string, turnstileToken: string, r
     });
 }
 
+export function verify2fa(email: string, code: string, rememberMe: boolean = true) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/login/verify-2fa', { email, code, rememberMe });
+}
+
+export function setup2fa() {
+    return postJson<{ secret: string; otpauthUrl: string; recoveryCodes: string[] }>('/api/account/2fa/setup', {});
+}
+
+export function enable2fa(code: string) {
+    return postJson<{ ok: true }>('/api/account/2fa/enable', { code });
+}
+
+export function disable2fa(password: string) {
+    return postJson<{ ok: true }>('/api/account/2fa/disable', { password });
+}
+
+export function regenerateRecoveryCodes() {
+    return postJson<{ recoveryCodes: string[] }>('/api/account/2fa/recovery-codes', {});
+}
+
 export function resendLoginCode(email: string) {
     return postJson<{ ok: true }>('/auth/login/resend-code', { email });
 }
@@ -149,10 +224,12 @@ export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
     const formData = new FormData();
     formData.append('file', file);
 
+    const csrf = await getCsrfToken();
     const res = await fetch('/api/account/avatar', {
         method: 'POST',
         credentials: 'include',
         body: formData,
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
 
     if (!res.ok) {
@@ -251,7 +328,12 @@ export function createCannedResponse(title: string, body: string) {
 }
 
 export async function deleteCannedResponse(id: string): Promise<void> {
-    const res = await fetch(`/api/admin/canned-responses/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    const csrf = await getCsrfToken();
+    const res = await fetch(`/api/admin/canned-responses/${id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+    });
     if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         const code = typeof data.error === 'string' ? data.error : 'internal_error';
@@ -265,6 +347,24 @@ export function getTicketByToken(token: string) {
 
 export function replyToTicket(token: string, message: string) {
     return postJson<{ ok: true }>(`/api/support/tickets/${token}/reply`, { message });
+}
+
+// --- АУДИТ ---
+
+export interface AuditEntry {
+    id: number;
+    adminId: string;
+    adminEmail: string;
+    action: string;
+    targetType: string | null;
+    targetId: string | null;
+    metadata: string | null;
+    ip: string | null;
+    createdAt: string;
+}
+
+export function getAdminAudit(limit: number = 50, offset: number = 0) {
+    return getJson<{ entries: AuditEntry[] }>(`/api/admin/audit?limit=${limit}&offset=${offset}`);
 }
 
 // --- АДМИНКА ПОЛЬЗОВАТЕЛЕЙ ---

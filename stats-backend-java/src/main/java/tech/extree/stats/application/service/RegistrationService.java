@@ -32,6 +32,7 @@ public class RegistrationService implements RegistrationUseCase {
     private final EmailCodeRepository emailCodeRepository;
     private final PasswordHasher passwordHasher;
     private final Mailer mailer;
+    private final PasswordPolicyService passwordPolicy;
     private final SessionCodec sessionCodec;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -40,12 +41,14 @@ public class RegistrationService implements RegistrationUseCase {
             EmailCodeRepository emailCodeRepository,
             PasswordHasher passwordHasher,
             Mailer mailer,
+            PasswordPolicyService passwordPolicy,
             SessionCodec sessionCodec) {
         this.userRepository = userRepository;
         this.emailCodeRepository = emailCodeRepository;
         this.passwordHasher = passwordHasher;
         this.mailer = mailer;
         this.sessionCodec = sessionCodec;
+        this.passwordPolicy = passwordPolicy;
     }
 
     @Override
@@ -59,6 +62,12 @@ public class RegistrationService implements RegistrationUseCase {
         }
         if (!Validation.isValidPassword(password)) {
             return RegisterOutcome.INVALID_PASSWORD;
+        }
+        PasswordPolicyService.Result pp = passwordPolicy.validate(password, email, name, nickname);
+        if (!pp.valid()) {
+            return "password_breached".equals(pp.reason())
+                    ? RegisterOutcome.INVALID_PASSWORD  // TODO: отдельный outcome, если надо различать
+                    : RegisterOutcome.INVALID_PASSWORD;
         }
         if (!Validation.isValidName(name)) {
             return RegisterOutcome.INVALID_NAME;

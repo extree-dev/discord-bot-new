@@ -17,6 +17,7 @@ import org.springframework.http.ResponseCookie;
 final class SessionCookies {
 
     static final String SESSION_COOKIE = "extree_stats_session";
+    static final String PRE_2FA_COOKIE = "extree_stats_pre_2fa";
     private static final Duration SESSION_MAX_AGE = Duration.ofDays(7);
 
     private SessionCookies() {}
@@ -42,6 +43,26 @@ final class SessionCookies {
     }
 
     /** OAuth2 state-cookie (см. STATE_COOKIE в server.js) — 10 минут жизни. */
+    static ResponseCookie buildPre2fa(String token) {
+        return ResponseCookie.from(PRE_2FA_COOKIE, token)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ofMinutes(5))
+                .build();
+    }
+
+    static ResponseCookie clearPre2fa() {
+        return ResponseCookie.from(PRE_2FA_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+    }
+
     static ResponseCookie buildState(String name, String value, int maxAgeSeconds) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
