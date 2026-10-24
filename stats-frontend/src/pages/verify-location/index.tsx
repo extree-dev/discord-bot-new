@@ -4,6 +4,7 @@ import { SplitAuthLayout } from '../../widgets/split-auth';
 import { CodeInput } from '../../shared/ui/CodeInput';
 import { Button } from '../../shared/ui/Button';
 import { confirmLoginLocation, resendLoginCode, ApiError } from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
 const CODE_LENGTH = 6;
@@ -16,6 +17,7 @@ const CODE_LENGTH = 6;
 // страницы разные, а не одна с параметром.
 export function VerifyLocationPage() {
     const navigate = useNavigate();
+    const { refresh } = useAuth();
     const [searchParams] = useSearchParams();
     const email = searchParams.get('email') ?? '';
     const [code, setCode] = useState('');
@@ -31,6 +33,7 @@ export function VerifyLocationPage() {
         setPending(true);
         try {
             await confirmLoginLocation(email, value);
+            await refresh();
             navigate('/account');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');

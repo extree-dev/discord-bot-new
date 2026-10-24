@@ -7,10 +7,12 @@ import { Checkbox } from '../../shared/ui/Checkbox';
 import { Turnstile } from '../../shared/ui/Turnstile';
 import { TURNSTILE_SITE_KEY } from '../../shared/config';
 import { login, verify2fa, ApiError } from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
 export function LoginPage() {
     const navigate = useNavigate();
+    const { refresh } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -32,10 +34,12 @@ export function LoginPage() {
         try {
             if (requires2fa) {
                 await verify2fa(email, totpCode, rememberMe);
+                await refresh();
                 navigate('/account');
                 return;
             }
             await login(email, password, turnstileToken, rememberMe);
+            await refresh();
             navigate('/account');
         } catch (err) {
             if (err instanceof ApiError && err.code === 'email_not_verified') {
