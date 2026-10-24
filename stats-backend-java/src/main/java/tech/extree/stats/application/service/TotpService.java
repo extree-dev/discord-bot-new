@@ -104,9 +104,21 @@ public class TotpService {
         Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
         if (maybe.isEmpty()) return false;
         String hashed = sha256(code.trim().toLowerCase(Locale.ROOT));
-        if (!maybe.get().recoveryCodesHashed().contains(hashed)) return false;
+        // Сравниваем со всеми хэшами за время, не зависящее от того, на
+        // каком совпал (или не совпал ни с одним) — не .contains(), который
+        // использует String.equals() с ранним выходом по байту.
+        boolean matched = false;
+        for (String stored : maybe.get().recoveryCodesHashed()) {
+            if (constantTimeEquals(hashed, stored)) matched = true;
+        }
+        if (!matched) return false;
         totpRepository.removeRecoveryCode(userId, hashed);
         return true;
+    }
+
+    private static boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(
+                a.getBytes(java.nio.charset.StandardCharsets.UTF_8), b.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public List<String> regenerateRecoveryCodes(String userId) {

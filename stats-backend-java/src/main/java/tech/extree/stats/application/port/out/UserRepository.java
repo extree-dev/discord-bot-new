@@ -16,4 +16,7 @@ public interface UserRepository {
     void setBanned(String userId, boolean isBanned);
     void setAdmin(String userId, boolean isAdmin); // <-- НОВЫЙ МЕТОД
     List<User> findAllUsers();
+
+    /** Поиск для админ-палитры (Cmd+K): по email/name/nickname, LIMIT 5. */
+    List<User> searchUsers(String likeQuery);
 }
