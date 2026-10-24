@@ -6,6 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { PasswordRequirements } from '../../shared/ui/PasswordRequirements';
 import { isPasswordValid } from '../../shared/lib/passwordRules';
 import { resetPassword, ApiError } from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
 // "Generate" (заполняет поле случайным сильным паролем) и переключатель
@@ -14,6 +15,7 @@ import styles from './index.module.scss';
 // что собирался, прежде чем он окажется только в менеджере паролей.
 export function ResetPasswordPage() {
     const navigate = useNavigate();
+    const { refresh } = useAuth();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token') ?? '';
     const [password, setPassword] = useState('');
@@ -29,6 +31,7 @@ export function ResetPasswordPage() {
         setPending(true);
         try {
             await resetPassword(token, password);
+            await refresh();
             navigate('/account');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');

@@ -4,12 +4,14 @@ import { SplitAuthLayout } from '../../widgets/split-auth';
 import { CodeInput } from '../../shared/ui/CodeInput';
 import { Button } from '../../shared/ui/Button';
 import { verifyCode, resendCode, ApiError } from '../../shared/api/statsAuth';
+import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
 const CODE_LENGTH = 6;
 
 export function VerifyPage() {
     const navigate = useNavigate();
+    const { refresh } = useAuth();
     const [searchParams] = useSearchParams();
     const email = searchParams.get('email') ?? '';
     const [code, setCode] = useState('');
@@ -25,6 +27,7 @@ export function VerifyPage() {
         setPending(true);
         try {
             await verifyCode(email, value);
+            await refresh();
             navigate('/account');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');

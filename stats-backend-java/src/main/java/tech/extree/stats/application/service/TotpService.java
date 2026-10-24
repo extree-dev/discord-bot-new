@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.port.out.TotpRepository;
+import tech.extree.stats.application.port.out.TotpSecretCodec;
 import tech.extree.stats.domain.TotpSecret;
 
 /**
@@ -28,10 +29,12 @@ public class TotpService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final TotpRepository totpRepository;
+    private final TotpSecretCodec totpSecretCodec;
     private final GoogleAuthenticator authenticator;
 
-    public TotpService(TotpRepository totpRepository) {
+    public TotpService(TotpRepository totpRepository, TotpSecretCodec totpSecretCodec) {
         this.totpRepository = totpRepository;
+        this.totpSecretCodec = totpSecretCodec;
         GoogleAuthenticatorConfig config = new GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder()
                 .setWindowSize(1)  // ±30 сек
                 .build();
@@ -51,7 +54,7 @@ public class TotpService {
             plainCodes.add(code);
             hashedCodes.add(sha256(code));
         }
-        totpRepository.upsertPending(userId, secret, hashedCodes);
+        totpRepository.upsertPending(userId, totpSecretCodec.encrypt(secret), hashedCodes);
 
         String otpauth = String.format(
                 "otpauth://totp/Extree%%20Stats:%s?secret=%s&issuer=Extree%%20Stats&algorithm=SHA1&digits=6&period=30",
@@ -64,7 +67,7 @@ public class TotpService {
     public boolean enable(String userId, String code) {
         Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
         if (maybe.isEmpty() || maybe.get().isEnabled()) return false;
-        if (!verifyCode(maybe.get().secret(), code)) return false;
+        if (!verifyCode(totpSecretCodec.decrypt(maybe.get().secret()), code)) return false;
         totpRepository.enable(userId, Instant.now());
         return true;
     }
@@ -93,7 +96,7 @@ public class TotpService {
     public boolean verifyCodeForUser(String userId, String code) {
         Optional<TotpSecret> maybe = totpRepository.findByUserId(userId);
         if (maybe.isEmpty() || !maybe.get().isEnabled()) return false;
-        return verifyCode(maybe.get().secret(), code);
+        return verifyCode(totpSecretCodec.decrypt(maybe.get().secret()), code);
     }
 
     /** Проверка recovery-кода (одноразовый). Если подошёл — удаляем из БД. */
