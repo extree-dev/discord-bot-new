@@ -80,7 +80,11 @@
         <dependency>
             <groupId>com.resend</groupId>
             <artifactId>resend-java</artifactId>
-            <version>LATEST</version>
+            <!-- Было LATEST — непредсказуемая, невоспроизводимая сборка
+                 (Maven сам предупреждает: "LATEST... being deprecated").
+                 Зафиксировано на версии, которая реально была
+                 зарезолвлена до этого фикса. -->
+            <version>4.29.0</version>
         </dependency>
 
         <dependency>

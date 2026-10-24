@@ -48,6 +48,13 @@ extree:
     session-secret-previous: ${STATS_SESSION_SECRET_PREVIOUS:}
     support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
     mail-from: ${STATS_MAIL_FROM:}
+    # Единственный публичный домен этого сервиса (web/Caddyfile:
+    # stats.extree.tech { reverse_proxy stats-backend-java:8081 }).
+    # Используется вместо заголовка Host запроса при сборке абсолютных
+    # ссылок (сброс пароля, тикеты, Riot OAuth redirect_uri) — иначе
+    # подделанный Host превращает письмо с реальным токеном в ссылку на
+    # домен атакующего (Host header injection).
+    public-host: ${STATS_PUBLIC_HOST:stats.extree.tech}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
     riot:
         client-id: ${RIOT_CLIENT_ID:}

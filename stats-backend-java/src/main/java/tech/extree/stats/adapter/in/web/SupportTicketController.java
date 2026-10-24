@@ -1,7 +1,6 @@
 package tech.extree.stats.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -26,19 +25,20 @@ import tech.extree.stats.application.port.in.SupportTicketUseCase;
 public class SupportTicketController {
 
     private final SupportTicketUseCase supportTicketUseCase;
+    private final String publicHost;
 
-    public SupportTicketController(SupportTicketUseCase supportTicketUseCase) {
+    public SupportTicketController(
+            SupportTicketUseCase supportTicketUseCase, @Value("${extree.public-host}") String publicHost) {
         this.supportTicketUseCase = supportTicketUseCase;
+        this.publicHost = publicHost;
     }
 
     @PostMapping("/api/support/tickets")
     public ResponseEntity<?> createTicket(
             @RequestBody CreateTicketRequest request,
-            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
-            HttpServletRequest httpRequest) {
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
         SupportTicketUseCase.CreateResult result = supportTicketUseCase.createTicket(
-                cookie, request.email(), request.subject(), request.message(), request.category(),
-                httpRequest.getHeader(HttpHeaders.HOST));
+                cookie, request.email(), request.subject(), request.message(), request.category(), publicHost);
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok(new CreateTicketResponse(true, result.ticketNumber()));
             case INVALID_REQUEST -> status(HttpStatus.UNAUTHORIZED, "invalid_request");
@@ -60,10 +60,8 @@ public class SupportTicketController {
     }
 
     @PostMapping("/api/support/tickets/{token}/reply")
-    public ResponseEntity<?> reply(
-            @PathVariable String token, @RequestBody MessageRequest request, HttpServletRequest httpRequest) {
-        SupportTicketUseCase.ReplyOutcome outcome =
-                supportTicketUseCase.replyAsUser(token, request.message(), httpRequest.getHeader(HttpHeaders.HOST));
+    public ResponseEntity<?> reply(@PathVariable String token, @RequestBody MessageRequest request) {
+        SupportTicketUseCase.ReplyOutcome outcome = supportTicketUseCase.replyAsUser(token, request.message(), publicHost);
         return switch (outcome) {
             case OK -> ResponseEntity.ok(OkResponse.OK);
             case TICKET_NOT_FOUND -> status(HttpStatus.NOT_FOUND, "ticket_not_found");

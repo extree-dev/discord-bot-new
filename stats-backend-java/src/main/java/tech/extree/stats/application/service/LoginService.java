@@ -243,6 +243,14 @@ public class LoginService implements LoginUseCase {
             return Verify2faResult.error(Verify2faOutcome.BANNED);
         }
 
+        // Тот же per-email лимит, что для пароля (login() выше) — без него
+        // шаг 2FA ничем не защищён от брутфорса 6-значного кода, кроме
+        // общего per-IP лимита, который легко обойти сменой IP.
+        Instant failedSince = Instant.now().minus(FAILED_WINDOW_MINUTES, ChronoUnit.MINUTES);
+        if (loginAttemptRepository.countFailuresSince(user.email(), failedSince) >= MAX_FAILED_ATTEMPTS_PER_15MIN) {
+            return Verify2faResult.error(Verify2faOutcome.TOO_MANY_ATTEMPTS);
+        }
+
         boolean ok;
         if (totpCode.trim().matches("\\d{6}")) {
             ok = totpService.verifyCodeForUser(user.id(), totpCode.trim());

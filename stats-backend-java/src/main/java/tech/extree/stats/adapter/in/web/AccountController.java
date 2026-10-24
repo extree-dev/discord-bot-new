@@ -2,6 +2,7 @@ package tech.extree.stats.adapter.in.web;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -58,6 +59,16 @@ public class AccountController {
                 .orElseGet(() -> ResponseEntity.badRequest().body(new ErrorResponse("invalid_file")));
     }
 
+    // Тот же allowlist расширений, что AvatarService проверяет при загрузке
+    // (в хранилище другого не попадает) — но здесь не доверяем расширению
+    // из URL напрямую как значению заголовка, а смотрим его в этой карте.
+    private static final Map<String, String> AVATAR_CONTENT_TYPES = Map.of(
+            "png", "image/png",
+            "jpg", "image/jpeg",
+            "jpeg", "image/jpeg",
+            "gif", "image/gif",
+            "webp", "image/webp");
+
     @GetMapping("/api/account/avatar/{filename}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
         Path baseDir = Paths.get("uploads/avatars").toAbsolutePath().normalize();
@@ -65,12 +76,18 @@ public class AccountController {
         if (!file.startsWith(baseDir)) {
             return ResponseEntity.notFound().build();
         }
+        int dot = filename.lastIndexOf('.');
+        String contentType = dot < 0 ? null : AVATAR_CONTENT_TYPES.get(filename.substring(dot + 1).toLowerCase(Locale.ROOT));
+        if (contentType == null) {
+            return ResponseEntity.notFound().build();
+        }
         Resource resource = new FileSystemResource(file);
         if (!resource.exists()) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_TYPE, "image/" + filename.substring(filename.lastIndexOf(".") + 1))
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .header("X-Content-Type-Options", "nosniff")
                 .body(resource);
     }
 

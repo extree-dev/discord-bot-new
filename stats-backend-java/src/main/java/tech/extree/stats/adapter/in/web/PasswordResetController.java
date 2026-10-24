@@ -1,6 +1,7 @@
 package tech.extree.stats.adapter.in.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +20,18 @@ import tech.extree.stats.application.port.in.PasswordResetUseCase;
 public class PasswordResetController {
 
     private final PasswordResetUseCase passwordResetUseCase;
+    private final String publicHost;
 
-    public PasswordResetController(PasswordResetUseCase passwordResetUseCase) {
+    public PasswordResetController(
+            PasswordResetUseCase passwordResetUseCase, @Value("${extree.public-host}") String publicHost) {
         this.passwordResetUseCase = passwordResetUseCase;
+        this.publicHost = publicHost;
     }
 
     @PostMapping("/auth/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         PasswordResetUseCase.ForgotPasswordOutcome outcome =
-                passwordResetUseCase.forgotPassword(request.email(), httpRequest.getHeader(HttpHeaders.HOST));
+                passwordResetUseCase.forgotPassword(request.email(), publicHost);
         return switch (outcome) {
             case OK -> ResponseEntity.ok(OkResponse.OK);
             case INVALID_EMAIL -> badRequest("invalid_email");
