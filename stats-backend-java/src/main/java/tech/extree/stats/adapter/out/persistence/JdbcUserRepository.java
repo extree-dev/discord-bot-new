@@ -37,6 +37,12 @@ public class JdbcUserRepository implements UserRepository {
     private static final RowMapper<User> ID_EMAIL_ROW_MAPPER = (rs, rowNum) -> new User(
             rs.getString("id"), rs.getString("email"), null, null, null, null, null, null, false, false, false);
 
+    // Для поиска в админ-палитре — только то, что реально показывается
+    // в результатах (id/email/name/nickname).
+    private static final RowMapper<User> SEARCH_ROW_MAPPER = (rs, rowNum) -> new User(
+            rs.getString("id"), rs.getString("email"), null, null, null,
+            rs.getString("name"), rs.getString("nickname"), null, false, false, false);
+
     private final JdbcTemplate jdbcTemplate;
 
     public JdbcUserRepository(JdbcTemplate jdbcTemplate) {
@@ -131,5 +137,14 @@ public class JdbcUserRepository implements UserRepository {
                 "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname, avatar_url, is_verified, is_banned, is_admin " +
                         "FROM stats_users ORDER BY id DESC LIMIT 100",
                 USER_ROW_MAPPER);
+    }
+
+    @Override
+    public List<User> searchUsers(String likeQuery) {
+        return jdbcTemplate.query(
+                "SELECT id, email, name, nickname FROM stats_users " +
+                        "WHERE lower(email) LIKE ? OR lower(coalesce(name, '')) LIKE ? OR lower(coalesce(nickname, '')) LIKE ? " +
+                        "ORDER BY created_at DESC LIMIT 5",
+                SEARCH_ROW_MAPPER, likeQuery, likeQuery, likeQuery);
     }
 }

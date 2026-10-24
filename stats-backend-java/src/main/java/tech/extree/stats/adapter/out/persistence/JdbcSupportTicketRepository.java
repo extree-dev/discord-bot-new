@@ -47,6 +47,21 @@ public class JdbcSupportTicketRepository implements SupportTicketRepository {
                     rs.getLong("ticket_number"),
                     rs.getTimestamp("created_at").toInstant());
 
+    // Для поиска в админ-палитре — только то, что реально показывается
+    // в результатах (номер/email/subject/status).
+    private static final RowMapper<SupportTicket> SEARCH_ROW_MAPPER =
+            (rs, rowNum) -> new SupportTicket(
+                    null,
+                    null,
+                    rs.getString("email"),
+                    rs.getString("subject"),
+                    null,
+                    null,
+                    rs.getString("status"),
+                    null,
+                    rs.getLong("ticket_number"),
+                    null);
+
     private static final RowMapper<TicketReply> REPLY_ROW_MAPPER =
             (rs, rowNum) -> new TicketReply(
                     rs.getString("id"), rs.getString("author"), rs.getString("message"), rs.getTimestamp("created_at").toInstant());
@@ -110,6 +125,15 @@ public class JdbcSupportTicketRepository implements SupportTicketRepository {
                 "SELECT ticket_number, email, subject, category, status, created_at FROM stats_support_tickets "
                         + "ORDER BY created_at DESC LIMIT 200",
                 SUMMARY_ROW_MAPPER);
+    }
+
+    @Override
+    public List<SupportTicket> searchTickets(String likeQuery) {
+        return jdbcTemplate.query(
+                "SELECT ticket_number, email, subject, status FROM stats_support_tickets " +
+                        "WHERE lower(subject) LIKE ? OR lower(email) LIKE ? OR CAST(ticket_number AS TEXT) LIKE ? " +
+                        "ORDER BY created_at DESC LIMIT 5",
+                SEARCH_ROW_MAPPER, likeQuery, likeQuery, likeQuery);
     }
 
     @Override

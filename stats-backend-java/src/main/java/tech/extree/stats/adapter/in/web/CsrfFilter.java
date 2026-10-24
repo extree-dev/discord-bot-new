@@ -6,6 +6,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Set;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -80,7 +82,7 @@ public class CsrfFilter extends OncePerRequestFilter {
             }
         }
 
-        if (header == null || cookieToken == null || !header.equals(cookieToken)) {
+        if (header == null || cookieToken == null || !constantTimeEquals(header, cookieToken)) {
             res.setStatus(403);
             res.setContentType("application/json");
             res.getWriter().write("{\"error\":\"csrf_failed\"}");
@@ -88,5 +90,11 @@ public class CsrfFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(req, res);
+    }
+
+    // MessageDigest.isEqual — сравнение за время, не зависящее от того,
+    // на каком байте токены расходятся (в отличие от String.equals).
+    private static boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
     }
 }

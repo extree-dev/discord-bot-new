@@ -17,6 +17,9 @@ public interface SupportTicketRepository {
     /** status == null — без фильтра (все статусы), как и Node. */
     List<SupportTicket> listTickets(String status);
 
+    /** Поиск для админ-палитры (Cmd+K): по subject/email/номеру, LIMIT 5. */
+    List<SupportTicket> searchTickets(String likeQuery);
+
     Optional<SupportTicket> getTicketByNumber(long ticketNumber);
 
     Optional<SupportTicket> getTicketByToken(String viewToken);
