@@ -102,8 +102,12 @@ services:
             SPRING_MAIL_USERNAME: ${STATS_MAIL_USER:?STATS_MAIL_USER is required}
             SPRING_MAIL_PASSWORD: ${STATS_MAIL_APP_PASSWORD:?STATS_MAIL_APP_PASSWORD is required}
             EXTREE_MAIL_FROM: ${STATS_MAIL_FROM:-}
-        ports:
-            - '8081:8081'
+        # Порт НЕ публикуется на хост: Caddy достаёт сервис по имени через
+        # внутреннюю docker-сеть (reverse_proxy stats-backend-java:8081 в
+        # web/Caddyfile). Публикация 8081:8081 позволяла обратиться к бэкенду
+        # напрямую, минуя Caddy и его проверку хоста — это открывало
+        # Host-header injection (поддельный заголовок Host в письмах со
+        # сбросом пароля/тикетами/Riot OAuth redirect_uri).
         depends_on:
             postgres:
                 condition: service_healthy

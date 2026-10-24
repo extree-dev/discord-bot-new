@@ -64,6 +64,7 @@ public class LoginController {
             case PRE_2FA_EXPIRED -> status(HttpStatus.UNAUTHORIZED, "pre_2fa_expired");
             case TOTP_INVALID -> status(HttpStatus.UNAUTHORIZED, "totp_invalid");
             case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
+            case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
             case INTERNAL_ERROR -> internalError();
         };
     }

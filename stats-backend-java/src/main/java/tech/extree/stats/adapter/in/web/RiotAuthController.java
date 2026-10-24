@@ -1,6 +1,6 @@
 package tech.extree.stats.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,15 +32,17 @@ public class RiotAuthController {
     private static final int STATE_COOKIE_MAX_AGE_SECONDS = 10 * 60;
 
     private final RiotAuthUseCase riotAuthUseCase;
+    private final String publicHost;
 
-    public RiotAuthController(RiotAuthUseCase riotAuthUseCase) {
+    public RiotAuthController(RiotAuthUseCase riotAuthUseCase, @Value("${extree.public-host}") String publicHost) {
         this.riotAuthUseCase = riotAuthUseCase;
+        this.publicHost = publicHost;
     }
 
     @GetMapping("/auth/riot/login")
-    public ResponseEntity<Void> login(HttpServletRequest httpRequest) {
+    public ResponseEntity<Void> login() {
         String state = RiotAuthService.newState();
-        String redirectUrl = riotAuthUseCase.buildLoginRedirect(httpRequest.getHeader(HttpHeaders.HOST), state);
+        String redirectUrl = riotAuthUseCase.buildLoginRedirect(publicHost, state);
         if (redirectUrl == null) {
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(HttpHeaders.LOCATION, "/?auth_error=1")
@@ -59,10 +61,8 @@ public class RiotAuthController {
     public ResponseEntity<Void> callback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
-            @CookieValue(name = STATE_COOKIE, required = false) String expectedState,
-            HttpServletRequest httpRequest) {
-        RiotAuthUseCase.CallbackResult result =
-                riotAuthUseCase.handleCallback(httpRequest.getHeader(HttpHeaders.HOST), code, state, expectedState);
+            @CookieValue(name = STATE_COOKIE, required = false) String expectedState) {
+        RiotAuthUseCase.CallbackResult result = riotAuthUseCase.handleCallback(publicHost, code, state, expectedState);
         if (!result.ok()) {
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.clearState(STATE_COOKIE).toString())

@@ -61,7 +61,8 @@ public interface LoginUseCase {
         PRE_2FA_EXPIRED,
         TOTP_INVALID,
         INTERNAL_ERROR,
-        BANNED
+        BANNED,
+        TOO_MANY_ATTEMPTS
     }
 
     LoginResult login(String email, String password, String turnstileToken, String clientIp, String userAgent, boolean rememberMe);
