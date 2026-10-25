@@ -22,8 +22,15 @@ import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
 /**
- * /api/account/login-history — список последних входов (для вкладки Active Sessions).
- * /api/account/logout-session/{id} — удалить запись входа (logout конкретной сессии).
+ * /api/account/login-history — список последних входов (для вкладки Recent Sign-ins).
+ * /api/account/logout-session/{id} — удалить ОДНУ ЗАПИСЬ из истории входов.
+ * Важно: сессии в проекте полностью stateless (зашифрованная cookie без
+ * серверного реестра токенов) — этот эндпоинт НЕ отзывает сам токен,
+ * только чистит историю. Реальный токен устройства остаётся рабочим до
+ * истечения Max-Age независимо от вызова. Путь оставлен как есть (не
+ * публичный контракт за пределами фронта этого же проекта), но название
+ * сохранено, чтобы не путать с настоящим logout — см. комментарий в
+ * shared/api/statsAuth.ts (removeLoginHistoryEntry) на фронте.
  */
 @RestController
 public class LoginEventController {

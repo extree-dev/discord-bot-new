@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.extree.stats.application.port.in.PasswordResetUseCase;
 import tech.extree.stats.application.port.out.GeoLookup;
+import tech.extree.stats.application.port.out.LoginAttemptRepository;
 import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
@@ -34,6 +35,8 @@ class PasswordResetServiceTest {
     private LoginEventRepository loginEventRepository;
     private PasswordPolicyService passwordPolicy;
     private SessionCodec sessionCodec;
+    private TotpService totpService;
+    private LoginAttemptRepository loginAttemptRepository;
     private PasswordResetService service;
 
     private final User user = new User(
@@ -49,6 +52,8 @@ class PasswordResetServiceTest {
         loginEventRepository = mock(LoginEventRepository.class);
         passwordPolicy = mock(PasswordPolicyService.class);
         sessionCodec = mock(SessionCodec.class);
+        totpService = mock(TotpService.class);
+        loginAttemptRepository = mock(LoginAttemptRepository.class);
 
         when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
         when(sessionCodec.encrypt(any())).thenReturn("cookie");
@@ -57,7 +62,8 @@ class PasswordResetServiceTest {
 
         service = new PasswordResetService(
                 userRepository, passwordResetRepository, passwordHasher,
-                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionCodec);
+                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionCodec,
+                totpService, loginAttemptRepository);
     }
 
     @Test
@@ -81,7 +87,7 @@ class PasswordResetServiceTest {
     @Test
     void resetPasswordTokenNotFound() {
         when(passwordResetRepository.getReset("token")).thenReturn(Optional.empty());
-        var result = service.resetPassword("token", "newpassword1", "ip", "ua");
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOKEN_NOT_FOUND, result.outcome());
     }
 
@@ -93,10 +99,51 @@ class PasswordResetServiceTest {
         when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
         when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
 
-        var result = service.resetPassword("token", "newpassword1", "ip", "ua");
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
         verify(passwordResetRepository).deleteReset("token");
         verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua");
         verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
+    }
+
+    @Test
+    void resetPasswordRequiresTotpWhenEnabledAndNoCodeGiven() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOTP_REQUIRED, result.outcome());
+        verify(passwordResetRepository, org.mockito.Mockito.never()).deleteReset(anyString());
+        verify(userRepository, org.mockito.Mockito.never()).updatePasswordHash(anyString(), anyString());
+    }
+
+    @Test
+    void resetPasswordRejectsWrongTotpCode() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+        when(totpService.verifyCodeForUser("user-id", "000000")).thenReturn(false);
+
+        var result = service.resetPassword("token", "newpassword1", "000000", "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOTP_INVALID, result.outcome());
+        verify(userRepository, org.mockito.Mockito.never()).updatePasswordHash(anyString(), anyString());
+    }
+
+    @Test
+    void resetPasswordSucceedsWithValidTotpCode() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+        when(totpService.verifyCodeForUser("user-id", "123456")).thenReturn(true);
+        when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
+        when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
+
+        var result = service.resetPassword("token", "newpassword1", "123456", "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
+        verify(passwordResetRepository).deleteReset("token");
     }
 }

@@ -48,9 +48,11 @@ export function AccountSettingsPage() {
     }, [navigate]);
 
     async function handleSetup2fa() {
+        const pwd = prompt('Enter your password to set up 2FA:');
+        if (!pwd) return;
         setTotpError(null);
         try {
-            const r = await setup2fa();
+            const r = await setup2fa(pwd);
             setTotpSetup(r);
         } catch (e) {
             setTotpError(e instanceof Error ? e.message : 'Failed to start 2FA setup');
@@ -59,10 +61,12 @@ export function AccountSettingsPage() {
 
     async function handleEnable2fa() {
         if (!totpCode.trim()) return;
+        const pwd = prompt('Confirm your password to enable 2FA:');
+        if (!pwd) return;
         setTotpPending(true);
         setTotpError(null);
         try {
-            await enable2fa(totpCode.trim());
+            await enable2fa(totpCode.trim(), pwd);
             setTotpSetup(null);
             setTotpCode('');
             alert('2FA enabled. Save your recovery codes!');
@@ -87,8 +91,10 @@ export function AccountSettingsPage() {
     }
 
     async function handleRegenCodes() {
+        const pwd = prompt('Enter your password to regenerate recovery codes:');
+        if (!pwd) return;
         try {
-            const r = await regenerateRecoveryCodes();
+            const r = await regenerateRecoveryCodes(pwd);
             alert('New recovery codes (save them):\n\n' + r.recoveryCodes.join('\n'));
         } catch (e) {
             alert(e instanceof Error ? e.message : 'Failed to regenerate codes');

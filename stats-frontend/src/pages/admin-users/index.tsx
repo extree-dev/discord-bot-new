@@ -29,8 +29,8 @@ export function AdminUsersPage() {
         try {
             await action();
             setUsers(users.map(u => (u.id === id ? { ...u, [field]: !u[field] } : u)));
-        } catch {
-            alert(`Failed to update ${field}`);
+        } catch (err) {
+            alert(err instanceof ApiError ? err.message : `Failed to update ${field}`);
         } finally {
             setPendingId(null);
         }

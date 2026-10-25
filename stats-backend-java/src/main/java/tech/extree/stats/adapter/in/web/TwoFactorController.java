@@ -1,6 +1,5 @@
 package tech.extree.stats.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,10 +59,16 @@ public class TwoFactorController {
 
     @PostMapping("/api/account/2fa/setup")
     public ResponseEntity<?> setup(
-            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
+            @RequestBody Map<String, String> body) {
         Optional<User> user = currentUser(cookie);
         if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
         if (user.get().isBanned()) return status(HttpStatus.FORBIDDEN, "banned");
+        String password = body == null ? null : body.get("password");
+        if (password == null || password.isBlank()) return badRequest("invalid_request");
+        if (!passwordHasher.verify(password, user.get().passwordHash())) {
+            return status(HttpStatus.UNAUTHORIZED, "wrong_password");
+        }
         if (totpService.isEnabled(user.get().id())) {
             return badRequest("totp_required"); // уже включена — сюда не ходим
         }
@@ -80,8 +85,14 @@ public class TwoFactorController {
             @RequestBody Map<String, String> body) {
         Optional<User> user = currentUser(cookie);
         if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        String password = body == null ? null : body.get("password");
         String code = body == null ? null : body.get("code");
-        if (code == null || code.isBlank()) return badRequest("invalid_request");
+        if (password == null || password.isBlank() || code == null || code.isBlank()) {
+            return badRequest("invalid_request");
+        }
+        if (!passwordHasher.verify(password, user.get().passwordHash())) {
+            return status(HttpStatus.UNAUTHORIZED, "wrong_password");
+        }
         if (!totpService.enable(user.get().id(), code.trim())) {
             return status(HttpStatus.UNAUTHORIZED, "totp_invalid");
         }
@@ -106,9 +117,14 @@ public class TwoFactorController {
     @PostMapping("/api/account/2fa/recovery-codes")
     public ResponseEntity<?> regenerateRecoveryCodes(
             @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
-            HttpServletRequest httpRequest) {
+            @RequestBody Map<String, String> body) {
         Optional<User> user = currentUser(cookie);
         if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        String password = body == null ? null : body.get("password");
+        if (password == null || password.isBlank()) return badRequest("invalid_request");
+        if (!passwordHasher.verify(password, user.get().passwordHash())) {
+            return status(HttpStatus.UNAUTHORIZED, "wrong_password");
+        }
         if (!totpService.isEnabled(user.get().id())) {
             return badRequest("totp_required"); // нечего перевыпускать
         }

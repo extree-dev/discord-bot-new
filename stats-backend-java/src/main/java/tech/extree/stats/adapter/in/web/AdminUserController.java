@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tech.extree.stats.adapter.in.web.dto.AdminUserResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.SessionCodec;
@@ -86,6 +87,22 @@ public class AdminUserController {
             @CookieValue(name = "extree_stats_session", required = false) String cookie,
             @RequestParam boolean isAdmin, HttpServletRequest httpRequest) {
         if (!isAdmin(cookie)) return ResponseEntity.status(403).body(new OkResponse(false));
+
+        // Снятие прав с ПОСЛЕДНЕГО оставшегося админа (в т.ч. с самого себя)
+        // оставило бы аккаунт без единого админа — восстановить доступ
+        // можно было бы только руками в БД. Считаем по факту (findAllUsers),
+        // не по кешу: отдельного countAdmins() в порту нет, а это редкое
+        // действие, не узкое место производительности.
+        if (!isAdmin) {
+            boolean targetIsCurrentlyAdmin = userRepository.findById(userId).map(User::isAdmin).orElse(false);
+            if (targetIsCurrentlyAdmin) {
+                long adminCount = userRepository.findAllUsers().stream().filter(User::isAdmin).count();
+                if (adminCount <= 1) {
+                    return ResponseEntity.status(409).body(new ErrorResponse("last_admin"));
+                }
+            }
+        }
+
         userRepository.setAdmin(userId, isAdmin);
         String adminId = currentAdminId(cookie);
         if (adminId != null) {
