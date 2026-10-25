@@ -37,8 +37,18 @@ export function App() {
             <CommandPalette />
             <CookieConsentBanner />
             <Routes>
-                {/* Public */}
-                <Route path="/" element={<SignInPage />} />
+                {/* Public, но если уже залогинен — редирект на /account (как
+                    /login и /register ниже). Раньше "/" не проверял auth
+                    вообще, поэтому клик по лого в хедере кидал залогиненного
+                    пользователя на публичный sign-in лендинг. */}
+                <Route
+                    path="/"
+                    element={
+                        <GuestOnlyRoute>
+                            <SignInPage />
+                        </GuestOnlyRoute>
+                    }
+                />
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/cookies" element={<CookiesPage />} />
