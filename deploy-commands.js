@@ -2,11 +2,13 @@ require('dotenv').config({ quiet: true });
 const { REST, Routes } = require('discord.js');
 const { loadCommands } = require('./utils/loadCommands');
 
-const commands = loadCommands().map(command => command.data.toJSON());
-
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-(async () => {
+// REST-only — в отличие от scripts/setup-*.js, не нуждается в
+// gateway-логине (client.login()), поэтому оркестратор
+// scripts/deploy-sync.js запускает этот шаг, не дожидаясь подключения
+// общего клиента.
+async function run() {
+    const commands = loadCommands().map(command => command.data.toJSON());
+    const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     try {
         console.log(`Регистрация ${commands.length} slash-команд...`);
 
@@ -30,4 +32,10 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     } catch (error) {
         console.error(error);
     }
-})();
+}
+
+module.exports = run;
+
+if (require.main === module) {
+    run();
+}

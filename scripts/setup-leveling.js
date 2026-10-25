@@ -4,15 +4,13 @@ const leveling = require('../leveling');
 const { findChannel } = require('../utils/idempotent');
 const { isBootstrap, ensureChannel, ensureRole } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 const CATEGORY_NAME = '📋 Информация';
 // Те же имена канала/ролей, что были у прежней системы репутации — поиск
 // по сохранённому ID, а при его отсутствии по имени, так что скрипт
 // узнаёт уже существующие канал и роли уровней вместо создания дублей.
 const CHANNEL_NAME = 'рейтинг';
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
@@ -116,11 +114,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово. Топ активности публикуется автоматически раз в неделю в канал #' + CHANNEL_NAME + '.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки уровней активности:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}
