@@ -24,8 +24,8 @@ export function CookieConsentBanner() {
                     <>
                         <p className={styles.text}>
                             We use strictly necessary cookies to keep you signed in and the site secure. With your
-                            consent, we&apos;d also like to use error monitoring and load the Inter typeface from
-                            Google Fonts — see our <Link to="/cookies">Cookie Policy</Link> for the full breakdown.
+                            consent, we&apos;d also like to use error monitoring and load the Inter typeface from Google
+                            Fonts — see our <Link to="/cookies">Cookie Policy</Link> for the full breakdown.
                         </p>
                         <div className={styles.actions}>
                             <Button variant="ghost" size="sm" onClick={() => setCustomizing(true)}>
@@ -87,7 +87,11 @@ export function CookieConsentBanner() {
                             <Button variant="ghost" size="sm" onClick={() => setCustomizing(false)}>
                                 Back
                             </Button>
-                            <Button variant="primary" size="sm" onClick={() => savePreferences({ analytics, preferences })}>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => savePreferences({ analytics, preferences })}
+                            >
                                 Save preferences
                             </Button>
                         </div>

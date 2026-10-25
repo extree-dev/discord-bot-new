@@ -69,10 +69,10 @@ export function PrivacyPage() {
                         to 2 hours.
                     </p>
                     <p>
-                        None of these cookies are used for analytics, advertising, or tracking across other sites. We
-                        do use two optional, non-essential services (error monitoring and web fonts) — both off by
-                        default until you consent. See our <Link to="/cookies">Cookie Policy</Link> for the full list,
-                        exact durations, and how to change your choice.
+                        None of these cookies are used for analytics, advertising, or tracking across other sites. We do
+                        use two optional, non-essential services (error monitoring and web fonts) — both off by default
+                        until you consent. See our <Link to="/cookies">Cookie Policy</Link> for the full list, exact
+                        durations, and how to change your choice.
                     </p>
 
                     <h2>Sign-in security (IP address &amp; location)</h2>

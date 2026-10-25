@@ -33,8 +33,8 @@ export function CookiesPage() {
                     <p className={styles.updated}>Last updated: October 25, 2026</p>
                     <h1>Cookie Policy</h1>
                     <p>
-                        This page lists every cookie and third-party service Extree Stats (stats.extree.tech) uses,
-                        what each is for, and how long it lasts.
+                        This page lists every cookie and third-party service Extree Stats (stats.extree.tech) uses, what
+                        each is for, and how long it lasts.
                     </p>
 
                     <h2>Necessary — always on</h2>
@@ -69,8 +69,8 @@ export function CookiesPage() {
                         <div className={styles.row}>
                             <code>cf_*</code>
                             <span>
-                                Set by Cloudflare Turnstile, the bot-check widget on the sign-in and registration
-                                forms. We don&apos;t control these directly — see{' '}
+                                Set by Cloudflare Turnstile, the bot-check widget on the sign-in and registration forms.
+                                We don&apos;t control these directly — see{' '}
                                 <a href="https://www.cloudflare.com/cookie-policy/" target="_blank" rel="noreferrer">
                                     Cloudflare&apos;s cookie policy
                                 </a>
@@ -91,8 +91,8 @@ export function CookiesPage() {
                         <div className={styles.row}>
                             <code>Sentry</code>
                             <span>
-                                Error monitoring — reports crashes and bugs so we can fix them. Sends your browser
-                                info and IP to Sentry only when something breaks.
+                                Error monitoring — reports crashes and bugs so we can fix them. Sends your browser info
+                                and IP to Sentry only when something breaks.
                             </span>
                             <span>{consent?.analytics ? 'Enabled' : 'Disabled'}</span>
                         </div>
@@ -108,8 +108,8 @@ export function CookiesPage() {
 
                     <h2>Manage your preferences</h2>
                     <p>
-                        Change your mind any time — this reopens the same choice you got on your first visit (Accept
-                        all / Necessary only / Customize).
+                        Change your mind any time — this reopens the same choice you got on your first visit (Accept all
+                        / Necessary only / Customize).
                     </p>
                     <Button variant="ghost" size="sm" onClick={reopen}>
                         Manage cookie preferences
@@ -123,8 +123,8 @@ export function CookiesPage() {
 
                     <h2>Changes</h2>
                     <p>
-                        This policy may change if we add new cookies or services in the future. The date above
-                        reflects the latest update.
+                        This policy may change if we add new cookies or services in the future. The date above reflects
+                        the latest update.
                     </p>
 
                     <h2>Contact</h2>
