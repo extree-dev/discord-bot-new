@@ -1,7 +1,6 @@
 package tech.extree.stats.adapter.in.web;
 
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.HttpHeaders;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -31,9 +30,12 @@ import tech.extree.stats.application.port.in.AdminTicketUseCase;
 public class AdminTicketController {
 
     private final AdminTicketUseCase adminTicketUseCase;
+    private final String publicHost;
 
-    public AdminTicketController(AdminTicketUseCase adminTicketUseCase) {
+    public AdminTicketController(
+            AdminTicketUseCase adminTicketUseCase, @Value("${extree.public-host}") String publicHost) {
         this.adminTicketUseCase = adminTicketUseCase;
+        this.publicHost = publicHost;
     }
 
     @GetMapping("/api/admin/tickets")
@@ -65,10 +67,8 @@ public class AdminTicketController {
     public ResponseEntity<?> reply(
             @PathVariable String number,
             @RequestBody MessageRequest request,
-            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie,
-            HttpServletRequest httpRequest) {
-        AdminTicketUseCase.ReplyOutcome outcome =
-                adminTicketUseCase.reply(cookie, number, request.message(), httpRequest.getHeader(HttpHeaders.HOST));
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AdminTicketUseCase.ReplyOutcome outcome = adminTicketUseCase.reply(cookie, number, request.message(), publicHost);
         return switch (outcome) {
             case OK -> ResponseEntity.ok(OkResponse.OK);
             case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
