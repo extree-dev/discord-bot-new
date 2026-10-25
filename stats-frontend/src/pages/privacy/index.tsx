@@ -65,11 +65,14 @@ export function PrivacyPage() {
                     <p>
                         A second, short-lived cookie (<code>extree_stats_oauth_state</code>) exists only during the Riot
                         sign-in redirect itself, to prevent cross-site request forgery — it&apos;s deleted within
-                        minutes either way.
+                        minutes either way. A third (<code>csrf</code>) protects form submissions the same way, for up
+                        to 2 hours.
                     </p>
                     <p>
-                        None of these cookies are used for analytics, advertising, or tracking across other sites. See
-                        our <Link to="/cookies">Cookie Policy</Link> for the full list, including exact durations.
+                        None of these cookies are used for analytics, advertising, or tracking across other sites. We do
+                        use two optional, non-essential services (error monitoring and web fonts) — both off by default
+                        until you consent. See our <Link to="/cookies">Cookie Policy</Link> for the full list, exact
+                        durations, and how to change your choice.
                     </p>
 
                     <h2>Sign-in security (IP address &amp; location)</h2>
