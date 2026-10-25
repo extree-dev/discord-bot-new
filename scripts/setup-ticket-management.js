@@ -16,9 +16,7 @@ const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode
 // администратором не будет каждый раз откатываться назад.
 const MANAGEMENT_CATEGORY_ID = '1551543086671335494';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
@@ -37,14 +35,14 @@ client.once('clientReady', async () => {
             guild.channels.cache.get(categoryId) ?? (await guild.channels.fetch(categoryId).catch(() => null));
         if (!category) {
             console.error(`Категория ${categoryId} не найдена на сервере — панель управления не настроена.`);
-            process.exit(1);
+            return false;
         }
         if (category.type !== ChannelType.GuildCategory) {
             console.error(
                 `${categoryId} — не категория (тип ${category.type}, "${category.name}"). ` +
                     'Скопируй ID именно категории (правой кнопкой по заголовку категории → Копировать ID), не канала внутри неё.'
             );
-            process.exit(1);
+            return false;
         }
 
         // Видят только staff — тот же список ролей и та же логика явного
@@ -63,7 +61,7 @@ client.once('clientReady', async () => {
             parentId: category.id,
             createOptions: { permissionOverwrites: overwrites },
         });
-        if (!channel) process.exit(0);
+        if (!channel) return true;
         console.log(created ? 'Создан канал: 🛠️│управление-тикетами' : 'Канал управления тикетами уже настроен');
 
         if (isBootstrap() && !created) {
@@ -89,11 +87,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово. Панель управления тикетами настроена.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки панели управления тикетами:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

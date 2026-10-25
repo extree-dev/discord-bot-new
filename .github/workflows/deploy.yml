@@ -30,16 +30,16 @@ jobs:
                   username: ${{ secrets.VPS_USER }}
                   key: ${{ secrets.VPS_SSH_KEY }}
                   # По умолчанию у ssh-action весь script обязан уложиться в
-                  # 10 минут (command_timeout) — с запасом хватало, пока в
-                  # конце не появились 15 последовательных "docker compose
-                  # run --rm bot node ..." (каждый — отдельный старт
-                  # контейнера + обращения к Discord API). На практике сама
-                  # выкладка (сборка образов, docker compose up) укладывается
-                  # в минуту, а этот хвост setup-скриптов съедал остаток
-                  # лимита и падал с "Run Command Timeout" уже ПОСЛЕ
-                  # того, как всё нужное на сервере отработало (см. PR #309,
-                  # #311 — задеплоено успешно, а CI всё равно красный).
-                  # 30 минут — с кратным запасом под все 15 шагов разом.
+                  # 10 минут (command_timeout) — раньше не хватало: в конце
+                  # было 18 последовательных "docker compose run --rm bot
+                  # node X.js" (отдельный контейнер + Discord-логин на
+                  # каждый), и этот хвост регулярно упирался в лимит уже
+                  # ПОСЛЕ того, как всё нужное на сервере отработало (см.
+                  # PR #309, #311 — задеплоено успешно, а CI всё равно
+                  # красный). Теперь это один "docker compose run" (см.
+                  # scripts/deploy-sync.js) и укладывается в десятки секунд,
+                  # но 30 минут оставлены как запас — на случай холодной
+                  # пересборки образов (Maven/npm без кеша) на свежем VPS.
                   command_timeout: 30m
                   script: |
                       set -e
@@ -85,45 +85,20 @@ jobs:
                       # На сервере деплой ничего не создаёт, не удаляет, не
                       # переименовывает и не переставляет права — первичная
                       # настройка только вручную: node scripts/setup-X.js --bootstrap.
-                      # Без set -e и по одному через run_setup_step: сбой одного не
-                      # должен мешать остальным. Деплой всё равно помечается упавшим,
-                      # если хоть один шаг не прошёл.
-                      set +e
-                      FAILED=0
-                      run_setup_step() {
-                          docker compose run --rm bot node "$1"
-                          if [ $? -ne 0 ]; then
-                              echo "::warning::$1 завершился с ошибкой, смотри лог выше"
-                              FAILED=1
-                          fi
-                      }
-                      run_setup_step deploy-commands.js
-                      run_setup_step scripts/setup-roles.js
-                      run_setup_step scripts/setup-verification.js
-                      run_setup_step scripts/setup-tickets.js
-                      run_setup_step scripts/setup-ticket-management.js
-                      run_setup_step scripts/setup-punishment-notices.js
-                      run_setup_step scripts/setup-temp-voice.js
-                      run_setup_step scripts/setup-suggestions.js
-                      run_setup_step scripts/setup-rules.js
-                      run_setup_step scripts/setup-changelog.js
-                      run_setup_step scripts/setup-leveling.js
-                      run_setup_step scripts/setup-modqueue.js
-                      run_setup_step scripts/setup-idea-queue.js
-                      # После rules/changelog/leveling/tickets/suggestions/
-                      # voice/idea-queue — памятка ссылается на каналы всех
-                      # этих фич по сохранённому ID (memo/index.js
-                      # gatherChannelIds), порядок здесь важен.
-                      run_setup_step scripts/setup-memo.js
-                      run_setup_step scripts/setup-admin-panel.js
-                      # scripts/setup-onboarding.js и
-                      # scripts/add-onboarding-role-questions.js в деплой не
-                      # входят: адаптация Discord редактируется только
-                      # целиком, и прогон на каждом деплое затирал ручные
-                      # правки. Запускать вручную, когда нужно.
-                      # Канал #📬│game-news задан константой в самом скрипте,
-                      # от setup-changelog.js не зависит — порядок здесь не важен.
-                      run_setup_step scripts/setup-valorant-news.js
-                      run_setup_step scripts/setup-esports-news.js
-                      run_setup_step scripts/setup-game-news.js
-                      exit $FAILED
+                      #
+                      # Раньше здесь было 18 отдельных "docker compose run --rm bot
+                      # node X.js" — отдельный контейнер и отдельный Discord-логин
+                      # (client.login(), полный gateway-хендшейк) на каждый скрипт,
+                      # и это было основным, что растягивало деплой на много минут.
+                      # scripts/deploy-sync.js — один контейнер, один логин, все те
+                      # же шаги в том же порядке внутри одного процесса (см. его
+                      # комментарии про порядок/зависимости). Поведение каждого шага
+                      # не поменялось — он по-прежнему ничего не создаёт/не удаляет
+                      # вне --bootstrap, просто без 17 лишних переподключений.
+                      #
+                      # Сбой одного шага внутри deploy-sync.js не прерывает
+                      # остальные (он сам печатает "::warning::" на каждый такой
+                      # шаг и возвращает ненулевой код, только если хоть один не
+                      # прошёл) — set -e здесь просто пробрасывает этот итоговый
+                      # код наружу, как и для любой другой команды выше.
+                      docker compose run --rm bot node scripts/deploy-sync.js

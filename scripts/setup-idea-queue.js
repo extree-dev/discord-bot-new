@@ -24,9 +24,7 @@ const REVIEW_CHANNEL_NAME = '📥│предложения-на-проверке
 // Discord, отдельно обходить не нужно.
 const SLOWMODE_SECONDS = 6 * 60 * 60;
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
@@ -41,11 +39,11 @@ client.once('clientReady', async () => {
             guild.channels.cache.get(channelId) ?? (await guild.channels.fetch(channelId).catch(() => null));
         if (!channel) {
             console.error(`Канал ${channelId} не найден на сервере — очередь предложений не настроена.`);
-            process.exit(1);
+            return false;
         }
         if (channel.type !== ChannelType.GuildText) {
             console.error(`${channelId} — не текстовый канал (тип ${channel.type}, "${channel.name}").`);
-            process.exit(1);
+            return false;
         }
 
         // Только при первичной настройке — на каждом деплое это сбрасывало
@@ -98,11 +96,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово. Очередь предложений настроена.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки очереди предложений:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

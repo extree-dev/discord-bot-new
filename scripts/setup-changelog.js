@@ -4,8 +4,6 @@ const changelog = require('../changelog');
 const { findChannel } = require('../utils/idempotent');
 const { isBootstrap, ensureChannel } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 const CATEGORY_NAME = '📋 Информация';
 // По прямому запросу администратора канал переименован из "обновления" в
 // "новости сервера" — сюда же продолжают публиковаться автоанонсы релизов
@@ -14,7 +12,7 @@ const CATEGORY_NAME = '📋 Информация';
 // что бот временно выключен) — канал уже не только про версии бота.
 const CHANNEL_NAME = '📰│новости-сервера';
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -31,7 +29,7 @@ client.once('clientReady', async () => {
             name: CATEGORY_NAME,
             type: ChannelType.GuildCategory,
         });
-        if (!category) process.exit(0);
+        if (!category) return true;
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
 
         // По прямому запросу администратора — канал больше не создаётся
@@ -69,11 +67,20 @@ client.once('clientReady', async () => {
         console.log(
             'Готово. Анонс новой версии публикуется автоматически при первом запуске бота на ней; администрация может дописывать туда через /say.'
         );
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки канала обновлений:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

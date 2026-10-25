@@ -5,8 +5,6 @@ const security = require('../security');
 const { buildPanelMessage } = require('../voice');
 const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 // Если ID уже сохранён (предыдущий запуск или /temp-voice-category) —
 // используем именно этот канал как есть, не переименовывая его на
 // дефолтное имя.
@@ -16,7 +14,7 @@ async function find({ guild, config, idKey, name, type, parentId }) {
     return channel;
 }
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -108,11 +106,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово. Временные комнаты настроены.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки временных комнат:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

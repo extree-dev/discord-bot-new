@@ -2,8 +2,6 @@ require('dotenv').config({ quiet: true });
 const { Client, GatewayIntentBits } = require('discord.js');
 const valorantNews = require('../valorantNews');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 // Канал #📬│game-news — уже существующий на сервере канал для игровых
 // новостей (не бот-управляемый, ID пришёл напрямую от администратора), не
 // #📰│новости-сервера (тот у changelog/ — про релизы бота и объявления
@@ -13,7 +11,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 // имени/создания.
 const GAME_NEWS_CHANNEL_ID = '1550163038517334188';
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -23,7 +21,7 @@ client.once('clientReady', async () => {
             console.error(
                 `Канал с ID ${GAME_NEWS_CHANNEL_ID} (ожидался #📬│game-news) не найден на сервере — проверь GAME_NEWS_CHANNEL_ID в scripts/setup-valorant-news.js.`
             );
-            process.exit(1);
+            return false;
         }
 
         const existing = await valorantNews.getConfig();
@@ -39,11 +37,20 @@ client.once('clientReady', async () => {
                 ? 'HENRIKDEV_API_KEY найден — публикация новостей включена.'
                 : 'HENRIKDEV_API_KEY не задан в .env — публикация новостей будет молча простаивать, пока ключ не появится.'
         );
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки новостей Valorant:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}
