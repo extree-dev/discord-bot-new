@@ -21,6 +21,7 @@ import { AdminAuditPage } from '../pages/admin-audit';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { GuestOnlyRoute } from '../shared/auth/GuestOnlyRoute';
 import { CommandPalette } from '../widgets/command-palette';
+import { CookieConsentBanner } from '../widgets/cookie-consent';
 
 // RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
 // обсуждение в PR #307: страница рабочая и готова, но пока убрана с
@@ -34,6 +35,7 @@ export function App() {
     return (
         <>
             <CommandPalette />
+            <CookieConsentBanner />
             <Routes>
                 {/* Public */}
                 <Route path="/" element={<SignInPage />} />
