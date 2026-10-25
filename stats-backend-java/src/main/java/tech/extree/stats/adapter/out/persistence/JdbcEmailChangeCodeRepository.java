@@ -30,11 +30,14 @@ public class JdbcEmailChangeCodeRepository implements EmailChangeCodeRepository 
 
     @Override
     public void upsertCode(String userId, String newEmail, String code, Instant expiresAt) {
+        // attempts сбрасывается только если предыдущий код уже истёк — не
+        // при каждом resend (см. комментарий в JdbcEmailCodeRepository).
         jdbcTemplate.update(
                 "INSERT INTO stats_email_change_codes (user_id, new_email, code, attempts, expires_at, created_at) "
                         + "VALUES (?, ?, ?, 0, ?, now()) "
                         + "ON CONFLICT (user_id) DO UPDATE "
-                        + "SET new_email = EXCLUDED.new_email, code = EXCLUDED.code, attempts = 0, "
+                        + "SET new_email = EXCLUDED.new_email, code = EXCLUDED.code, "
+                        + "attempts = CASE WHEN stats_email_change_codes.expires_at < now() THEN 0 ELSE stats_email_change_codes.attempts END, "
                         + "expires_at = EXCLUDED.expires_at, created_at = now()",
                 userId,
                 newEmail,

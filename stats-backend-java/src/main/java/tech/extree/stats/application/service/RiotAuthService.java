@@ -1,5 +1,7 @@
 package tech.extree.stats.application.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import org.slf4j.Logger;
@@ -56,7 +58,8 @@ public class RiotAuthService implements RiotAuthUseCase {
         if (clientId.isEmpty() || clientSecret.isEmpty()) {
             return CallbackResult.error();
         }
-        if (code == null || code.isBlank() || state == null || !state.equals(expectedState)) {
+        if (code == null || code.isBlank() || state == null || expectedState == null
+                || !constantTimeEquals(state, expectedState)) {
             return CallbackResult.error();
         }
 
@@ -84,5 +87,11 @@ public class RiotAuthService implements RiotAuthUseCase {
         byte[] bytes = new byte[16];
         new SecureRandom().nextBytes(bytes);
         return HexFormat.of().formatHex(bytes);
+    }
+
+    // MessageDigest.isEqual — сравнение за время, не зависящее от того, на
+    // каком байте токены расходятся (та же логика, что CsrfFilter/TotpService).
+    private static boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
     }
 }

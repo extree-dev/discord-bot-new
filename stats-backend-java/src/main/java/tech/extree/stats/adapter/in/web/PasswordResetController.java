@@ -41,8 +41,12 @@ public class PasswordResetController {
 
     @PostMapping("/auth/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request, HttpServletRequest httpRequest) {
-        PasswordResetUseCase.ResetPasswordResult result =
-                passwordResetUseCase.resetPassword(request.token(), request.password(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
+        PasswordResetUseCase.ResetPasswordResult result = passwordResetUseCase.resetPassword(
+                request.token(),
+                request.password(),
+                request.totpCode(),
+                ClientIp.from(httpRequest),
+                httpRequest.getHeader("User-Agent"));
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())
@@ -51,6 +55,9 @@ public class PasswordResetController {
             case INVALID_PASSWORD -> badRequest("invalid_password");
             case TOKEN_NOT_FOUND -> badRequest("token_not_found");
             case TOKEN_EXPIRED -> badRequest("token_expired");
+            case TOTP_REQUIRED -> badRequest("reset_totp_required");
+            case TOTP_INVALID -> status(HttpStatus.UNAUTHORIZED, "totp_invalid");
+            case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
             case INTERNAL_ERROR -> internalError();
         };
     }

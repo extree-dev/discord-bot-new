@@ -34,11 +34,15 @@ public class JdbcLoginCodeRepository implements LoginCodeRepository {
     @Override
     public void upsertCode(
             String email, String code, String ip, String country, String city, boolean remember, Instant expiresAt) {
+        // attempts сбрасывается только если предыдущий код уже истёк — не
+        // при каждом resend (см. комментарий в JdbcEmailCodeRepository).
         jdbcTemplate.update(
                 "INSERT INTO stats_login_codes (email, code, attempts, ip, country, city, remember, expires_at, created_at) "
                         + "VALUES (?, ?, 0, ?, ?, ?, ?, ?, now()) "
                         + "ON CONFLICT (email) DO UPDATE "
-                        + "SET code = EXCLUDED.code, attempts = 0, ip = EXCLUDED.ip, country = EXCLUDED.country, "
+                        + "SET code = EXCLUDED.code, "
+                        + "attempts = CASE WHEN stats_login_codes.expires_at < now() THEN 0 ELSE stats_login_codes.attempts END, "
+                        + "ip = EXCLUDED.ip, country = EXCLUDED.country, "
                         + "city = EXCLUDED.city, remember = EXCLUDED.remember, expires_at = EXCLUDED.expires_at, "
                         + "created_at = now()",
                 email,

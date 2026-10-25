@@ -4,7 +4,7 @@ services:
         restart: unless-stopped
         environment:
             POSTGRES_USER: ${POSTGRES_USER:-discordbot}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
             POSTGRES_DB: ${POSTGRES_DB:-discordbot}
         volumes:
             - pgdata:/var/lib/postgresql/data
@@ -20,7 +20,7 @@ services:
         env_file:
             - .env
         environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
                 condition: service_healthy
@@ -33,7 +33,7 @@ services:
         environment:
             PGHOST: postgres
             PGUSER: ${POSTGRES_USER:-discordbot}
-            PGPASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
             PGDATABASE: ${POSTGRES_DB:-discordbot}
             BACKUP_KEEP: 7
         volumes:
@@ -64,7 +64,7 @@ services:
         env_file:
             - .env
         environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
                 condition: service_healthy
@@ -76,7 +76,7 @@ services:
         env_file:
             - .env
         environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
                 condition: service_healthy
@@ -94,7 +94,7 @@ services:
             # ЯВНО УКАЗЫВАЕМ ПАРАМЕТРЫ ПОДКЛЮЧЕНИЯ К БАЗЕ, ЧТОБЫ JAVA НЕ ИСКАЛА ЕЁ НА LOCALHOST
             SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-discordbot}
             SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-discordbot}
-            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
             # Почта: пробрасываем явно, чтобы без STATS_MAIL_* контейнер не поднялся
             # с пустым SMTP и не падал на первом /auth/register с 500.
             SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.mail.me.com}

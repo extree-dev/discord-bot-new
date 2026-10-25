@@ -1,5 +1,7 @@
 package tech.extree.stats.application.service;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -67,7 +69,15 @@ public class AvatarService {
 
             String filename = UUID.randomUUID() + "." + extension;
             Path destinationFile = this.rootLocation.resolve(filename);
-            Files.write(destinationFile, bytes);
+
+            // Пишем на диск не исходные байты, а то, что ImageIO только что
+            // декодировал — это заодно убирает EXIF/метаданные (включая GPS,
+            // если камера их записала в фото) и гарантирует, что на диске
+            // лежит ровно то изображение, которое прошло проверку выше, а
+            // не произвольные байты, которые лишь прикидывались картинкой.
+            if (!writeImage(image, extension, destinationFile)) {
+                return Optional.empty();
+            }
 
             String avatarUrl = "/api/account/avatar/" + filename;
             userRepository.updateAvatar(session.get().userId(), avatarUrl);
@@ -76,6 +86,25 @@ public class AvatarService {
         } catch (IOException e) {
             return Optional.empty();
         }
+    }
+
+    /** jpg/jpeg не поддерживает альфа-канал — ImageIO.write иначе падает с
+     * IIOException на картинке с прозрачностью (например, PNG, сохранённый
+     * под .jpg расширением); в этом случае сначала убираем альфу на белом
+     * фоне. */
+    private static boolean writeImage(BufferedImage image, String extension, Path destination) throws IOException {
+        String formatName = "jpg".equals(extension) ? "jpeg" : extension;
+        BufferedImage toWrite = image;
+        if ("jpeg".equals(formatName) && image.getColorModel().hasAlpha()) {
+            toWrite = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = toWrite.createGraphics();
+            try {
+                g.drawImage(image, 0, 0, Color.WHITE, null);
+            } finally {
+                g.dispose();
+            }
+        }
+        return ImageIO.write(toWrite, formatName, destination.toFile());
     }
 
     private static String extractExtension(String originalFilename) {

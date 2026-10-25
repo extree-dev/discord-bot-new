@@ -1,6 +1,7 @@
 package tech.extree.stats.application.service;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import tech.extree.stats.application.UtcTime;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.PasswordResetUseCase;
 import tech.extree.stats.application.port.out.GeoLookup;
+import tech.extree.stats.application.port.out.LoginAttemptRepository;
 import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
@@ -26,6 +28,9 @@ public class PasswordResetService implements PasswordResetUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
 
+    private static final int MAX_FAILED_ATTEMPTS_PER_15MIN = 10;
+    private static final long FAILED_WINDOW_MINUTES = 15;
+
     private final UserRepository userRepository;
     private final PasswordResetRepository passwordResetRepository;
     private final PasswordHasher passwordHasher;
@@ -34,6 +39,8 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final LoginEventRepository loginEventRepository;
     private final PasswordPolicyService passwordPolicy;
     private final SessionCodec sessionCodec;
+    private final TotpService totpService;
+    private final LoginAttemptRepository loginAttemptRepository;
 
     public PasswordResetService(
             UserRepository userRepository,
@@ -43,7 +50,9 @@ public class PasswordResetService implements PasswordResetUseCase {
             GeoLookup geoLookup,
             LoginEventRepository loginEventRepository,
             PasswordPolicyService passwordPolicy,
-            SessionCodec sessionCodec) {
+            SessionCodec sessionCodec,
+            TotpService totpService,
+            LoginAttemptRepository loginAttemptRepository) {
         this.userRepository = userRepository;
         this.passwordResetRepository = passwordResetRepository;
         this.passwordHasher = passwordHasher;
@@ -52,6 +61,8 @@ public class PasswordResetService implements PasswordResetUseCase {
         this.loginEventRepository = loginEventRepository;
         this.sessionCodec = sessionCodec;
         this.passwordPolicy = passwordPolicy;
+        this.totpService = totpService;
+        this.loginAttemptRepository = loginAttemptRepository;
     }
 
     @Override
@@ -80,7 +91,8 @@ public class PasswordResetService implements PasswordResetUseCase {
     }
 
     @Override
-    public ResetPasswordResult resetPassword(String rawToken, String newPassword, String clientIp, String userAgent) {
+    public ResetPasswordResult resetPassword(
+            String rawToken, String newPassword, String totpCode, String clientIp, String userAgent) {
         String token = rawToken == null ? "" : rawToken.trim();
         if (token.isEmpty()) {
             return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_REQUEST);
@@ -103,6 +115,30 @@ public class PasswordResetService implements PasswordResetUseCase {
         if (!pp.valid()) {
             return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_PASSWORD);
         }
+
+        // Сброс пароля через email — отдельный от обычного логина канал,
+        // который не доказывает владение вторым фактором. Без этой проверки
+        // кто угодно, временно получивший доступ к почте, полностью обходил
+        // бы 2FA. Токен и пароль НЕ применяются, пока не придёт верный код —
+        // фронт повторяет тот же запрос с добавленным totpCode.
+        if (totpService.isEnabled(row.userId())) {
+            Instant failedSince = Instant.now().minus(FAILED_WINDOW_MINUTES, ChronoUnit.MINUTES);
+            if (loginAttemptRepository.countFailuresSince(row.email(), failedSince) >= MAX_FAILED_ATTEMPTS_PER_15MIN) {
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOO_MANY_ATTEMPTS);
+            }
+            String code = totpCode == null ? "" : totpCode.trim();
+            if (code.isEmpty()) {
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOTP_REQUIRED);
+            }
+            boolean totpOk = code.matches("\\d{6}")
+                    ? totpService.verifyCodeForUser(row.userId(), code)
+                    : totpService.consumeRecoveryCode(row.userId(), code);
+            if (!totpOk) {
+                loginAttemptRepository.record(row.email(), clientIp, null, false, "reset_totp_failed");
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOTP_INVALID);
+            }
+        }
+
         Optional<User> maybeUser = userRepository.updatePasswordHash(row.userId(), passwordHasher.hash(newPassword));
         passwordResetRepository.deleteReset(token);
         if (maybeUser.isEmpty()) {

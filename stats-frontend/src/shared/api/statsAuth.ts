@@ -49,6 +49,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     pre_2fa_expired: 'Session expired — please sign in again.',
     totp_invalid: 'Invalid 2FA code. Please try again.',
     totp_required: '2FA is not enabled for this account.',
+    reset_totp_required: 'Enter your 2FA code to finish resetting your password.',
+    last_admin: "Can't remove admin rights from the last remaining admin.",
 };
 
 let csrfTokenCache: string | null = null;
@@ -165,20 +167,22 @@ export function verify2fa(email: string, code: string, rememberMe: boolean = tru
     return postJson<{ ok: true; user: { email: string } }>('/auth/login/verify-2fa', { email, code, rememberMe });
 }
 
-export function setup2fa() {
-    return postJson<{ secret: string; otpauthUrl: string; recoveryCodes: string[] }>('/api/account/2fa/setup', {});
+export function setup2fa(password: string) {
+    return postJson<{ secret: string; otpauthUrl: string; recoveryCodes: string[] }>('/api/account/2fa/setup', {
+        password,
+    });
 }
 
-export function enable2fa(code: string) {
-    return postJson<{ ok: true }>('/api/account/2fa/enable', { code });
+export function enable2fa(code: string, password: string) {
+    return postJson<{ ok: true }>('/api/account/2fa/enable', { code, password });
 }
 
 export function disable2fa(password: string) {
     return postJson<{ ok: true }>('/api/account/2fa/disable', { password });
 }
 
-export function regenerateRecoveryCodes() {
-    return postJson<{ recoveryCodes: string[] }>('/api/account/2fa/recovery-codes', {});
+export function regenerateRecoveryCodes(password: string) {
+    return postJson<{ recoveryCodes: string[] }>('/api/account/2fa/recovery-codes', { password });
 }
 
 export function resendLoginCode(email: string) {
@@ -193,8 +197,8 @@ export function forgotPassword(email: string) {
     return postJson<{ ok: true }>('/auth/forgot-password', { email });
 }
 
-export function resetPassword(token: string, password: string) {
-    return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password });
+export function resetPassword(token: string, password: string, totpCode?: string) {
+    return postJson<{ ok: true; user: { email: string } }>('/auth/reset-password', { token, password, totpCode });
 }
 
 export function submitSupportTicket(subject: string, message: string, category: string, email?: string) {
@@ -398,7 +402,11 @@ export function makeAdmin(userId: string, isAdmin: boolean) {
     return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
 }
 
-export function logoutSession(id: string) {
+// Имя нарочно не "logoutSession": сессии полностью stateless (шифрованная
+// cookie без серверного реестра токенов), так что эндпоинт удаляет только
+// запись в истории входов — реальный токен устройства остаётся рабочим до
+// истечения Max-Age. См. features/active-sessions — там тот же честный текст.
+export function removeLoginHistoryEntry(id: string) {
     return postJson<{ ok: true }>(`/api/account/logout-session/${id}`, {});
 }
 

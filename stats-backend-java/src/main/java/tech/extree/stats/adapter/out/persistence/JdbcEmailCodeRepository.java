@@ -29,12 +29,18 @@ public class JdbcEmailCodeRepository implements EmailCodeRepository {
 
     @Override
     public void upsertCode(String email, String code, Instant expiresAt) {
+        // attempts сбрасывается в 0 только если предыдущий код уже истёк —
+        // не при каждом resend. Иначе пересылка кода (с теми же 60-секундным
+        // cooldown и MAX_ATTEMPTS=5) бесконечно сбрасывала бюджет попыток:
+        // ~300 догадок/час против 900 000 возможных кодов без верхней
+        // границы по времени.
         jdbcTemplate.update(
                 "INSERT INTO stats_email_codes (email, code, attempts, expires_at, created_at) "
                         + "VALUES (?, ?, 0, ?, now()) "
                         + "ON CONFLICT (email) DO UPDATE "
-                        + "SET code = EXCLUDED.code, attempts = 0, expires_at = EXCLUDED.expires_at, "
-                        + "created_at = now()",
+                        + "SET code = EXCLUDED.code, "
+                        + "attempts = CASE WHEN stats_email_codes.expires_at < now() THEN 0 ELSE stats_email_codes.attempts END, "
+                        + "expires_at = EXCLUDED.expires_at, created_at = now()",
                 email,
                 code,
                 Timestamp.from(expiresAt));
