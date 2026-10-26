@@ -19,11 +19,12 @@ module.exports = [
         },
     },
     {
-        // frontend/ — отдельный React/TS-проект со своим eslint.config.js
-        // (ESM, JSX/TS-парсинг, браузерные globals) — этот (CommonJS,
-        // Node-globals) ему не подходит и не должен его трогать; линтится
-        // отдельно (npm run lint внутри frontend/, свой шаг в CI).
-        ignores: ['node_modules/**', 'data/**', 'frontend/**'],
+        // frontend/ и stats-frontend/ — отдельные React/TS-проекты каждый
+        // со своим eslint.config.js (ESM, JSX/TS-парсинг, браузерные
+        // globals) — этот (CommonJS, Node-globals) им не подходит и не
+        // должен их трогать; линтятся отдельно (npm run lint внутри
+        // каждого, свой шаг в CI).
+        ignores: ['node_modules/**', 'data/**', 'frontend/**', 'stats-frontend/**'],
     },
     // Отключает стилистические правила ESLint, которые пересекаются с
     // Prettier и мешали бы форматированию (порядок важен — должен идти последним).

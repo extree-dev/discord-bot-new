@@ -23,6 +23,7 @@ require('dotenv').config({ quiet: true });
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
 const crypto = require('crypto');
 const path = require('path');
 const oauth = require('./discordOAuth');
@@ -32,6 +33,7 @@ const accounts = require('./accounts');
 const { verifyTelegramAuth } = require('./telegramAuth');
 const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
+const uploads = require('../uploads/model');
 const security = require('../security/config');
 const presence = require('../presence');
 const voice = require('../voice');
@@ -288,6 +290,23 @@ app.use(
         crossOriginEmbedderPolicy: false,
     })
 );
+
+// Технический перерыв — полностью перекрывает этот процесс целиком, а
+// значит сразу все поверхности, которые он обслуживает: bot.extree.tech
+// (включая /dashboard), extree.tech и extree.tech/admin (см. комментарий
+// в начале файла). Middleware без next() — ничего ниже по цепочке
+// (rate-limit, /api/*, /auth/*, статика SPA) для таких запросов уже не
+// выполняется. Включён по умолчанию (MAINTENANCE_MODE !== 'false'), а не
+// по умолчанию выключен — чтобы простой деплой этого коммита сразу уводил
+// сайт в техперерыв, без ручных действий на сервере. Снова открыть:
+// добавить MAINTENANCE_MODE=false в .env на сервере и перезапустить
+// dashboard (docker compose restart dashboard, либо обычный передеплой).
+if (process.env.MAINTENANCE_MODE !== 'false') {
+    const maintenancePage = require('./maintenancePage');
+    app.use((req, res) => {
+        res.status(503).set('Retry-After', '3600').type('html').send(maintenancePage);
+    });
+}
 
 // Общий rate-limit на все /api/* и /auth/* — защита от перебора/грубого
 // DoS на уровне процесса, в дополнение к прицельному лимитеру на
@@ -968,7 +987,13 @@ async function loadSiteContent() {
 
 app.get('/api/site-content', async (req, res) => {
     const content = await loadSiteContent();
-    res.json({ ...content, maxLinks: site.MAX_LINKS });
+    res.json({
+        ...content,
+        maxLinks: site.MAX_LINKS,
+        maxClients: site.MAX_CLIENTS,
+        maxShowcases: site.MAX_SHOWCASES,
+        showcaseCategories: site.SHOWCASE_CATEGORIES,
+    });
 });
 
 app.get('/api/site-admin-status', async (req, res) => {
@@ -988,11 +1013,92 @@ app.put('/api/site-content', async (req, res) => {
             role: typeof body.role === 'string' ? body.role : '',
             bio: typeof body.bio === 'string' ? body.bio : '',
             links: Array.isArray(body.links) ? body.links : [],
+            clients: Array.isArray(body.clients) ? body.clients : [],
+            showcases: Array.isArray(body.showcases) ? body.showcases : [],
         });
-        res.json({ ...saved, maxLinks: site.MAX_LINKS });
+        res.json({
+            ...saved,
+            maxLinks: site.MAX_LINKS,
+            maxClients: site.MAX_CLIENTS,
+            maxShowcases: site.MAX_SHOWCASES,
+            showcaseCategories: site.SHOWCASE_CATEGORIES,
+        });
     } catch (err) {
         console.error('dashboard: PUT /api/site-content — не удалось сохранить:', err);
         res.status(500).json({ error: 'Не удалось сохранить — попробуй ещё раз.' });
+    }
+});
+
+// Картинки для визитки (сейчас — логотипы клиентов): грузим в память
+// (файлы маленькие, см. uploads.MAX_BYTES) и сразу в Postgres — ничего
+// не падает на диск контейнера, который deploy.yml всё равно стирает
+// при каждом релизе. Отдаются обратно через GET ниже, с тем же origin,
+// что и сама визитка, — иначе CSP (img-src 'self') их бы не пропустил.
+const uploadMiddleware = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: uploads.MAX_BYTES },
+});
+
+app.post(
+    '/api/uploads',
+    // Проверяем права до того, как multer вообще начнёт разбирать тело
+    // запроса — не грузим файл от неавторизованного запроса в память.
+    async (req, res, next) => {
+        if (!(await isRequestSiteAdmin(req))) {
+            res.status(403).json({ error: 'Загружать файлы может только администратор сервера бота.' });
+            return;
+        }
+        next();
+    },
+    (req, res, next) => {
+        uploadMiddleware.single('file')(req, res, err => {
+            if (!err) {
+                next();
+                return;
+            }
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                res.status(413).json({ error: `Файл больше ${Math.round(uploads.MAX_BYTES / 1024 / 1024)} МБ.` });
+                return;
+            }
+            console.error('dashboard: POST /api/uploads — multer:', err);
+            res.status(400).json({ error: 'Не удалось загрузить файл.' });
+        });
+    },
+    async (req, res) => {
+        if (!req.file) {
+            res.status(400).json({ error: 'Файл не передан.' });
+            return;
+        }
+        if (!uploads.ALLOWED_MIME_TYPES.has(req.file.mimetype)) {
+            res.status(400).json({ error: 'Поддерживаются только PNG, JPEG, WebP, GIF и SVG.' });
+            return;
+        }
+        try {
+            const id = crypto.randomUUID();
+            await uploads.save({ id, mimeType: req.file.mimetype, data: req.file.buffer });
+            res.json({ url: `/api/uploads/${id}` });
+        } catch (err) {
+            console.error('dashboard: POST /api/uploads — не удалось сохранить:', err);
+            res.status(500).json({ error: 'Не удалось сохранить файл — попробуй ещё раз.' });
+        }
+    }
+);
+
+app.get('/api/uploads/:id', async (req, res) => {
+    try {
+        const file = await uploads.load(req.params.id);
+        if (!file) {
+            res.status(404).end();
+            return;
+        }
+        res.set('Content-Type', file.mimeType);
+        // id случайный и уникален на файл — если он изменится, изменится
+        // и сам URL, так что бесконечный immutable-кэш ничего не сломает.
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        res.send(file.data);
+    } catch (err) {
+        console.error('dashboard: GET /api/uploads/:id — ошибка чтения:', err);
+        res.status(500).end();
     }
 });
 

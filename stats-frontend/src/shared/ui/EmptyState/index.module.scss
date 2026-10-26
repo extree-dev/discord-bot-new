@@ -1,0 +1,42 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 60px 32px;
+    text-align: center;
+}
+
+.iconWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-faint);
+    margin-bottom: 16px;
+}
+
+.title {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.description {
+    margin: 0;
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-faint);
+}
+
+.action {
+    margin-top: 20px;
+}

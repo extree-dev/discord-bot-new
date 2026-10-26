@@ -1,0 +1,71 @@
+@use '../../shared/styles/variables' as v;
+
+/*
+ * Master-detail: левая колонка — свой фон (--surface), правая — основной
+ * --bg. Чёткая визуальная граница "список / детали" без лишних рамок.
+ */
+.layout {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: calc(100vh - 56px);
+    min-height: 0;
+    margin: -40px -24px -80px;
+}
+
+/* На мобильном одна колонка (grid 1fr), вторая колонка не рендерится
+   через JS (useIsMobile → showList/showDetail). Это не display: none,
+   а отсутствие в DOM — меньше работы для браузера. */
+.layoutMobile {
+    grid-template-columns: 1fr;
+    margin: -24px -16px -40px;
+}
+
+.list {
+    min-height: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.detail {
+    min-height: 0;
+    background: var(--bg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+}
+
+.error {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+}
+
+@media (max-width: v.$breakpoint-tablet) {
+    .layout {
+        grid-template-columns: 1fr;
+        margin: -24px -16px -40px;
+    }
+
+    .list {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+}

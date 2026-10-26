@@ -28,6 +28,19 @@ function ensureSchema() {
                 `CREATE TABLE IF NOT EXISTS bot_stores (
                     name TEXT PRIMARY KEY,
                     data JSONB NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS site_uploads (
+                    id TEXT PRIMARY KEY,
+                    mime_type TEXT NOT NULL,
+                    data BYTEA NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE TABLE IF NOT EXISTS email_codes (
+                    discord_id BIGINT PRIMARY KEY,
+                    email TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 )`
             )
             .catch(err => {

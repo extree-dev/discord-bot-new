@@ -1,6 +1,6 @@
 {
     "name": "discord-bot",
-    "version": "3.9.20",
+    "version": "3.9.27",
     "description": "Discord-бот для модерации сервера: безопасность, тикеты, временные голосовые комнаты",
     "main": "index.js",
     "scripts": {
@@ -11,7 +11,13 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "node --test test/*.test.js"
+        "test": "node --test test/*.test.js",
+        "prepare": "husky || true"
+    },
+    "lint-staged": {
+        "*.{js,jsx,ts,tsx,json,css,scss,md}": [
+            "prettier --write"
+        ]
     },
     "keywords": [],
     "author": "",
@@ -20,18 +26,30 @@
     "dependencies": {
         "@napi-rs/canvas": "^1.0.9",
         "@openfonts/noto-sans_cyrillic": "^1.44.3",
+        "@sentry/node": "^11.8.0",
         "discord.js": "^14.27.0",
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
         "express-rate-limit": "^8.7.1",
+        "geoip-lite": "^1.4.10",
         "helmet": "^8.3.0",
-        "pg": "^8.23.0"
+        "multer": "^2.4.0",
+        "nodemailer": "^10.1.7",
+        "pg": "^8.23.0",
+        "resend": "^6.33.0"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.5",
         "eslint": "^9.39.5",
         "eslint-config-prettier": "^9.1.2",
         "globals": "^15.15.0",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.6.0",
         "prettier": "^3.9.7"
+    },
+    "overrides": {
+        "geoip-lite": {
+            "ip-address": "^10.7.4"
+        }
     }
 }

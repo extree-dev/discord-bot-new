@@ -1,0 +1,136 @@
+.errorBanner {
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.2);
+    color: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+.tableWrapper {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+
+    th {
+        padding: 16px 24px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-faint);
+        border-bottom: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    td {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+        transition: background 0.15s ease;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+    }
+}
+
+.userCell {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.userName {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.userEmail {
+    font-size: 13px;
+    color: var(--text-faint);
+    margin-top: 2px;
+}
+
+.blueTick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.15);
+    border-radius: 50%;
+    padding: 2px;
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.statusActive {
+    background: rgba(52, 211, 153, 0.1);
+    color: #34d399;
+    .dot {
+        background: #34d399;
+    }
+}
+
+.statusBanned {
+    background: rgba(255, 77, 94, 0.1);
+    color: var(--accent);
+    .dot {
+        background: var(--accent);
+    }
+}
+
+.adminBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fbbf24;
+}
+
+.roleUser {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.bannedRow {
+    opacity: 0.6;
+    background: rgba(255, 77, 94, 0.02) !important;
+}

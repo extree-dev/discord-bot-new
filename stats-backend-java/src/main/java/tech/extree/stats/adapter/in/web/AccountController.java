@@ -1,0 +1,107 @@
+package tech.extree.stats.adapter.in.web;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Locale;
+import java.util.Map;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import tech.extree.stats.adapter.in.web.dto.AccountResponse;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.application.port.in.GetAccountUseCase;
+import tech.extree.stats.application.service.AvatarService;
+import tech.extree.stats.application.service.TotpService;
+import tech.extree.stats.domain.User;
+
+@RestController
+public class AccountController {
+
+    private static final String SESSION_COOKIE = "extree_stats_session";
+
+    private final GetAccountUseCase getAccountUseCase;
+    private final AvatarService avatarService;
+    private final TotpService totpService;
+
+    public AccountController(GetAccountUseCase getAccountUseCase, AvatarService avatarService, TotpService totpService) {
+        this.getAccountUseCase = getAccountUseCase;
+        this.avatarService = avatarService;
+        this.totpService = totpService;
+    }
+
+    @GetMapping("/api/account/me")
+    public ResponseEntity<?> getAccount(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
+        if (cookie == null) {
+            return ResponseEntity.ok(AccountResponse.empty());
+        }
+
+        var userOpt = getAccountUseCase.getAccount(cookie);
+        if (userOpt.isEmpty()) {
+            // Сессия валидна, но пользователя нет в БД или он забанен
+            // (AccountService.getAccount() возвращает empty() для забаненных).
+            // Отдаём 200 с флагом banned — фронт покажет "аккаунт забанен",
+            // а не редирект на /login.
+            return ResponseEntity.ok(new AccountResponse(null, true));
+        }
+
+        return ResponseEntity.ok(AccountResponse.of(toResponse(userOpt.get())));
+    }
+
+    @PostMapping("/api/account/avatar")
+    public ResponseEntity<?> uploadAvatar(
+            @CookieValue(name = SESSION_COOKIE, required = false) String cookie,
+            @RequestParam("file") MultipartFile file) {
+        return avatarService.uploadAvatar(cookie, file)
+                .<ResponseEntity<?>>map(url -> ResponseEntity.ok(Map.of("avatarUrl", url)))
+                .orElseGet(() -> ResponseEntity.badRequest().body(new ErrorResponse("invalid_file")));
+    }
+
+    // Тот же allowlist расширений, что AvatarService проверяет при загрузке
+    // (в хранилище другого не попадает) — но здесь не доверяем расширению
+    // из URL напрямую как значению заголовка, а смотрим его в этой карте.
+    private static final Map<String, String> AVATAR_CONTENT_TYPES = Map.of(
+            "png", "image/png",
+            "jpg", "image/jpeg",
+            "jpeg", "image/jpeg",
+            "gif", "image/gif",
+            "webp", "image/webp");
+
+    @GetMapping("/api/account/avatar/{filename}")
+    public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
+        Path baseDir = Paths.get("uploads/avatars").toAbsolutePath().normalize();
+        Path file = baseDir.resolve(filename).normalize();
+        if (!file.startsWith(baseDir)) {
+            return ResponseEntity.notFound().build();
+        }
+        int dot = filename.lastIndexOf('.');
+        String contentType = dot < 0 ? null : AVATAR_CONTENT_TYPES.get(filename.substring(dot + 1).toLowerCase(Locale.ROOT));
+        if (contentType == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Resource resource = new FileSystemResource(file);
+        if (!resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, contentType)
+                .header("X-Content-Type-Options", "nosniff")
+                .body(resource);
+    }
+
+    private AccountResponse.AccountUser toResponse(User user) {
+        return new AccountResponse.AccountUser(
+                user.email(),
+                user.emailVerified(),
+                user.riotLinked(),
+                user.name(),
+                user.nickname(),
+                getAccountUseCase.isAdmin(user),
+                user.avatarUrl(),
+                user.isVerified(),
+                totpService.isEnabled(user.id())
+        );
+    }
+}

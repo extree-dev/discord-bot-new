@@ -4,8 +4,6 @@ const gameNews = require('../gameNews');
 const { newsRoleName } = require('../gameNews/games');
 const { isBootstrap, ensureChannel, ensureRole } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 const CATEGORY_NAME = '🎮 Новости игр';
 
 // По прямому запросу администратора: отдельный канал на каждую игру из
@@ -14,7 +12,7 @@ const CATEGORY_NAME = '🎮 Новости игр';
 // (gameNews/games.js — общий список игр для обеих фич). Название канала
 // повторяет эмодзи роли из ROLE_CATEGORIES, чтобы канал было легко
 // узнать в списке.
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -76,11 +74,20 @@ client.once('clientReady', async () => {
                 ? 'Готово. Каналы созданы и пока пустые — публикация новостей подключится отдельно (Steam API).'
                 : 'Готово. Синхронизация с существующими каналами завершена.'
         );
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки каналов новостей игр:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

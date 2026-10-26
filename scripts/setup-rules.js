@@ -4,12 +4,10 @@ const rules = require('../rules');
 const ideaQueue = require('../ideaQueue');
 const { isBootstrap, ensureChannel, warnMissing } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 const CATEGORY_NAME = '📋 Информация';
 const CHANNEL_NAME = 'правила';
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -26,7 +24,7 @@ client.once('clientReady', async () => {
             name: CATEGORY_NAME,
             type: ChannelType.GuildCategory,
         });
-        if (!category) process.exit(0);
+        if (!category) return true;
         if (categoryCreated) console.log(`Создана категория: ${CATEGORY_NAME}`);
         if (existingCategoryId !== category.id) await rules.saveCategoryId(category.id);
 
@@ -40,7 +38,7 @@ client.once('clientReady', async () => {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.SendMessages] }],
             },
         });
-        if (!channel) process.exit(0);
+        if (!channel) return true;
         if (created) {
             console.log(`Создан канал: ${CHANNEL_NAME}`);
         } else {
@@ -80,11 +78,20 @@ client.once('clientReady', async () => {
         }
 
         console.log('Готово.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки правил:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

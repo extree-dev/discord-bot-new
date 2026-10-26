@@ -1,25 +1,12 @@
-/* Светлая, карточная подача (подсмотрена у личных портфолио-сайтов
-   вроде frdg.work) — локальные переопределения общих токенов темы
-   прямо на .page, а не новый набор классов: все дочерние компоненты
-   читают те же var(--text)/var(--glass-bg)/и т.п., поэтому
-   автоматически становятся светлыми без собственных правок. */
 .page {
     position: relative;
     min-height: 100vh;
     isolation: isolate;
-    /* clip, не hidden: overflow-x:hidden здесь ломает position:sticky у
-       .nav — любой overflow (кроме visible/clip) на предке превращает его
-       в CSS-скролл-контейнер (спека "пары" overflow-x/overflow-y считает
-       пропущенную ось как auto), и sticky начинает считаться от него, а
-       не от настоящего скролла страницы, из-за чего капсула-навигация
-       просто уезжает вместе с контентом вместо того, чтобы прилипать. */
     overflow-x: clip;
     display: flex;
     flex-direction: column;
     align-items: center;
 
-    /* Цвета и радиусы сверены с реальными computed-style значениями
-       frdg.work (фон страницы, цвет "чернил" текста, радиус карточек). */
     --bg: #f8f8f9;
     --surface: #ffffff;
     --text: #252b3a;
@@ -45,61 +32,12 @@
     font-family: 'Google Sans Flex', Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Капсула-навигация по ширине контента (не растянута на всю доступную
-   ширину), прилипает к верху при скролле (sticky) — остаётся на экране,
-   пока страница прокручивается под ней, вместо того чтобы уезжать вверх
-   и пропадать. Сильный "frosted glass" (заметная прозрачность + блюр +
-   лёгкая обводка-блик, а не почти непрозрачный фон) — именно он не даёт
-   контенту под капсулой визуально "наезжать"/мешаться при скролле. */
-.nav {
-    position: sticky;
-    top: 16px;
-    z-index: 20;
-    width: fit-content;
-    margin: 16px 0 0;
-    display: inline-flex;
-    align-items: center;
-    padding: 8px;
-    /* iOS Safari: sticky + backdrop-filter без своего compositing layer
-       может подёргиваться/глючить во время скролла (особенно пока
-       анимируется скрывающаяся адресная строка) — та же причина, что и
-       у .contentPanel ниже. */
-    transform: translateZ(0);
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    border-radius: 28px;
-    box-shadow: var(--shadow-md);
+@media (prefers-reduced-motion: no-preference) {
+    .page {
+        scroll-behavior: smooth;
+    }
 }
 
-.navLinks {
-    display: flex;
-    gap: 2px;
-}
-
-.navLinks a {
-    padding: 9px 14px;
-    border-radius: 999px;
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-    transition:
-        background 0.2s ease,
-        color 0.2s ease;
-}
-
-.navLinks a:hover {
-    background: var(--bg);
-    color: var(--text);
-}
-
-/* У референса контент почти во всю ширину окна (1380px из 1440px —
-   это 96%), а не узкая центрированная колонка: на широком экране их
-   сайт выглядит как настоящий десктопный лэйаут, а не блог-пост с
-   пустыми серыми полями по бокам. max-width здесь раньше был 720px —
-   отсюда и ощущение "совсем не похоже" на широких экранах. */
 .main {
     position: relative;
     z-index: 1;
@@ -108,458 +46,70 @@
     padding: 24px 20px 0;
     display: flex;
     flex-direction: column;
+    gap: 24px;
 }
 
-/* Герой + "обо мне"/возможности/сервер/ссылки — один сплошной белый
-   блок без швов между секциями, как у референса (там это буквально
-   одна панель: герой скруглён только сверху, сама панель — только
-   снизу, и контент между ними идёт без зазора). Контакты — отдельная,
-   уже не склеенная с этим блоком панель ниже. */
-.contentPanel {
-    margin-top: 20px;
-    border-radius: 0 0 30px 30px;
+/* Белая панель-карточка: hero + about слиты, либо карточные секции. */
+.panel {
+    border-radius: 30px;
     overflow: hidden;
-    /* iOS Safari: overflow:hidden + border-radius на блоке рядом со
-       sticky-элементом и скрывающейся при скролле адресной строкой —
-       известный баг, из-за которого контент внутри на миг перерисовывается
-       без учёта границ/паддингов родителя (видно вживую: во время
-       скролла биография на секунду "прилипает" к левому краю экрана).
-       Форсируем отдельный compositing layer — стандартный фикс. */
     transform: translateZ(0);
     background: var(--surface);
     box-shadow: var(--shadow-md);
 }
 
-/* Чисто декоративный баннер-герой — как у референса: без аватара/имени,
-   крупный полупрозрачный вотермарк-логотип и россыпь иконок поверх
-   градиента. Личность (аватар/имя/роль/био) — в отдельной карточке
-   "обо мне" ниже. */
-/* Несколько слоёв радиальных пятен поверх базового градиента вместо
-   плоской заливки — грубая имитация бликов на их шёлковой/тканевой
-   текстуре (у референса это вообще отдельное видео, которое нельзя
-   ни скопировать, ни встроить как чужой ассет). */
-.hero {
-    position: relative;
-    overflow: hidden;
-    border-radius: 30px 30px 0 0;
-    height: 380px;
-    background:
-        radial-gradient(55% 45% at 22% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
-        radial-gradient(45% 40% at 78% 25%, rgba(255, 255, 255, 0.2), transparent 65%),
-        radial-gradient(50% 45% at 85% 80%, rgba(255, 255, 255, 0.22), transparent 60%),
-        radial-gradient(40% 35% at 15% 85%, rgba(20, 20, 50, 0.3), transparent 65%),
-        linear-gradient(155deg, #4752c4 0%, #5865f2 25%, #8b5cf6 55%, #6c7bf5 75%, #3b82f6 100%);
+/* Первая панель: hero сверху — у неё верхние углы даёт сам hero,
+   а общая панель отвечает за низ. */
+.panel:first-child {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-radius: 0 0 30px 30px;
 }
 
-.heroBlobA,
-.heroBlobB {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    pointer-events: none;
+/* Прозрачная панель — секции внутри живут на фоне страницы. */
+.panelAlt {
+    background: transparent;
 }
 
-.heroBlobA {
-    top: -80px;
-    right: -60px;
-    width: 260px;
-    height: 260px;
-    background: rgba(255, 255, 255, 0.25);
-}
-
-.heroBlobB {
-    bottom: -100px;
-    left: -40px;
-    width: 220px;
-    height: 220px;
-    background: rgba(255, 255, 255, 0.18);
-}
-
-.heroNoise {
-    position: absolute;
-    inset: 0;
-    opacity: 0.16;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.heroWordmark {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    z-index: 0;
-    transform: translate(-50%, -50%);
-    font-family: 'Unbounded', sans-serif;
-    font-size: 130px;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    color: rgba(255, 255, 255, 0.22);
-    white-space: nowrap;
-    user-select: none;
-}
-
-.heroIcons {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-}
-
-.heroIcon {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: #ffffff;
-}
-
-.heroIcon svg {
-    width: 20px;
-    height: 20px;
-}
-
-.heroIconA {
-    top: 16%;
-    left: 10%;
-    transform: rotate(-8deg);
-}
-
-.heroIconB {
-    top: 68%;
-    left: 16%;
-    transform: rotate(6deg);
-}
-
-.heroIconC {
-    top: 20%;
-    left: 82%;
-    transform: rotate(10deg);
-}
-
-.heroIconD {
-    top: 70%;
-    left: 78%;
-    transform: rotate(-10deg);
-}
-
-.heroIconE {
-    top: 44%;
-    left: 4%;
-    transform: rotate(4deg);
-}
-
-/* "Обо мне" — как у референса, чистый текст без аватара: имя строкой,
-   роль пилюлей рядом, био абзацем ниже. */
-.aboutHeader {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 12px;
-    margin-bottom: 4px;
-}
-
-.aboutName {
-    margin: 0;
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--text);
-}
-
-.aboutRole {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 12px;
-    border-radius: 999px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.bio {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--text-dim);
-}
-
-/* Секция = повёрнутая вертикальная подпись слева + контент справа —
-   фирменный приём референса, отличающий его от обычного "заголовок
-   сверху, контент снизу". */
-.section {
-    display: flex;
-    gap: 24px;
-    padding: 56px 0 8px;
-    margin-top: 24px;
-    border-top: 1px solid var(--border);
-}
-
-.sectionLabel {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-family: var(--font-display);
-    font-size: 28px;
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    color: var(--text);
-    flex: none;
-    white-space: nowrap;
-    align-self: flex-start;
-}
-
-.sectionBody {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-/* Секция сразу после героя — без верхней линии-разделителя и без
-   отступа: герой переходит в неё без шва, как в референсе. */
-.contentPanel > .hero + .section {
-    margin-top: 0;
-    padding-top: 40px;
-    border-top: none;
-}
-
-/* Языковые пилюли — прямой перенос "talk to me in" у референса: та же
-   карточка "обо мне" (не отдельная секция), флаг + код языка в
-   скруглённой пилюле со светлой заливкой. */
-.languageHeading {
-    display: block;
-    margin-top: -4px;
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 400;
-    color: var(--text);
-}
-
-.languageRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.languagePill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.languageFlag {
-    display: flex;
-    align-items: center;
-    width: 20px;
-    height: 14px;
-    border-radius: 3px;
-    overflow: hidden;
-    flex: none;
-}
-
-.languageFlag svg {
+.skeleton {
     width: 100%;
-    height: 100%;
-}
-
-/* Контакты — одна простая карточка с почтой, без декоративного
-   градиентного баннера (на референсе таких декоративных CTA-баннеров
-   с "продающим" текстом у контактов нет). Фон — var(--surface) (белый),
-   а не var(--bg): var(--bg) совпадает с фоном самой страницы, из-за
-   чего карточка сливалась с фоном и отступы вокруг текста выглядели
-   как будто их нет (особенно заметно на мобильной ширине, где карточка
-   растягивается на всю секцию). */
-.contactSide {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    width: 320px;
-    max-width: 100%;
-    padding: 24px;
-    border-radius: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    max-width: 1320px;
+    height: 60vh;
+    margin: 24px 20px 0;
+    border-radius: 30px;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%),
+        var(--surface);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
     box-shadow: var(--shadow-sm);
 }
 
-.contactSideLabel {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 400;
-    color: var(--text);
-}
-
-.emailPill {
-    display: inline-flex;
-    align-items: center;
-    padding: 10px 14px;
-    border-radius: 14px;
-    background: var(--text);
-    color: var(--surface);
-    font-weight: 600;
-    font-size: 12.5px;
-    white-space: nowrap;
-    text-decoration: none;
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.emailPill:hover {
-    transform: translateY(-2px);
-}
-
-.footer {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 1320px;
-    margin-top: 48px;
-    padding: 28px 20px 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    border-top: 1px solid var(--border);
-}
-
-.footerBrand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-    color: var(--text);
-    font-weight: 800;
-    font-size: 14px;
-}
-
-.footerBadge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    color: #ffffff;
-    font-weight: 800;
-    font-size: 12px;
-}
-
-.footerLinks {
-    display: flex;
-    gap: 16px;
-}
-
-.footerLinks a {
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: 12.5px;
-    font-weight: 600;
-}
-
-.footerLinks a:hover {
-    color: var(--text);
-}
-
-/* Соц-иконки в футере — реальные ссылки (content.links), платформа
-   иконки определяется по домену/подписи (shared/lib/platform). */
-.footerSocial {
-    display: flex;
-    gap: 8px;
-}
-
-.footerSocialIcon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    transition:
-        color 0.2s ease,
-        border-color 0.2s ease;
-}
-
-.footerSocialIcon svg {
-    width: 15px;
-    height: 15px;
-}
-
-.footerSocialIcon:hover {
-    color: var(--text);
-    border-color: var(--border-strong);
-}
-
-.footerCopy {
-    color: var(--text-faint);
-    font-size: 12px;
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+    to {
+        background-position: -200% 0;
+    }
 }
 
 @media (max-width: 640px) {
     .main {
-        padding: 24px 36px 0;
+        padding: 24px 16px 0;
+        gap: 16px;
     }
 
-    .footer {
-        padding: 28px 36px 40px;
+    .panel {
+        border-radius: 20px;
     }
 
-    .section {
-        flex-direction: column;
-        gap: 12px;
-        padding: 20px;
+    .panel:first-child {
+        border-radius: 0 0 20px 20px;
     }
 
-    .sectionLabel {
-        writing-mode: horizontal-tb;
-        transform: none;
-        font-size: 20px;
-    }
-
-    .navLinks a {
-        padding: 8px 10px;
-        font-size: 11.5px;
-    }
-
-    .footer {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .hero {
-        height: 160px;
-    }
-
-    .heroWordmark {
-        font-size: 52px;
-    }
-
-    .heroIconD,
-    .heroIconE {
-        display: none;
-    }
-
-    .aboutName {
-        font-size: 21px;
+    .skeleton {
+        margin: 16px 16px 0;
+        border-radius: 20px;
     }
 }

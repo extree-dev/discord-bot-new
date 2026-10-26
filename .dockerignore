@@ -1,6 +1,7 @@
 node_modules
 frontend/dist
 frontend/*.tsbuildinfo
+stats-frontend
 npm-debug.log*
 .git
 .gitignore

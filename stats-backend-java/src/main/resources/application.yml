@@ -1,0 +1,84 @@
+# Spring Boot умеет читать .env-подобные файлы через spring.config.import.
+# Файл .env лежит рядом с pom.xml (stats-backend-java/.env), в git не
+# коммитится (.gitignore) — там локальные пароли/секреты. На проде (в
+# Docker) .env прокидывается через env_file: docker-compose.yml, и
+# optional: импорт просто ничего не находит — переменные всё равно
+# приходят из окружения контейнера.
+spring:
+    config:
+        import: optional:file:./.env[.properties]
+    datasource:
+        url: ${DATABASE_URL_JDBC:jdbc:postgresql://localhost:5432/discordbot}
+        username: ${POSTGRES_USER:discordbot}
+        password: ${POSTGRES_PASSWORD:discordbot}
+    # Flyway — единственный источник схемы stats_* после перехода с Node.
+    flyway:
+        enabled: true
+        baseline-on-migrate: true
+        baseline-version: 0
+        locations: classpath:db/migration
+    mail:
+        host: ${SPRING_MAIL_HOST:smtp.mail.me.com}
+        port: ${SPRING_MAIL_PORT:587}
+        username: ${STATS_MAIL_USER:}
+        password: ${STATS_MAIL_APP_PASSWORD:}
+        test-connection: false
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+                        required: true
+                    connectiontimeout: 5000
+                    timeout: 5000
+                    writetimeout: 5000
+
+server:
+    port: ${STATS_BACKEND_JAVA_PORT:8081}
+
+sentry:
+    dsn: ${SENTRY_DSN_BACKEND:}
+    environment: ${SPRING_PROFILES_ACTIVE:prod}
+    traces-sample-rate: 0.1
+    send-default-pii: false
+
+extree:
+    session-secret: ${STATS_SESSION_SECRET:}
+    session-secret-previous: ${STATS_SESSION_SECRET_PREVIOUS:}
+    support-admin-emails: ${SUPPORT_ADMIN_EMAILS:}
+    mail-from: ${STATS_MAIL_FROM:}
+    # Единственный публичный домен этого сервиса (web/Caddyfile:
+    # stats.extree.tech { reverse_proxy stats-backend-java:8081 }).
+    # Используется вместо заголовка Host запроса при сборке абсолютных
+    # ссылок (сброс пароля, тикеты, Riot OAuth redirect_uri) — иначе
+    # подделанный Host превращает письмо с реальным токеном в ссылку на
+    # домен атакующего (Host header injection).
+    public-host: ${STATS_PUBLIC_HOST:stats.extree.tech}
+    turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
+    # Необязательный обходной ключ для гео-блокировки (GeoBlockController):
+    # если задан и совпадает со значением cookie extree_geo_bypass,
+    # пропускает запрос независимо от страны. Нужен, чтобы владелец не
+    # отрезал сам себя от сайта, подключаясь из заблокированного региона —
+    # см. комментарий в GeoBlockController про то, как его выставить.
+    # Пусто по умолчанию = обходной путь выключен полностью.
+    geo-bypass-token: ${GEO_BYPASS_TOKEN:}
+    riot:
+        client-id: ${RIOT_CLIENT_ID:}
+        client-secret: ${RIOT_CLIENT_SECRET:}
+        api-key: ${RIOT_API_KEY:}
+
+# Логирование: INFO по умолчанию. DEBUG — только в профиле dev (ниже).
+logging:
+    level:
+        tech.extree.stats: INFO
+        org.springframework.mail: INFO
+# Настройки, которые применяются ТОЛЬКО при профиле dev
+---
+spring:
+    config:
+        activate:
+            on-profile: dev
+logging:
+    level:
+        tech.extree.stats: DEBUG

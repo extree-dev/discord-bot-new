@@ -1,0 +1,50 @@
+@use '../../styles/mixins' as *;
+
+.card {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    padding: 36px 32px;
+    text-align: center;
+    @include glass-panel($shadow: var(--shadow-lg));
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+/* Тонкая диагональная "плёнка" поверх стекла — без неё ровный
+   полупрозрачный фон на статичной карточке читается просто как тонированный
+   бокс, а не как реальная стеклянная поверхность с бликом. */
+.card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, transparent 35%);
+    pointer-events: none;
+}
+
+.card h1 {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 800;
+}
+
+.card > p {
+    margin: 0 0 28px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+
+.wide {
+    max-width: none;
+    width: 100%;
+    text-align: left;
+}
+
+.wide h1 {
+    text-align: center;
+}
+
+.wide > p:first-of-type {
+    text-align: center;
+}

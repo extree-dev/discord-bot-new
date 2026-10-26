@@ -1,0 +1,1664 @@
+/* frdg.work's visual language (Figma Sites), carried over 1:1 using
+   values from the saved page: colors, fonts, sizes, radii, glass and
+   section label placement. Content and the branded hero are ours
+   (extree). Figma's absolute layout is replaced with flow/grid so the
+   page stays fluid. */
+
+@import url('https://fonts.googleapis.com/css2?family=Benne&family=Google+Sans+Flex:wght@400;500;700&family=Rethink+Sans:wght@400;500;700&family=Unbounded:wght@700&display=swap');
+
+:global {
+    /* Hidden scrollbar, as on frdg.work */
+    html,
+    body {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+        background: transparent;
+    }
+}
+
+.page {
+    position: relative;
+    display: flow-root;
+    min-height: 100vh;
+    isolation: isolate;
+    overflow-x: clip;
+
+    --background: #f8f8f9;
+    --surface: #ffffff;
+    --ink: #252b3a;
+    --muted: #575757;
+    --soft: rgba(37, 43, 58, 0.5);
+    --line: rgba(0, 0, 0, 0.1);
+    --chip: rgba(37, 43, 58, 0.1);
+    --chip-text: rgba(0, 0, 0, 0.4);
+    --glass: rgba(255, 255, 255, 0.4);
+    --glass-tint: rgba(0, 0, 0, 0.04);
+    --blue: #1768ef;
+    --progress: #1c67f4;
+
+    --font-main: 'Google Sans Flex', 'Google Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-label: 'Benne', Georgia, serif;
+    --font-display: 'Unbounded', var(--font-main);
+    --font-notice: 'Rethink Sans', var(--font-main);
+
+    --gutter: 30px;
+    --nav-top: 18px;
+    --nav-height: 80px;
+    --nav-stack-top: calc(var(--nav-top) + var(--nav-height));
+
+    color: var(--ink);
+    background: var(--background);
+    font-family: var(--font-main);
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+}
+
+.page * {
+    box-sizing: border-box;
+}
+
+.page :where(button, a) {
+    color: inherit;
+    font: inherit;
+}
+
+.page a {
+    text-decoration: none;
+}
+
+.page :where(h1, h2, h3, p) {
+    margin: 0;
+    font-weight: inherit;
+}
+
+@media (pointer: fine) {
+    .page {
+        cursor:
+            url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M3 2 L21 12 L12 14 L8 21 Z' fill='%231768ef'/></svg>")
+                3 2,
+            auto;
+    }
+
+    .page a,
+    .page button {
+        cursor: inherit;
+    }
+}
+
+/* ---------- Scroll progress ---------- */
+
+.scrollProgress {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    z-index: 9999;
+    width: 100vw;
+    height: 4px;
+    pointer-events: none;
+}
+
+.scrollProgressInner {
+    width: 0%;
+    height: 100%;
+    border-radius: 0 999px 999px 0;
+    background: var(--progress);
+    transition: width 0.08s linear;
+}
+
+/* ---------- Section reveal ---------- */
+
+.about,
+.clients,
+.work,
+.contact {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+}
+
+.siteFooter {
+    opacity: 0;
+    transform: translateY(24px) scale(0.8);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+}
+
+.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+/* ---------- Skeleton ---------- */
+
+.skeleton {
+    width: calc(100% - 2 * var(--gutter));
+    height: 70vh;
+    margin: 70px auto 0;
+    border-radius: 30px 30px 0 0;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(255, 255, 255, 0) 100%),
+        var(--surface);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
+}
+
+/* ---------- Top notice bar ---------- */
+
+.notice {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 40px;
+    color: #f8f8f9;
+    background: var(--ink);
+    font-family: var(--font-notice);
+    font-size: 14px;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.notice a {
+    text-decoration: underline;
+    text-underline-position: from-font;
+}
+
+.noticeClose {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    display: grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(37, 43, 58, 0.1);
+    border-radius: 4px;
+    background: rgba(37, 43, 58, 0.2);
+    transform: translateY(-50%);
+}
+
+.noticeClose svg {
+    width: 8px;
+    height: 8px;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+    padding: 30px var(--gutter) 0;
+}
+
+.heroCard {
+    position: relative;
+    height: 700px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 30px 30px 0 0;
+    color: #f8f8f9;
+    background: var(--blue);
+}
+
+/* extree brand background instead of frdg.work's texture */
+.heroCardTexture {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(19, 87, 234, 0.4), rgba(22, 102, 255, 0.08)),
+        url('/hero-texture.jpg') center / cover;
+    filter: saturate(1.65) contrast(1.05);
+    transform: scale(1.03);
+}
+
+.heroCard::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background: radial-gradient(circle at center, transparent 20%, rgba(0, 65, 205, 0.16));
+}
+
+.heroTitle {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: calc(50% + 0.5px);
+    color: #f8f8f9;
+    font-family: var(--font-display);
+    font-size: 100px;
+    font-weight: 700;
+    line-height: normal;
+    letter-spacing: 0;
+    white-space: nowrap;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Light "pop" on click: quick squeeze, small overshoot, settle */
+.heroTitlePop {
+    animation: heroTitlePop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes heroTitlePop {
+    0% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    25% {
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    60% {
+        transform: translate(-50%, -50%) scale(1.04);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.heroIcon {
+    position: absolute;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    fill: none;
+    stroke: white;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+    /* smooth, slightly lazy follow of the cursor (offsets set from JS) */
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+}
+
+.heroIcon1 {
+    top: 9%;
+    left: 10%;
+}
+
+.heroIcon2 {
+    top: 14%;
+    left: 23%;
+}
+
+.heroIcon3 {
+    top: 10%;
+    left: 40%;
+}
+
+.heroIcon4 {
+    top: 14%;
+    right: 27%;
+}
+
+.heroIcon5 {
+    top: 8%;
+    right: 11%;
+}
+
+.heroIcon6 {
+    top: 35%;
+    left: 9%;
+}
+
+.heroIcon7 {
+    top: 30%;
+    right: 8%;
+}
+
+.heroIcon8 {
+    bottom: 13%;
+    left: 55%;
+}
+
+.heroIcon9 {
+    bottom: 12%;
+    right: 24%;
+}
+
+.heroIcon10 {
+    right: 11%;
+    bottom: 13%;
+}
+
+/* ---------- Navigation ---------- */
+
+.pageBody {
+    position: relative;
+}
+
+/* White 94px strip under the hero with side borders; the glass nav
+   sits in it. Together with .about it forms one white column. */
+.navStrip {
+    height: 94px;
+    margin: 0 var(--gutter);
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-bottom: 0;
+    background: var(--surface);
+}
+
+/* Sticky nav rail: from the bottom of the hero (+10px) to the end of the page */
+.navRail {
+    position: absolute;
+    z-index: 30;
+    top: 10px;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    pointer-events: none;
+}
+
+.navSticky {
+    position: sticky;
+    top: 0;
+    width: 620px;
+    padding: var(--nav-top) 30px 0;
+    transform: translateX(-50%);
+    pointer-events: auto;
+}
+
+.navPill {
+    position: relative;
+    width: 580px;
+    height: var(--nav-height);
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    color: #000;
+    font-family: var(--font-main);
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.48px;
+    white-space: nowrap;
+}
+
+.navLogo {
+    position: absolute;
+    top: 25%;
+    left: 21px;
+    display: block;
+    width: 40px;
+    height: 40px;
+    transform: translateY(-50%);
+}
+
+.navLinks {
+    position: absolute;
+    top: calc(50% - 1px);
+    right: 47px;
+    display: flex;
+    height: 38px;
+    align-items: center;
+    gap: 44px;
+    transform: translateY(-50%);
+}
+
+.navPill a {
+    transition: opacity 200ms ease;
+    animation: navLinkIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.navLinks a:nth-child(1) {
+    animation-delay: 0.06s;
+}
+
+.navLinks a:nth-child(2) {
+    animation-delay: 0.12s;
+}
+
+.navLinks a:nth-child(3) {
+    animation-delay: 0.18s;
+}
+
+.navLinks a:nth-child(4) {
+    animation-delay: 0.24s;
+}
+
+.navPill a:hover {
+    opacity: 0.5;
+}
+
+@keyframes navLinkIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mark {
+    display: grid;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--blue), #8b5cf6);
+}
+
+.markRing {
+    width: 18px;
+    height: 18px;
+    border: 4px solid white;
+    border-radius: 50%;
+}
+
+.mobileNav {
+    display: none;
+}
+
+/* ---------- Section labels (rotated) ---------- */
+
+/* Reads bottom to top: matrix(0,-1,1,0) on frdg */
+.labelUp {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+/* Reads top to bottom: matrix(0,1,-1,0) on frdg */
+.labelDown {
+    writing-mode: vertical-rl;
+}
+
+.sectionLabel {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 80px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -1.6px;
+    white-space: nowrap;
+}
+
+/* ---------- About ---------- */
+
+.about {
+    position: relative;
+    display: grid;
+    grid-template-columns: 219px minmax(0, 1fr) 419px;
+    min-height: 500px;
+    margin: 0 var(--gutter);
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 30px 30px;
+    background: var(--surface);
+}
+
+.about .sectionLabel {
+    align-self: center;
+    justify-self: center;
+}
+
+.aboutCopy {
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+    gap: 20px;
+    padding: 40px 0;
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+}
+
+.aboutHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.aboutName {
+    color: var(--ink);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.32px;
+}
+
+.aboutRole {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 16px;
+    letter-spacing: 0.16px;
+}
+
+.languages {
+    justify-self: end;
+    width: 340px;
+    padding-top: 40px;
+}
+
+.languagesLabel {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
+}
+
+.languagesRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.languageBox {
+    display: flex;
+    height: 30px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 8px 6px 5px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--glass-tint);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    color: #000;
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: -0.32px;
+    white-space: nowrap;
+}
+
+.languageFlag {
+    display: grid;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    overflow: hidden;
+    border-radius: 5px;
+}
+
+.languageFlag svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* ---------- Clients ---------- */
+
+.clients {
+    position: relative;
+    display: flex;
+    height: 350px;
+    align-items: center;
+    overflow: hidden;
+}
+
+.marquee {
+    position: relative;
+    width: 100%;
+    overflow: clip;
+}
+
+.marquee ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.marquee .marqueeTrack {
+    padding-left: 20px;
+}
+
+.marquee .marqueeTrackStatic {
+    padding-left: 50px;
+}
+
+.marqueeProbe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    width: max-content;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.marqueeTrack {
+    display: flex;
+    width: max-content;
+    align-items: stretch;
+    gap: 20px;
+    animation: marquee 37.7s linear infinite;
+}
+
+.marqueeTrackStatic {
+    display: flex;
+    width: max-content;
+    align-items: stretch;
+    gap: 20px;
+}
+
+@keyframes marquee {
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+.clientCard {
+    position: relative;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    width: 220px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--surface);
+}
+
+.clientHead {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.clientLogoImg {
+    display: block;
+    max-width: 140px;
+    height: 36px;
+    object-fit: contain;
+    object-position: left center;
+}
+
+.clientName {
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+}
+
+.clientPeriod {
+    color: var(--soft);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
+}
+
+/* Label panel on the right: covers the marquee, with a blurred "fog"
+   (blur 25px) on its left edge, as on frdg.work */
+.clientsPanel {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: 0;
+    display: flex;
+    width: 200px;
+    height: 350px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 30px 0 0 30px;
+    background: var(--background);
+    transform: translateY(-50%);
+}
+
+.clientsPanel::before {
+    position: absolute;
+    top: 25px;
+    left: -77px;
+    width: 153px;
+    height: 300px;
+    content: '';
+    background: var(--background);
+    filter: blur(25px);
+}
+
+.clientsPanel .sectionLabel {
+    position: relative;
+    line-height: normal;
+}
+
+.clientsFadeLeft {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 0;
+    width: 20px;
+    height: 300px;
+    background: var(--background);
+    transform: translateY(-50%);
+}
+
+.clientsFadeLeft::before {
+    position: absolute;
+    top: 0;
+    right: -76px;
+    width: 153px;
+    height: 300px;
+    content: '';
+    background: var(--background);
+    filter: blur(25px);
+}
+
+/* ---------- Work ---------- */
+
+.work {
+    position: relative;
+    margin: 0 var(--gutter);
+    padding: 80px 0 60px;
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: var(--surface);
+}
+
+/* Large "work" label, sticky on the left. The rail starts where the first
+   cards start (80px section padding + 20px group padding), so the top of
+   "work" is level with the top of the first card; while scrolling it
+   sticks at the same height as the group labels. */
+.workLabelRail {
+    position: absolute;
+    z-index: 3;
+    top: 100px;
+    bottom: 60px; /* = .work padding-bottom: stop at the last card, not the section edge */
+    left: 0;
+    width: 155px;
+    pointer-events: none;
+}
+
+.workLabel {
+    position: sticky;
+    top: calc(var(--nav-stack-top) + 60px);
+    display: grid;
+    align-items: start;
+    justify-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: auto;
+}
+
+/* Tabs rail: starts 97px above the section so the panel hangs like a tab
+   from the top edge of .work, then sticks below the navigation */
+.workFiltersRail {
+    position: absolute;
+    z-index: 25;
+    top: -97px;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    pointer-events: none;
+}
+
+.workFiltersSticky {
+    position: sticky;
+    top: 0;
+    display: flex;
+    width: 620px;
+    justify-content: center;
+    padding: calc(var(--nav-stack-top)) 30px 0;
+    transform: translateX(-50%);
+}
+
+.workFilters {
+    display: flex;
+    min-width: 440px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 0 40px 2px;
+    border: 1px solid var(--line);
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    background: linear-gradient(90deg, var(--glass-tint) 0%, var(--glass-tint) 100%), var(--glass);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    pointer-events: auto;
+}
+
+.workFilters a,
+.workFilterEmpty {
+    color: var(--muted);
+    font-family: var(--font-label);
+    font-size: 18px;
+    line-height: 1.2;
+    letter-spacing: -0.18px;
+    white-space: nowrap;
+    transition:
+        color 200ms ease,
+        opacity 200ms ease;
+}
+
+.workFilters a:hover {
+    opacity: 0.6;
+}
+
+.workFilters a.workFilterActive {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+}
+
+.workFilterEmpty {
+    opacity: 0.4;
+}
+
+.workGroups {
+    display: flex;
+    flex-direction: column;
+    gap: 130px;
+}
+
+.workGroup {
+    position: relative;
+    padding-top: 20px;
+    scroll-margin-top: calc(var(--nav-stack-top) + 60px);
+}
+
+/* The rail starts where the group's cards start (= .workGroup padding-top),
+   so the label's top is level with the top of the first card. While
+   scrolling it sticks below the nav + tabs (nav + 40px tabs + 20px),
+   at the same height as "work", until its group ends. */
+.workGroupLabelRail {
+    position: absolute;
+    top: 20px;
+    bottom: 0;
+    left: -10px;
+    width: 172px;
+    pointer-events: none;
+}
+
+.workGroupLabel {
+    position: sticky;
+    top: calc(var(--nav-stack-top) + 60px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    pointer-events: auto;
+}
+
+.workGroupLabel span {
+    color: var(--soft);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
+}
+
+/* Card grid: 2 columns of 519px with a 30px gap (1068px), centered.
+   Space is left on the side for labels so they don't overlap the cards. */
+.projects {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 30px;
+    width: min(1068px, calc(100% - 380px));
+    margin: 0 auto;
+    align-items: start;
+}
+
+.projectCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+    overflow: clip;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background: var(--glass-tint);
+    backdrop-filter: blur(7px) saturate(160%);
+    -webkit-backdrop-filter: blur(7px) saturate(160%);
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.6s ease,
+        transform 0.6s ease;
+}
+
+.projectCard.revealed {
+    opacity: 1;
+    transform: none;
+}
+
+.projectBody {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.projectImage {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1004 / 498;
+    object-fit: cover;
+    border-radius: 12px 12px 4px 4px;
+}
+
+.projectText {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tags span {
+    display: flex;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
+    white-space: nowrap;
+}
+
+.projectTitle {
+    width: 100%;
+    color: var(--ink);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.32px;
+}
+
+.projectCopy {
+    width: 100%;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.2;
+    letter-spacing: 0.16px;
+}
+
+.projectLink {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
+    transition: opacity 200ms ease;
+}
+
+.projectLink:hover {
+    opacity: 0.85;
+}
+
+.projectLink svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+.projectBlocked {
+    display: inline-flex;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--chip);
+    color: var(--chip-text);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
+}
+
+/* ---------- Contact ---------- */
+
+.contact {
+    position: relative;
+    margin: 25px var(--gutter);
+    padding: 24px 184px 24px 24px;
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    background: var(--surface);
+}
+
+.contactInner {
+    display: flex;
+    min-height: 400px;
+    align-items: stretch;
+    gap: 60px;
+}
+
+.contactLead {
+    display: flex;
+    flex: 1 0 0;
+    min-width: 0;
+    align-items: center;
+    padding: 40px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--background);
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: clamp(40px, 4.5vw, 64px);
+    line-height: 1.1;
+    letter-spacing: -1.2px;
+}
+
+.contactBox {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-self: center;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--background);
+}
+
+.contactBoxLabel {
+    color: var(--ink);
+    font-family: var(--font-label);
+    font-size: 32px;
+    line-height: 1.2;
+    letter-spacing: -0.64px;
+    white-space: nowrap;
+}
+
+.contactLink {
+    display: inline-flex;
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.18px;
+    white-space: nowrap;
+    transition: opacity 200ms ease;
+}
+
+.contactLink:hover {
+    opacity: 0.85;
+}
+
+.contactLabel {
+    position: absolute;
+    top: 50%;
+    right: 184px;
+    display: flex;
+    transform: translate(100%, -50%);
+}
+
+.contactLabel .sectionLabel {
+    padding: 0 42px;
+    line-height: normal;
+}
+
+/* ---------- Footer ---------- */
+
+.siteFooter {
+    position: relative;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 64px;
+    border-top: 1px solid var(--line);
+}
+
+.footerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+}
+
+.footerBrand {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.footerLogo {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 10px;
+}
+
+.footerLogo .mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.footerLogo .markRing {
+    width: 14px;
+    height: 14px;
+    border-width: 3px;
+}
+
+.footerBrandName {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.footerNav {
+    display: flex;
+    align-items: flex-start;
+    gap: 30px;
+}
+
+.footerNav a {
+    color: rgba(0, 0, 0, 0.55);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: -0.08px;
+    white-space: nowrap;
+    transition: color 0.2s ease;
+}
+
+.footerNav a:hover {
+    color: var(--ink);
+}
+
+.footerSocial {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 11px;
+}
+
+.footerSocialIcon {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: var(--ink);
+    transition: transform 0.2s ease;
+}
+
+.footerSocialIcon:hover {
+    transform: translateY(-2px);
+}
+
+.footerSocialIcon svg {
+    width: 26px;
+    height: 26px;
+}
+
+.footerSocialIconDiscord {
+    color: #5865f2;
+}
+
+.footerSocialIconTelegram {
+    color: #26a5e4;
+}
+
+.footerSocialIconInstagram {
+    color: #e1306c;
+}
+
+.footerSocialIconTwitter {
+    color: #15202b;
+}
+
+.footerSocialIconYoutube {
+    color: #ff0000;
+}
+
+.footerSocialIconGithub {
+    color: #181717;
+}
+
+/* ---------- Medium screens ---------- */
+
+@media (max-width: 1199px) {
+    .about {
+        grid-template-columns: 160px minmax(0, 1fr) 360px;
+    }
+
+    .languages {
+        width: 320px;
+    }
+
+    .heroTitle {
+        font-size: 80px;
+    }
+
+    .projects {
+        width: calc(100% - 340px);
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Sticky "work" heading for mobile only (frdg.work shows it instead of
+   the filter tabs). Hidden on desktop. */
+.workMobileTitle {
+    display: none;
+}
+
+/* ---------- Mobile ---------- */
+
+/* Mirrors frdg.work on mobile:
+   - the nav is always visible: a full-width glass pill with links only;
+   - no filter tabs in work: "work" sticks under the nav and the current
+     group label sticks right below it; both sit BEHIND the cards, which
+     slide over them;
+   - contact is a plain card with an email button; footer links stack. */
+@media (max-width: 799px) {
+    .page {
+        --gutter: 16px;
+        --nav-top: 12px;
+        --nav-height: 44px;
+        --work-title-top: calc(var(--nav-top) + var(--nav-height) + 10px);
+        --work-title-height: 38px;
+    }
+
+    .notice,
+    .navRail {
+        display: none;
+    }
+
+    /* ---- Navigation: always on screen ---- */
+
+    .mobileNav {
+        position: fixed;
+        z-index: 40;
+        top: var(--nav-top);
+        right: var(--gutter);
+        left: var(--gutter);
+        display: block;
+    }
+
+    .mobileNav .navPill {
+        display: flex;
+        width: 90%;
+        margin: auto;
+        height: var(--nav-height);
+        align-items: center;
+        padding: 30px;
+        border-radius: 20px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        font-family: var(--font-label);
+        font-size: 15px;
+        letter-spacing: -0.15px;
+    }
+
+    .mobileNav .navLogo {
+        display: none;
+    }
+
+    .mobileNav .navLinks {
+        position: static;
+        display: flex;
+        flex: 1;
+        height: auto;
+        justify-content: space-evenly;
+        gap: 8px;
+        transform: none;
+    }
+
+    /* ---- Hero / about ---- */
+
+    .hero {
+        padding-top: calc(var(--nav-top) + var(--nav-height) + 44px);
+    }
+
+    .heroCard {
+        height: 440px;
+        border-radius: 20px 20px 0 0;
+    }
+
+    .heroTitle {
+        font-size: 40px;
+    }
+
+    .heroIcon {
+        width: 22px;
+        height: 22px;
+        stroke-width: 1.4;
+    }
+
+    .navStrip {
+        height: 20px;
+    }
+
+    .sectionLabel {
+        font-size: 36px;
+        letter-spacing: -0.72px;
+    }
+
+    .about {
+        grid-template-columns: 56px minmax(0, 1fr);
+        min-height: 0;
+        padding: 10px 16px 30px 0;
+        border-radius: 0 0 20px 20px;
+    }
+
+    .aboutCopy {
+        gap: 14px;
+        padding: 10px 0;
+        font-size: 15px;
+    }
+
+    .aboutName {
+        font-size: 24px;
+    }
+
+    .aboutRole {
+        font-size: 13px;
+    }
+
+    .languages {
+        grid-column: 2;
+        justify-self: start;
+        width: auto;
+        padding-top: 16px;
+    }
+
+    .languagesLabel {
+        font-size: 24px;
+    }
+
+    /* ---- Clients ---- */
+
+    .clients {
+        height: 220px;
+    }
+
+    .clientsPanel {
+        width: 64px;
+        height: 220px;
+        border-radius: 20px 0 0 20px;
+    }
+
+    .clientsPanel::before {
+        top: 20px;
+        left: -40px;
+        width: 80px;
+        height: 180px;
+    }
+
+    .clientsFadeLeft {
+        height: 180px;
+    }
+
+    .clientCard {
+        width: 170px;
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .clientLogoImg {
+        height: 28px;
+        max-width: 110px;
+    }
+
+    .clientName {
+        font-size: 15px;
+    }
+
+    .clientPeriod {
+        font-size: 13px;
+    }
+
+    /* ---- Work: sticky title + sticky group label, under the cards ---- */
+
+    .work {
+        padding: 24px 12px 40px;
+        border-radius: 20px;
+    }
+
+    .workFiltersRail,
+    .workLabelRail {
+        display: none;
+    }
+
+    .workMobileTitle {
+        position: sticky;
+        z-index: 1;
+        top: var(--work-title-top);
+        display: flex;
+        height: var(--work-title-height);
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+        font-family: var(--font-label);
+        font-size: 32px;
+        line-height: 1.2;
+        letter-spacing: -0.64px;
+        pointer-events: none;
+    }
+
+    .workGroups {
+        gap: 60px;
+    }
+
+    .workGroup {
+        padding-top: 0;
+        scroll-margin-top: calc(var(--work-title-top) + var(--work-title-height));
+    }
+
+    /* Sticks right under "work" while its own group is on screen; the next
+       group's label takes over when that group arrives. */
+    .workGroupLabelRail {
+        position: sticky;
+        z-index: 1;
+        top: calc(var(--work-title-top) + var(--work-title-height));
+        width: auto;
+        margin-bottom: 18px;
+        pointer-events: none;
+    }
+
+    .workGroupLabel {
+        position: static;
+        height: auto;
+        justify-content: center;
+    }
+
+    .workGroupLabel span {
+        writing-mode: horizontal-tb;
+        transform: none;
+        font-size: 15px;
+        letter-spacing: -0.15px;
+    }
+
+    .projects {
+        width: 100%;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Opaque cards above the sticky headings, so they slide over them */
+    .projectCard {
+        z-index: 2;
+        gap: 16px;
+        padding: 14px;
+        border-radius: 20px;
+        width: 90%;
+        margin: auto;
+    }
+
+    .projectTitle {
+        font-size: 22px;
+    }
+
+    .projectCopy {
+        font-size: 14px;
+    }
+
+    .tags span {
+        padding: 5px 10px;
+        font-size: 13px;
+    }
+
+    .projectLink,
+    .projectBlocked {
+        padding: 9px 14px;
+        font-size: 15px;
+    }
+
+    /* ---- Contact: plain card with the email button ---- */
+
+    .contact {
+        margin: 16px var(--gutter);
+        padding: 0 64px 0 16px;
+        border-radius: 20px;
+    }
+
+    .contactInner {
+        min-height: 180px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .contactLead,
+    .contactBoxLabel {
+        display: none;
+    }
+
+    .contactBox {
+        align-self: center;
+        align-items: center;
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+
+    .contactLink {
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 14px;
+    }
+
+    .contactLabel {
+        right: 64px;
+    }
+
+    .contactLabel .sectionLabel {
+        padding: 0 14px;
+    }
+
+    /* ---- Footer: logo, stacked links, centered socials ---- */
+
+    .siteFooter {
+        padding: 40px 16px 44px;
+    }
+
+    .footerRow,
+    .footerBrand {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 26px;
+    }
+
+    .footerRow {
+        align-items: stretch;
+    }
+
+    .footerNav {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .footerSocial {
+        justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .marqueeTrack,
+    .skeleton,
+    .navPill a {
+        animation: none;
+    }
+
+    .heroIcon,
+    .scrollProgressInner {
+        transition: none;
+    }
+
+    .heroTitlePop {
+        animation: none;
+    }
+
+    .about,
+    .clients,
+    .work,
+    .contact,
+    .siteFooter,
+    .projectCard {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+}

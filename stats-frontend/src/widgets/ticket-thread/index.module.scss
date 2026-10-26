@@ -1,0 +1,65 @@
+.thread {
+    display: flex;
+    flex-direction: column;
+}
+
+.comment {
+    display: flex;
+    gap: 14px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.commentSupport {
+    background: linear-gradient(180deg, rgba(255, 77, 94, 0.03), transparent 60%);
+    border-radius: 8px;
+    padding: 20px 12px;
+    margin: 0 -12px;
+
+    & + .comment {
+        border-top: none;
+    }
+}
+
+.body {
+    flex: 1;
+    min-width: 0;
+}
+
+.head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.time {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.message {
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.skeletonHead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}

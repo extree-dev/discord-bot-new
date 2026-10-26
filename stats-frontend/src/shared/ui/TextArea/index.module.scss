@@ -1,0 +1,36 @@
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+}
+
+.textarea {
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.15s ease;
+}
+
+.textarea::placeholder {
+    color: var(--text-faint);
+}
+
+.textarea:focus {
+    border-color: var(--accent);
+}

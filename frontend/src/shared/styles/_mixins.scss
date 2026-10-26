@@ -1,0 +1,37 @@
+@use 'variables' as vars;
+
+// Медиа-запросы по общим брейкпоинтам — чтобы не дублировать
+// "@media (max-width: 640px)" магическим числом в каждом файле.
+@mixin mobile {
+    @media (max-width: vars.$breakpoint-mobile) {
+        @content;
+    }
+}
+
+@mixin tablet {
+    @media (max-width: vars.$breakpoint-tablet) {
+        @content;
+    }
+}
+
+// Общий рецепт "Liquid Glass", повторяющийся почти в каждом виджете
+// кабинета (см. app/styles/global.css) — фон/обводка/блюр уже заданы
+// как CSS custom properties для темизации, этот mixin просто собирает
+// их в одно правило вместо копипасты четырёх свойств в каждом компоненте.
+@mixin glass-panel($shadow: var(--shadow-md)) {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow:
+        var(--glass-highlight),
+        #{$shadow};
+}
+
+// Однострочный текст с обрезкой по многоточию — часто нужен в
+// карточках/таблицах с динамическим контентом неизвестной длины.
+@mixin truncate-text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}

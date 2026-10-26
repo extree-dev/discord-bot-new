@@ -1,0 +1,138 @@
+@use '../../shared/styles/variables' as v;
+
+.page {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.main {
+    flex: 1;
+    max-width: 1140px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 64px;
+    align-items: center;
+    padding: 40px;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px 6px 10px;
+    border-radius: 100px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 26px;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--win);
+}
+
+.heading {
+    font-size: clamp(32px, 4.2vw, 50px);
+    line-height: 1.04;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    margin: 0 0 22px;
+}
+
+.heading :global(.hl) {
+    display: inline-block;
+    background: var(--accent);
+    color: #0c0c0e;
+    padding: 3px 12px;
+    transform: skewX(-3deg);
+}
+
+.lead {
+    font-size: 15.5px;
+    color: var(--text-dim);
+    line-height: 1.65;
+    max-width: 420px;
+    margin: 0;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 32px 28px;
+    position: relative;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 6px 6px 0 0;
+}
+
+.cardTitle {
+    margin: 0 0 22px;
+    font-size: 19px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+}
+
+@keyframes split-auth-error-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.error {
+    margin: 0 0 18px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    background: rgba(255, 77, 94, 0.1);
+    border: 1px solid rgba(255, 77, 94, 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+    line-height: 1.5;
+    animation: split-auth-error-in 0.2s ease;
+}
+
+.footer {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-faint);
+    text-align: center;
+
+    a {
+        color: var(--text);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+}
+
+@media (max-width: v.$breakpoint-tablet) {
+    .main {
+        grid-template-columns: 1fr;
+        gap: 36px;
+        padding: 40px 24px;
+    }
+}

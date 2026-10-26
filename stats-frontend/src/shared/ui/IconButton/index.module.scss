@@ -1,0 +1,38 @@
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover:not(:disabled) {
+        background: var(--surface-2);
+        color: var(--text);
+        border-color: var(--border);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+}
+
+.active {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.danger {
+    color: var(--accent);
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 77, 94, 0.1);
+        border-color: rgba(255, 77, 94, 0.3);
+    }
+}

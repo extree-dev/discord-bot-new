@@ -4,7 +4,7 @@ services:
         restart: unless-stopped
         environment:
             POSTGRES_USER: ${POSTGRES_USER:-discordbot}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
             POSTGRES_DB: ${POSTGRES_DB:-discordbot}
         volumes:
             - pgdata:/var/lib/postgresql/data
@@ -20,28 +20,20 @@ services:
         env_file:
             - .env
         environment:
-            # Внутри сети docker compose сервис БД доступен по имени "postgres",
-            # а не localhost — переопределяем DATABASE_URL из .env, если он там
-            # указывает на локальный адрес.
-            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
                 condition: service_healthy
         volumes:
             - bot-data:/app/data
 
-    # Ежедневный дамп базы в ./backups на хосте (рядом с docker-compose.yml),
-    # хранятся последние BACKUP_KEEP файлов. Раньше вся база жила только в
-    # томе pgdata без единой копии — потеря тома означала потерю всего.
-    # Первый дамп — сразу при запуске сервиса. Восстановление:
-    # gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U discordbot discordbot
     db-backup:
         image: postgres:16-alpine
         restart: unless-stopped
         environment:
             PGHOST: postgres
             PGUSER: ${POSTGRES_USER:-discordbot}
-            PGPASSWORD: ${POSTGRES_PASSWORD:-discordbot}
+            PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
             PGDATABASE: ${POSTGRES_DB:-discordbot}
             BACKUP_KEEP: 7
         volumes:
@@ -66,40 +58,60 @@ services:
                     sleep 86400
                 done
 
-    # Личный кабинет (bot.extree.tech/dashboard) + визитка и её редактор
-    # (extree.tech, extree.tech/admin) — React-SPA (frontend/), отдаёт его
-    # и JSON-API под /api/* этот процесс (dashboard/server.js). Тот же
-    # образ, что у bot (build: .), frontend/dist собирается отдельным
-    # стейджем в Dockerfile и копируется в этот же образ — просто другая
-    # команда запуска: отдельный лёгкий процесс вместо discord.js-клиента.
-    # Сессия — в зашифрованной cookie (dashboard/session.js), а контент
-    # визитки — в Postgres (site/model.js), поэтому DATABASE_URL
-    # переопределяется так же, как у bot — иначе дашборд внутри контейнера
-    # пытался бы достучаться до localhost, которого тут нет. Наружу не
-    # публикуется (нет "ports") — достучаться можно только через Caddy по
-    # имени сервиса внутри docker-сети, см. web/Caddyfile.
     dashboard:
         build: .
         restart: unless-stopped
         env_file:
             - .env
         environment:
-            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:-discordbot}@postgres:5432/${POSTGRES_DB:-discordbot}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
         depends_on:
             postgres:
                 condition: service_healthy
         command: ['node', 'dashboard/server.js']
 
-    # Страница бота (bot.extree.tech, web/bot-site/) + автоматический TLS
-    # от Let's Encrypt. Caddy сам запрашивает и продлевает сертификаты для
-    # доменов, перечисленных в web/Caddyfile — никакого отдельного certbot.
-    # Файлы монтируются прямо из рабочей копии репозитория (read-only) —
-    # обновление сайта требует только git pull, тот же, что уже делает
-    # deploy.yml на каждый push в main, без пересборки образа. extree.tech
-    # (визитка + её редактор) статики больше не имеет вообще — целиком
-    # React-SPA, см. сервис dashboard. caddy_data хранит сами сертификаты —
-    # без него каждый "docker compose up" заново запрашивал бы их у Let's
-    # Encrypt и быстро упёрся бы в лимит запросов на домен.
+    stats-backend:
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            DATABASE_URL: postgresql://${POSTGRES_USER:-discordbot}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-discordbot}
+        depends_on:
+            postgres:
+                condition: service_healthy
+        command: ['node', 'stats-backend/server.js']
+
+    # --- НОВЫЙ СЕРВИС JAVA ---
+    stats-backend-java:
+        build:
+            context: ./stats-backend-java
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            SPRING_PROFILES_ACTIVE: prod
+            # ЯВНО УКАЗЫВАЕМ ПАРАМЕТРЫ ПОДКЛЮЧЕНИЯ К БАЗЕ, ЧТОБЫ JAVA НЕ ИСКАЛА ЕЁ НА LOCALHOST
+            SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-discordbot}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-discordbot}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+            # Почта: пробрасываем явно, чтобы без STATS_MAIL_* контейнер не поднялся
+            # с пустым SMTP и не падал на первом /auth/register с 500.
+            SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-smtp.mail.me.com}
+            SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+            SPRING_MAIL_USERNAME: ${STATS_MAIL_USER:?STATS_MAIL_USER is required}
+            SPRING_MAIL_PASSWORD: ${STATS_MAIL_APP_PASSWORD:?STATS_MAIL_APP_PASSWORD is required}
+            EXTREE_MAIL_FROM: ${STATS_MAIL_FROM:-}
+        # Порт НЕ публикуется на хост: Caddy достаёт сервис по имени через
+        # внутреннюю docker-сеть (reverse_proxy stats-backend-java:8081 в
+        # web/Caddyfile). Публикация 8081:8081 позволяла обратиться к бэкенду
+        # напрямую, минуя Caddy и его проверку хоста — это открывало
+        # Host-header injection (поддельный заголовок Host в письмах со
+        # сбросом пароля/тикетами/Riot OAuth redirect_uri).
+        depends_on:
+            postgres:
+                condition: service_healthy
+
     caddy:
         image: caddy:2-alpine
         restart: unless-stopped
@@ -109,8 +121,16 @@ services:
         volumes:
             - ./web/Caddyfile:/etc/caddy/Caddyfile:ro
             - ./web/bot-site:/srv/bot-site:ro
+            - ./web/stats-site:/srv/stats-site:ro
             - caddy_data:/data
             - caddy_config:/config
+
+    stats-frontend-builder:
+        build:
+            context: ./stats-frontend
+        profiles: ['build-only']
+        volumes:
+            - ./web/stats-site:/output
 
 volumes:
     pgdata:

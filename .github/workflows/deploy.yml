@@ -23,12 +23,27 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Deploy over SSH
-              uses: appleboy/ssh-action@v1.2.0
+              # Запинено на commit SHA, не на тег: тег теоретически можно
+              # переуказать на другой коммит на стороне мейнтейнера
+              # (supply-chain риск), SHA — нет. 7eaf766... == v1.2.0.
+              uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
               with:
                   host: ${{ secrets.VPS_HOST }}
                   port: ${{ secrets.VPS_PORT }}
                   username: ${{ secrets.VPS_USER }}
                   key: ${{ secrets.VPS_SSH_KEY }}
+                  # По умолчанию у ssh-action весь script обязан уложиться в
+                  # 10 минут (command_timeout) — раньше не хватало: в конце
+                  # было 18 последовательных "docker compose run --rm bot
+                  # node X.js" (отдельный контейнер + Discord-логин на
+                  # каждый), и этот хвост регулярно упирался в лимит уже
+                  # ПОСЛЕ того, как всё нужное на сервере отработало (см.
+                  # PR #309, #311 — задеплоено успешно, а CI всё равно
+                  # красный). Теперь это один "docker compose run" (см.
+                  # scripts/deploy-sync.js) и укладывается в десятки секунд,
+                  # но 30 минут оставлены как запас — на случай холодной
+                  # пересборки образов (Maven/npm без кеша) на свежем VPS.
+                  command_timeout: 30m
                   script: |
                       set -e
                       cd /root/discord-bot-new
@@ -41,10 +56,31 @@ jobs:
                       # (docker-compose.yml), поэтому правки только в его
                       # содержимом не меняют описание сервиса "caddy" — "up
                       # -d" такой контейнер не пересоздаёт, и новый конфиг
-                      # не подхватывается сам по себе. "caddy reload" внутри
-                      # уже запущенного контейнера применяет текущий файл с
-                      # диска без разрыва соединений.
-                      docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+                      # не подхватывается сам по себе. Раньше здесь был
+                      # "caddy reload" (применяет конфиг без разрыва
+                      # соединений) — но на практике он регулярно отчитывался
+                      # об успехе (exit 0, лог "adapted config to JSON" без
+                      # единой ошибки), а реально раздаваемый сайт при этом
+                      # оставался на СТАРОМ конфиге (проверено на баге с
+                      # bot.extree.tech/maintenance: правка web/Caddyfile не
+                      # применялась ни после обычного деплоя, ни после
+                      # повторного workflow_dispatch, только после ручного
+                      # "docker compose restart caddy" на сервере). Поэтому
+                      # вместо зависимости от admin API reload — обычный
+                      # restart контейнера: пара секунд простоя на caddy
+                      # (бот и БД не трогает), зато гарантированно читает
+                      # Caddyfile и web/bot-site/ с диска заново при старте.
+                      docker compose restart caddy
+
+                      # Extree Stats (stats-frontend/) — не рантайм-сервис,
+                      # одноразовый билд-джоб: собирает Vite-бандл и
+                      # перезаписывает им ./web/stats-site/ (bind-mount
+                      # /output, см. docker-compose.yml). Reload/restart
+                      # caddy для этого не нужен — file_server читает
+                      # статику с диска на каждый запрос, а не кеширует
+                      # её в памяти процесса.
+                      docker compose build stats-frontend-builder
+                      docker compose run --rm stats-frontend-builder
 
                       # Регистрация слэш-команд и setup-скрипты в режиме синхронизации
                       # (utils/setupMode.js): только находят уже существующие каналы
@@ -52,45 +88,20 @@ jobs:
                       # На сервере деплой ничего не создаёт, не удаляет, не
                       # переименовывает и не переставляет права — первичная
                       # настройка только вручную: node scripts/setup-X.js --bootstrap.
-                      # Без set -e и по одному через run_setup_step: сбой одного не
-                      # должен мешать остальным. Деплой всё равно помечается упавшим,
-                      # если хоть один шаг не прошёл.
-                      set +e
-                      FAILED=0
-                      run_setup_step() {
-                          docker compose run --rm bot node "$1"
-                          if [ $? -ne 0 ]; then
-                              echo "::warning::$1 завершился с ошибкой, смотри лог выше"
-                              FAILED=1
-                          fi
-                      }
-                      run_setup_step deploy-commands.js
-                      run_setup_step scripts/setup-roles.js
-                      run_setup_step scripts/setup-verification.js
-                      run_setup_step scripts/setup-tickets.js
-                      run_setup_step scripts/setup-ticket-management.js
-                      run_setup_step scripts/setup-punishment-notices.js
-                      run_setup_step scripts/setup-temp-voice.js
-                      run_setup_step scripts/setup-suggestions.js
-                      run_setup_step scripts/setup-rules.js
-                      run_setup_step scripts/setup-changelog.js
-                      run_setup_step scripts/setup-leveling.js
-                      run_setup_step scripts/setup-modqueue.js
-                      run_setup_step scripts/setup-idea-queue.js
-                      # После rules/changelog/leveling/tickets/suggestions/
-                      # voice/idea-queue — памятка ссылается на каналы всех
-                      # этих фич по сохранённому ID (memo/index.js
-                      # gatherChannelIds), порядок здесь важен.
-                      run_setup_step scripts/setup-memo.js
-                      run_setup_step scripts/setup-admin-panel.js
-                      # scripts/setup-onboarding.js и
-                      # scripts/add-onboarding-role-questions.js в деплой не
-                      # входят: адаптация Discord редактируется только
-                      # целиком, и прогон на каждом деплое затирал ручные
-                      # правки. Запускать вручную, когда нужно.
-                      # Канал #📬│game-news задан константой в самом скрипте,
-                      # от setup-changelog.js не зависит — порядок здесь не важен.
-                      run_setup_step scripts/setup-valorant-news.js
-                      run_setup_step scripts/setup-esports-news.js
-                      run_setup_step scripts/setup-game-news.js
-                      exit $FAILED
+                      #
+                      # Раньше здесь было 18 отдельных "docker compose run --rm bot
+                      # node X.js" — отдельный контейнер и отдельный Discord-логин
+                      # (client.login(), полный gateway-хендшейк) на каждый скрипт,
+                      # и это было основным, что растягивало деплой на много минут.
+                      # scripts/deploy-sync.js — один контейнер, один логин, все те
+                      # же шаги в том же порядке внутри одного процесса (см. его
+                      # комментарии про порядок/зависимости). Поведение каждого шага
+                      # не поменялось — он по-прежнему ничего не создаёт/не удаляет
+                      # вне --bootstrap, просто без 17 лишних переподключений.
+                      #
+                      # Сбой одного шага внутри deploy-sync.js не прерывает
+                      # остальные (он сам печатает "::warning::" на каждый такой
+                      # шаг и возвращает ненулевой код, только если хоть один не
+                      # прошёл) — set -e здесь просто пробрасывает этот итоговый
+                      # код наружу, как и для любой другой команды выше.
+                      docker compose run --rm bot node scripts/deploy-sync.js

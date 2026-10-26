@@ -2,6 +2,17 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+stats-frontend/node_modules/
+stats-frontend/dist/
+stats-frontend/*.tsbuildinfo
+
+# web/stats-site/ — раздаётся Caddy напрямую, но содержимое теперь не
+# исходники, а билд stats-frontend/ (см. docker-compose.yml
+# stats-frontend-builder, пишет сюда на каждом деплое) — исходник
+# riot.txt теперь stats-frontend/public/riot.txt, откуда Vite копирует
+# его в каждую сборку автоматически.
+web/stats-site/*
+!web/stats-site/.gitkeep
 .env
 data/
 *.backup
@@ -9,3 +20,22 @@ data/
 *.backup3
 *.backup4
 backups/
+
+all-code.txt
+# Локальная диагностика (не коммитить)
+all-codes.txt
+collect-all.ps1
+fix-all.ps1
+fix-prod-auth.ps1
+diagnose-*.txt
+feature_branch_audit.txt
+slow_requests_audit.txt
+app-docker.log
+app-console.log
+
+# local scripts artifacts
+full-bundle.txt
+audit-check-bundle.txt
+next-bundle.txt
+missing-bundle.txt
+*.bak-*

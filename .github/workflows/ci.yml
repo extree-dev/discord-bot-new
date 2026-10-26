@@ -67,3 +67,40 @@ jobs:
             - name: Frontend build
               working-directory: frontend
               run: npm run build
+
+            # stats-frontend/ — ещё один отдельный React/TS-проект (Extree
+            # Stats), свой package-lock.json, та же причина разделения, что
+            # у frontend/ выше: собирается в статику, которую раздаёт Caddy
+            # напрямую (web/stats-site/), без общего бэкенда с
+            # dashboard/server.js.
+            - name: Install stats-frontend dependencies
+              working-directory: stats-frontend
+              run: npm ci
+
+            - name: Stats-frontend lint
+              working-directory: stats-frontend
+              run: npm run lint
+
+            - name: Stats-frontend test
+              working-directory: stats-frontend
+              run: npm test
+
+            - name: Stats-frontend build
+              working-directory: stats-frontend
+              run: npm run build
+
+            # stats-backend-java/ — фаза 1 перехода stats-backend на Java
+            # (гексагональная архитектура), см. stats-backend-java/README.md.
+            # Не задеплоен и не подключён ни в docker-compose.yml, ни в
+            # Caddyfile — собирается и тестируется здесь только чтобы не
+            # бить мод незамеченным, пока он растёт.
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '21'
+                  cache: maven
+                  cache-dependency-path: stats-backend-java/pom.xml
+
+            - name: Stats-backend-java build and test
+              working-directory: stats-backend-java
+              run: mvn -B verify

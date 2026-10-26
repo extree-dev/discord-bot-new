@@ -1,0 +1,139 @@
+@use '../../shared/styles/mixins' as *;
+.hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 30px 30px 0 0;
+    height: 320px;
+    background:
+        linear-gradient(180deg, rgba(20, 20, 50, 0.18), transparent 45%),
+        radial-gradient(55% 45% at 22% 18%, rgba(255, 255, 255, 0.35), transparent 60%),
+        radial-gradient(45% 40% at 78% 25%, rgba(255, 255, 255, 0.2), transparent 65%),
+        radial-gradient(50% 45% at 85% 80%, rgba(255, 255, 255, 0.22), transparent 60%),
+        radial-gradient(40% 35% at 15% 85%, rgba(20, 20, 50, 0.3), transparent 65%),
+        linear-gradient(155deg, #4752c4 0%, #5865f2 25%, #8b5cf6 55%, #6c7bf5 75%, #3b82f6 100%);
+}
+
+/* Тонкая сетка поверх градиента — «технологичный» фон, а не плоская заливка. */
+.hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, black, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 50%, black, transparent 75%);
+    pointer-events: none;
+}
+
+.blobA,
+.blobB {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+}
+
+.blobA {
+    top: -80px;
+    right: -60px;
+    width: 260px;
+    height: 260px;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.blobB {
+    bottom: -100px;
+    left: -40px;
+    width: 220px;
+    height: 220px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.wordmark {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0.08em;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 148px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: rgba(255, 255, 255, 0.22);
+    mix-blend-mode: soft-light;
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
+}
+
+.icons {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.icon {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.iconA {
+    top: 16%;
+    left: 10%;
+}
+.iconB {
+    top: 68%;
+    left: 16%;
+}
+.iconC {
+    top: 20%;
+    left: 82%;
+}
+.iconD {
+    top: 70%;
+    left: 78%;
+}
+.iconE {
+    top: 44%;
+    left: 4%;
+}
+
+@include mobile {
+    .hero {
+        height: 160px;
+    }
+    .wordmark {
+        font-size: 52px;
+    }
+    .iconD,
+    .iconE {
+        display: none;
+    }
+}

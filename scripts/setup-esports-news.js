@@ -9,9 +9,7 @@ const valorantNews = require('../valorantNews');
 const ESPORTS_CHANNEL_ID = '1551626467560005664';
 const ESPORTS_PING_ROLE_ID = '1552385549329899641';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.channels.fetch();
@@ -20,7 +18,7 @@ client.once('clientReady', async () => {
         const channel = guild.channels.cache.get(ESPORTS_CHANNEL_ID);
         if (!channel) {
             console.error(`Канал киберспорта с ID ${ESPORTS_CHANNEL_ID} не найден на сервере.`);
-            process.exit(1);
+            return false;
         }
         const role = guild.roles.cache.get(ESPORTS_PING_ROLE_ID);
         if (!role) console.warn(`Роль с ID ${ESPORTS_PING_ROLE_ID} не найдена — публикую без пинга.`);
@@ -33,11 +31,20 @@ client.once('clientReady', async () => {
         } else {
             console.log('Киберспорт: канал и роль уже настроены.');
         }
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки киберспорта:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

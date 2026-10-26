@@ -1,9 +1,20 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require('discord.js');
+const {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    AttachmentBuilder,
+    MessageFlags,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+} = require('discord.js');
 const { load } = require('./config');
 const { log } = require('./logger');
 const { COLORS, baseEmbed, formatBody, errorEmbed, infoEmbed, warningEmbed } = require('../utils/embeds');
 const leveling = require('../leveling');
 const { generateCode, generateDecoys, renderCaptcha } = require('./captchaImage');
+const { generateEmailCode, sendVerificationCode } = require('../utils/email');
+const emailCodes = require('./emailCodes');
 
 const VERIFY_BUTTON_ID = 'security_verify';
 // customId кнопок-вариантов — сам кандидат-код кодируется в нём же
@@ -16,6 +27,12 @@ const VERIFY_PICK_PREFIX = 'security_verify_pick';
 // хранится в pendingGenderChoice до её успешного прохождения — реальная
 // роль выдаётся только вместе с остальными ролями в handlePick.
 const GENDER_PICK_PREFIX = 'security_verify_gender';
+// Модалки email-верификации (method === 'email')
+const VERIFY_EMAIL_MODAL_ID = 'security_verify_email_modal';
+const VERIFY_CODE_MODAL_ID = 'security_verify_code_modal';
+const VERIFY_ENTER_CODE_BUTTON_ID = 'security_verify_enter_code';
+const EMAIL_INPUT_ID = 'email_input';
+const CODE_INPUT_ID = 'code_input';
 // Кастомные эмодзи сервера (загружены администратором вручную) — кнопки
 // выбора пола показывают только их, без подписи текстом.
 const GENDER_MALE_EMOJI_ID = '1555576296686231582';
@@ -79,7 +96,8 @@ function shuffled(array) {
 // выборе (капча — просто выбор одной кнопки из пяти, а не сложная форма):
 // скорее перебор скриптом. Блокируем новые попытки на время и сразу зовём
 // модерацию посмотреть, кто это — тем более что дальше он всё равно
-// упрётся в новую капчу при следующей попытке.
+// упрётся в новую капчу при следующей попытке. Используется и для
+// email-метода: неверный код письма — та же самая неудачная попытка.
 async function registerFailure(guild, member, config) {
     const now = Date.now();
     const entry = failedAttempts.get(member.id) ?? { count: 0, windowStart: now };
@@ -95,7 +113,7 @@ async function registerFailure(guild, member, config) {
         await log(
             guild,
             warningEmbed(
-                `${entry.count} неверных ответа на капчу подряд — новые попытки заблокированы на ${Math.round(config.verification.captchaLockoutMs / 60000)} мин.`,
+                `${entry.count} неверных ответа на проверку подряд — новые попытки заблокированы на ${Math.round(config.verification.captchaLockoutMs / 60000)} мин.`,
                 'Подозрительная верификация'
             ).addFields({ name: 'Участник', value: `${member.user.tag} (${member.id})` })
         );
@@ -162,11 +180,44 @@ async function presentCaptcha(interaction, mode) {
     }
 }
 
+// Модалка для ввода email (method === 'email').
+function buildEmailModal() {
+    const input = new TextInputBuilder()
+        .setCustomId(EMAIL_INPUT_ID)
+        .setLabel('Введите вашу почту')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('example@mail.com')
+        .setRequired(true)
+        .setMaxLength(100);
+
+    return new ModalBuilder()
+        .setCustomId(VERIFY_EMAIL_MODAL_ID)
+        .setTitle('Привязка почты')
+        .addComponents(new ActionRowBuilder().addComponents(input));
+}
+
+// Модалка для ввода кода из письма.
+function buildCodeModal() {
+    const input = new TextInputBuilder()
+        .setCustomId(CODE_INPUT_ID)
+        .setLabel('Код из письма')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('6 цифр')
+        .setRequired(true)
+        .setMinLength(6)
+        .setMaxLength(6);
+
+    return new ModalBuilder()
+        .setCustomId(VERIFY_CODE_MODAL_ID)
+        .setTitle('Введите код')
+        .addComponents(new ActionRowBuilder().addComponents(input));
+}
+
 // Шаг 1: кнопка "Пройти верификацию" — проверяет, что участник ещё не
 // верифицирован, что аккаунт не слишком новый и что он не заблокирован за
 // подозрительные попытки. Если на сервере настроены обе гендерные роли —
-// первым шагом показывает выбор пола (handleGenderPick продолжит капчой),
-// иначе сразу переходит к капче.
+// первым шагом показывает выбор пола (handleGenderPick продолжит проверкой),
+// иначе сразу переходит к выбранному методу (email-модалка или капча).
 async function startVerification(interaction) {
     const config = await load();
     const guild = interaction.guild;
@@ -276,14 +327,25 @@ async function startVerification(interaction) {
         return true;
     }
 
-    await presentCaptcha(interaction, 'reply');
+    await startChallenge(interaction, config, 'reply');
     return true;
 }
 
-// Шаг 2: клик по одной из кнопок-вариантов под картинкой — сравнивает
-// код, зашитый в customId нажатой кнопки, с challenge.code, выданным на
-// шаге 1 (см. VERIFY_PICK_PREFIX). Отдельного окна ввода не открывает —
-// в отличие от старой капчи с модалкой, весь ответ — один клик.
+// Показывает первый шаг проверки в зависимости от выбранного метода.
+// mode === 'update' — правим на месте сообщение с кнопками выбора пола
+// (после handleGenderPick), mode === 'reply' — обычный новый ответ.
+async function startChallenge(interaction, config, mode) {
+    if (config.verification.method === 'email') {
+        await interaction.showModal(buildEmailModal());
+        return;
+    }
+    await presentCaptcha(interaction, mode);
+}
+
+// Шаг 2 (капча): клик по одной из кнопок-вариантов под картинкой —
+// сравнивает код, зашитый в customId нажатой кнопки, с challenge.code,
+// выданным на шаге 1 (см. VERIFY_PICK_PREFIX). Отдельного окна ввода не
+// открывает — весь ответ — один клик.
 async function handlePick(interaction) {
     const config = await load();
     const guild = interaction.guild;
@@ -333,7 +395,147 @@ async function handlePick(interaction) {
     }
 
     clearFailures(interaction.user.id);
+    return applyVerifiedRoles(interaction, config, guild, member);
+}
 
+// Шаг 2 (только если гендерные роли настроены): клик по ♂/♀ под сообщением
+// из startVerification — сам пол здесь ещё не выдаётся, только запоминается
+// в pendingGenderChoice до момента, когда участник также пройдёт проверку
+// (см. handlePick / handleEmailModal). Кнопки живут на том же
+// ephemeral-сообщении — правим его на месте через interaction.update().
+async function handleGenderPick(interaction) {
+    const config = await load();
+    const picked = interaction.customId.slice(`${GENDER_PICK_PREFIX}:`.length);
+    cleanupExpiredGenderChoices();
+    pendingGenderChoice.set(interaction.user.id, { gender: picked, expiresAt: Date.now() + CHALLENGE_TTL_MS });
+    await startChallenge(interaction, config, 'update');
+    return true;
+}
+
+// Обработчик модалки ввода email (method === 'email').
+async function handleEmailModal(interaction) {
+    const config = await load();
+    const guild = interaction.guild;
+
+    if (!config.verification.enabled) {
+        await interaction.reply({
+            embeds: [errorEmbed('Верификация сейчас временно отключена администрацией.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return true;
+    }
+
+    const email = interaction.fields.getTextInputValue(EMAIL_INPUT_ID).trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        await interaction.reply({
+            embeds: [errorEmbed('Некорректный email. Нажми кнопку верификации и попробуй снова.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return true;
+    }
+
+    // Кулдаун — не чаще 1 письма в минуту на пользователя.
+    if (await emailCodes.isOnCooldown(interaction.user.id)) {
+        await interaction.reply({
+            embeds: [warningEmbed('Подожди минуту перед повторной отправкой кода.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return true;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const code = generateEmailCode();
+
+    try {
+        await emailCodes.upsertCode(interaction.user.id, email, code);
+        await sendVerificationCode(email, code, interaction.user.username, guild.name);
+    } catch (err) {
+        console.error('verification: не удалось отправить код:', err.message);
+        await emailCodes.deleteCode(interaction.user.id).catch(() => {});
+        await interaction.editReply({
+            embeds: [errorEmbed('Не удалось отправить письмо. Попробуй позже или напиши модерации.')],
+        });
+        return true;
+    }
+
+    const button = new ButtonBuilder()
+        .setCustomId(VERIFY_ENTER_CODE_BUTTON_ID)
+        .setLabel('Ввести код')
+        .setStyle(ButtonStyle.Success);
+
+    await interaction.editReply({
+        embeds: [
+            baseEmbed(COLORS.primary).setDescription(
+                formatBody('Код отправлен', `Проверь почту **${email}**. Код действует 10 минут.`)
+            ),
+        ],
+        components: [new ActionRowBuilder().addComponents(button)],
+    });
+    return true;
+}
+
+// Кнопка "Ввести код" на ответе после отправки письма — открывает модалку
+// для кода (не заставляем участника снова жать "Пройти верификацию").
+async function handleEnterCodeButton(interaction) {
+    await interaction.showModal(buildCodeModal());
+    return true;
+}
+
+// Обработчик модалки ввода кода из письма.
+async function handleCodeModal(interaction) {
+    const config = await load();
+    const guild = interaction.guild;
+    const member = interaction.member;
+
+    if (!config.verification.enabled) {
+        await interaction.reply({
+            embeds: [errorEmbed('Верификация сейчас временно отключена администрацией.')],
+            flags: MessageFlags.Ephemeral,
+        });
+        return true;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const row = await emailCodes.getCode(interaction.user.id);
+    if (!row) {
+        await interaction.editReply({
+            embeds: [errorEmbed('Код не найден. Нажми кнопку верификации и начни заново.')],
+        });
+        return true;
+    }
+
+    if (Date.now() > new Date(row.expires_at).getTime()) {
+        await emailCodes.deleteCode(interaction.user.id);
+        await interaction.editReply({
+            embeds: [errorEmbed('Код истёк. Нажми кнопку верификации и начни заново.')],
+        });
+        return true;
+    }
+
+    const input = interaction.fields.getTextInputValue(CODE_INPUT_ID).trim();
+    if (input !== row.code) {
+        const entry = await registerFailure(guild, member, config);
+        const message = entry.lockedUntil
+            ? `Неверный код. Слишком много неудачных попыток — новые попытки заблокированы на ${Math.round(config.verification.captchaLockoutMs / 60000)} мин.`
+            : `Неверный код. Осталось попыток: ${Math.max(0, config.verification.maxCaptchaAttempts - entry.count)}.`;
+        await interaction.editReply({ embeds: [errorEmbed(message)] });
+        return true;
+    }
+
+    clearFailures(interaction.user.id);
+    await emailCodes.deleteCode(interaction.user.id);
+
+    return applyVerifiedRoles(interaction, config, guild, member, { deferred: true });
+}
+
+// Общий финал для капчи и email: выдать verifiedRole, снять unverifiedRole,
+// выдать стартовую роль уровня и гендерную роль, залогировать и ответить.
+// deferred === true — interaction уже в состоянии deferReply (email-путь),
+// поэтому отвечаем через editReply; иначе (капча) — через reply.
+async function applyVerifiedRoles(interaction, config, guild, member, { deferred = false } = {}) {
     const unverifiedRole = config.verification.unverifiedRoleId
         ? guild.roles.cache.get(config.verification.unverifiedRoleId)
         : null;
@@ -341,15 +543,15 @@ async function handlePick(interaction) {
         ? guild.roles.cache.get(config.verification.verifiedRoleId)
         : null;
 
+    const reply = payload =>
+        deferred ? interaction.editReply(payload) : interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
+
     try {
         if (unverifiedRole) await member.roles.remove(unverifiedRole, 'Верификация пройдена');
         if (verifiedRole) await member.roles.add(verifiedRole, 'Верификация пройдена');
     } catch (err) {
         console.error('verification: не удалось выдать роли:', err.message);
-        await interaction.reply({
-            embeds: [errorEmbed('Не получилось выдать роль автоматически, обратись к администратору.')],
-            flags: MessageFlags.Ephemeral,
-        });
+        await reply({ embeds: [errorEmbed('Не получилось выдать роль автоматически, обратись к администратору.')] });
         return true;
     }
 
@@ -364,11 +566,11 @@ async function handlePick(interaction) {
         await member.roles.add(starterRoleId, 'Верификация пройдена').catch(() => {});
     }
 
-    // Пол уже выбран ДО капчи (см. startVerification/handleGenderPick) и
-    // ждал здесь в pendingGenderChoice — теперь, когда капча тоже пройдена,
-    // выдаём гендерную роль вместе с остальными. Best-effort, как и
-    // стартовая роль уровня выше: если роль не настроена/не найдена или
-    // Discord откажет в выдаче, это не должно ломать уже пройденную
+    // Пол уже выбран ДО проверки (см. startVerification/handleGenderPick) и
+    // ждал здесь в pendingGenderChoice — теперь, когда проверка тоже
+    // пройдена, выдаём гендерную роль вместе с остальными. Best-effort,
+    // как и стартовая роль уровня выше: если роль не настроена/не найдена
+    // или Discord откажет в выдаче, это не должно ломать уже пройденную
     // верификацию.
     cleanupExpiredGenderChoices();
     const genderChoice = pendingGenderChoice.get(interaction.user.id);
@@ -399,10 +601,7 @@ async function handlePick(interaction) {
         formatBody('Верификация пройдена', 'Добро пожаловать!')
     );
 
-    await interaction.reply({
-        embeds: [passedEmbed],
-        flags: MessageFlags.Ephemeral,
-    });
+    await reply({ embeds: [passedEmbed] });
     await log(
         guild,
         baseEmbed(COLORS.success)
@@ -412,24 +611,17 @@ async function handlePick(interaction) {
     return true;
 }
 
-// Шаг 2 (только если гендерные роли настроены): клик по ♂/♀ под сообщением
-// из startVerification — сам пол здесь ещё не выдаётся, только запоминается
-// в pendingGenderChoice до момента, когда участник также пройдёт капчу (см.
-// handlePick). Кнопки живут на том же ephemeral-сообщении — правим его на
-// месте через interaction.update(), сразу показывая капчу, а не плодим
-// новое сообщение.
-async function handleGenderPick(interaction) {
-    const picked = interaction.customId.slice(`${GENDER_PICK_PREFIX}:`.length);
-    cleanupExpiredGenderChoices();
-    pendingGenderChoice.set(interaction.user.id, { gender: picked, expiresAt: Date.now() + CHALLENGE_TTL_MS });
-    await presentCaptcha(interaction, 'update');
-    return true;
-}
-
 async function handleButton(interaction) {
     if (interaction.customId === VERIFY_BUTTON_ID) return startVerification(interaction);
+    if (interaction.customId === VERIFY_ENTER_CODE_BUTTON_ID) return handleEnterCodeButton(interaction);
     if (interaction.customId.startsWith(`${VERIFY_PICK_PREFIX}:`)) return handlePick(interaction);
     if (interaction.customId.startsWith(`${GENDER_PICK_PREFIX}:`)) return handleGenderPick(interaction);
+    return false;
+}
+
+async function handleModal(interaction) {
+    if (interaction.customId === VERIFY_EMAIL_MODAL_ID) return handleEmailModal(interaction);
+    if (interaction.customId === VERIFY_CODE_MODAL_ID) return handleCodeModal(interaction);
     return false;
 }
 
@@ -437,4 +629,4 @@ function register(client) {
     client.on('guildMemberAdd', member => handleJoin(member).catch(err => console.error('verification:', err)));
 }
 
-module.exports = { register, handleButton, VERIFY_BUTTON_ID };
+module.exports = { register, handleButton, handleModal, VERIFY_BUTTON_ID };

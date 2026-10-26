@@ -4,12 +4,10 @@ const adminPanel = require('../adminPanel');
 const security = require('../security');
 const { isBootstrap, ensureChannel, refreshPanel } = require('../utils/setupMode');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
 const CATEGORY_NAME = '🔐 Модерация';
 const CHANNEL_NAME = '🎛️│панель-администратора';
 
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
@@ -27,7 +25,7 @@ client.once('clientReady', async () => {
             console.error(
                 'Роль Admin не найдена в security-config (baseRoleIds.Admin) — прогони scripts/setup-roles.js раньше этого скрипта.'
             );
-            process.exit(1);
+            return false;
         }
 
         // Та же категория, что и security-log (security/logger.js) — поиск
@@ -41,7 +39,7 @@ client.once('clientReady', async () => {
                 permissionOverwrites: [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }],
             },
         });
-        if (!category) process.exit(0);
+        if (!category) return true;
 
         const overwrites = [
             { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -56,7 +54,7 @@ client.once('clientReady', async () => {
             parentId: category.id,
             createOptions: { permissionOverwrites: overwrites },
         });
-        if (!channel) process.exit(0);
+        if (!channel) return true;
         if (created) {
             console.log(`Создан канал: ${CHANNEL_NAME}`);
         } else {
@@ -84,11 +82,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово. Панель администратора настроена.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки панели администратора:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

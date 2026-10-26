@@ -1,0 +1,27 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.formActions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.notice {
+    margin: 0;
+    font-size: 13px;
+    color: var(--win);
+}
+
+.closedNotice {
+    margin: 20px 0 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13.5px;
+    color: var(--text-faint);
+}

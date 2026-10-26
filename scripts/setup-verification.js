@@ -26,9 +26,7 @@ function roleIcon(filename) {
     return fs.readFileSync(path.join(ICONS_DIR, filename));
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-client.once('clientReady', async () => {
+async function run(client) {
     try {
         const guild = await client.guilds.fetch(process.env.GUILD_ID);
         await guild.roles.fetch();
@@ -175,7 +173,7 @@ client.once('clientReady', async () => {
                 .setDescription(
                     formatBody(
                         'Добро пожаловать на сервер',
-                        'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже — появится картинка с кодом, выбери его среди кнопок под картинкой. Это займёт пару секунд.'
+                        'Прежде чем получить доступ ко всем каналам, подтверди, что ты не бот.\n\nНажми на кнопку ниже и следуй подсказкам — это займёт пару минут.'
                     )
                 )
                 .setThumbnail(guild.iconURL() ?? null)
@@ -213,11 +211,20 @@ client.once('clientReady', async () => {
         });
 
         console.log('Готово.');
-        process.exit(0);
+        return true;
     } catch (err) {
         console.error('Ошибка настройки верификации:', err);
-        process.exit(1);
+        return false;
     }
-});
+}
 
-client.login(process.env.DISCORD_TOKEN);
+module.exports = run;
+
+if (require.main === module) {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    client.once('clientReady', async () => {
+        const ok = await run(client);
+        process.exit(ok ? 0 : 1);
+    });
+    client.login(process.env.DISCORD_TOKEN);
+}

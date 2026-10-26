@@ -1,0 +1,16 @@
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sent {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+
+    strong {
+        color: var(--text);
+    }
+}
