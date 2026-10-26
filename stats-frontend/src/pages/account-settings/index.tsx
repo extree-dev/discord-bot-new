@@ -19,6 +19,7 @@ import { Select } from '../../shared/ui/Select';
 import styles from './index.module.scss';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { TextField } from '../../shared/ui/TextField';
+import { PasswordField } from '../../shared/ui/PasswordField';
 import { QRCodeSVG } from 'qrcode.react';
 
 export function AccountSettingsPage() {
@@ -34,6 +35,8 @@ export function AccountSettingsPage() {
     const [totpCode, setTotpCode] = useState('');
     const [totpPending, setTotpPending] = useState(false);
     const [totpError, setTotpError] = useState<string | null>(null);
+    const [setupPassword, setSetupPassword] = useState('');
+    const [setupPending, setSetupPending] = useState(false);
 
     useEffect(() => {
         getAccount().then(result => {
@@ -48,33 +51,44 @@ export function AccountSettingsPage() {
     }, [navigate]);
 
     async function handleSetup2fa() {
-        const pwd = prompt('Enter your password to set up 2FA:');
-        if (!pwd) return;
+        if (!setupPassword) return;
+        setSetupPending(true);
         setTotpError(null);
         try {
-            const r = await setup2fa(pwd);
+            const r = await setup2fa(setupPassword);
             setTotpSetup(r);
         } catch (e) {
             setTotpError(e instanceof Error ? e.message : 'Failed to start 2FA setup');
+            setSetupPassword('');
+        } finally {
+            setSetupPending(false);
         }
     }
 
     async function handleEnable2fa() {
         if (!totpCode.trim()) return;
-        const pwd = prompt('Confirm your password to enable 2FA:');
-        if (!pwd) return;
         setTotpPending(true);
         setTotpError(null);
         try {
-            await enable2fa(totpCode.trim(), pwd);
+            // Пароль уже введён и проверен на шаге "Set up 2FA" выше — не
+            // спрашиваем его второй раз.
+            await enable2fa(totpCode.trim(), setupPassword);
             setTotpSetup(null);
             setTotpCode('');
+            setSetupPassword('');
             alert('2FA enabled. Save your recovery codes!');
         } catch (e) {
             setTotpError(e instanceof Error ? e.message : 'Failed to enable 2FA');
         } finally {
             setTotpPending(false);
         }
+    }
+
+    function handleCancelSetup() {
+        setTotpSetup(null);
+        setTotpCode('');
+        setSetupPassword('');
+        setTotpError(null);
     }
 
     async function handleDisable2fa() {
@@ -314,13 +328,7 @@ export function AccountSettingsPage() {
                                             >
                                                 {totpPending ? 'Enabling…' : 'Enable 2FA'}
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    setTotpSetup(null);
-                                                    setTotpCode('');
-                                                }}
-                                            >
+                                            <Button variant="ghost" onClick={handleCancelSetup}>
                                                 Cancel
                                             </Button>
                                         </div>
@@ -347,9 +355,22 @@ export function AccountSettingsPage() {
                                                 <p className={styles.hintText}>
                                                     Add an extra layer of security to your account.
                                                 </p>
+                                                <div style={{ marginTop: 12, maxWidth: 320 }}>
+                                                    <PasswordField
+                                                        id="setup-2fa-password"
+                                                        label="Confirm your password"
+                                                        autoComplete="current-password"
+                                                        value={setupPassword}
+                                                        onChange={setSetupPassword}
+                                                    />
+                                                </div>
                                                 <div style={{ marginTop: 12 }}>
-                                                    <Button variant="flat" onClick={handleSetup2fa}>
-                                                        Set up 2FA
+                                                    <Button
+                                                        variant="flat"
+                                                        onClick={handleSetup2fa}
+                                                        disabled={setupPending || !setupPassword}
+                                                    >
+                                                        {setupPending ? 'Starting…' : 'Set up 2FA'}
                                                     </Button>
                                                 </div>
                                             </>
