@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { uploadAvatar } from '../../../shared/api/statsAuth';
+import { uploadAvatar, ApiError } from '../../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
 interface ProfileAvatarProps {
@@ -25,9 +25,8 @@ export function ProfileAvatar({ currentUrl, email, onUploaded }: ProfileAvatarPr
         try {
             const { avatarUrl } = await uploadAvatar(file);
             onUploaded(avatarUrl);
-        } catch {
-            // ИСПРАВЛЕНО: убрана переменная err, чтобы ESLint не ругался
-            alert('Не удалось загрузить аватар');
+        } catch (err) {
+            alert(err instanceof ApiError ? err.message : 'Не удалось загрузить аватар');
         } finally {
             setLoading(false);
         }

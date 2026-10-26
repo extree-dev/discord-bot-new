@@ -33,6 +33,15 @@ spring:
                     connectiontimeout: 5000
                     timeout: 5000
                     writetimeout: 5000
+    servlet:
+        multipart:
+            # Default is 1MB — below what AvatarService/the frontend actually
+            # allow (2MB), so uploads bigger than 1MB (most real phone photos)
+            # were rejected at the multipart parser before the controller ever
+            # ran (see GlobalExceptionHandler for the resulting response). Set
+            # a bit above the frontend's 2MB check for multipart overhead.
+            max-file-size: 3MB
+            max-request-size: 3MB
 
 server:
     port: ${STATS_BACKEND_JAVA_PORT:8081}

@@ -102,6 +102,14 @@ services:
             SPRING_MAIL_USERNAME: ${STATS_MAIL_USER:?STATS_MAIL_USER is required}
             SPRING_MAIL_PASSWORD: ${STATS_MAIL_APP_PASSWORD:?STATS_MAIL_APP_PASSWORD is required}
             EXTREE_MAIL_FROM: ${STATS_MAIL_FROM:-}
+        volumes:
+            # AvatarService пишет в ./uploads/avatars относительно рабочей
+            # директории (WORKDIR /app, см. stats-backend-java/Dockerfile) —
+            # без volume это обычный слой контейнера: каждый `docker compose
+            # up -d --build` на деплое (.github/workflows/deploy.yml, при
+            # каждом push в main) пересоздаёт контейнер и стирает все
+            # загруженные аватары, хотя сама загрузка отработала успешно.
+            - stats-avatars:/app/uploads/avatars
         # Порт НЕ публикуется на хост: Caddy достаёт сервис по имени через
         # внутреннюю docker-сеть (reverse_proxy stats-backend-java:8081 в
         # web/Caddyfile). Публикация 8081:8081 позволяла обратиться к бэкенду
@@ -137,3 +145,4 @@ volumes:
     bot-data:
     caddy_data:
     caddy_config:
+    stats-avatars:
