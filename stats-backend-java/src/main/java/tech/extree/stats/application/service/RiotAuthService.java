@@ -10,15 +10,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.port.in.RiotAuthUseCase;
 import tech.extree.stats.application.port.out.RiotOAuth;
-import tech.extree.stats.application.port.out.SessionCodec;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.application.port.out.SessionRepository;
 
 /**
  * Соответствует /auth/riot/login и /auth/riot/callback в server.js (Node),
  * включая "не настроено → редирект с ошибкой, а не поход в Riot с пустым
  * client_id" и генерацию state (16 случайных байт в hex). Сессия —
  * та же extree_stats_session, что и у email+пароль-входа; в сессии
- * сохраняется sub (Riot identity), а не userId, — как и Node.
+ * сохраняется sub (Riot identity), а не userId, — как и Node. RSO-вход не
+ * привязан ни к одному аккаунту stats_users, поэтому в "Recent Sign-ins"
+ * не попадает (см. LoginEventController) — отзывать там нечего, revoke
+ * доступен только через logout текущего устройства.
  */
 @Service
 public class RiotAuthService implements RiotAuthUseCase {
@@ -26,17 +28,17 @@ public class RiotAuthService implements RiotAuthUseCase {
     private static final Logger log = LoggerFactory.getLogger(RiotAuthService.class);
 
     private final RiotOAuth riotOAuth;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final String clientId;
     private final String clientSecret;
 
     public RiotAuthService(
             RiotOAuth riotOAuth,
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             @Value("${extree.riot.client-id:}") String clientId,
             @Value("${extree.riot.client-secret:}") String clientSecret) {
         this.riotOAuth = riotOAuth;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.clientId = clientId == null ? "" : clientId.trim();
         this.clientSecret = clientSecret == null ? "" : clientSecret.trim();
     }
@@ -50,7 +52,8 @@ public class RiotAuthService implements RiotAuthUseCase {
     }
 
     @Override
-    public CallbackResult handleCallback(String requestHost, String code, String state, String expectedState) {
+    public CallbackResult handleCallback(
+            String requestHost, String code, String state, String expectedState, String clientIp, String userAgent) {
         // Те же проверки, что в Node: Riot не настроен / нет code / нет state /
         // state не совпадает с cookie — не поход в Riot, а честный редирект с
         // ошибкой. Порядок важен: если clientId/secret пусты, мы даже не должны
@@ -67,8 +70,9 @@ public class RiotAuthService implements RiotAuthUseCase {
             RiotOAuth.RiotTokens tokens =
                     riotOAuth.exchangeCode(clientId, clientSecret, redirectUriFor(requestHost), code);
             RiotOAuth.RiotIdentity identity = riotOAuth.fetchIdentity(tokens.accessToken());
-            String cookie = sessionCodec.encrypt(new Session(identity.sub(), null, System.currentTimeMillis()));
-            return new CallbackResult(true, cookie);
+            SessionRepository.Created session =
+                    sessionRepository.create(identity.sub(), null, clientIp, userAgent, true);
+            return new CallbackResult(true, session.token());
         } catch (RuntimeException e) {
             // Как и в Node: сетевые/протокольные ошибки Riot не роняют процесс,
             // а логируются — пользователь получает /?auth_error=1.

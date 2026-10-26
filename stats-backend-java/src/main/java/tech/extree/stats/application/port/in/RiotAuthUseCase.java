@@ -18,10 +18,12 @@ public interface RiotAuthUseCase {
 
     /**
      * Обрабатывает /auth/riot/callback: сверяет state, обменивает код,
-     * достаёт sub из /userinfo и шифрует сессию тем же SessionCodec, что
-     * и остальные способы входа (формат cookie — та же extree_stats_session).
+     * достаёт sub из /userinfo и заводит серверную сессию (тем же
+     * SessionRepository, что и остальные способы входа — формат cookie
+     * та же extree_stats_session).
      */
-    CallbackResult handleCallback(String requestHost, String code, String state, String expectedState);
+    CallbackResult handleCallback(
+            String requestHost, String code, String state, String expectedState, String clientIp, String userAgent);
 
     record CallbackResult(boolean ok, String sessionCookie) {
         public static CallbackResult error() {

@@ -44,5 +44,5 @@ public interface RegistrationUseCase {
 
     ResendOutcome resendCode(String email);
 
-    VerifyResult verify(String email, String code);
+    VerifyResult verify(String email, String code, String clientIp, String userAgent);
 }

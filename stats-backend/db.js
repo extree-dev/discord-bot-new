@@ -143,7 +143,35 @@ function ensureSchema() {
                     title TEXT NOT NULL,
                     body TEXT NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-                )`
+                );
+                -- Реальные серверные сессии (замена полностью stateless cookie):
+                -- cookie теперь несёт только непрозрачный случайный токен, id
+                -- здесь — его SHA-256 (hex), не сам токен, точно так же как
+                -- stats_password_resets не хранит пароль. sub/user_id — то же
+                -- разделение RSO-входа (Riot) и email-аккаунта, что раньше жило
+                -- только внутри самой шифрованной cookie (ClientIp/RiotAuthService):
+                -- ровно одно из двух заполнено. expires_at проверяется при каждом
+                -- запросе — раньше (просто расшифровка AES-GCM) срок действия
+                -- вообще никак не ограничивался, пока не менялся сам секрет.
+                CREATE TABLE IF NOT EXISTS stats_sessions (
+                    id TEXT PRIMARY KEY,
+                    sub TEXT,
+                    user_id TEXT REFERENCES stats_users(id) ON DELETE CASCADE,
+                    ip TEXT,
+                    user_agent TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    revoked_at TIMESTAMPTZ
+                );
+                CREATE INDEX IF NOT EXISTS stats_sessions_user_idx ON stats_sessions (user_id);
+                -- Связывает запись в истории входов ("Recent sign-ins") с
+                -- конкретной серверной сессией — без этого кнопка "Remove" на
+                -- фронте могла только чистить историю, не отзывая сам токен
+                -- устройства (см. LoginEventController, Java). NULL — для
+                -- входов, у которых история записана раньше этой колонки, или
+                -- для RSO-входов без аккаунта (туда история вообще не пишется).
+                ALTER TABLE stats_login_events ADD COLUMN IF NOT EXISTS session_id TEXT REFERENCES stats_sessions(id) ON DELETE SET NULL`
             )
             .catch(err => {
                 // Гонка двух процессов на свежей БД (см. utils/db.js) — не

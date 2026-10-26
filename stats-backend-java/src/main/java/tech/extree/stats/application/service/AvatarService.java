@@ -15,9 +15,9 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 
 @Service
 public class AvatarService {
@@ -30,12 +30,12 @@ public class AvatarService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp");
 
     private final UserRepository userRepository;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final Path rootLocation = Paths.get("uploads/avatars");
 
-    public AvatarService(UserRepository userRepository, SessionCodec sessionCodec) {
+    public AvatarService(UserRepository userRepository, SessionRepository sessionRepository) {
         this.userRepository = userRepository;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         try {
             Files.createDirectories(rootLocation); // Создаем папку при старте
         } catch (IOException e) {
@@ -45,7 +45,7 @@ public class AvatarService {
 
     public Optional<String> uploadAvatar(String cookieValue, MultipartFile file) {
         if (cookieValue == null) return Optional.empty();
-        Optional<Session> session = sessionCodec.decrypt(cookieValue);
+        Optional<LoginSession> session = sessionRepository.validate(cookieValue);
         if (session.isEmpty() || session.get().userId() == null) return Optional.empty();
 
         if (file.isEmpty()) return Optional.empty();

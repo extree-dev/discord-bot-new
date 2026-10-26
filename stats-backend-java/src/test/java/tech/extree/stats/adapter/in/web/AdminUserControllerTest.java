@@ -14,15 +14,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 class AdminUserControllerTest {
 
     private UserRepository userRepository;
-    private SessionCodec sessionCodec;
+    private SessionRepository sessionRepository;
     private AdminAuditRepository auditRepository;
     private AdminUserController controller;
     private HttpServletRequest httpRequest;
@@ -37,12 +37,12 @@ class AdminUserControllerTest {
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
-        sessionCodec = mock(SessionCodec.class);
+        sessionRepository = mock(SessionRepository.class);
         auditRepository = mock(AdminAuditRepository.class);
         httpRequest = mock(HttpServletRequest.class);
-        controller = new AdminUserController(userRepository, sessionCodec, auditRepository);
+        controller = new AdminUserController(userRepository, sessionRepository, auditRepository);
 
-        when(sessionCodec.decrypt("admin-cookie")).thenReturn(Optional.of(new Session(null, "admin-id", 0L)));
+        when(sessionRepository.validate("admin-cookie")).thenReturn(Optional.of(new LoginSession("session-id", null, "admin-id", 0L)));
         when(userRepository.findById("admin-id")).thenReturn(Optional.of(admin));
     }
 

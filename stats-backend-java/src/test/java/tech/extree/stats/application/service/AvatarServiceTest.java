@@ -15,19 +15,19 @@ import java.util.Optional;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 
 class AvatarServiceTest {
 
     @Test
     void uploadAvatarReEncodesInsteadOfWritingRawBytesStrippingTrailingMetadata() throws IOException {
         UserRepository userRepository = mock(UserRepository.class);
-        SessionCodec sessionCodec = mock(SessionCodec.class);
-        when(sessionCodec.decrypt("cookie")).thenReturn(Optional.of(new Session(null, "user-id", 0L)));
+        SessionRepository sessionRepository = mock(SessionRepository.class);
+        when(sessionRepository.validate("cookie")).thenReturn(Optional.of(new LoginSession("session-id", null, "user-id", 0L)));
 
-        AvatarService service = new AvatarService(userRepository, sessionCodec);
+        AvatarService service = new AvatarService(userRepository, sessionRepository);
 
         // Настоящий PNG 4x4 + "хвост" после конца изображения — то место,
         // где в реальном файле может лежать EXIF/прочие метаданные, которые

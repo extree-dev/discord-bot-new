@@ -12,11 +12,11 @@ import tech.extree.stats.application.port.in.SupportTicketUseCase.ReplyView;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.CannedResponseRepository;
 import tech.extree.stats.application.port.out.Mailer;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.SupportTicketRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.CannedResponse;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.User;
 
@@ -26,7 +26,7 @@ public class AdminTicketService implements AdminTicketUseCase {
     private static final Logger log = LoggerFactory.getLogger(AdminTicketService.class);
     private static final List<String> TICKET_STATUSES = List.of("open", "in_progress", "closed");
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final SupportAdminEmails supportAdminEmails;
     private final SupportTicketRepository supportTicketRepository;
@@ -35,13 +35,13 @@ public class AdminTicketService implements AdminTicketUseCase {
     private final AdminAuditRepository auditRepository;
 
     public AdminTicketService(
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             UserRepository userRepository,
             SupportAdminEmails supportAdminEmails,
             SupportTicketRepository supportTicketRepository,
             CannedResponseRepository cannedResponseRepository,
             Mailer mailer, AdminAuditRepository auditRepository) {
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.supportAdminEmails = supportAdminEmails;
         this.supportTicketRepository = supportTicketRepository;
@@ -239,7 +239,7 @@ public class AdminTicketService implements AdminTicketUseCase {
         if (cookieValue == null) {
             return new AdminAccess(false, null);
         }
-        Optional<Session> session = sessionCodec.decrypt(cookieValue).filter(s -> s.userId() != null);
+        Optional<LoginSession> session = sessionRepository.validate(cookieValue).filter(s -> s.userId() != null);
         if (session.isEmpty()) {
             return new AdminAccess(false, null);
         }

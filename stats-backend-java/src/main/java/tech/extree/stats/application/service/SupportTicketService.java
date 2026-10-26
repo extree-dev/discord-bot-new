@@ -9,10 +9,10 @@ import tech.extree.stats.application.UtcTime;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.SupportTicketUseCase;
 import tech.extree.stats.application.port.out.Mailer;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.SupportTicketRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.TicketReply;
 import tech.extree.stats.domain.User;
@@ -26,14 +26,14 @@ public class SupportTicketService implements SupportTicketUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(SupportTicketService.class);
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final Mailer mailer;
 
     public SupportTicketService(
-            SessionCodec sessionCodec, UserRepository userRepository, SupportTicketRepository supportTicketRepository, Mailer mailer) {
-        this.sessionCodec = sessionCodec;
+            SessionRepository sessionRepository, UserRepository userRepository, SupportTicketRepository supportTicketRepository, Mailer mailer) {
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.supportTicketRepository = supportTicketRepository;
         this.mailer = mailer;
@@ -168,10 +168,10 @@ public class SupportTicketService implements SupportTicketUseCase {
         return resolveSession(cookieValue).isPresent();
     }
 
-    private Optional<Session> resolveSession(String cookieValue) {
+    private Optional<LoginSession> resolveSession(String cookieValue) {
         if (cookieValue == null) {
             return Optional.empty();
         }
-        return sessionCodec.decrypt(cookieValue).filter(s -> s.userId() != null);
+        return sessionRepository.validate(cookieValue).filter(s -> s.userId() != null);
     }
 }

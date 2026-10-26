@@ -18,11 +18,11 @@ import tech.extree.stats.application.port.out.GeoLookup;
 import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.EmailChangeCode;
 import tech.extree.stats.domain.Location;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 class AccountSettingsServiceTest {
@@ -40,7 +40,7 @@ class AccountSettingsServiceTest {
 
     @BeforeEach
     void setUp() {
-        SessionCodec sessionCodec = mock(SessionCodec.class);
+        SessionRepository sessionRepository = mock(SessionRepository.class);
         userRepository = mock(UserRepository.class);
         passwordHasher = mock(PasswordHasher.class);
         emailChangeCodeRepository = mock(EmailChangeCodeRepository.class);
@@ -48,12 +48,12 @@ class AccountSettingsServiceTest {
         geoLookup = mock(GeoLookup.class);
         mailer = mock(Mailer.class);
 
-        when(sessionCodec.decrypt("cookie")).thenReturn(Optional.of(new Session(null, "user-id", 0)));
+        when(sessionRepository.validate("cookie")).thenReturn(Optional.of(new LoginSession("session-id", null, "user-id", 0)));
         when(userRepository.findById("user-id")).thenReturn(Optional.of(user));
         when(geoLookup.lookup(anyString())).thenReturn(Location.UNKNOWN);
 
         service = new AccountSettingsService(
-                sessionCodec, userRepository, passwordHasher, emailChangeCodeRepository,
+                sessionRepository, userRepository, passwordHasher, emailChangeCodeRepository,
                 loginEventRepository, geoLookup, mailer);
     }
 

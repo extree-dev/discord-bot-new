@@ -72,5 +72,5 @@ public interface LoginUseCase {
     ConfirmLocationResult confirmLocation(String email, String code, String userAgent);
 
     /** Второй шаг 2FA: pre2faToken из cookie + totpCode. */
-    Verify2faResult verify2fa(String pre2faToken, String totpCode);
+    Verify2faResult verify2fa(String pre2faToken, String totpCode, String clientIp, String userAgent);
 }

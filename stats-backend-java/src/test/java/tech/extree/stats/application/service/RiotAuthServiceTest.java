@@ -2,6 +2,7 @@ package tech.extree.stats.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -16,7 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tech.extree.stats.application.port.in.RiotAuthUseCase;
 import tech.extree.stats.application.port.out.RiotOAuth;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 
 @ExtendWith(MockitoExtension.class)
 class RiotAuthServiceTest {
@@ -27,18 +28,18 @@ class RiotAuthServiceTest {
     private static final String REDIRECT_URI = "https://stats.extree.tech/auth/riot/callback";
 
     @Mock private RiotOAuth riotOAuth;
-    @Mock private SessionCodec sessionCodec;
+    @Mock private SessionRepository sessionRepository;
 
     private RiotAuthService service;
 
     @BeforeEach
     void setUp() {
-        service = new RiotAuthService(riotOAuth, sessionCodec, CLIENT_ID, CLIENT_SECRET);
+        service = new RiotAuthService(riotOAuth, sessionRepository, CLIENT_ID, CLIENT_SECRET);
     }
 
     @Test
     void buildLoginRedirectReturnsNullWhenClientIdIsEmpty() {
-        RiotAuthService withoutClient = new RiotAuthService(riotOAuth, sessionCodec, "", CLIENT_SECRET);
+        RiotAuthService withoutClient = new RiotAuthService(riotOAuth, sessionRepository, "", CLIENT_SECRET);
         assertThat(withoutClient.buildLoginRedirect(HOST, "state123")).isNull();
         verify(riotOAuth, never()).buildAuthorizeUrl(any(), any(), any());
     }
@@ -53,22 +54,22 @@ class RiotAuthServiceTest {
 
     @Test
     void callbackRejectsWhenClientIdOrSecretEmpty() {
-        RiotAuthService withoutSecret = new RiotAuthService(riotOAuth, sessionCodec, CLIENT_ID, "");
-        RiotAuthUseCase.CallbackResult result = withoutSecret.handleCallback(HOST, "code", "state", "state");
+        RiotAuthService withoutSecret = new RiotAuthService(riotOAuth, sessionRepository, CLIENT_ID, "");
+        RiotAuthUseCase.CallbackResult result = withoutSecret.handleCallback(HOST, "code", "state", "state", "ip", "ua");
         assertThat(result.ok()).isFalse();
         verify(riotOAuth, never()).exchangeCode(any(), any(), any(), any());
     }
 
     @Test
     void callbackRejectsWhenStateMismatches() {
-        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "attacker", "expected");
+        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "attacker", "expected", "ip", "ua");
         assertThat(result.ok()).isFalse();
         verify(riotOAuth, never()).exchangeCode(any(), any(), any(), any());
     }
 
     @Test
     void callbackRejectsWhenCodeIsMissing() {
-        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, null, "state", "state");
+        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, null, "state", "state", "ip", "ua");
         assertThat(result.ok()).isFalse();
         verify(riotOAuth, never()).exchangeCode(any(), any(), any(), any());
     }
@@ -78,22 +79,23 @@ class RiotAuthServiceTest {
         when(riotOAuth.exchangeCode(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, "the-code"))
                 .thenReturn(new RiotOAuth.RiotTokens("access-token"));
         when(riotOAuth.fetchIdentity("access-token")).thenReturn(new RiotOAuth.RiotIdentity("riot-sub-1"));
-        when(sessionCodec.encrypt(any())).thenReturn("encrypted-cookie");
+        when(sessionRepository.create(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new SessionRepository.Created("encrypted-cookie", "session-id"));
 
-        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "the-code", "state", "state");
+        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "the-code", "state", "state", "ip", "ua");
 
         assertThat(result.ok()).isTrue();
         assertThat(result.sessionCookie()).isEqualTo("encrypted-cookie");
-        verify(sessionCodec).encrypt(any());
+        verify(sessionRepository).create(any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
     void callbackSurvivesAdapterException() {
         when(riotOAuth.exchangeCode(any(), any(), any(), any())).thenThrow(new RuntimeException("network down"));
 
-        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "state", "state");
+        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "state", "state", "ip", "ua");
         assertThat(result.ok()).isFalse();
-        verify(sessionCodec, never()).encrypt(any());
+        verify(sessionRepository, never()).create(any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -101,7 +103,7 @@ class RiotAuthServiceTest {
         when(riotOAuth.exchangeCode(any(), any(), any(), any())).thenReturn(new RiotOAuth.RiotTokens("tok"));
         when(riotOAuth.fetchIdentity("tok")).thenThrow(new RuntimeException("userinfo down"));
 
-        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "state", "state");
+        RiotAuthUseCase.CallbackResult result = service.handleCallback(HOST, "code", "state", "state", "ip", "ua");
         assertThat(result.ok()).isFalse();
     }
 

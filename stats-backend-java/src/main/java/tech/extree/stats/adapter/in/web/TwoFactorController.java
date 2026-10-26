@@ -12,10 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.application.service.TotpService;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 /**
@@ -26,17 +26,17 @@ import tech.extree.stats.domain.User;
 @RestController
 public class TwoFactorController {
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final TotpService totpService;
     private final PasswordHasher passwordHasher;
 
     public TwoFactorController(
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             UserRepository userRepository,
             TotpService totpService,
             PasswordHasher passwordHasher) {
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.totpService = totpService;
         this.passwordHasher = passwordHasher;
@@ -44,7 +44,7 @@ public class TwoFactorController {
 
     private Optional<User> currentUser(String cookie) {
         if (cookie == null) return Optional.empty();
-        Optional<Session> session = sessionCodec.decrypt(cookie).filter(s -> s.userId() != null);
+        Optional<LoginSession> session = sessionRepository.validate(cookie).filter(s -> s.userId() != null);
         if (session.isEmpty()) return Optional.empty();
         return userRepository.findById(session.get().userId());
     }

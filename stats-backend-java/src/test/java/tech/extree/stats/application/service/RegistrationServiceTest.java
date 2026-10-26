@@ -16,7 +16,7 @@ import tech.extree.stats.application.port.in.RegistrationUseCase;
 import tech.extree.stats.application.port.out.EmailCodeRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.EmailCode;
 import tech.extree.stats.domain.NicknameTakenException;
@@ -29,7 +29,7 @@ class RegistrationServiceTest {
     private PasswordHasher passwordHasher;
     private Mailer mailer;
     private PasswordPolicyService passwordPolicy;
-    private SessionCodec sessionCodec;
+    private SessionRepository sessionRepository;
     private RegistrationService service;
 
     private final User user = new User(
@@ -42,16 +42,17 @@ class RegistrationServiceTest {
         passwordHasher = mock(PasswordHasher.class);
         mailer = mock(Mailer.class);
         passwordPolicy = mock(PasswordPolicyService.class);
-        sessionCodec = mock(SessionCodec.class);
+        sessionRepository = mock(SessionRepository.class);
 
         when(passwordHasher.hash("password1")).thenReturn("hashed");
-        when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        when(sessionRepository.create(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenReturn(new SessionRepository.Created("cookie", "session-id"));
         // Политика паролей — разрешаем всё (в тестах не про неё)
         when(passwordPolicy.validate(anyString(), any(), any(), any())).thenReturn(PasswordPolicyService.Result.ok());
 
         service = new RegistrationService(
                 userRepository, emailCodeRepository, passwordHasher,
-                mailer, passwordPolicy, sessionCodec);
+                mailer, passwordPolicy, sessionRepository);
     }
 
     @Test
@@ -90,7 +91,7 @@ class RegistrationServiceTest {
         EmailCode pending = new EmailCode("123456", 0, Instant.now().plusSeconds(600), Instant.now());
         when(emailCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(pending));
 
-        var result = service.verify("test@test.com", "000000");
+        var result = service.verify("test@test.com", "000000", "ip", "ua");
         assertEquals(RegistrationUseCase.VerifyOutcome.WRONG_CODE, result.outcome());
         verify(emailCodeRepository).registerFailedAttempt("test@test.com");
     }
@@ -101,7 +102,7 @@ class RegistrationServiceTest {
         when(emailCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(pending));
         when(userRepository.markEmailVerified("test@test.com")).thenReturn(Optional.of(user));
 
-        var result = service.verify("test@test.com", "123456");
+        var result = service.verify("test@test.com", "123456", "ip", "ua");
         assertEquals(RegistrationUseCase.VerifyOutcome.OK, result.outcome());
         assertEquals("cookie", result.sessionCookie());
         verify(emailCodeRepository).deleteCode("test@test.com");

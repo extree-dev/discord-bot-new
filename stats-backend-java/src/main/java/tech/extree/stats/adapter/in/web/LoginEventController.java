@@ -14,35 +14,35 @@ import org.springframework.web.bind.annotation.RestController;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.application.port.out.LoginEventRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.application.service.UserAgentParser;
 import tech.extree.stats.domain.LoginEvent;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 /**
  * /api/account/login-history — список последних входов (для вкладки Recent Sign-ins).
- * /api/account/logout-session/{id} — удалить ОДНУ ЗАПИСЬ из истории входов.
- * Важно: сессии в проекте полностью stateless (зашифрованная cookie без
- * серверного реестра токенов) — этот эндпоинт НЕ отзывает сам токен,
- * только чистит историю. Реальный токен устройства остаётся рабочим до
- * истечения Max-Age независимо от вызова. Путь оставлен как есть (не
- * публичный контракт за пределами фронта этого же проекта), но название
- * сохранено, чтобы не путать с настоящим logout — см. комментарий в
- * shared/api/statsAuth.ts (removeLoginHistoryEntry) на фронте.
+ * /api/account/logout-session/{id} — удалить ОДНУ ЗАПИСЬ из истории входов
+ * И отозвать привязанную к ней сессию (см. SessionRepository) — раньше
+ * (чисто stateless cookie, без серверного реестра токенов) это было
+ * невозможно, кнопка только чистила историю, реальный токен устройства
+ * оставался рабочим до истечения Max-Age. Записи старше этой функции
+ * (session_id = NULL) по-прежнему просто удаляются из истории — отзывать
+ * у них нечего.
  */
 @RestController
 public class LoginEventController {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_INSTANT;
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final LoginEventRepository loginEventRepository;
 
-    public LoginEventController(SessionCodec sessionCodec, UserRepository userRepository, LoginEventRepository loginEventRepository) {
-        this.sessionCodec = sessionCodec;
+    public LoginEventController(
+            SessionRepository sessionRepository, UserRepository userRepository, LoginEventRepository loginEventRepository) {
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.loginEventRepository = loginEventRepository;
     }
@@ -71,13 +71,16 @@ public class LoginEventController {
             @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
         Optional<User> user = currentUser(cookie);
         if (user.isEmpty()) return status(HttpStatus.UNAUTHORIZED, "unauthorized");
+        // Сначала узнаём session_id (если есть) — пока сама запись истории
+        // ещё не удалена, иначе отзывать уже будет нечего смотреть.
+        loginEventRepository.findSessionId(user.get().id(), id).ifPresent(sessionId -> sessionRepository.revokeById(user.get().id(), sessionId));
         boolean ok = loginEventRepository.deleteById(user.get().id(), id);
         return ok ? ResponseEntity.ok(OkResponse.OK) : status(HttpStatus.NOT_FOUND, "session_not_found");
     }
 
     private Optional<User> currentUser(String cookie) {
         if (cookie == null) return Optional.empty();
-        Optional<Session> s = sessionCodec.decrypt(cookie);
+        Optional<LoginSession> s = sessionRepository.validate(cookie);
         if (s.isEmpty() || s.get().userId() == null) return Optional.empty();
         return userRepository.findById(s.get().userId());
     }

@@ -11,25 +11,25 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.AdminAuditEntry;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 /** GET /api/admin/audit — список действий админов (только для админов). */
 @RestController
 public class AdminAuditController {
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final AdminAuditRepository auditRepository;
 
     public AdminAuditController(
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             UserRepository userRepository,
             AdminAuditRepository auditRepository) {
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.auditRepository = auditRepository;
     }
@@ -50,7 +50,7 @@ public class AdminAuditController {
 
     private Optional<User> resolveAdmin(String cookie) {
         if (cookie == null) return Optional.empty();
-        Optional<Session> s = sessionCodec.decrypt(cookie);
+        Optional<LoginSession> s = sessionRepository.validate(cookie);
         if (s.isEmpty() || s.get().userId() == null) return Optional.empty();
         return userRepository.findById(s.get().userId());
     }

@@ -7,9 +7,9 @@ import tech.extree.stats.adapter.in.web.dto.AdminUserResponse;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 import java.util.List;
@@ -19,18 +19,18 @@ import java.util.Optional;
 public class AdminUserController {
 
     private final UserRepository userRepository;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final AdminAuditRepository auditRepository;
 
-    public AdminUserController(UserRepository userRepository, SessionCodec sessionCodec, AdminAuditRepository auditRepository) {
+    public AdminUserController(UserRepository userRepository, SessionRepository sessionRepository, AdminAuditRepository auditRepository) {
         this.userRepository = userRepository;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.auditRepository = auditRepository;
     }
 
     private boolean isAdmin(String cookie) {
         if (cookie == null) return false;
-        Optional<Session> session = sessionCodec.decrypt(cookie);
+        Optional<LoginSession> session = sessionRepository.validate(cookie);
         if (session.isEmpty() || session.get().userId() == null) return false;
         return userRepository.findById(session.get().userId())
                 .map(User::isAdmin)
@@ -114,7 +114,7 @@ public class AdminUserController {
 
     private String currentAdminId(String cookie) {
         if (cookie == null) return null;
-        return sessionCodec.decrypt(cookie)
+        return sessionRepository.validate(cookie)
                 .filter(s -> s.userId() != null)
                 .map(s -> s.userId())
                 .orElse(null);

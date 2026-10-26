@@ -1,5 +1,6 @@
 package tech.extree.stats.adapter.in.web;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -61,8 +62,10 @@ public class RiotAuthController {
     public ResponseEntity<Void> callback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
-            @CookieValue(name = STATE_COOKIE, required = false) String expectedState) {
-        RiotAuthUseCase.CallbackResult result = riotAuthUseCase.handleCallback(publicHost, code, state, expectedState);
+            @CookieValue(name = STATE_COOKIE, required = false) String expectedState,
+            HttpServletRequest httpRequest) {
+        RiotAuthUseCase.CallbackResult result = riotAuthUseCase.handleCallback(
+                publicHost, code, state, expectedState, ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
         if (!result.ok()) {
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.clearState(STATE_COOKIE).toString())

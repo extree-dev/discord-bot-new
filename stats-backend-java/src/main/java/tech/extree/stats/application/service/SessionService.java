@@ -3,23 +3,23 @@ package tech.extree.stats.application.service;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.port.in.GetSessionUseCase;
-import tech.extree.stats.application.port.out.SessionCodec;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.application.port.out.SessionRepository;
+import tech.extree.stats.domain.LoginSession;
 
 @Service
 public class SessionService implements GetSessionUseCase {
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
 
-    public SessionService(SessionCodec sessionCodec) {
-        this.sessionCodec = sessionCodec;
+    public SessionService(SessionRepository sessionRepository) {
+        this.sessionRepository = sessionRepository;
     }
 
     @Override
-    public Optional<Session> getSession(String cookieValue) {
+    public Optional<LoginSession> getSession(String cookieValue) {
         if (cookieValue == null) {
             return Optional.empty();
         }
-        return sessionCodec.decrypt(cookieValue);
+        return sessionRepository.validate(cookieValue);
     }
 }

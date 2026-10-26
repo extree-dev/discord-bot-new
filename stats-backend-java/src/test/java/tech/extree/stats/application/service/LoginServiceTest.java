@@ -2,6 +2,7 @@ package tech.extree.stats.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -20,7 +21,7 @@ import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.LoginLocationRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.TurnstileVerifier;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Location;
@@ -37,7 +38,7 @@ class LoginServiceTest {
     private LoginCodeRepository loginCodeRepository;
     private LoginAttemptRepository loginAttemptRepository;
     private Mailer mailer;
-    private SessionCodec sessionCodec;
+    private SessionRepository sessionRepository;
     private TotpService totpService;
     private Pre2faService pre2faService;
     private LoginService service;
@@ -56,13 +57,14 @@ class LoginServiceTest {
         loginCodeRepository = mock(LoginCodeRepository.class);
         loginAttemptRepository = mock(LoginAttemptRepository.class);
         mailer = mock(Mailer.class);
-        sessionCodec = mock(SessionCodec.class);
+        sessionRepository = mock(SessionRepository.class);
         totpService = mock(TotpService.class);
         pre2faService = mock(Pre2faService.class);
 
         when(turnstileVerifier.verify("token", "ip")).thenReturn(true);
         when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
-        when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        when(sessionRepository.create(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new SessionRepository.Created("cookie", "session-id"));
         when(loginAttemptRepository.countFailuresSince(anyString(), any())).thenReturn(0);
         // 2FA выключена по умолчанию — большинство тестов не про неё
         when(totpService.isEnabled(anyString())).thenReturn(false);
@@ -70,7 +72,7 @@ class LoginServiceTest {
         service = new LoginService(
                 userRepository, passwordHasher, turnstileVerifier, geoLookup,
                 loginLocationRepository, loginEventRepository, loginCodeRepository,
-                loginAttemptRepository, mailer, sessionCodec, totpService, pre2faService);
+                loginAttemptRepository, mailer, sessionRepository, totpService, pre2faService);
     }
 
     @Test
@@ -109,7 +111,7 @@ class LoginServiceTest {
         var result = service.login("test@test.com", "pass", "token", "ip", "ua", true);
         assertEquals(LoginUseCase.LoginOutcome.OK, result.outcome());
         assertEquals("cookie", result.sessionCookie());
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua");
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua", "session-id");
         verify(mailer).sendSignInNotification(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 }

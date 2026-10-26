@@ -15,11 +15,10 @@ import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
 import tech.extree.stats.application.port.out.PasswordResetRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Location;
 import tech.extree.stats.domain.PasswordReset;
-import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
 /** Соответствует /auth/forgot-password, /auth/reset-password в server.js. */
@@ -38,7 +37,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final GeoLookup geoLookup;
     private final LoginEventRepository loginEventRepository;
     private final PasswordPolicyService passwordPolicy;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final TotpService totpService;
     private final LoginAttemptRepository loginAttemptRepository;
 
@@ -50,7 +49,7 @@ public class PasswordResetService implements PasswordResetUseCase {
             GeoLookup geoLookup,
             LoginEventRepository loginEventRepository,
             PasswordPolicyService passwordPolicy,
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             TotpService totpService,
             LoginAttemptRepository loginAttemptRepository) {
         this.userRepository = userRepository;
@@ -59,7 +58,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         this.mailer = mailer;
         this.geoLookup = geoLookup;
         this.loginEventRepository = loginEventRepository;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.passwordPolicy = passwordPolicy;
         this.totpService = totpService;
         this.loginAttemptRepository = loginAttemptRepository;
@@ -147,15 +146,15 @@ public class PasswordResetService implements PasswordResetUseCase {
         User user = maybeUser.get();
 
         Location location = geoLookup.lookup(clientIp);
-        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent);
+        // Успешный сброс — это тоже вход: сразу логинит, как и Node.
+        SessionRepository.Created session = sessionRepository.create(null, user.id(), clientIp, userAgent, true);
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent, session.id());
         try {
             mailer.sendPasswordChanged(user.email(), clientIp, location.country(), location.city(), UtcTime.now());
         } catch (Exception e) {
             log.warn("stats-backend-java: ошибка отправки уведомления о смене пароля", e);
         }
 
-        // Успешный сброс — это тоже вход: сразу логинит, как и Node.
-        String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));
-        return new ResetPasswordResult(ResetPasswordOutcome.OK, user.email(), cookie);
+        return new ResetPasswordResult(ResetPasswordOutcome.OK, user.email(), session.token());
     }
 }

@@ -19,10 +19,10 @@ import tech.extree.stats.application.port.in.AdminTicketUseCase;
 import tech.extree.stats.application.port.out.AdminAuditRepository;
 import tech.extree.stats.application.port.out.CannedResponseRepository;
 import tech.extree.stats.application.port.out.Mailer;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.SupportTicketRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.User;
 
@@ -50,12 +50,12 @@ class AdminTicketServiceTest {
         cannedResponseRepository = mock(CannedResponseRepository.class);
         mailer = mock(Mailer.class);
         auditRepository = mock(AdminAuditRepository.class);
-        SessionCodec sessionCodec = mock(SessionCodec.class);
+        SessionRepository sessionRepository = mock(SessionRepository.class);
 
-        when(sessionCodec.decrypt("admin-cookie"))
-                .thenReturn(Optional.of(new Session(null, "admin-id", 0)));
-        when(sessionCodec.decrypt("user-cookie"))
-                .thenReturn(Optional.of(new Session(null, "user-id", 0)));
+        when(sessionRepository.validate("admin-cookie"))
+                .thenReturn(Optional.of(new LoginSession("session-id", null, "admin-id", 0)));
+        when(sessionRepository.validate("user-cookie"))
+                .thenReturn(Optional.of(new LoginSession("session-id", null, "user-id", 0)));
         
         when(userRepository.findById("admin-id")).thenReturn(Optional.of(admin));
         when(userRepository.findById("user-id")).thenReturn(Optional.of(user));
@@ -64,7 +64,7 @@ class AdminTicketServiceTest {
         when(supportAdminEmails.isAdmin(user)).thenReturn(false);
 
         service = new AdminTicketService(
-                sessionCodec, userRepository, supportAdminEmails,
+                sessionRepository, userRepository, supportAdminEmails,
                 supportTicketRepository, cannedResponseRepository, mailer, auditRepository);
     }
 

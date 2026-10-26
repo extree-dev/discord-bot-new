@@ -2,6 +2,7 @@ package tech.extree.stats.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,7 +20,7 @@ import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
 import tech.extree.stats.application.port.out.PasswordResetRepository;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Location;
 import tech.extree.stats.domain.PasswordReset;
@@ -34,7 +35,7 @@ class PasswordResetServiceTest {
     private GeoLookup geoLookup;
     private LoginEventRepository loginEventRepository;
     private PasswordPolicyService passwordPolicy;
-    private SessionCodec sessionCodec;
+    private SessionRepository sessionRepository;
     private TotpService totpService;
     private LoginAttemptRepository loginAttemptRepository;
     private PasswordResetService service;
@@ -51,18 +52,19 @@ class PasswordResetServiceTest {
         geoLookup = mock(GeoLookup.class);
         loginEventRepository = mock(LoginEventRepository.class);
         passwordPolicy = mock(PasswordPolicyService.class);
-        sessionCodec = mock(SessionCodec.class);
+        sessionRepository = mock(SessionRepository.class);
         totpService = mock(TotpService.class);
         loginAttemptRepository = mock(LoginAttemptRepository.class);
 
         when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
-        when(sessionCodec.encrypt(any())).thenReturn("cookie");
+        when(sessionRepository.create(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new SessionRepository.Created("cookie", "session-id"));
         // Политика паролей — разрешаем всё, в этих тестах не про неё
         when(passwordPolicy.validate(anyString(), any(), any(), any())).thenReturn(PasswordPolicyService.Result.ok());
 
         service = new PasswordResetService(
                 userRepository, passwordResetRepository, passwordHasher,
-                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionCodec,
+                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionRepository,
                 totpService, loginAttemptRepository);
     }
 
@@ -102,7 +104,7 @@ class PasswordResetServiceTest {
         var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
         assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
         verify(passwordResetRepository).deleteReset("token");
-        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua");
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua", "session-id");
         verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
     }
 

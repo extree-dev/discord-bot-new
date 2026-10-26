@@ -16,12 +16,12 @@ import tech.extree.stats.application.port.out.GeoLookup;
 import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.EmailChangeCode;
 import tech.extree.stats.domain.Location;
 import tech.extree.stats.domain.LoginEvent;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 /**
@@ -39,7 +39,7 @@ public class AccountSettingsService implements AccountSettingsUseCase {
     private static final int MAX_ATTEMPTS = 5;
     private static final int LOGIN_HISTORY_LIMIT = 10;
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final EmailChangeCodeRepository emailChangeCodeRepository;
@@ -49,14 +49,14 @@ public class AccountSettingsService implements AccountSettingsUseCase {
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AccountSettingsService(
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             UserRepository userRepository,
             PasswordHasher passwordHasher,
             EmailChangeCodeRepository emailChangeCodeRepository,
             LoginEventRepository loginEventRepository,
             GeoLookup geoLookup,
             Mailer mailer) {
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.emailChangeCodeRepository = emailChangeCodeRepository;
@@ -243,7 +243,7 @@ public class AccountSettingsService implements AccountSettingsUseCase {
         if (cookieValue == null) {
             return Optional.empty();
         }
-        return sessionCodec.decrypt(cookieValue).map(Session::userId).filter(id -> id != null);
+        return sessionRepository.validate(cookieValue).map(LoginSession::userId).filter(id -> id != null);
     }
 
     private boolean isOnCooldown(String userId) {

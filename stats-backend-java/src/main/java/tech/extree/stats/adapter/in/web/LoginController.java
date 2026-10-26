@@ -52,8 +52,10 @@ public class LoginController {
     @PostMapping("/auth/login/verify-2fa")
     public ResponseEntity<?> verify2fa(
             @RequestBody VerifyRequest request,
-            @CookieValue(name = SessionCookies.PRE_2FA_COOKIE, required = false) String pre2faToken) {
-        LoginUseCase.Verify2faResult result = loginUseCase.verify2fa(pre2faToken, request.code());
+            @CookieValue(name = SessionCookies.PRE_2FA_COOKIE, required = false) String pre2faToken,
+            HttpServletRequest httpRequest) {
+        LoginUseCase.Verify2faResult result = loginUseCase.verify2fa(
+                pre2faToken, request.code(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE,
