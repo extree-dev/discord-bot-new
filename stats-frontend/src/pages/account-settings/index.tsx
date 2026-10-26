@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
@@ -15,11 +15,14 @@ import {
 import { UpdateEmail } from '../../features/update-email';
 import { UpdatePassword } from '../../features/update-password';
 import { ActiveSessions } from '../../features/active-sessions';
+import { SecurityScore } from '../../features/security-score';
 import { Select } from '../../shared/ui/Select';
 import styles from './index.module.scss';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { TextField } from '../../shared/ui/TextField';
 import { PasswordField } from '../../shared/ui/PasswordField';
+import { CodeInput } from '../../shared/ui/CodeInput';
+import { ShieldIcon } from '../../shared/ui/Icons';
 import { QRCodeSVG } from 'qrcode.react';
 
 export function AccountSettingsPage() {
@@ -37,6 +40,12 @@ export function AccountSettingsPage() {
     const [totpError, setTotpError] = useState<string | null>(null);
     const [setupPassword, setSetupPassword] = useState('');
     const [setupPending, setSetupPending] = useState(false);
+    const twoFaRef = useRef<HTMLDivElement>(null);
+
+    function handleGoToTwoFa() {
+        setActiveTab('security');
+        requestAnimationFrame(() => twoFaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
 
     useEffect(() => {
         getAccount().then(result => {
@@ -76,6 +85,11 @@ export function AccountSettingsPage() {
             setTotpSetup(null);
             setTotpCode('');
             setSetupPassword('');
+            // Без этого user.isTwoFactorEnabled оставался прежним (false) до
+            // ручной перезагрузки страницы — тот же рефреш, что уже делает
+            // handleDisable2fa ниже после отключения 2FA.
+            const fresh = await getAccount();
+            if (fresh.user) setUser(fresh.user);
             alert('2FA enabled. Save your recovery codes!');
         } catch (e) {
             setTotpError(e instanceof Error ? e.message : 'Failed to enable 2FA');
@@ -272,112 +286,128 @@ export function AccountSettingsPage() {
 
                     {activeTab === 'security' && (
                         <div className={styles.tabContent}>
-                            <Panel title="Two-factor authentication (2FA)">
-                                {totpError && (
-                                    <p className={styles.hintText} style={{ color: 'var(--accent)' }}>
-                                        {totpError}
-                                    </p>
-                                )}
-                                {totpSetup ? (
-                                    <div>
-                                        <p className={styles.hintText}>
-                                            Scan this URL with Google Authenticator / Authy / 1Password:
-                                        </p>
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'center',
-                                                padding: 16,
-                                                background: '#fff',
-                                                borderRadius: 8,
-                                                width: 'fit-content',
-                                            }}
-                                        >
-                                            <QRCodeSVG value={totpSetup.otpauthUrl} size={200} />
+                            <SecurityScore user={user} onEnable2fa={handleGoToTwoFa} />
+
+                            <div ref={twoFaRef}>
+                                <Panel title="Two-factor authentication (2FA)">
+                                    {totpError && <p className={styles.errorBanner}>{totpError}</p>}
+                                    {totpSetup ? (
+                                        <div className={styles.totpSetup}>
+                                            <div className={styles.totpStep}>
+                                                <span className={styles.stepBadge}>1</span>
+                                                <div>
+                                                    <p className={styles.stepTitle}>
+                                                        Scan with your authenticator app
+                                                    </p>
+                                                    <p className={styles.hintText}>
+                                                        Google Authenticator, Authy, 1Password, or any TOTP app.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={styles.qrRow}>
+                                                <div className={styles.qrCard}>
+                                                    <QRCodeSVG value={totpSetup.otpauthUrl} size={168} />
+                                                </div>
+                                                <div className={styles.secretBlock}>
+                                                    <span className={styles.secretLabel}>
+                                                        Can&apos;t scan? Enter this code manually
+                                                    </span>
+                                                    <code className={styles.secretValue}>{totpSetup.secret}</code>
+                                                </div>
+                                            </div>
+
+                                            <div className={styles.totpStep}>
+                                                <span className={styles.stepBadge}>2</span>
+                                                <div>
+                                                    <p className={styles.stepTitle}>Save your recovery codes</p>
+                                                    <p className={styles.hintText}>
+                                                        Each code works once, if you ever lose access to your
+                                                        authenticator app.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={styles.recoveryGrid}>
+                                                {totpSetup.recoveryCodes.map(code => (
+                                                    <code key={code} className={styles.recoveryChip}>
+                                                        {code}
+                                                    </code>
+                                                ))}
+                                            </div>
+
+                                            <div className={styles.totpStep}>
+                                                <span className={styles.stepBadge}>3</span>
+                                                <div>
+                                                    <p className={styles.stepTitle}>
+                                                        Enter the 6-digit code from your app
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className={styles.codeInputWrap}>
+                                                <CodeInput value={totpCode} onChange={setTotpCode} autoFocus />
+                                            </div>
+
+                                            <div className={styles.totpActions}>
+                                                <Button
+                                                    variant="flat"
+                                                    onClick={handleEnable2fa}
+                                                    disabled={totpPending || totpCode.length < 6}
+                                                >
+                                                    {totpPending ? 'Enabling…' : 'Enable 2FA'}
+                                                </Button>
+                                                <Button variant="ghost" onClick={handleCancelSetup}>
+                                                    Cancel
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <p className={styles.hintText} style={{ marginTop: 12 }}>
-                                            Or enter secret manually: <strong>{totpSetup.secret}</strong>
-                                        </p>
-                                        <p
-                                            className={styles.hintText}
-                                            style={{ marginTop: 12, color: 'var(--accent)' }}
-                                        >
-                                            Save these recovery codes NOW (each can be used once):
-                                            <br />
-                                            <strong>{totpSetup.recoveryCodes.join(', ')}</strong>
-                                        </p>
-                                        <input
-                                            type="text"
-                                            placeholder="Enter 6-digit code from app"
-                                            value={totpCode}
-                                            onChange={e => setTotpCode(e.target.value)}
-                                            style={{
-                                                marginTop: 12,
-                                                padding: 8,
-                                                width: '100%',
-                                                background: '#0d0e11',
-                                                border: '1px solid #333',
-                                                color: '#fff',
-                                            }}
-                                        />
-                                        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                                            <Button
-                                                variant="flat"
-                                                onClick={handleEnable2fa}
-                                                disabled={totpPending || totpCode.length < 6}
-                                            >
-                                                {totpPending ? 'Enabling…' : 'Enable 2FA'}
-                                            </Button>
-                                            <Button variant="ghost" onClick={handleCancelSetup}>
-                                                Cancel
-                                            </Button>
+                                    ) : (
+                                        <div>
+                                            {user.isTwoFactorEnabled ? (
+                                                <>
+                                                    <div className={styles.enabledBanner}>
+                                                        <ShieldIcon />
+                                                        <div>
+                                                            <strong>2FA is enabled.</strong> You&apos;ll be asked for
+                                                            a code from your authenticator app on every sign-in.
+                                                        </div>
+                                                    </div>
+                                                    <div className={styles.totpActions}>
+                                                        <Button variant="ghost" onClick={handleDisable2fa}>
+                                                            Disable 2FA
+                                                        </Button>
+                                                        <Button variant="ghost" onClick={handleRegenCodes}>
+                                                            New recovery codes
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className={styles.hintText}>
+                                                        Add an extra layer of security to your account.
+                                                    </p>
+                                                    <div style={{ marginTop: 12, maxWidth: 320 }}>
+                                                        <PasswordField
+                                                            id="setup-2fa-password"
+                                                            label="Confirm your password"
+                                                            autoComplete="current-password"
+                                                            value={setupPassword}
+                                                            onChange={setSetupPassword}
+                                                        />
+                                                    </div>
+                                                    <div style={{ marginTop: 12 }}>
+                                                        <Button
+                                                            variant="flat"
+                                                            onClick={handleSetup2fa}
+                                                            disabled={setupPending || !setupPassword}
+                                                        >
+                                                            {setupPending ? 'Starting…' : 'Set up 2FA'}
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
-                                    </div>
-                                ) : (
-                                    <div>
-                                        {user.isTwoFactorEnabled ? (
-                                            <>
-                                                <p className={styles.hintText}>
-                                                    ✅ 2FA is <strong>enabled</strong>. You will be asked for a code
-                                                    from your authenticator app when signing in.
-                                                </p>
-                                                <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                                                    <Button variant="ghost" onClick={handleDisable2fa}>
-                                                        Disable 2FA
-                                                    </Button>
-                                                    <Button variant="ghost" onClick={handleRegenCodes}>
-                                                        New recovery codes
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <p className={styles.hintText}>
-                                                    Add an extra layer of security to your account.
-                                                </p>
-                                                <div style={{ marginTop: 12, maxWidth: 320 }}>
-                                                    <PasswordField
-                                                        id="setup-2fa-password"
-                                                        label="Confirm your password"
-                                                        autoComplete="current-password"
-                                                        value={setupPassword}
-                                                        onChange={setSetupPassword}
-                                                    />
-                                                </div>
-                                                <div style={{ marginTop: 12 }}>
-                                                    <Button
-                                                        variant="flat"
-                                                        onClick={handleSetup2fa}
-                                                        disabled={setupPending || !setupPassword}
-                                                    >
-                                                        {setupPending ? 'Starting…' : 'Set up 2FA'}
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </Panel>
+                                    )}
+                                </Panel>
+                            </div>
                             <UpdatePassword />
                             <ActiveSessions />
                             <Panel title="Danger Zone">

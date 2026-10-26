@@ -133,14 +133,17 @@ public class TotpService {
         return plain;
     }
 
+    /** 12 цифр, тремя группами по 4 ("1234-5678-9012") — та же энтропия
+     * (~39.9 бит), что у прежнего 10-символьного hex-кода, но по виду
+     * однозначно отличается от TOTP-кода (6 цифр) и легче набирается на
+     * телефоне, где не всегда удобно переключаться на буквы/hex. */
     private static String randomRecoveryCode() {
-        byte[] b = new byte[5];
-        SECURE_RANDOM.nextBytes(b);
-        StringBuilder sb = new StringBuilder();
-        for (byte x : b) sb.append(String.format("%02x", x));
-        // 10 hex-символов → xxxxx-xxxxx
-        String s = sb.toString();
-        return s.substring(0, 5) + "-" + s.substring(5, 10);
+        StringBuilder sb = new StringBuilder(14);
+        for (int i = 0; i < 12; i++) {
+            if (i > 0 && i % 4 == 0) sb.append('-');
+            sb.append(SECURE_RANDOM.nextInt(10));
+        }
+        return sb.toString();
     }
 
     private static String sha256(String s) {
