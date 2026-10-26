@@ -28,7 +28,7 @@ export function SecurityScore({ user, onEnable2fa }: SecurityScoreProps) {
     const checks: Check[] = [
         {
             label: 'Email verified',
-            detail: 'Confirms it\'s really you and lets us reach you about account activity.',
+            detail: "Confirms it's really you and lets us reach you about account activity.",
             done: user.emailVerified,
         },
         {
@@ -69,9 +69,7 @@ export function SecurityScore({ user, onEnable2fa }: SecurityScoreProps) {
             </div>
 
             <div className={styles.body}>
-                <h3 className={styles.heading}>
-                    {score === 100 ? 'Your account is fully secured' : 'Security score'}
-                </h3>
+                <h3 className={styles.heading}>{score === 100 ? 'Your account is fully secured' : 'Security score'}</h3>
                 <p className={styles.subheading}>
                     {score === 100
                         ? 'Email verified and two-factor authentication enabled — nice work.'

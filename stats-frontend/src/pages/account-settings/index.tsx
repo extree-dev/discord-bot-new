@@ -296,9 +296,7 @@ export function AccountSettingsPage() {
                                             <div className={styles.totpStep}>
                                                 <span className={styles.stepBadge}>1</span>
                                                 <div>
-                                                    <p className={styles.stepTitle}>
-                                                        Scan with your authenticator app
-                                                    </p>
+                                                    <p className={styles.stepTitle}>Scan with your authenticator app</p>
                                                     <p className={styles.hintText}>
                                                         Google Authenticator, Authy, 1Password, or any TOTP app.
                                                     </p>
@@ -366,8 +364,8 @@ export function AccountSettingsPage() {
                                                     <div className={styles.enabledBanner}>
                                                         <ShieldIcon />
                                                         <div>
-                                                            <strong>2FA is enabled.</strong> You&apos;ll be asked for
-                                                            a code from your authenticator app on every sign-in.
+                                                            <strong>2FA is enabled.</strong> You&apos;ll be asked for a
+                                                            code from your authenticator app on every sign-in.
                                                         </div>
                                                     </div>
                                                     <div className={styles.totpActions}>
