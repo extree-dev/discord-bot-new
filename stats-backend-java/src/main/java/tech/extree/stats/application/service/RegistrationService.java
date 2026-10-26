@@ -12,11 +12,10 @@ import tech.extree.stats.application.port.in.RegistrationUseCase;
 import tech.extree.stats.application.port.out.EmailCodeRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.EmailCode;
 import tech.extree.stats.domain.NicknameTakenException;
-import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
 @Service
@@ -33,7 +32,7 @@ public class RegistrationService implements RegistrationUseCase {
     private final PasswordHasher passwordHasher;
     private final Mailer mailer;
     private final PasswordPolicyService passwordPolicy;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public RegistrationService(
@@ -42,12 +41,12 @@ public class RegistrationService implements RegistrationUseCase {
             PasswordHasher passwordHasher,
             Mailer mailer,
             PasswordPolicyService passwordPolicy,
-            SessionCodec sessionCodec) {
+            SessionRepository sessionRepository) {
         this.userRepository = userRepository;
         this.emailCodeRepository = emailCodeRepository;
         this.passwordHasher = passwordHasher;
         this.mailer = mailer;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.passwordPolicy = passwordPolicy;
     }
 
@@ -131,7 +130,7 @@ public class RegistrationService implements RegistrationUseCase {
     }
 
     @Override
-    public VerifyResult verify(String rawEmail, String rawCode) {
+    public VerifyResult verify(String rawEmail, String rawCode, String clientIp, String userAgent) {
         String email = Validation.normalizeEmail(rawEmail);
         String code = rawCode == null ? "" : rawCode.trim();
         if (!Validation.isValidEmail(email) || code.isEmpty()) {
@@ -161,8 +160,9 @@ public class RegistrationService implements RegistrationUseCase {
             return VerifyResult.error(VerifyOutcome.INTERNAL_ERROR);
         }
 
-        String cookie = sessionCodec.encrypt(new Session(null, verified.get().id(), System.currentTimeMillis()));
-        return new VerifyResult(VerifyOutcome.OK, verified.get().email(), cookie);
+        SessionRepository.Created session =
+                sessionRepository.create(null, verified.get().id(), clientIp, userAgent, true);
+        return new VerifyResult(VerifyOutcome.OK, verified.get().email(), session.token());
     }
 
     private boolean isOnCooldown(String email) {

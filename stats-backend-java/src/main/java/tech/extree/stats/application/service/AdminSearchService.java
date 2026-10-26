@@ -3,10 +3,10 @@ package tech.extree.stats.application.service;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.SupportTicketRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.User;
 
@@ -28,13 +28,13 @@ public class AdminSearchService {
         }
     }
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final SupportTicketRepository supportTicketRepository;
 
     public AdminSearchService(
-            SessionCodec sessionCodec, UserRepository userRepository, SupportTicketRepository supportTicketRepository) {
-        this.sessionCodec = sessionCodec;
+            SessionRepository sessionRepository, UserRepository userRepository, SupportTicketRepository supportTicketRepository) {
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.supportTicketRepository = supportTicketRepository;
     }
@@ -56,7 +56,7 @@ public class AdminSearchService {
 
     private Optional<User> resolveAdmin(String cookieValue) {
         if (cookieValue == null) return Optional.empty();
-        Optional<Session> session = sessionCodec.decrypt(cookieValue).filter(s -> s.userId() != null);
+        Optional<LoginSession> session = sessionRepository.validate(cookieValue).filter(s -> s.userId() != null);
         if (session.isEmpty()) return Optional.empty();
         return userRepository.findById(session.get().userId()).filter(User::isAdmin);
     }

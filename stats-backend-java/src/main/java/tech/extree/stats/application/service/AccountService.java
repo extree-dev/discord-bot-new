@@ -3,20 +3,20 @@ package tech.extree.stats.application.service;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.port.in.GetAccountUseCase;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.User;
 
 @Service
 public class AccountService implements GetAccountUseCase {
 
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final SupportAdminEmails supportAdminEmails;
 
-    public AccountService(SessionCodec sessionCodec, UserRepository userRepository, SupportAdminEmails supportAdminEmails) {
-        this.sessionCodec = sessionCodec;
+    public AccountService(SessionRepository sessionRepository, UserRepository userRepository, SupportAdminEmails supportAdminEmails) {
+        this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.supportAdminEmails = supportAdminEmails;
     }
@@ -26,7 +26,7 @@ public class AccountService implements GetAccountUseCase {
         if (cookieValue == null) {
             return Optional.empty();
         }
-        Optional<Session> session = sessionCodec.decrypt(cookieValue);
+        Optional<LoginSession> session = sessionRepository.validate(cookieValue);
         if (session.isEmpty() || session.get().userId() == null) {
             return Optional.empty();
         }

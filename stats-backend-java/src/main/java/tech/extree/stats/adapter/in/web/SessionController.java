@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tech.extree.stats.application.port.in.GetSessionUseCase;
 import tech.extree.stats.adapter.in.web.dto.SessionResponse;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 
 /** Соответствует GET /api/session в server.js (Node). */
 @RestController
@@ -23,7 +23,7 @@ public class SessionController {
     public SessionResponse getSession(@CookieValue(name = SESSION_COOKIE, required = false) String cookie) {
         return getSessionUseCase
                 .getSession(cookie)
-                .map(Session::sub)
+                .map(LoginSession::sub)
                 .map(sub -> new SessionResponse(new SessionResponse.UserRef(sub)))
                 .orElse(SessionResponse.empty());
     }

@@ -1,5 +1,6 @@
 package tech.extree.stats.adapter.in.web;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,8 +60,9 @@ public class AuthController {
     }
 
     @PostMapping("/auth/verify")
-    public ResponseEntity<?> verify(@RequestBody VerifyRequest request) {
-        RegistrationUseCase.VerifyResult result = registrationUseCase.verify(request.email(), request.code());
+    public ResponseEntity<?> verify(@RequestBody VerifyRequest request, HttpServletRequest httpRequest) {
+        RegistrationUseCase.VerifyResult result = registrationUseCase.verify(
+                request.email(), request.code(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
         return switch (result.outcome()) {
             case OK -> ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())

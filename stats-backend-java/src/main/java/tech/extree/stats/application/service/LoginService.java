@@ -17,12 +17,11 @@ import tech.extree.stats.application.port.out.LoginEventRepository;
 import tech.extree.stats.application.port.out.LoginLocationRepository;
 import tech.extree.stats.application.port.out.Mailer;
 import tech.extree.stats.application.port.out.PasswordHasher;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.TurnstileVerifier;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Location;
 import tech.extree.stats.domain.LoginCode;
-import tech.extree.stats.domain.Session;
 import tech.extree.stats.domain.User;
 
 @Service
@@ -53,7 +52,7 @@ public class LoginService implements LoginUseCase {
     private final LoginCodeRepository loginCodeRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final Mailer mailer;
-    private final SessionCodec sessionCodec;
+    private final SessionRepository sessionRepository;
     private final TotpService totpService;
     private final Pre2faService pre2faService;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -68,7 +67,7 @@ public class LoginService implements LoginUseCase {
             LoginCodeRepository loginCodeRepository,
             LoginAttemptRepository loginAttemptRepository,
             Mailer mailer,
-            SessionCodec sessionCodec,
+            SessionRepository sessionRepository,
             TotpService totpService,
             Pre2faService pre2faService) {
         this.userRepository = userRepository;
@@ -80,7 +79,7 @@ public class LoginService implements LoginUseCase {
         this.loginCodeRepository = loginCodeRepository;
         this.loginAttemptRepository = loginAttemptRepository;
         this.mailer = mailer;
-        this.sessionCodec = sessionCodec;
+        this.sessionRepository = sessionRepository;
         this.totpService = totpService;
         this.pre2faService = pre2faService;
     }
@@ -147,8 +146,9 @@ public class LoginService implements LoginUseCase {
             return LoginResult.error(LoginOutcome.UNKNOWN_LOCATION);
         }
 
+        SessionRepository.Created session = sessionRepository.create(null, user.id(), clientIp, userAgent, rememberMe);
         loginLocationRepository.rememberLocation(user.id(), location.country(), location.city(), clientIp);
-        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent);
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent, session.id());
         loginAttemptRepository.record(email, clientIp, location.country(), true, "ok");
         try {
             mailer.sendSignInNotification(email, clientIp, location.country(), location.city(), UtcTime.now());
@@ -156,8 +156,7 @@ public class LoginService implements LoginUseCase {
             log.warn("stats-backend-java: ошибка отправки уведомления о входе", e);
         }
 
-        String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));
-        return new LoginResult(LoginOutcome.OK, user.email(), cookie);
+        return new LoginResult(LoginOutcome.OK, user.email(), session.token());
     }
 
     @Override
@@ -217,16 +216,17 @@ public class LoginService implements LoginUseCase {
         }
         User user = maybeUser.get();
 
+        SessionRepository.Created session =
+                sessionRepository.create(null, user.id(), row.ip(), userAgent, row.remember());
         loginLocationRepository.rememberLocation(user.id(), row.country(), row.city(), row.ip());
-        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city(), userAgent);
+        loginEventRepository.recordLogin(user.id(), row.ip(), row.country(), row.city(), userAgent, session.id());
         loginCodeRepository.deleteCode(email);
 
-        String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));
-        return new ConfirmLocationResult(ConfirmLocationOutcome.OK, user.email(), cookie, row.remember());
+        return new ConfirmLocationResult(ConfirmLocationOutcome.OK, user.email(), session.token(), row.remember());
     }
 
     @Override
-    public Verify2faResult verify2fa(String pre2faToken, String totpCode) {
+    public Verify2faResult verify2fa(String pre2faToken, String totpCode, String clientIp, String userAgent) {
         if (pre2faToken == null || pre2faToken.isBlank() || totpCode == null || totpCode.isBlank()) {
             return Verify2faResult.error(Verify2faOutcome.INVALID_REQUEST);
         }
@@ -258,13 +258,14 @@ public class LoginService implements LoginUseCase {
             ok = totpService.consumeRecoveryCode(user.id(), totpCode.trim());
         }
         if (!ok) {
-            loginAttemptRepository.record(user.email(), null, null, false, "totp_failed");
+            loginAttemptRepository.record(user.email(), clientIp, null, false, "totp_failed");
             return Verify2faResult.error(Verify2faOutcome.TOTP_INVALID);
         }
 
-        loginAttemptRepository.record(user.email(), null, null, true, "2fa_ok");
-        String cookie = sessionCodec.encrypt(new Session(null, user.id(), System.currentTimeMillis()));
-        return new Verify2faResult(Verify2faOutcome.OK, user.email(), cookie, payload.get().rememberMe());
+        loginAttemptRepository.record(user.email(), clientIp, null, true, "2fa_ok");
+        SessionRepository.Created session =
+                sessionRepository.create(null, user.id(), clientIp, userAgent, payload.get().rememberMe());
+        return new Verify2faResult(Verify2faOutcome.OK, user.email(), session.token(), payload.get().rememberMe());
     }
 
     private boolean isOnCooldown(String email) {

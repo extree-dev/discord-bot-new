@@ -402,11 +402,10 @@ export function makeAdmin(userId: string, isAdmin: boolean) {
     return postJson<{ ok: true }>(`/api/admin/users/${userId}/make-admin?isAdmin=${isAdmin}`, {});
 }
 
-// Имя нарочно не "logoutSession": сессии полностью stateless (шифрованная
-// cookie без серверного реестра токенов), так что эндпоинт удаляет только
-// запись в истории входов — реальный токен устройства остаётся рабочим до
-// истечения Max-Age. См. features/active-sessions — там тот же честный текст.
-export function removeLoginHistoryEntry(id: string) {
+// Удаляет запись из истории входов И отзывает привязанную к ней сессию на
+// сервере (см. LoginEventController/SessionRepository, Java) — устройство
+// реально разлогинивается, не только пропадает из списка.
+export function revokeSession(id: string) {
     return postJson<{ ok: true }>(`/api/account/logout-session/${id}`, {});
 }
 

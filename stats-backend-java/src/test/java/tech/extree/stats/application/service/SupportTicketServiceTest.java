@@ -13,16 +13,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tech.extree.stats.application.port.in.SupportTicketUseCase;
 import tech.extree.stats.application.port.out.Mailer;
-import tech.extree.stats.application.port.out.SessionCodec;
+import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.SupportTicketRepository;
 import tech.extree.stats.application.port.out.UserRepository;
-import tech.extree.stats.domain.Session;
+import tech.extree.stats.domain.LoginSession;
 import tech.extree.stats.domain.SupportTicket;
 import tech.extree.stats.domain.User;
 
 class SupportTicketServiceTest {
 
-    private SessionCodec sessionCodec;
+    private SessionRepository sessionRepository;
     private UserRepository userRepository;
     private SupportTicketRepository supportTicketRepository;
     private Mailer mailer;
@@ -34,15 +34,15 @@ class SupportTicketServiceTest {
 
     @BeforeEach
     void setUp() {
-        sessionCodec = mock(SessionCodec.class);
+        sessionRepository = mock(SessionRepository.class);
         userRepository = mock(UserRepository.class);
         supportTicketRepository = mock(SupportTicketRepository.class);
         mailer = mock(Mailer.class);
 
-        when(sessionCodec.decrypt("cookie")).thenReturn(Optional.of(new Session(null, "user-id", 0)));
+        when(sessionRepository.validate("cookie")).thenReturn(Optional.of(new LoginSession("session-id", null, "user-id", 0)));
         when(userRepository.findById("user-id")).thenReturn(Optional.of(user));
 
-        service = new SupportTicketService(sessionCodec, userRepository, supportTicketRepository, mailer);
+        service = new SupportTicketService(sessionRepository, userRepository, supportTicketRepository, mailer);
     }
 
     @Test
