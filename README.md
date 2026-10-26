@@ -166,6 +166,45 @@ gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U di
 
 Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443.
 
+### Гео-блокировка RU (`stats.extree.tech`)
+
+`stats.extree.tech` (не `bot.extree.tech`/`extree.tech` — те на обычном DNS) закрыт для посетителей из России на двух независимых уровнях:
+
+1. **Cloudflare (основной уровень)** — DNS-запись `stats` на зоне `extree.tech` переключена в **Proxied** (оранжевое облако), и в Security → Security rules висит custom rule `Rules RU` (`Country equals Russia` → Block), выполняется первым (`Select order: First`). Блокировка происходит на границе Cloudflare, до того как запрос вообще доходит до VPS. Открыть доступ конкретному IP/подсети из РФ — завести отдельное правило `IP Source Address equals/is in range <IP или CIDR>` → action `Skip`/`Allow`, порядок **выше**, чем у `Rules RU` (правила выполняются по порядку сверху вниз, первое совпадение побеждает). На текущем (Free) тарифе кастомный HTML для блок-страницы недоступен в UI для action Block — показывается стандартная страница Cloudflare.
+
+2. **Файрвол на VPS (защита от обхода Cloudflare напрямую по IP)** — порты 80/443 у Caddy принимают только диапазоны Cloudflare. **Важная особенность:** `ufw` здесь не используется (конфликтует с пакетом `iptables-persistent` при установке, авто-удаляется им) и в любом случае не фильтрует трафик к Docker-контейнерам с опубликованными портами — Docker сам прописывает DNAT-правила в iptables, которые выполняются раньше и в обход обычных ufw-правил. Поэтому фильтрация — напрямую в цепочке **`DOCKER-USER`** (её Docker гарантированно не перезаписывает):
+
+    ```bash
+    # 1. Найти внутренний IP контейнера Caddy — он может смениться, если
+    #    когда-нибудь выполнить `docker compose down && up` (полное
+    #    пересоздание сети), обычный деплой через deploy.yml на него не
+    #    влияет:
+    docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -qf "name=caddy")
+
+    # 2. Пересобрать правила (подставить актуальный IP вместо 172.18.0.2):
+    sudo iptables -F DOCKER-USER
+    sudo iptables -I DOCKER-USER -p tcp -d 172.18.0.2 --dport 80 -j DROP
+    sudo iptables -I DOCKER-USER -p tcp -d 172.18.0.2 --dport 443 -j DROP
+    for net in 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 \
+      141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 \
+      197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 \
+      104.24.0.0/14 172.64.0.0/13 131.0.72.0/22; do
+      sudo iptables -I DOCKER-USER -p tcp -s "$net" -d 172.18.0.2 --dport 80 -j ACCEPT
+      sudo iptables -I DOCKER-USER -p tcp -s "$net" -d 172.18.0.2 --dport 443 -j ACCEPT
+    done
+
+    # 3. Сохранить, чтобы пережило перезагрузку:
+    sudo netfilter-persistent save
+    ```
+
+    Диапазоны IPv4 Cloudflare — актуальный список всегда на <https://www.cloudflare.com/ips-v4> (IPv6 — `ips-v6`, меняются даже реже).
+
+    **Грабли, на которые уже наступали:** правила обязательно должны быть с `-d <IP контейнера Caddy>`, а не просто `--dport 80,443` без привязки к адресу назначения — без `-d` DROP режет вообще весь трафик на 80/443 через `DOCKER-USER`, включая **исходящие** запросы из любых контейнеров наружу (например, бот → Telegram Bot API тоже ходит на 443) — именно так один раз на несколько минут положили Telegram-бота при первой настройке этого файрвола.
+
+    Проверка, что всё работает: `curl https://stats.extree.tech/` — должен открываться нормально; `curl -k -m 8 https://5.180.97.253/` (IP сервера напрямую, в обход Cloudflare, с машины **вне** этого VPS) — должен падать по таймауту, а не отвечать.
+
+Раньше (PR #362/#363) блокировка RU была целиком на уровне приложения (`GeoBlockController` в `stats-backend-java` + `forward_auth` в Caddy, офлайн GeoIP-база) — убрана (PR #364) после того, как один раз заблокировала самого владельца сайта (офлайн-база неверно определила страну VPN-выхода), и в целом менее точная/живая, чем гео-данные Cloudflare.
+
 #### Личный кабинет, визитка и её редактор (`dashboard/` + `frontend/`)
 
 Один Node-процесс (`dashboard/server.js`) в том же образе, что и сам бот (`docker-compose.yml`, сервис `dashboard` — тот же `build: .`, другая `command`) обслуживает четыре страницы на двух доменах через общий React/TypeScript SPA (`frontend/`, FSD-слои `app → pages → widgets → features → entities → shared`) — сам процесс отдаёт только JSON под `/api/*`, вход через `/auth/*` и собранные `frontend/dist` статикой, вся разметка рендерится в браузере:
