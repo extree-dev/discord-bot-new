@@ -35,7 +35,6 @@ const { encryptSession, decryptSession } = require('./session');
 const site = require('../site/model');
 const uploads = require('../uploads/model');
 const security = require('../security/config');
-const { isValidGeoBypassToken } = require('./geoBypass');
 const presence = require('../presence');
 const voice = require('../voice');
 const cases = require('../cases');
@@ -394,34 +393,6 @@ app.get('/auth/discord/callback', async (req, res) => {
 app.get('/auth/logout', (req, res) => {
     res.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: true, sameSite: 'lax', path: '/' });
     res.redirect('/');
-});
-
-// Спасательный люк для гео-блока RU на stats.extree.tech
-// (GeoBlockController.java): тот forward_auth стоит перед ЛЮБЫМ запросом
-// к stats.extree.tech, так что обычная страница логина туда тоже не
-// доедет из заблокированной страны — поставить cookie оттуда нечем. Этот
-// роут живёт здесь, на extree.tech/bot.extree.tech, которые гео-блоком не
-// накрыты, и ставит ту же cookie (extree_geo_bypass) с доменом
-// .extree.tech — она прилетит и на поддомен stats.extree.tech. GEO_BYPASS_TOKEN
-// — одна и та же переменная окружения, что уже читает Java-сервис
-// (extree.geo-bypass-token в application.yml), оба процесса берут её из
-// одного и того же .env. Не задан GEO_BYPASS_TOKEN — люк выключен (404),
-// как и сам bypass в Java-контроллере в этом случае игнорируется.
-app.get('/auth/geo-bypass/:token', (req, res) => {
-    const configured = process.env.GEO_BYPASS_TOKEN || '';
-    if (!isValidGeoBypassToken(req.params.token, configured)) {
-        res.status(404).send('Not found');
-        return;
-    }
-    res.cookie('extree_geo_bypass', configured, {
-        domain: '.extree.tech',
-        path: '/',
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 365 * 24 * 60 * 60 * 1000,
-    });
-    res.redirect('https://stats.extree.tech/');
 });
 
 // Telegram Login Widget редиректит сюда с подписанными query-параметрами
