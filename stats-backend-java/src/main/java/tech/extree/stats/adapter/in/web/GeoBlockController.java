@@ -36,10 +36,12 @@ import tech.extree.stats.domain.Location;
  * possible, since the block happens before login is even reachable. The
  * {@code extree_geo_bypass} cookie exists for exactly that: set
  * {@code GEO_BYPASS_TOKEN} in the server's .env to some random secret,
- * then once, from a browser that isn't blocked, run in devtools:
- * {@code document.cookie = "extree_geo_bypass=<token>; domain=.extree.tech; path=/; max-age=31536000"}
- * — that browser/device bypasses the geo-check from then on, regardless
- * of IP. Leave GEO_BYPASS_TOKEN unset to disable the bypass entirely.
+ * then visit {@code https://extree.tech/auth/geo-bypass/<token>} (see
+ * dashboard/server.js — that domain isn't geo-blocked, and the route sets
+ * the cookie with {@code domain=.extree.tech} so it also covers this
+ * one) — that browser/device bypasses the geo-check from then on,
+ * regardless of IP. Leave GEO_BYPASS_TOKEN unset to disable the bypass
+ * entirely.
  */
 @RestController
 public class GeoBlockController {
