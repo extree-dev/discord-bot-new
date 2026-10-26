@@ -30,8 +30,14 @@ export function VerifyPage() {
             await refresh();
             navigate('/account');
         } catch (err) {
+            // Не сбрасываем submittedCode здесь: иначе следующий рендер
+            // (pending: true -> false) снова проходит условие эффекта ниже
+            // (код тот же, submittedCode пуст) и тот же код уходит на сервер
+            // заново — и так по кругу при любой ошибке, визуально выглядит
+            // как вечное "Verifying…" (см. тот же фикс в pages/verify-location).
+            // submittedCode остаётся равным code — explicit "Verify" (onSubmit)
+            // и ввод НОВОГО кода (меняет code) всё равно работают как раньше.
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
-            submittedCode.current = null;
         } finally {
             setPending(false);
         }
