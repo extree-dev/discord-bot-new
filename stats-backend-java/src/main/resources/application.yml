@@ -56,6 +56,13 @@ extree:
     # домен атакующего (Host header injection).
     public-host: ${STATS_PUBLIC_HOST:stats.extree.tech}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
+    # Необязательный обходной ключ для гео-блокировки (GeoBlockController):
+    # если задан и совпадает со значением cookie extree_geo_bypass,
+    # пропускает запрос независимо от страны. Нужен, чтобы владелец не
+    # отрезал сам себя от сайта, подключаясь из заблокированного региона —
+    # см. комментарий в GeoBlockController про то, как его выставить.
+    # Пусто по умолчанию = обходной путь выключен полностью.
+    geo-bypass-token: ${GEO_BYPASS_TOKEN:}
     riot:
         client-id: ${RIOT_CLIENT_ID:}
         client-secret: ${RIOT_CLIENT_SECRET:}

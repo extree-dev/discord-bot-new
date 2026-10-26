@@ -75,10 +75,41 @@ stats.extree.tech {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.ingest.de.sentry.io https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
+        # style-src: 'sha256-...' — ровно хэш <style> на
+        # stats-backend-java/.../static-pages/geo-blocked.html (см. ниже,
+        # GeoBlockController). Это не "дыра" в CSP вроде 'unsafe-inline' —
+        # хэш пускает ТОЛЬКО этот конкретный, известный заранее блок
+        # стилей, посчитанный от его точного содержимого. Поменяешь текст
+        # внутри <style> в geo-blocked.html — пересчитай хэш и обнови эту
+        # строку, иначе страница блокировки придёт без оформления:
+        #   npx prettier --write stats-backend-java/src/main/resources/static-pages/geo-blocked.html
+        #   python3 -c "
+        #     import re, hashlib, base64
+        #     html = open('stats-backend-java/src/main/resources/static-pages/geo-blocked.html', encoding='utf-8').read()
+        #     style = re.search(r'<style>(.*?)</style>', html, re.DOTALL).group(1)
+        #     print('sha256-' + base64.b64encode(hashlib.sha256(style.encode()).digest()).decode())
+        #   "
+        # (инструкцию намеренно не держим как HTML-комментарий внутри
+        # самого geo-blocked.html — там она один раз уже сломала сама себя:
+        # пример-текст внутри нёс литералы "<!--"/"-->", из-за чего
+        # Prettier обрывал комментарий раньше реального конца и
+        # переформатировал файл в кашу.)
+        Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com 'sha256-UNxCrw/+JJ6PU3QtAoMlXZ2NYPS9VQWM93K+OAFQIs8='; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.ingest.de.sentry.io https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
     }
+
+    # Гео-блок уровня приложения (не Cloudflare): на КАЖДЫЙ запрос к сайту —
+    # включая статику SPA ниже, не только /api|/auth — Caddy сперва
+    # спрашивает бэкенд "пускать или нет" через forward_auth. 2xx —
+    # пропускаем дальше как обычно; любой другой статус — ответ бэкенда
+    # (включая тело: красивая HTML-страница 403) отдаётся посетителю как
+    # есть, до раздачи чего бы то ни было ещё. Список заблокированных стран
+    # живёт в GeoBlockController (сейчас только RU), не здесь.
+    forward_auth stats-backend-java:8081 {
+        uri /internal/geo-check
+    }
+
     handle /auth/* {
         reverse_proxy stats-backend-java:8081
     }
