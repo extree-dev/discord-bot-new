@@ -63,8 +63,10 @@ export function SecurityScore({ user, onEnable2fa }: SecurityScoreProps) {
                     />
                 </svg>
                 <div className={styles.ringLabel}>
-                    <span className={styles.ringScore}>{displayScore}</span>
-                    <span className={styles.ringUnit}>%</span>
+                    <span className={styles.ringScore}>
+                        {displayScore}
+                        <span className={styles.ringUnit}>%</span>
+                    </span>
                 </div>
             </div>
 
