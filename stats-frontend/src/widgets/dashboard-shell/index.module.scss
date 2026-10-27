@@ -18,7 +18,11 @@
     justify-content: space-between;
     margin: 16px 16px 0;
     padding: 12px 20px;
-    background: var(--glass-bg-strong);
+    // Непрозрачный --glass-menu-bg, не --glass-bg-strong: это sticky-бар,
+    // контент страницы скроллит у него под низом — если backdrop-filter
+    // не отрисовался (см. комментарий в ProfileDropdown), логотип/текст
+    // бара не должен становиться нечитаемым поверх прокручивающегося текста.
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     border: 1px solid var(--glass-border);

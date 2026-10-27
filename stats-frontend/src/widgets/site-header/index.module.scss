@@ -8,7 +8,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 14px 24px;
-    background: var(--glass-bg-strong);
+    // Непрозрачный --glass-menu-bg: sticky-бар над прокручивающимся
+    // контентом — см. тот же комментарий в dashboard-shell.
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     border: 1px solid var(--glass-border);

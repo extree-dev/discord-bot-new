@@ -50,7 +50,11 @@
     top: calc(100% + 8px);
     left: 0;
     width: 100%;
-    background: var(--glass-bg-strong);
+    // Почти непрозрачный, не --glass-bg-strong — см. тот же комментарий в
+    // ProfileDropdown: это меню тоже всплывает над читаемым контентом
+    // страницы, а не ровным фоном, и легло на реальный баг с нечитаемым
+    // наложением текста на iOS Safari, когда backdrop-filter не сработал.
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     border: 1px solid var(--glass-border);
