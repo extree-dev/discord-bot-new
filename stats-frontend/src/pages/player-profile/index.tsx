@@ -68,7 +68,10 @@ export function PlayerProfilePage() {
                 </Panel>
             ) : (
                 <>
-                    <Panel title="Look up a Riot ID" subtitle="Enter a Riot ID to confirm it exists via Riot's account API.">
+                    <Panel
+                        title="Look up a Riot ID"
+                        subtitle="Enter a Riot ID to confirm it exists via Riot's account API."
+                    >
                         <form className={styles.form} onSubmit={onSubmit}>
                             <TextField
                                 id="riotId"
@@ -93,9 +96,7 @@ export function PlayerProfilePage() {
                     {result && (
                         <Panel>
                             <div className={styles.profileHeader}>
-                                <div className={styles.profileRing}>
-                                    {result.gameName.slice(0, 2).toUpperCase()}
-                                </div>
+                                <div className={styles.profileRing}>{result.gameName.slice(0, 2).toUpperCase()}</div>
                                 <div className={styles.profileHeaderText}>
                                     <div className={styles.profileName}>
                                         {result.gameName}
