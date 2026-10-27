@@ -16,6 +16,7 @@ import { UpdateEmail } from '../../features/update-email';
 import { UpdatePassword } from '../../features/update-password';
 import { ActiveSessions } from '../../features/active-sessions';
 import { SecurityScore } from '../../features/security-score';
+import { LinkedAccounts } from '../../features/linked-accounts';
 import { Select } from '../../shared/ui/Select';
 import styles from './index.module.scss';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
@@ -281,6 +282,7 @@ export function AccountSettingsPage() {
                                 email={user.email}
                                 onChanged={newEmail => setUser(u => u && { ...u, email: newEmail })}
                             />
+                            <LinkedAccounts riotLinked={user.riotLinked} />
                         </div>
                     )}
 

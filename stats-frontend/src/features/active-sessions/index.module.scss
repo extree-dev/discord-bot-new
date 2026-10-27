@@ -24,13 +24,16 @@
 
 .icon {
     font-size: 24px;
-    background: var(--surface-2);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
     width: 48px;
     height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
 }
 
 .info {
@@ -58,16 +61,16 @@
     text-transform: uppercase;
     color: var(--win);
     background: rgba(52, 211, 153, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
 }
 
 .btn {
-    background: none;
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     color: var(--text-faint);
-    padding: 6px 12px;
-    border-radius: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     cursor: pointer;
     transition: all 0.2s;

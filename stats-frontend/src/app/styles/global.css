@@ -24,8 +24,26 @@
     --win: #34d399;
     --loss: var(--accent);
 
-    --radius-sm: 6px;
-    --radius-md: 10px;
+    /* Редизайн 2026: скруглённые поверхности + "жидкое стекло" вместо
+       плоских прямоугольных панелей — полная смена языка, не косметика
+       поверх старого. Радиусы крупнее почти везде (карточки/кнопки),
+       через переменные — компоненты, уже ссылавшиеся на var(--radius-*),
+       скруглились сами, без правки каждого файла. */
+    --radius-sm: 12px;
+    --radius-md: 18px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+    --radius-pill: 999px;
+
+    /* Поверхности "стекла": полупрозрачная заливка + blur фона за ней
+       (ambient-пятна ниже дают чему блюриться) + едва заметный блик по
+       верхнему краю, как у реальной кромки стекла под светом. */
+    --glass-bg: rgba(255, 255, 255, 0.045);
+    --glass-bg-strong: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.4);
+    --glass-blur: 26px;
+    --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 
     color-scheme: dark;
 }
@@ -56,6 +74,37 @@ body {
     font-feature-settings:
         'tnum' 1,
         'cv11' 1;
+    position: relative;
+    isolation: isolate;
+}
+
+/* Ambient-пятна фона — без них у glass-поверхностей (backdrop-filter:
+   blur) нечего размывать, стекло просто выглядело бы серым туманом.
+   Фиксированные, вне потока (z-index: -1), не мешают скроллу/layout. */
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    z-index: -1;
+    pointer-events: none;
+}
+
+body::before {
+    width: 620px;
+    height: 620px;
+    top: -160px;
+    right: -140px;
+    background: radial-gradient(circle, rgba(255, 77, 94, 0.24), transparent 70%);
+}
+
+body::after {
+    width: 540px;
+    height: 540px;
+    bottom: -180px;
+    left: -120px;
+    background: radial-gradient(circle, rgba(88, 130, 255, 0.16), transparent 70%);
 }
 
 a {

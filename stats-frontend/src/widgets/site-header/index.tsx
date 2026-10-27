@@ -12,21 +12,7 @@ function CmdKButton() {
         document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
     }
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            style={{
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: '4px 8px',
-                fontSize: 12,
-                color: 'var(--text-faint)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-            }}
-            aria-label="Open command palette"
-        >
+        <button type="button" onClick={onClick} className={styles.cmdK} aria-label="Open command palette">
             ⌘K
         </button>
     );

@@ -14,22 +14,24 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 77, 94, 0.1);
-    color: #ff4d5e;
-    padding: 8px 16px;
-    border-radius: 20px;
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    color: var(--accent-soft);
+    padding: 9px 18px;
+    border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 600;
     margin-bottom: 24px;
-    border: 1px solid rgba(255, 77, 94, 0.2);
+    border: 1px solid var(--glass-border);
 }
 
 .statusDot {
     width: 6px;
     height: 6px;
-    background: #ff4d5e;
+    background: var(--accent);
     border-radius: 50%;
-    box-shadow: 0 0 8px #ff4d5e;
+    box-shadow: 0 0 8px var(--accent);
     animation: pulse 2s infinite;
 }
 
@@ -38,19 +40,19 @@
     font-size: 56px;
     line-height: 1.1;
     font-weight: 800;
-    color: #fff;
+    color: var(--text);
     margin: 0 0 24px 0;
     letter-spacing: -2px;
 }
 
 .textRed {
-    color: #ff4d5e;
+    color: var(--accent);
 }
 
 .heroSubtitle {
     font-size: 18px;
     line-height: 1.6;
-    color: #888;
+    color: var(--text-faint);
     max-width: 600px;
     margin: 0 0 40px 0;
 }
@@ -68,15 +70,18 @@
 }
 
 .primaryBtn {
-    background: #ff4d5e;
+    background: linear-gradient(155deg, var(--accent-soft), var(--accent));
     color: #fff;
     border: none;
-    padding: 14px 28px;
-    border-radius: 8px;
+    padding: 15px 30px;
+    border-radius: var(--radius-pill);
     font-size: 16px;
     font-weight: 700;
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.55;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.3) inset,
+        0 10px 26px rgba(255, 77, 94, 0.28);
     transition: opacity 0.2s;
 
     // При наведении (если бы кнопка была активна)
@@ -86,18 +91,23 @@
 }
 
 .secondaryBtn {
-    background: #2a2d35;
-    color: #fff;
-    border: 1px solid #3a3d45;
-    padding: 14px 28px;
-    border-radius: 8px;
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    color: var(--text);
+    border: 1px solid var(--glass-border);
+    padding: 15px 30px;
+    border-radius: var(--radius-pill);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition:
+        border-color 0.2s,
+        transform 0.2s;
 
     &:hover {
-        background: #353942;
+        border-color: var(--accent);
+        transform: translateY(-1px);
     }
 }
 
@@ -115,27 +125,30 @@
 }
 
 .featureCard {
-    background: #15171b;
-    border: 1px solid #2a2d35;
-    border-radius: 12px;
-    padding: 32px 24px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glass-shadow);
+    padding: 32px 26px;
     transition:
         border-color 0.2s,
         transform 0.2s;
 
     &:hover {
-        border-color: #3a3d45;
-        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.22);
+        transform: translateY(-3px);
     }
 
     h3 {
-        color: #fff;
+        color: var(--text);
         font-size: 18px;
-        margin: 16px 0 8px 0;
+        margin: 18px 0 8px 0;
     }
 
     p {
-        color: #888;
+        color: var(--text-faint);
         font-size: 14px;
         line-height: 1.5;
         margin: 0;
@@ -150,22 +163,22 @@
     width: 48px;
     height: 48px;
     background: rgba(255, 77, 94, 0.1);
-    color: #ff4d5e;
-    border-radius: 10px;
+    color: var(--accent);
+    border-radius: var(--radius-md);
 }
 
 /* Анимации */
 @keyframes pulse {
     0% {
         opacity: 1;
-        box-shadow: 0 0 8px #ff4d5e;
+        box-shadow: 0 0 8px var(--accent);
     }
     50% {
         opacity: 0.5;
-        box-shadow: 0 0 2px #ff4d5e;
+        box-shadow: 0 0 2px var(--accent);
     }
     100% {
         opacity: 1;
-        box-shadow: 0 0 8px #ff4d5e;
+        box-shadow: 0 0 8px var(--accent);
     }
 }
