@@ -23,8 +23,37 @@ import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { TextField } from '../../shared/ui/TextField';
 import { PasswordField } from '../../shared/ui/PasswordField';
 import { CodeInput } from '../../shared/ui/CodeInput';
-import { ShieldIcon } from '../../shared/ui/Icons';
+import { ShieldIcon, UserIcon } from '../../shared/ui/Icons';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import { QRCodeSVG } from 'qrcode.react';
+
+// Форма загрузки повторяет форму реальной страницы (сайдбар + карточка
+// профиля), а не просто текст "Loading..." — тот же приём, что уже
+// применяется в admin-tickets-list/ticket-thread, просто раньше эта
+// страница его не использовала.
+function SettingsSkeleton() {
+    return (
+        <div className={styles.pageLayout}>
+            <aside className={styles.sidebar}>
+                <Skeleton width={140} height={14} className={styles.skeletonMb24} />
+                <Skeleton width={100} height={28} className={styles.skeletonMb32} />
+                <Skeleton width="100%" height={40} radius={18} className={styles.skeletonMb8} />
+                <Skeleton width="100%" height={40} radius={18} />
+            </aside>
+            <main className={styles.content}>
+                <div className={styles.panel}>
+                    <div className={styles.skeletonRow}>
+                        <Skeleton width={64} height={64} radius="50%" />
+                        <div className={styles.skeletonCol}>
+                            <Skeleton width={160} height={20} />
+                            <Skeleton width={200} height={14} />
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
 
 export function AccountSettingsPage() {
     const navigate = useNavigate();
@@ -145,8 +174,8 @@ export function AccountSettingsPage() {
 
     if (!user)
         return (
-            <DashboardShell user={null} title="Loading...">
-                Loading...
+            <DashboardShell user={null} title="" wide>
+                <SettingsSkeleton />
             </DashboardShell>
         );
 
@@ -163,12 +192,14 @@ export function AccountSettingsPage() {
                             className={`${styles.navItem} ${activeTab === 'profile' ? styles.active : ''}`}
                             onClick={() => setActiveTab('profile')}
                         >
+                            <UserIcon />
                             Profile Information
                         </button>
                         <button
                             className={`${styles.navItem} ${activeTab === 'security' ? styles.active : ''}`}
                             onClick={() => setActiveTab('security')}
                         >
+                            <ShieldIcon />
                             Login & Security
                         </button>
                     </nav>

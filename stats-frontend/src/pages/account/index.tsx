@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { useAuth } from '../../shared/auth/useAuth';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import styles from './index.module.scss';
 
 // SVG иконки (без изменений)
@@ -68,10 +69,15 @@ export function AccountPage() {
     }
 
     if (!user) {
-        // ProtectedRoute уже редиректит анонимных — сюда не должны попасть.
+        // ProtectedRoute уже редиректит анонимных — сюда не должны попасть,
+        // этот кадр виден максимум один тик, пока резолвится auth-статус.
         return (
-            <DashboardShell user={null} title="Loading...">
-                Loading...
+            <DashboardShell user={null} title="">
+                <div className={`${styles.heroContainer} ${styles.heroSkeleton}`}>
+                    <Skeleton width={180} height={30} radius={999} />
+                    <Skeleton width={420} height={56} radius={12} />
+                    <Skeleton width={320} height={20} radius={6} />
+                </div>
             </DashboardShell>
         );
     }
