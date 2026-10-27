@@ -5,58 +5,70 @@
     justify-content: center;
     gap: 9px;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-pill);
     font-family: 'Inter', sans-serif;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     transition:
-        transform 0.1s ease,
-        box-shadow 0.15s ease;
+        transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .base:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
 }
 
 .primary {
     background: linear-gradient(155deg, var(--accent-soft), var(--accent));
     color: #fff;
     box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.15) inset,
-        0 8px 20px rgba(255, 77, 94, 0.28);
+        0 1px 0 rgba(255, 255, 255, 0.35) inset,
+        0 10px 26px rgba(255, 77, 94, 0.3);
 }
 
 .primary:hover {
     box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.15) inset,
-        0 10px 26px rgba(255, 77, 94, 0.38);
+        0 1px 0 rgba(255, 255, 255, 0.4) inset,
+        0 14px 34px rgba(255, 77, 94, 0.4);
+    transform: translateY(-1px);
 }
 
+// "Жидкое стекло": блюр фона под кнопкой + полупрозрачная заливка + блик
+// сверху, вместо плоской заливки var(--surface-2) с одним бордером.
 .ghost {
-    background: var(--surface-2);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
     color: var(--text);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
 }
 
 .ghost:hover {
     border-color: var(--accent);
+    background: var(--glass-bg-strong);
+    transform: translateY(-1px);
 }
 
-// Плоский вариант для карточек register/login/verify (widgets/split-auth)
-// — контрастирует с мягким `.primary` градиентом нарочно, см. комментарий
-// в split-auth/index.tsx.
+// Второй, более "весомый" solid-вариант (формы входа/регистрации,
+// подтверждение кода и т.п.) — раньше нарочно плоский/прямоугольный на
+// контрасте с .primary; теперь тот же скруглённый язык, что у остальных
+// кнопок, просто сплошная заливка вместо градиента.
 .flat {
     background: var(--accent);
-    color: #0c0c0e;
-    border-radius: 4px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: #fff;
+    font-weight: 700;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.25) inset,
+        0 10px 26px rgba(255, 77, 94, 0.28);
 }
 
 .flat:hover {
     background: var(--accent-hover);
+    transform: translateY(-1px);
 }
 
 .fullWidth {
@@ -64,12 +76,12 @@
 }
 
 .md {
-    padding: 13px 22px;
+    padding: 13px 24px;
     font-size: 14.5px;
 }
 
 .sm {
-    padding: 8px 16px;
+    padding: 9px 18px;
     font-size: 13px;
     gap: 6px;
 }
