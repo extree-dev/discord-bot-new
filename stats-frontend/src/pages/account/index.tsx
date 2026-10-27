@@ -112,21 +112,21 @@ export function AccountPage() {
 
                 <div className={styles.featuresGrid}>
                     <div className={styles.featureCard}>
-                        <div className={styles.iconWrapper}>
+                        <div className={`${styles.iconWrapper} ${styles.iconWrapperRed}`}>
                             <ChartIcon />
                         </div>
                         <h3>Deep Statistics</h3>
                         <p>Track your K/D ratio, headshot percentage, and win rate across all your matches.</p>
                     </div>
                     <div className={styles.featureCard}>
-                        <div className={styles.iconWrapper}>
+                        <div className={`${styles.iconWrapper} ${styles.iconWrapperViolet}`}>
                             <TargetIcon />
                         </div>
                         <h3>Match History</h3>
                         <p>Detailed round-by-round breakdowns of your recent VALORANT matches.</p>
                     </div>
                     <div className={styles.featureCard}>
-                        <div className={styles.iconWrapper}>
+                        <div className={`${styles.iconWrapper} ${styles.iconWrapperBlurple}`}>
                             <DiscordIcon />
                         </div>
                         <h3>Discord Integration</h3>

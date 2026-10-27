@@ -1,13 +1,16 @@
 :root {
-    /* === Поколение 3: "Aurora Glass" ===
-       Полный отказ от палитры/шкал прошлых редизайнов — не правка
-       значений токенов, а новая система: true-black база (а не
-       угольно-сланцевая), крупнее радиусы (squircle-ближе к iOS/macOS
-       Liquid Glass, а не просто "скруглённые углы"), многослойный
-       материал стекла (градиент, а не плоская rgba-заливка) и второй,
-       фиолетовый акцент для бликов/фокуса/aurora-пятен — раньше в
-       палитре был только красный. */
-    --bg: #040406;
+    /* === Поколение 4: "Flowing Glass" ===
+       Предыдущая версия получила прямую обратную связь "цвета не
+       нравятся" — проблема была не в оттенке акцента, а в том, что
+       стекло почти ничего не преломляло: два тусклых статичных пятна
+       на почти чёрном фоне читались как "красно-чёрный HUD", а не как
+       настоящее стекло. Здесь материал стекла остаётся нейтральным
+       (без цветного тона самого себя), а цвет даёт вращающийся
+       многоцветный аврора-фон позади него — чем он живее, тем
+       убедительнее преломление сквозь blur+saturate. Акцентный красный
+       остаётся только на первичных действиях, а не фоновой заливкой
+       по умолчанию. */
+    --bg: #030305;
     --surface: #0c0d11;
     --surface-2: #121319;
     --border: rgba(255, 255, 255, 0.06);
@@ -17,9 +20,6 @@
     --text-dim: rgba(248, 248, 250, 0.6);
     --text-faint: rgba(248, 248, 250, 0.36);
 
-    /* Системный красный, чуть холоднее и чище прошлого #ff4d5e —
-       плюс второй акцент (фиолетовый) для aurora-пятен/фокуса/градиентов,
-       которого раньше в палитре не было вовсе. */
     --accent: #ff3b4e;
     --accent-soft: #ff6578;
     --accent-hover: #ff4f61;
@@ -29,9 +29,6 @@
     --win: #2fe3a3;
     --loss: var(--accent);
 
-    /* Squircle-шкала — крупнее прошлой почти вдвое на верхнем конце
-       (было 12/18/24/32, стало 14/20/28/38/46), ближе к continuous-corner
-       ощущению iOS/macOS 26, а не просто "более скруглённые углы". */
     --radius-sm: 14px;
     --radius-md: 20px;
     --radius-lg: 28px;
@@ -39,20 +36,19 @@
     --radius-2xl: 46px;
     --radius-pill: 999px;
 
-    /* Материал стекла v3: слоистый градиент вместо плоской rgba —
-       верх чуть светлее низа, как настоящее преломление на кромке,
-       а не однородная полупрозрачная плашка. */
-    --glass-bg: linear-gradient(170deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018));
-    --glass-bg-strong: linear-gradient(170deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045));
-    --glass-border: rgba(255, 255, 255, 0.13);
-    --glass-highlight: rgba(255, 255, 255, 0.55);
-    --glass-blur: 34px;
+    /* Материал стекла нарочно бесцветный (оттенок даёт фон позади через
+       blur+saturate, не сама поверхность) — лёгкий градиент сверху вниз
+       имитирует кромку настоящего стекла под светом. */
+    --glass-bg: linear-gradient(170deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02));
+    --glass-bg-strong: linear-gradient(170deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.6);
+    --glass-blur: 36px;
+    /* Насколько ярко стекло "вытягивает" цвет фона позади себя — высокое
+       значение здесь и есть разница между "тусклая серая плашка" и
+       "настоящее преломляющее стекло". */
+    --glass-saturate: 2.4;
     --glass-shadow: 0 32px 76px -32px rgba(0, 0, 0, 0.78), 0 1px 0 rgba(255, 255, 255, 0.07) inset;
-
-    /* Непрозрачная поверхность для панелей/меню/баров поверх читаемого
-       контента страницы (см. комментарий в предыдущей версии про
-       backdrop-filter на реальном iOS Safari) — тот же принцип, новое
-       значение под новую базовую палитру. */
     --glass-menu-bg: rgba(9, 10, 13, 0.97);
 
     --elevation-1: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 28px -18px rgba(0, 0, 0, 0.65);
@@ -64,25 +60,7 @@
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
 
-    /* Очень лёгкий шум поверх фона — убирает "идеально гладкий градиент"
-       ощущение дешёвого рендера, добавляет тактильности материалу.
-       Alpha зашита в саму матрицу (~2.5%), а не через opacity элемента —
-       иначе пришлось бы гасить вместе с ней и aurora-пятна под ним. */
     --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-
-    /* Вторая волна редизайна: elevation (тени растут на hover — поверхности
-       реагируют на взаимодействие, а не просто лежат плоско) + единая шкала
-       теней вместо разового --glass-shadow на всё подряд. */
-    --elevation-1: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 24px -16px rgba(0, 0, 0, 0.6);
-    --elevation-2: var(--glass-shadow);
-    --elevation-3:
-        0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 32px 80px -24px rgba(0, 0, 0, 0.75),
-        0 0 0 1px rgba(255, 77, 94, 0.08);
-
-    /* Плавность вместо "ease"/"linear" по умолчанию — тот же тактильный,
-       чуть пружинящий отклик, что уже был у кнопок, теперь общий токен. */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
     color-scheme: dark;
 }
@@ -119,47 +97,66 @@ body {
     isolation: isolate;
 }
 
-/* Aurora-пятна фона — три, не два: красный + фиолетовый (новый второй
-   акцент) + холодный синий, медленно "дышат" (transform/opacity), а не
-   стоят статично. Без них у glass-поверхностей (backdrop-filter: blur)
-   нечего размывать, стекло просто выглядело бы серым туманом. */
+/* Два больших вращающихся конических градиента вместо статичных пятен —
+   каждый сам по себе уже многоцветный (красный → оранжевый → фиолетовый
+   → синий, и отдельно бирюза → фиолетовый → розовый), медленно
+   вращается, и за счёт screen-блендинга накладывается вторым слоем ярче
+   первого. Это и есть цвет, который стекло ниже "преломляет" через
+   blur+saturate — без него материал выглядел бы просто серым туманом,
+   а не жидким стеклом. */
 body::before,
 body::after {
     content: '';
-    position: fixed;
+    /* absolute, не fixed: body (isolation: isolate) не создаёт
+       containing block для fixed-потомков — такой псевдоэлемент красится
+       в корневом стековом контексте НАД собственным фоном body (он там
+       целиком непрозрачный), а z-index:-1 тогда прячет его за body
+       полностью. position:relative на body уже даёт containing block
+       для absolute — тут псевдоэлемент красится между фоном body и его
+       контентом, как и задумано. */
+    position: absolute;
     border-radius: 50%;
     filter: blur(150px);
     z-index: -1;
     pointer-events: none;
-    animation: aurora-drift 26s ease-in-out infinite alternate;
+    mix-blend-mode: screen;
+    will-change: transform;
 }
 
 body::before {
-    width: 680px;
-    height: 680px;
-    top: -200px;
-    right: -160px;
-    background: radial-gradient(circle, rgba(255, 59, 78, 0.26), transparent 70%);
+    width: 980px;
+    height: 980px;
+    top: -360px;
+    right: -320px;
+    background: conic-gradient(
+        from 0deg,
+        rgba(255, 59, 78, 0.55),
+        rgba(255, 150, 60, 0.4),
+        rgba(124, 108, 255, 0.5),
+        rgba(59, 130, 246, 0.42),
+        rgba(255, 59, 78, 0.55)
+    );
+    animation: aurora-spin 42s linear infinite;
 }
 
 body::after {
-    width: 620px;
-    height: 620px;
-    bottom: -220px;
-    left: -140px;
-    background: radial-gradient(circle, rgba(124, 108, 255, 0.2), transparent 70%);
-    animation-delay: -13s;
-    animation-direction: alternate-reverse;
+    width: 820px;
+    height: 820px;
+    bottom: -300px;
+    left: -260px;
+    background: conic-gradient(
+        from 180deg,
+        rgba(34, 211, 238, 0.42),
+        rgba(124, 108, 255, 0.45),
+        rgba(236, 72, 153, 0.4),
+        rgba(34, 211, 238, 0.42)
+    );
+    animation: aurora-spin 58s linear infinite reverse;
 }
 
-@keyframes aurora-drift {
-    from {
-        transform: translate3d(0, 0, 0) scale(1);
-        opacity: 0.85;
-    }
+@keyframes aurora-spin {
     to {
-        transform: translate3d(-3%, 2%, 0) scale(1.06);
-        opacity: 1;
+        transform: rotate(360deg);
     }
 }
 
