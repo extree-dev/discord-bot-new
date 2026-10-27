@@ -27,6 +27,22 @@
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.35) inset,
         0 10px 26px rgba(255, 77, 94, 0.3);
+    overflow: hidden;
+
+    // Диагональный блик, "пробегающий" по кнопке при наведении —
+    // premium-деталь (Stripe/Linear CTA), а не просто смена тени.
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -75%;
+        width: 45%;
+        height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+        transform: skewX(-20deg);
+        transition: left 0.55s ease;
+        pointer-events: none;
+    }
 }
 
 .primary:hover {
@@ -34,6 +50,17 @@
         0 1px 0 rgba(255, 255, 255, 0.4) inset,
         0 14px 34px rgba(255, 77, 94, 0.4);
     transform: translateY(-1px);
+
+    &::after {
+        left: 140%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .primary::after {
+        transition: none;
+        display: none;
+    }
 }
 
 // "Жидкое стекло": блюр фона под кнопкой + полупрозрачная заливка + блик

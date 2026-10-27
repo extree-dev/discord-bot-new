@@ -1,9 +1,9 @@
 .header {
     position: sticky;
-    top: 16px;
+    top: max(16px, env(safe-area-inset-top));
     z-index: 50;
     width: calc(100% - 32px);
-    margin: 16px auto 0;
+    margin: max(16px, env(safe-area-inset-top)) auto 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -16,6 +16,12 @@
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-pill);
     box-shadow: var(--glass-shadow);
+
+    @media (max-width: 480px) {
+        width: calc(100% - 20px);
+        padding: 11px 16px;
+        border-radius: var(--radius-lg);
+    }
 }
 
 .brandLink {

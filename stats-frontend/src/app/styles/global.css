@@ -56,6 +56,20 @@
        не единственным источником контраста. */
     --glass-menu-bg: rgba(17, 19, 23, 0.96);
 
+    /* Вторая волна редизайна: elevation (тени растут на hover — поверхности
+       реагируют на взаимодействие, а не просто лежат плоско) + единая шкала
+       теней вместо разового --glass-shadow на всё подряд. */
+    --elevation-1: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 24px -16px rgba(0, 0, 0, 0.6);
+    --elevation-2: var(--glass-shadow);
+    --elevation-3:
+        0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 32px 80px -24px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(255, 77, 94, 0.08);
+
+    /* Плавность вместо "ease"/"linear" по умолчанию — тот же тактильный,
+       чуть пружинящий отклик, что уже был у кнопок, теперь общий токен. */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
     color-scheme: dark;
 }
 
@@ -120,4 +134,36 @@ body::after {
 
 a {
     color: inherit;
+}
+
+/* Фокус клавиатурой — заметное кольцо акцентного цвета, не браузерный
+   дефолт и не "ничего" (outline: none без замены — частый грех). */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Плавный, но не навязчивый "въезд" для крупных блоков (панели, карточки)
+   при появлении — элемент отмечается классом .enter в месте разметки.
+   Отключается для тех, кто просил меньше движения на экране. */
+@keyframes enter-rise {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.enter {
+    animation: enter-rise 0.5s var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .enter {
+        animation: none;
+    }
 }

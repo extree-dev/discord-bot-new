@@ -11,11 +11,22 @@
     border-radius: 50%;
     overflow: hidden;
     cursor: pointer;
-    border: 2px solid var(--border-strong);
-    background: var(--surface-2);
+    border: 2.5px solid transparent;
+    background:
+        linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+        conic-gradient(from 180deg, var(--accent-soft), var(--accent), var(--border-strong) 70%, var(--border-strong))
+            border-box;
+    box-shadow: var(--elevation-1);
+    transition:
+        transform 0.2s var(--ease-spring),
+        box-shadow 0.2s ease;
 
     &:hover .overlay {
         opacity: 1;
+    }
+    &:hover {
+        transform: scale(1.03);
+        box-shadow: var(--elevation-2);
     }
 }
 

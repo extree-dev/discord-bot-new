@@ -63,6 +63,9 @@
 }
 
 .navItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     background: none;
     border: 1px solid transparent;
     text-align: left;
@@ -77,9 +80,21 @@
         border-color 0.2s,
         color 0.2s;
 
+    svg {
+        flex-shrink: 0;
+        width: 17px;
+        height: 17px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
     &:hover {
         background: var(--glass-bg);
         color: var(--text);
+
+        svg {
+            opacity: 1;
+        }
     }
 
     &.active {
@@ -89,11 +104,69 @@
         border-color: var(--glass-border);
         color: var(--text);
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
+
+        svg {
+            opacity: 1;
+            color: var(--accent);
+        }
     }
 }
 
 .content {
     min-width: 0;
+}
+
+/* Карточки вкладки появляются не все разом, а по очереди — лёгкий каскад
+   вместо статичного "всё уже тут" попапа. */
+.tabContent > * {
+    animation: enter-rise 0.45s var(--ease-out) both;
+}
+
+@for $i from 1 through 6 {
+    .tabContent > *:nth-child(#{$i}) {
+        animation-delay: #{$i * 0.05}s;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tabContent > * {
+        animation: none;
+    }
+}
+
+/* === Скелетон загрузки === */
+.panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elevation-2);
+    padding: 26px;
+}
+
+.skeletonRow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.skeletonCol {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeletonMb8 {
+    margin-bottom: 8px;
+}
+
+.skeletonMb24 {
+    margin-bottom: 24px;
+}
+
+.skeletonMb32 {
+    margin-bottom: 32px;
 }
 
 .tabContent {

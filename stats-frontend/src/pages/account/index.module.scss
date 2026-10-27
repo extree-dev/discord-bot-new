@@ -7,6 +7,14 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+
+    @media (max-width: 600px) {
+        padding: 44px 16px;
+    }
+}
+
+.heroSkeleton {
+    gap: 14px;
 }
 
 /* Бейдж статуса */
@@ -37,12 +45,12 @@
 
 /* Заголовки */
 .heroTitle {
-    font-size: 56px;
+    font-size: clamp(32px, 7.5vw, 56px);
     line-height: 1.1;
     font-weight: 800;
     color: var(--text);
     margin: 0 0 24px 0;
-    letter-spacing: -2px;
+    letter-spacing: -0.03em;
 }
 
 .textRed {
@@ -130,15 +138,17 @@
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-shadow);
+    box-shadow: var(--elevation-1);
     padding: 32px 26px;
     transition:
-        border-color 0.2s,
-        transform 0.2s;
+        border-color 0.25s ease,
+        transform 0.25s var(--ease-spring),
+        box-shadow 0.25s ease;
 
     &:hover {
         border-color: rgba(255, 255, 255, 0.22);
-        transform: translateY(-3px);
+        transform: translateY(-4px);
+        box-shadow: var(--elevation-2);
     }
 
     h3 {

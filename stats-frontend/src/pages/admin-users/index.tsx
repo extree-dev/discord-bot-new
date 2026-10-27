@@ -6,6 +6,7 @@ import { IconButton } from '../../shared/ui/IconButton';
 import { IconCheck, IconX, ShieldIcon, IconShieldOff } from '../../shared/ui/Icons';
 import { useAuth } from '../../shared/auth/useAuth';
 import { getAllUsers, banUser, verifyUser, makeAdmin, ApiError, type AdminUser } from '../../shared/api/statsAuth';
+import { Skeleton } from '../../shared/ui/Skeleton';
 import styles from './index.module.scss';
 
 // SRP: только рендер страницы. Данные о текущем юзере — из useAuth
@@ -38,8 +39,18 @@ export function AdminUsersPage() {
 
     if (loading) {
         return (
-            <DashboardShell user={null} title="Loading...">
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-faint)' }}>Loading...</div>
+            <DashboardShell user={null} title="Users" wide>
+                <Panel>
+                    <div className={styles.skeletonList}>
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <div key={i} className={styles.skeletonRow}>
+                                <Skeleton width={36} height={36} radius="50%" />
+                                <Skeleton width="40%" height={14} />
+                                <Skeleton width={70} height={26} radius={999} />
+                            </div>
+                        ))}
+                    </div>
+                </Panel>
             </DashboardShell>
         );
     }
