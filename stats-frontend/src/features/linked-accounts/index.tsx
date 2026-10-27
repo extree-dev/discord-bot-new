@@ -11,11 +11,12 @@ interface LinkedAccountsProps {
 // Новый блок на странице аккаунта: раньше статус привязки Riot (user.
 // riotLinked) нигде в Settings не был виден — только неявно влиял на
 // текст в pages/account (hero-заглушка "Waiting for Riot Approval").
-// Тут он получает собственную карточку с реальным действием: перейти к
-// уже существующей (и честной насчёт ограничений RSO) странице поиска
-// Riot-профиля, не выдумывая данные, которых у бэкенда ещё нет (gameName/
-// tagLine для привязанного аккаунта бэкенд не хранит — см. User.java,
-// только riot_puuid).
+// "View Riot Profile" раньше вёл на /riot-lookup, которая намеренно не
+// подключена в App.tsx (см. комментарий там про RSO/VALORANT API Pending
+// Review) — мёртвая ссылка. Теперь ведёт на собственную страницу профиля
+// внутри панели управления (/account/riot-profile), не выдумывая данные,
+// которых у бэкенда ещё нет (gameName/tagLine для привязанного аккаунта
+// бэкенд не хранит — см. User.java, только riot_puuid).
 export function LinkedAccounts({ riotLinked }: LinkedAccountsProps) {
     const navigate = useNavigate();
 
@@ -40,14 +41,19 @@ export function LinkedAccounts({ riotLinked }: LinkedAccountsProps) {
                     {riotLinked ? (
                         <>
                             <span className={styles.connectedBadge}>Connected</span>
-                            <Button variant="ghost" size="sm" onClick={() => navigate('/riot-lookup')}>
+                            <Button variant="ghost" size="sm" onClick={() => navigate('/account/riot-profile')}>
                                 View Riot Profile
                             </Button>
                         </>
                     ) : (
-                        <Button variant="ghost" size="sm" href="/auth/riot/login">
-                            Connect
-                        </Button>
+                        <>
+                            <Button variant="ghost" size="sm" onClick={() => navigate('/account/riot-profile')}>
+                                Look up
+                            </Button>
+                            <Button variant="flat" size="sm" href="/auth/riot/login">
+                                Connect
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>

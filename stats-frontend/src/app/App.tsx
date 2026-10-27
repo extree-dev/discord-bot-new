@@ -16,6 +16,7 @@ import { AdminTicketsLayout } from '../widgets/admin-tickets-layout';
 import { AdminTicketsPlaceholder } from '../pages/admin-tickets-placeholder';
 import { AdminTicketPage } from '../pages/admin-ticket';
 import { AccountSettingsPage } from '../pages/account-settings';
+import { PlayerProfilePage } from '../pages/player-profile';
 import { AdminUsersPage } from '../pages/admin-users';
 import { AdminAuditPage } from '../pages/admin-audit';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
@@ -91,6 +92,14 @@ export function App() {
                     element={
                         <ProtectedRoute>
                             <AccountSettingsPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/account/riot-profile"
+                    element={
+                        <ProtectedRoute>
+                            <PlayerProfilePage />
                         </ProtectedRoute>
                     }
                 />

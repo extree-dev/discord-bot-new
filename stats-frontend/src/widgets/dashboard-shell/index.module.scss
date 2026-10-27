@@ -1,132 +1,217 @@
-.page {
+$sidebar-width: 268px;
+$sidebar-gutter: 16px;
+
+.shell {
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
     background: var(--bg);
 }
 
-// Плавающая стеклянная панель вместо хедера во всю ширину с жёсткой
-// нижней границей — тот же "liquid glass" язык, что у Panel/Button,
-// приподнята над контентом отступом и своей тенью, а не прилеплена к
-// краю экрана.
-.topbar {
-    position: sticky;
-    // env(safe-area-inset-top) — отступ под "остров"/вырез камеры на
-    // iPhone: без него плавающий бар на мобильном вплотную подходит к
-    // системной области и перекрывается ею при скролле вверх.
-    top: max(16px, env(safe-area-inset-top));
-    z-index: 50;
+/* === Sidebar dock (десктоп) === */
+.sidebar {
+    position: fixed;
+    top: $sidebar-gutter;
+    left: $sidebar-gutter;
+    bottom: $sidebar-gutter;
+    width: $sidebar-width;
+    z-index: 40;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 0
-        max(16px, env(safe-area-inset-left));
-    padding: 12px 20px;
-    // Непрозрачный --glass-menu-bg, не --glass-bg-strong: это sticky-бар,
-    // контент страницы скроллит у него под низом — если backdrop-filter
-    // не отрисовался (см. комментарий в ProfileDropdown), логотип/текст
-    // бара не должен становиться нечитаемым поверх прокручивающегося текста.
-    background: var(--glass-menu-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    flex-direction: column;
+    padding: 22px 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.6);
     border: 1px solid var(--glass-border);
-    border-radius: var(--radius-pill);
-    box-shadow: var(--glass-shadow);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-2);
 
-    @media (max-width: 480px) {
-        padding: 10px 14px;
-        border-radius: var(--radius-lg);
+    @media (max-width: 960px) {
+        display: none;
     }
 }
 
-.brandLink {
+.brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
     text-decoration: none;
+    padding: 6px 10px 20px;
     flex-shrink: 0;
+
+    span {
+        color: var(--text);
+        font-size: 14.5px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
 }
 
 .mark {
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
     object-fit: cover;
-    box-shadow: 0 2px 8px rgba(255, 77, 94, 0.35);
-}
-
-.brand {
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    box-shadow: 0 2px 10px rgba(255, 59, 78, 0.38);
 }
 
 .nav {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: 28px;
-}
-
-.navLink {
-    padding: 7px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-faint);
-    text-decoration: none;
-    transition:
-        color 0.15s ease,
-        background 0.15s ease;
-
-    &:hover {
-        color: var(--text-dim);
-        background: var(--surface-2);
-    }
-}
-
-.navLinkActive {
-    color: var(--text);
-    background: var(--surface-2);
-}
-
-.spacer {
+    flex-direction: column;
+    gap: 2px;
     flex: 1;
+    overflow-y: auto;
 }
 
-.userMenu {
+.navLabel {
+    margin: 18px 10px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+}
+
+.navItem {
     display: flex;
     align-items: center;
-    gap: 16px;
-    font-size: 13px;
-    color: var(--text-faint);
-}
+    gap: 11px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
 
-.userEmail {
-    display: none;
+    svg {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        opacity: 0.75;
+        transition: opacity 0.18s ease;
+    }
 
-    @media (min-width: 640px) {
-        display: inline;
+    &:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+
+        svg {
+            opacity: 1;
+        }
+    }
+
+    &.active {
+        background: var(--glass-bg-strong);
+        color: var(--text);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+
+        svg {
+            opacity: 1;
+            color: var(--accent);
+        }
     }
 }
 
-.signOut {
+.sidebarFooter {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    border-top: 1px solid var(--border);
+}
+
+.footerEmail {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
     color: var(--text-faint);
-    text-decoration: none;
-    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.logoutBtn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition:
+        color 0.18s ease,
+        border-color 0.18s ease;
+
+    svg {
+        width: 15px;
+        height: 15px;
+    }
 
     &:hover {
         color: var(--accent-soft);
+        border-color: rgba(255, 59, 78, 0.25);
     }
+}
+
+/* === Контентная колонка === */
+.column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin-left: $sidebar-width + $sidebar-gutter * 2;
+
+    @media (max-width: 960px) {
+        margin-left: 0;
+    }
+}
+
+/* === Компактный topbar (мобильный, вместо sidebar) === */
+.mobileTopbar {
+    display: none;
+
+    @media (max-width: 960px) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: max(14px, env(safe-area-inset-top));
+        z-index: 50;
+        margin: max(14px, env(safe-area-inset-top)) 14px 0 max(14px, env(safe-area-inset-left));
+        padding: 10px 14px;
+        background: var(--glass-menu-bg);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-pill);
+        box-shadow: var(--glass-shadow);
+    }
+}
+
+.mobileAvatarBtn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    line-height: 0;
+    border-radius: 50%;
 }
 
 .main {
     flex: 1;
-    padding: 40px 24px calc(80px + env(safe-area-inset-bottom));
+    padding: 40px 28px calc(60px + env(safe-area-inset-bottom));
 
-    @media (max-width: 480px) {
-        padding: 24px 16px calc(48px + env(safe-area-inset-bottom));
+    @media (max-width: 960px) {
+        padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
     }
 }
 
@@ -140,7 +225,7 @@
 }
 
 .contentWide {
-    max-width: 1080px;
+    max-width: 1100px;
 }
 
 .pageHead {
@@ -166,9 +251,9 @@
 
 .pageTitle {
     margin: 0;
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
 }
 
 .pageSubtitle {
@@ -180,11 +265,176 @@
 .error {
     padding: 13px 18px;
     border-radius: var(--radius-sm);
-    background: rgba(255, 77, 94, 0.12);
+    background: rgba(255, 59, 78, 0.12);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid rgba(255, 77, 94, 0.3);
+    border: 1px solid rgba(255, 59, 78, 0.3);
     color: var(--accent-soft);
     font-size: 13px;
     line-height: 1.5;
+}
+
+/* === Bottom tab bar (мобильный, вместо ProfileDropdown-меню) === */
+.tabbar {
+    display: none;
+
+    @media (max-width: 960px) {
+        display: flex;
+        position: fixed;
+        left: 14px;
+        right: 14px;
+        bottom: max(14px, env(safe-area-inset-bottom));
+        z-index: 50;
+        padding: 8px 10px;
+        background: var(--glass-menu-bg);
+        backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--glass-shadow);
+    }
+}
+
+.tabItem {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 4px;
+    border-radius: var(--radius-md);
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    text-decoration: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.18s ease;
+
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    span {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+    }
+
+    &.active {
+        color: var(--accent);
+    }
+}
+
+/* === Mobile nav sheet (заменяет ProfileDropdown на мобильном) === */
+.sheetBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    animation: sheet-fade-in 0.2s ease;
+}
+
+.sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 91;
+    padding: 10px 18px calc(22px + env(safe-area-inset-bottom));
+    background: var(--glass-menu-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    border-top-left-radius: var(--radius-xl);
+    border-top-right-radius: var(--radius-xl);
+    box-shadow: var(--elevation-3);
+    animation: sheet-slide-up 0.28s var(--ease-glass);
+}
+
+.sheetHandle {
+    width: 36px;
+    height: 4px;
+    margin: 0 auto 16px;
+    border-radius: var(--radius-pill);
+    background: var(--border-strong);
+}
+
+.sheetHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 6px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.sheetList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 4px;
+}
+
+.sheetItem {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px 10px;
+    border-radius: var(--radius-md);
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 14.5px;
+    font-weight: 600;
+    font-family: inherit;
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+
+    svg {
+        width: 19px;
+        height: 19px;
+        color: var(--text-faint);
+    }
+
+    &:active {
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
+@keyframes sheet-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes sheet-slide-up {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sheetBackdrop,
+    .sheet {
+        animation: none;
+    }
 }

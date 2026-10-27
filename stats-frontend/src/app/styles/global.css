@@ -1,60 +1,74 @@
 :root {
-    /* Нейтральная тёмная палитра в духе premium SaaS (Linear/Vercel), а не
-       плоский "геймерский" чёрно-красный HUD — так решили после серии
-       макетов (см. PR истории редизайна страницы входа): чуть теплее
-       угольно-сланцевой, с мягкими многослойными тенями вместо жёстких
-       границ. */
-    --bg: #0d0e11;
-    --surface: #15171b;
-    --surface-2: #1b1e23;
-    --border: rgba(255, 255, 255, 0.07);
-    --border-strong: rgba(255, 255, 255, 0.12);
+    /* === Поколение 3: "Aurora Glass" ===
+       Полный отказ от палитры/шкал прошлых редизайнов — не правка
+       значений токенов, а новая система: true-black база (а не
+       угольно-сланцевая), крупнее радиусы (squircle-ближе к iOS/macOS
+       Liquid Glass, а не просто "скруглённые углы"), многослойный
+       материал стекла (градиент, а не плоская rgba-заливка) и второй,
+       фиолетовый акцент для бликов/фокуса/aurora-пятен — раньше в
+       палитре был только красный. */
+    --bg: #040406;
+    --surface: #0c0d11;
+    --surface-2: #121319;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.14);
 
-    --text: #f5f5f4;
-    --text-dim: rgba(245, 245, 244, 0.58);
-    --text-faint: rgba(245, 245, 244, 0.36);
+    --text: #f8f8fa;
+    --text-dim: rgba(248, 248, 250, 0.6);
+    --text-faint: rgba(248, 248, 250, 0.36);
 
-    /* Фирменный красный VALORANT, чуть смягчённый (#ff4d5e вместо чистого
-       игрового #ff4655) — используется как сплошной цвет текста-акцента и
-       как лёгкий градиент на основной кнопке, а не плашками/заливками. */
-    --accent: #ff4d5e;
-    --accent-soft: #ff6370;
-    --accent-hover: #ff5e6c;
+    /* Системный красный, чуть холоднее и чище прошлого #ff4d5e —
+       плюс второй акцент (фиолетовый) для aurora-пятен/фокуса/градиентов,
+       которого раньше в палитре не было вовсе. */
+    --accent: #ff3b4e;
+    --accent-soft: #ff6578;
+    --accent-hover: #ff4f61;
+    --accent-2: #7c6cff;
+    --accent-2-soft: #a89bff;
 
-    --win: #34d399;
+    --win: #2fe3a3;
     --loss: var(--accent);
 
-    /* Редизайн 2026: скруглённые поверхности + "жидкое стекло" вместо
-       плоских прямоугольных панелей — полная смена языка, не косметика
-       поверх старого. Радиусы крупнее почти везде (карточки/кнопки),
-       через переменные — компоненты, уже ссылавшиеся на var(--radius-*),
-       скруглились сами, без правки каждого файла. */
-    --radius-sm: 12px;
-    --radius-md: 18px;
-    --radius-lg: 24px;
-    --radius-xl: 32px;
+    /* Squircle-шкала — крупнее прошлой почти вдвое на верхнем конце
+       (было 12/18/24/32, стало 14/20/28/38/46), ближе к continuous-corner
+       ощущению iOS/macOS 26, а не просто "более скруглённые углы". */
+    --radius-sm: 14px;
+    --radius-md: 20px;
+    --radius-lg: 28px;
+    --radius-xl: 38px;
+    --radius-2xl: 46px;
     --radius-pill: 999px;
 
-    /* Поверхности "стекла": полупрозрачная заливка + blur фона за ней
-       (ambient-пятна ниже дают чему блюриться) + едва заметный блик по
-       верхнему краю, как у реальной кромки стекла под светом. */
-    --glass-bg: rgba(255, 255, 255, 0.045);
-    --glass-bg-strong: rgba(255, 255, 255, 0.08);
-    --glass-border: rgba(255, 255, 255, 0.14);
-    --glass-highlight: rgba(255, 255, 255, 0.4);
-    --glass-blur: 26px;
-    --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    /* Материал стекла v3: слоистый градиент вместо плоской rgba —
+       верх чуть светлее низа, как настоящее преломление на кромке,
+       а не однородная полупрозрачная плашка. */
+    --glass-bg: linear-gradient(170deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018));
+    --glass-bg-strong: linear-gradient(170deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045));
+    --glass-border: rgba(255, 255, 255, 0.13);
+    --glass-highlight: rgba(255, 255, 255, 0.55);
+    --glass-blur: 34px;
+    --glass-shadow: 0 32px 76px -32px rgba(0, 0, 0, 0.78), 0 1px 0 rgba(255, 255, 255, 0.07) inset;
 
-    /* Отдельный, почти непрозрачный токен для ВСПЛЫВАЮЩИХ поверх другого
-       контента панелей (dropdown-меню, выпадающие списки) — в отличие от
-       --glass-bg-strong (кнопки/карточки на ровном фоне, где лёгкая
-       прозрачность — часть эффекта), здесь под панелью не ambient-пятна, а
-       реальный читаемый текст страницы. Если backdrop-filter не
-       отрендерился (замечено на реальном iOS Safari — текст меню и текст
-       страницы под ним накладывались друг на друга, нечитаемо), эта
-       непрозрачность — единственное, что спасает: blur остаётся бонусом,
-       не единственным источником контраста. */
-    --glass-menu-bg: rgba(17, 19, 23, 0.96);
+    /* Непрозрачная поверхность для панелей/меню/баров поверх читаемого
+       контента страницы (см. комментарий в предыдущей версии про
+       backdrop-filter на реальном iOS Safari) — тот же принцип, новое
+       значение под новую базовую палитру. */
+    --glass-menu-bg: rgba(9, 10, 13, 0.97);
+
+    --elevation-1: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 28px -18px rgba(0, 0, 0, 0.65);
+    --elevation-2: var(--glass-shadow);
+    --elevation-3:
+        0 1px 0 rgba(255, 255, 255, 0.09) inset, 0 40px 90px -28px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 59, 78, 0.1);
+
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Очень лёгкий шум поверх фона — убирает "идеально гладкий градиент"
+       ощущение дешёвого рендера, добавляет тактильности материалу.
+       Alpha зашита в саму матрицу (~2.5%), а не через opacity элемента —
+       иначе пришлось бы гасить вместе с ней и aurora-пятна под ним. */
+    --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
     /* Вторая волна редизайна: elevation (тени растут на hover — поверхности
        реагируют на взаимодействие, а не просто лежат плоско) + единая шкала
@@ -85,7 +99,9 @@ body,
 
 body {
     margin: 0;
-    background: var(--bg);
+    background-color: var(--bg);
+    background-image: var(--noise);
+    background-repeat: repeat;
     color: var(--text);
     font-family:
         'Inter',
@@ -103,43 +119,65 @@ body {
     isolation: isolate;
 }
 
-/* Ambient-пятна фона — без них у glass-поверхностей (backdrop-filter:
-   blur) нечего размывать, стекло просто выглядело бы серым туманом.
-   Фиксированные, вне потока (z-index: -1), не мешают скроллу/layout. */
+/* Aurora-пятна фона — три, не два: красный + фиолетовый (новый второй
+   акцент) + холодный синий, медленно "дышат" (transform/opacity), а не
+   стоят статично. Без них у glass-поверхностей (backdrop-filter: blur)
+   нечего размывать, стекло просто выглядело бы серым туманом. */
 body::before,
 body::after {
     content: '';
     position: fixed;
     border-radius: 50%;
-    filter: blur(140px);
+    filter: blur(150px);
     z-index: -1;
     pointer-events: none;
+    animation: aurora-drift 26s ease-in-out infinite alternate;
 }
 
 body::before {
-    width: 620px;
-    height: 620px;
-    top: -160px;
-    right: -140px;
-    background: radial-gradient(circle, rgba(255, 77, 94, 0.24), transparent 70%);
+    width: 680px;
+    height: 680px;
+    top: -200px;
+    right: -160px;
+    background: radial-gradient(circle, rgba(255, 59, 78, 0.26), transparent 70%);
 }
 
 body::after {
-    width: 540px;
-    height: 540px;
-    bottom: -180px;
-    left: -120px;
-    background: radial-gradient(circle, rgba(88, 130, 255, 0.16), transparent 70%);
+    width: 620px;
+    height: 620px;
+    bottom: -220px;
+    left: -140px;
+    background: radial-gradient(circle, rgba(124, 108, 255, 0.2), transparent 70%);
+    animation-delay: -13s;
+    animation-direction: alternate-reverse;
+}
+
+@keyframes aurora-drift {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 0.85;
+    }
+    to {
+        transform: translate3d(-3%, 2%, 0) scale(1.06);
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::before,
+    body::after {
+        animation: none;
+    }
 }
 
 a {
     color: inherit;
 }
 
-/* Фокус клавиатурой — заметное кольцо акцентного цвета, не браузерный
-   дефолт и не "ничего" (outline: none без замены — частый грех). */
+/* Фокус клавиатурой — фиолетовый (второй акцент), не красный: отличим
+   от "ошибки/акцента бренда", как делает нативная система. */
 :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-2);
     outline-offset: 2px;
     border-radius: 4px;
 }
