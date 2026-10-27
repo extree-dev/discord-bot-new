@@ -30,7 +30,13 @@
     top: calc(100% + 16px);
     right: 0;
     width: 260px; /* Чуть уже, так как пунктов стало меньше */
-    background: var(--glass-bg-strong);
+    // Почти непрозрачный фон (--glass-menu-bg), не --glass-bg-strong — это
+    // меню всплывает НАД читаемым текстом страницы (не ровным фоном), и на
+    // реальном iOS Safari backdrop-filter не всегда отрисовывался: текст
+    // страницы под меню и пункты меню накладывались друг на друга и были
+    // нечитаемы. Blur оставлен как бонус-эффект, не единственный источник
+    // контраста.
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
     border: 1px solid var(--glass-border);
