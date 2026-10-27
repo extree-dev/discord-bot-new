@@ -41,21 +41,20 @@
     background: var(--win);
 }
 
+// Поколение 3: обычный регистр вместо caps-lock и плашка-с-skew'ом
+// заменена на тот же чистый акцентный текст, что на главной (hero
+// "Journey Starts Here.") — один язык заголовков на весь сайт, а не
+// отдельный "жёсткий" вариант для auth-страниц.
 .heading {
-    font-size: clamp(32px, 4.2vw, 50px);
-    line-height: 1.04;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: -0.01em;
+    font-size: clamp(32px, 4.2vw, 52px);
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.025em;
     margin: 0 0 22px;
 }
 
 .heading :global(.hl) {
-    display: inline-block;
-    background: var(--accent);
-    color: #0c0c0e;
-    padding: 3px 12px;
-    transform: skewX(-3deg);
+    color: var(--accent);
 }
 
 .lead {
@@ -66,10 +65,6 @@
     margin: 0;
 }
 
-// Раньше нарочно плоская/жёсткая карточка (border-radius 6px, цветной
-// кант сверху) на контрасте с мягкой скруглённой левой колонкой —
-// редизайн 2026 это решение отменяет: один язык стекла везде, а не
-// разные по колонкам.
 .card {
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
@@ -92,10 +87,9 @@
 
 .cardTitle {
     margin: 0 0 22px;
-    font-size: 19px;
+    font-size: 20px;
     font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
 }
 
 @keyframes split-auth-error-in {
