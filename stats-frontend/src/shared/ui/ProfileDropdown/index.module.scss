@@ -37,8 +37,8 @@
     // нечитаемы. Blur оставлен как бонус-эффект, не единственный источник
     // контраста.
     background: var(--glass-menu-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     box-shadow: var(--glass-shadow);

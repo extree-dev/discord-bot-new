@@ -134,8 +134,8 @@
 
 .featureCard {
     background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--elevation-1);
@@ -165,16 +165,31 @@
     }
 }
 
-/* Иконки */
+/* Иконки — три фичи, три разных цвета вместо одного красного на всё:
+   цвет перестаёт быть "фоновой заливкой по умолчанию" и снова что-то
+   значит (бренд / вторичный акцент / цвет самого Discord). */
 .iconWrapper {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 48px;
     height: 48px;
-    background: rgba(255, 77, 94, 0.1);
-    color: var(--accent);
     border-radius: var(--radius-md);
+}
+
+.iconWrapperRed {
+    background: rgba(255, 59, 78, 0.12);
+    color: var(--accent);
+}
+
+.iconWrapperViolet {
+    background: rgba(124, 108, 255, 0.14);
+    color: var(--accent-2-soft);
+}
+
+.iconWrapperBlurple {
+    background: rgba(88, 101, 242, 0.14);
+    color: #8993f5;
 }
 
 /* Анимации */

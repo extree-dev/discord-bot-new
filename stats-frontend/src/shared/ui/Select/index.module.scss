@@ -55,8 +55,8 @@
     // страницы, а не ровным фоном, и легло на реальный баг с нечитаемым
     // наложением текста на iOS Safari, когда backdrop-filter не сработал.
     background: var(--glass-menu-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.5);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
     padding: 6px;
