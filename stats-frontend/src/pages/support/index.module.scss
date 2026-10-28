@@ -3,84 +3,71 @@
     flex-direction: column;
     gap: 16px;
 }
-
 .responseTime {
     margin: 0;
     font-size: 12.5px;
-    color: var(--text-faint);
+    color: #a1a1aa;
 }
-
 .accountEmail {
     margin: 0;
     font-size: 13px;
-    color: var(--text-faint);
-
+    color: #a1a1aa;
     strong {
-        color: var(--text-dim);
+        color: #fff;
     }
 }
-
 .faq {
     margin-top: 32px;
     max-width: 420px;
 }
-
 .faqTitle {
     margin: 0 0 12px;
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-faint);
+    color: #71717a;
 }
-
 .faqItem {
-    border-top: 1px solid var(--border);
-
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
     &:last-child {
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 }
-
 .faqQuestion {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     width: 100%;
-    padding: 12px 0;
+    padding: 16px 0;
     background: none;
     border: none;
     font-family: inherit;
     font-size: 14px;
     font-weight: 600;
-    color: var(--text);
+    color: #fff;
     text-align: left;
     cursor: pointer;
     transition: color 0.15s ease;
-
     &:hover {
-        color: var(--accent-soft);
+        color: var(--accent);
     }
 }
-
 .faqIcon {
     position: relative;
     flex-shrink: 0;
     width: 10px;
     height: 10px;
-
     &::before,
     &::after {
         content: '';
         position: absolute;
-        background: var(--text-faint);
+        background: #71717a;
         transition:
             transform 0.2s ease,
             background 0.15s ease;
     }
-
-    // горизонтальная перекладина
     &::before {
         top: 50%;
         left: 0;
@@ -88,8 +75,6 @@
         height: 1.5px;
         transform: translateY(-50%);
     }
-
-    // вертикальная — схлопывается до 0, превращая "+" в "−"
     &::after {
         top: 0;
         left: 50%;
@@ -98,46 +83,35 @@
         transform: translateX(-50%);
     }
 }
-
 .faqQuestion:hover .faqIcon::before,
 .faqQuestion:hover .faqIcon::after {
-    background: var(--accent-soft);
+    background: var(--accent);
 }
-
 .faqIconOpen::after {
     transform: translateX(-50%) scaleY(0);
 }
-
-// grid-template-rows 0fr → 1fr — плавная анимация высоты без знания
-// итогового значения в пикселях и без JS-измерения (в отличие от
-// max-height, который либо обрезает, либо требует подбирать запас).
 .faqAnswer {
     display: grid;
     grid-template-rows: 0fr;
     transition: grid-template-rows 0.25s ease;
 }
-
 .faqAnswerOpen {
     grid-template-rows: 1fr;
 }
-
 .faqAnswerInner {
     overflow: hidden;
 }
-
 .faqAnswerInner p {
-    margin: 0 0 12px;
-    font-size: 13.5px;
+    margin: 0 0 16px;
+    font-size: 14px;
     line-height: 1.6;
-    color: var(--text-dim);
+    color: #a1a1aa;
 }
-
 .faqAnswerInner a {
-    color: var(--accent-soft);
+    color: var(--accent);
     text-decoration: underline;
     text-underline-offset: 2px;
 }
-
 @keyframes support-fade-in {
     from {
         opacity: 0;
@@ -148,34 +122,39 @@
         transform: translateY(0);
     }
 }
-
 .sent {
     animation: support-fade-in 0.35s ease;
-
     p {
         margin: 0;
         font-size: 14px;
         line-height: 1.6;
-        color: var(--text-dim);
+        color: #a1a1aa;
     }
-
     strong {
-        color: var(--text);
+        color: #fff;
     }
 }
-
 .ticketId {
-    margin-top: 10px;
+    margin-top: 12px;
     font-size: 13px;
-    color: var(--text-faint);
-
+    color: #71717a;
     code {
-        font-family: 'SF Mono', 'Courier New', Consolas, monospace;
-        font-size: 12px;
-        color: var(--text);
-        background: var(--surface-2);
-        border: 1px solid var(--border-strong);
-        border-radius: 4px;
-        padding: 2px 6px;
+        font-family: monospace;
+        font-size: 13px;
+        color: #fff;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 4px 8px;
+    }
+}
+@media (max-width: 768px) {
+    .faq {
+        margin-top: 24px;
+        max-width: 100%;
+    }
+    .faqQuestion {
+        padding: 12px 0;
+        font-size: 13.5px;
     }
 }

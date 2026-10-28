@@ -1,22 +1,23 @@
+/* ==========================================================================
+   ACCOUNT SETTINGS
+   Стиль: Stripe / Linear + Glassmorphism
+   ========================================================================== */
+
 .page {
     width: 100%;
     max-width: 1040px;
     margin: 0 auto;
     padding: 32px 0;
-
-    @media (max-width: 860px) {
-        padding: 20px;
-    }
 }
 
 .backBtn {
     background: none;
     border: none;
-    color: var(--text-faint);
+    color: #a1a1aa;
     font-size: 14px;
     cursor: pointer;
     padding: 0;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -24,159 +25,77 @@
     transition: color 0.2s;
 
     &:hover {
-        color: var(--text);
+        color: #fff;
     }
 }
 
 .title {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text);
-    margin: 0 0 20px 0;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin: 0 0 32px 0;
 }
 
-/* Вертикальный сайдбар слева, контент справа (≈70% ширины) — сайдбар
-   фиксированной ширины, контент занимает остальное через flex:1. На узких
-   экранах сворачивается обратно в горизонтальную строку вкладок (тот же
-   паттерн, что раньше был основным лейаутом, здесь — только fallback). */
+/* Сайдбар слева (вкладки) */
 .layout {
     display: flex;
     align-items: flex-start;
-    gap: 32px;
-
-    @media (max-width: 760px) {
-        flex-direction: column;
-        gap: 20px;
-    }
+    gap: 40px;
 }
 
 .sidebar {
     flex: 0 0 220px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     position: sticky;
-    top: 76px;
-
-    @media (max-width: 760px) {
-        position: static;
-        flex: none;
-        width: 100%;
-        flex-direction: row;
-        gap: 4px;
-        overflow-x: auto;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 8px;
-    }
+    top: 100px;
 }
 
 .navItem {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     background: none;
     border: none;
-    border-radius: var(--radius-md);
-    padding: 10px 12px;
+    border-radius: 10px;
+    padding: 12px 16px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-faint);
+    color: #71717a;
     cursor: pointer;
     white-space: nowrap;
     text-align: left;
-    transition:
-        color 0.15s ease,
-        background 0.15s ease;
+    transition: all 0.2s ease;
 
     svg {
         flex-shrink: 0;
-        width: 17px;
-        height: 17px;
+        width: 18px;
+        height: 18px;
         opacity: 0.7;
     }
 
     &:hover {
-        color: var(--text);
-        background: var(--surface);
+        color: #fff;
+        background: rgba(255, 255, 255, 0.04);
     }
 
     &.active {
-        color: var(--text);
-        background: var(--surface);
+        color: #fff;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
         svg {
             opacity: 1;
             color: var(--accent);
         }
     }
-
-    @media (max-width: 760px) {
-        flex-shrink: 0;
-    }
 }
 
 .content {
     flex: 1;
     min-width: 0;
-}
-
-.skeletonSidebar {
-    flex: 0 0 220px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    @media (max-width: 760px) {
-        flex: none;
-        width: 100%;
-        flex-direction: row;
-    }
-}
-
-.skeletonMb16 {
-    margin-bottom: 16px;
-}
-
-/* Карточки вкладки появляются не все разом, а по очереди — лёгкий каскад
-   вместо статичного "всё уже тут" попапа. */
-.tabContent > * {
-    animation: enter-rise 0.45s var(--ease-out) both;
-}
-
-@for $i from 1 through 6 {
-    .tabContent > *:nth-child(#{$i}) {
-        animation-delay: #{$i * 0.05}s;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tabContent > * {
-        animation: none;
-    }
-}
-
-/* === Скелетон загрузки === */
-.panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 26px;
-}
-
-.skeletonRow {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.skeletonCol {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.skeletonMb24 {
-    margin-bottom: 24px;
 }
 
 .tabContent {
@@ -186,7 +105,31 @@
     animation: fadeIn 0.2s ease-out;
 }
 
-/* Profile styles */
+/* === Панели (Стекло) === */
+.panel {
+    background: rgba(20, 20, 25, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.04), transparent 70%);
+        pointer-events: none;
+    }
+}
+
+/* Profile Info */
 .avatarSection {
     display: flex;
     align-items: center;
@@ -198,20 +141,20 @@
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--surface-2);
-    color: var(--accent);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 28px;
     font-weight: 700;
-    border: 1px solid var(--border-strong);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .hintText {
     margin: 8px 0 0;
-    font-size: 12px;
-    color: var(--text-faint);
+    font-size: 13px;
+    color: #a1a1aa;
 }
 
 .infoList {
@@ -224,7 +167,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
     &:last-child {
         border-bottom: none;
@@ -233,16 +176,14 @@
 
 .label {
     font-size: 13px;
-    color: var(--text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
+    color: #a1a1aa;
+    font-weight: 500;
 }
 
 .value {
     font-size: 15px;
     font-weight: 500;
-    color: var(--text);
+    color: #fff;
 }
 
 .emailRow {
@@ -256,9 +197,9 @@
     font-weight: 700;
     text-transform: uppercase;
     color: var(--win);
-    background: rgba(52, 211, 153, 0.1);
-    padding: 4px 9px;
-    border-radius: var(--radius-pill);
+    background: rgba(52, 211, 153, 0.12);
+    padding: 4px 8px;
+    border-radius: 999px;
 }
 
 .badgeWarning {
@@ -266,22 +207,16 @@
     font-weight: 700;
     text-transform: uppercase;
     color: #fbbf24;
-    background: rgba(251, 191, 36, 0.1);
-    padding: 4px 9px;
-    border-radius: var(--radius-pill);
+    background: rgba(251, 191, 36, 0.12);
+    padding: 4px 8px;
+    border-radius: 999px;
 }
 
-/* === Security tab: две строки по 50/50 (Security Score + статус,
-   2FA + смена пароля), а не одна длинная колонка === */
 .securityGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
     align-items: stretch;
-
-    @media (max-width: 760px) {
-        grid-template-columns: 1fr;
-    }
 }
 
 .statusList {
@@ -294,8 +229,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--border);
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 
     &:last-child {
         border-bottom: none;
@@ -308,23 +243,22 @@
 .pillAdmin {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-size: 11.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    padding: 4px 10px;
-    border-radius: var(--radius-pill);
+    padding: 5px 10px;
+    border-radius: 999px;
 
     svg {
-        width: 11px;
-        height: 11px;
+        width: 12px;
+        height: 12px;
     }
 }
 
 .pillNeutral {
-    color: var(--text-faint);
-    background: var(--surface-2);
+    color: #a1a1aa;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .pillGood {
@@ -342,33 +276,34 @@
     background: rgba(var(--accent-rgb), 0.12);
 }
 
-/* Компактная карточка-CTA вместо пустого поля, пока 2FA не включена. */
+/* 2FA CTA */
 .twoFaCta {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 10px;
-    padding: 12px 0 4px;
+    gap: 12px;
+    padding: 16px 0 4px;
 }
 
 .twoFaCtaIcon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    background: var(--surface-2);
-    color: var(--accent-soft);
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 
     svg {
-        width: 20px;
-        height: 20px;
+        width: 22px;
+        height: 22px;
     }
 }
 
-/* Danger zone */
+/* Danger Zone */
 .dangerRow {
     display: flex;
     align-items: center;
@@ -377,7 +312,8 @@
 }
 
 .dangerPanel {
-    border: 1px dashed rgba(var(--accent-rgb), 0.4);
+    border-color: rgba(var(--accent-rgb), 0.3);
+    background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.05), transparent 100%);
 }
 
 .deleteAccountBtn {
@@ -386,43 +322,31 @@
 
     &:hover {
         border-color: var(--accent);
-        background: rgba(var(--accent-rgb), 0.08);
+        background: rgba(var(--accent-rgb), 0.1);
     }
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* === Профиль: режим просмотра === */
+/* View Mode */
 .viewHeader {
     display: flex;
     align-items: center;
     gap: 20px;
-    padding: 8px 0 20px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 20px;
+    padding: 8px 0 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 24px;
 }
 
 .viewHeaderText {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
 }
 
 .viewName {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
-    color: var(--text);
+    color: #fff;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -431,7 +355,7 @@
 
 .viewEmail {
     font-size: 14px;
-    color: var(--text-faint);
+    color: #a1a1aa;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -439,32 +363,31 @@
 
 .profileActions {
     display: flex;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 12px;
+    margin-top: 24px;
 }
 
-/* === 2FA setup === */
+/* 2FA Setup */
 .errorBanner {
     margin: 0 0 16px;
-    padding: 11px 16px;
-    border-radius: var(--radius-md);
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
-    color: var(--accent-soft);
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(255, 69, 58, 0.1);
+    border: 1px solid rgba(255, 69, 58, 0.2);
+    color: #ff453a;
     font-size: 13px;
-    font-weight: 500;
 }
 
 .enabledBanner {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    padding: 14px 16px;
-    border-radius: var(--radius-md);
+    padding: 16px;
+    border-radius: 12px;
     background: rgba(52, 211, 153, 0.08);
-    border: 1px solid rgba(52, 211, 153, 0.22);
-    color: var(--text);
-    font-size: 13px;
+    border: 1px solid rgba(52, 211, 153, 0.2);
+    color: #fff;
+    font-size: 14px;
     line-height: 1.5;
 
     svg {
@@ -477,14 +400,14 @@
 .totpSetup {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
 }
 
 .totpStep {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    margin-top: 20px;
+    margin-top: 24px;
 
     &:first-child {
         margin-top: 0;
@@ -493,12 +416,12 @@
 
 .stepBadge {
     flex-shrink: 0;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--border-strong);
-    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
     font-size: 12px;
     font-weight: 700;
     display: flex;
@@ -508,17 +431,17 @@
 
 .stepTitle {
     margin: 0;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
-    color: var(--text);
+    color: #fff;
 }
 
 .qrRow {
-    margin-top: 14px;
-    margin-left: 34px;
+    margin-top: 16px;
+    margin-left: 36px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 24px;
     flex-wrap: wrap;
 }
 
@@ -528,102 +451,137 @@
     justify-content: center;
     padding: 16px;
     background: #fff;
-    border-radius: var(--radius-md);
+    border-radius: 12px;
 }
 
 .secretBlock {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
 }
 
 .secretLabel {
-    font-size: 12px;
-    color: var(--text-faint);
+    font-size: 13px;
+    color: #a1a1aa;
 }
 
 .secretValue {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 13px;
+    font-family: monospace;
+    font-size: 14px;
     font-weight: 600;
-    color: var(--text);
-    background: var(--glass-bg-strong);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
-    padding: 9px 12px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
     word-break: break-all;
     width: fit-content;
 }
 
 .recoveryGrid {
-    margin-top: 14px;
-    margin-left: 34px;
+    margin-top: 16px;
+    margin-left: 36px;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    max-width: 420px;
-
-    @media (max-width: 480px) {
-        grid-template-columns: 1fr;
-    }
+    gap: 10px;
+    max-width: 480px;
 }
 
 .recoveryChip {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-size: 13px;
+    font-family: monospace;
+    font-size: 14px;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--text);
-    background: var(--glass-bg-strong);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
-    padding: 9px 10px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 12px;
     text-align: center;
 }
 
 .codeInputWrap {
-    margin-top: 14px;
-    margin-left: 34px;
+    margin-top: 16px;
+    margin-left: 36px;
 }
 
 .totpActions {
     display: flex;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 12px;
+    margin-top: 24px;
 }
 
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==========================================================================
+   MOBILE OPTIMIZATION (< 768px)
+   ========================================================================== */
 @media (max-width: 768px) {
     .page {
-        padding: 16px !important;
+        padding: 24px 16px;
     }
-    .securityGrid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-    }
-    .recoveryGrid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-    }
-    .page,
-    .main {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-        overflow-x: hidden !important;
-    }
-    .sidebar {
-        flex-direction: row !important;
-        overflow-x: auto !important;
-        width: 100% !important;
-        border-bottom: 1px solid var(--border) !important;
-    }
+
     .layout {
-        flex-direction: column !important;
+        flex-direction: column;
+        gap: 24px;
     }
+
+    .sidebar {
+        flex-direction: row;
+        position: static;
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
     .navItem {
-        white-space: nowrap !important;
+        white-space: nowrap;
+        padding: 8px 12px;
+    }
+
+    .securityGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .panel {
+        padding: 24px;
+        border-radius: 16px;
+    }
+
+    .row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .viewHeader {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .qrRow,
+    .recoveryGrid,
+    .codeInputWrap {
+        margin-left: 0;
+    }
+
+    .recoveryGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .dangerRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
     }
 }

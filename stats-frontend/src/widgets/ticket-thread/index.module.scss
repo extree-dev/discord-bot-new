@@ -1,65 +1,66 @@
 .thread {
     display: flex;
     flex-direction: column;
+    gap: 8px;
 }
-
 .comment {
     display: flex;
-    gap: 14px;
-    padding: 20px 0;
-    border-bottom: 1px solid var(--border);
-
+    gap: 16px;
+    padding: 24px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     &:last-child {
         border-bottom: none;
     }
 }
-
 .commentSupport {
-    background: linear-gradient(180deg, rgba(255, 77, 94, 0.03), transparent 60%);
-    border-radius: 8px;
-    padding: 20px 12px;
-    margin: 0 -12px;
-
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%);
+    border-radius: 12px;
+    padding: 24px 16px;
+    margin: 0 -16px;
     & + .comment {
         border-top: none;
     }
 }
-
 .body {
     flex: 1;
     min-width: 0;
 }
-
 .head {
     display: flex;
     align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
+    gap: 12px;
+    margin-bottom: 8px;
 }
-
 .author {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
-    color: var(--text);
+    color: #fff;
 }
-
 .time {
     font-size: 12px;
-    color: var(--text-faint);
+    color: #71717a;
     font-variant-numeric: tabular-nums;
 }
-
 .message {
-    font-size: 14px;
+    font-size: 14.5px;
     line-height: 1.65;
-    color: var(--text-dim);
+    color: #a1a1aa;
     white-space: pre-wrap;
     word-break: break-word;
 }
-
 .skeletonHead {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
+}
+@media (max-width: 768px) {
+    .comment {
+        padding: 16px 0;
+        gap: 12px;
+    }
+    .commentSupport {
+        padding: 16px 12px;
+        margin: 0 -12px;
+    }
 }

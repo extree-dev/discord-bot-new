@@ -1,46 +1,31 @@
 .form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
+    gap: 16px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-
 .formActions {
     display: flex;
     justify-content: flex-end;
+    width: 100%;
 }
-
 .notice {
     margin: 0;
     font-size: 13px;
     color: var(--win);
 }
-
 .closedNotice {
-    margin: 20px 0 0;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
-    font-size: 13.5px;
-    color: var(--text-faint);
+    margin: 24px 0 0;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 14px;
+    color: #71717a;
 }
-
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
 @media (max-width: 768px) {
-    .ctaGroup,
-    .actions,
-    .formActions {
-        flex-direction: column !important;
-        width: 100% !important;
-        gap: 12px !important;
-    }
-    .ctaGroup > *,
-    .actions > *,
     .formActions > * {
-        width: 100% !important;
-        justify-content: center !important;
+        width: 100%;
+        justify-content: center;
     }
 }

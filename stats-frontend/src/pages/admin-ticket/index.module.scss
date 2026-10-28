@@ -3,176 +3,148 @@
     flex-direction: column;
     min-height: 100%;
 }
-
 .center {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
     padding: 40px;
-    font-size: 13px;
-    color: var(--text-faint);
+    font-size: 14px;
+    color: #71717a;
 }
-
 .errorText {
     margin: 0;
-    padding: 12px 16px;
-    border-radius: var(--radius-sm);
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
-    color: var(--accent-soft);
-    font-size: 13px;
+    padding: 16px;
+    border-radius: 12px;
+    background: rgba(255, 69, 58, 0.1);
+    border: 1px solid rgba(255, 69, 58, 0.2);
+    color: #ff453a;
+    font-size: 14px;
 }
-
-/* Sticky header с чётким фоном — контент не просвечивает при скролле */
 .header {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
-    padding: 20px 32px 18px;
-    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    padding: 24px 32px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     position: sticky;
     top: 0;
-    background: var(--bg);
+    background: rgba(var(--bg-rgb), 0.8);
+    backdrop-filter: blur(20px);
     z-index: 10;
 }
-
 .backBtn {
     display: none;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     flex-shrink: 0;
-    margin-top: 4px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text-dim);
-    font-size: 15px;
+    margin-top: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
     cursor: pointer;
-    transition: all 0.12s ease;
-
+    transition: all 0.2s;
     &:hover {
-        color: var(--text);
-        border-color: var(--border-strong);
+        background: rgba(255, 255, 255, 0.1);
     }
-
     @media (max-width: 860px) {
         display: inline-flex;
     }
 }
-
 .headerMain {
     flex: 1;
     min-width: 0;
 }
-
 .headerTop {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
+    gap: 12px;
+    margin-bottom: 8px;
 }
-
 .number {
-    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
-    font-size: 12.5px;
+    font-family: monospace;
+    font-size: 13px;
     font-weight: 600;
-    color: var(--text-faint);
+    color: #71717a;
 }
-
 .title {
-    margin: 0 0 6px;
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.015em;
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     line-height: 1.35;
-    color: var(--text);
+    color: #fff;
 }
-
 .meta {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    font-size: 12.5px;
-    color: var(--text-faint);
+    gap: 8px;
+    font-size: 13px;
+    color: #71717a;
 }
-
 .email {
-    color: var(--text-dim);
+    color: #a1a1aa;
 }
-
 .category {
     text-transform: capitalize;
 }
-
 .sep {
-    color: var(--text-faint);
-    opacity: 0.5;
+    color: #52525b;
 }
-
 .headerActions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     flex-shrink: 0;
-
     @media (max-width: 860px) {
         flex-direction: column;
         align-items: stretch;
     }
 }
-
 .statusIcon {
-    font-family: 'SF Mono', 'Courier New', Consolas, monospace;
-    font-size: 14px;
+    font-family: monospace;
+    font-size: 16px;
     line-height: 1;
 }
-
 .body {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 8px 32px 40px;
+    gap: 32px;
+    padding: 16px 32px 48px;
 }
-
 .thread {
     padding: 8px 0;
 }
-
 .replyForm {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border);
+    gap: 16px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-
 .replyActions {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-
     @media (max-width: 640px) {
         flex-direction: column-reverse;
         align-items: stretch;
     }
 }
-
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
 @media (max-width: 768px) {
-    .center {
-        padding: 16px !important;
+    .header {
+        padding: 16px 20px;
     }
-    .page,
-    .main {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-        overflow-x: hidden !important;
+    .body {
+        padding: 16px 20px 32px;
+    }
+    .title {
+        font-size: 18px;
     }
 }

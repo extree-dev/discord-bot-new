@@ -1,71 +1,64 @@
 .errorBanner {
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.2);
-    color: var(--accent-soft);
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
+    background: rgba(255, 69, 58, 0.1);
+    border: 1px solid rgba(255, 69, 58, 0.2);
+    color: #ff453a;
+    padding: 16px;
+    border-radius: 12px;
     margin-bottom: 24px;
     font-size: 14px;
 }
-
 .tableWrapper {
     overflow-x: auto;
-    border-radius: var(--radius-md);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(20, 20, 25, 0.4);
+    backdrop-filter: blur(16px);
 }
-
 .table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-
     th {
         padding: 16px 24px;
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: var(--text-faint);
-        border-bottom: 1px solid var(--border);
+        color: #71717a;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         background: rgba(255, 255, 255, 0.02);
     }
-
     td {
         padding: 16px 24px;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         vertical-align: middle;
         transition: background 0.15s ease;
     }
-
     tr:last-child td {
         border-bottom: none;
     }
-
     tr:hover td {
         background: rgba(255, 255, 255, 0.03);
     }
 }
-
 .userCell {
     display: flex;
     align-items: center;
     gap: 14px;
 }
-
 .userName {
     font-weight: 500;
     font-size: 14px;
-    color: var(--text);
+    color: #fff;
     display: flex;
     align-items: center;
     gap: 8px;
 }
-
 .userEmail {
     font-size: 13px;
-    color: var(--text-faint);
+    color: #71717a;
     margin-top: 2px;
 }
-
 .blueTick {
     display: inline-flex;
     align-items: center;
@@ -75,24 +68,21 @@
     border-radius: 50%;
     padding: 2px;
 }
-
 .statusBadge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    border-radius: 20px;
+    border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
     text-transform: capitalize;
 }
-
 .dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
 }
-
 .statusActive {
     background: rgba(52, 211, 153, 0.1);
     color: #34d399;
@@ -100,15 +90,13 @@
         background: #34d399;
     }
 }
-
 .statusBanned {
-    background: rgba(255, 77, 94, 0.1);
-    color: var(--accent);
+    background: rgba(255, 69, 58, 0.1);
+    color: #ff453a;
     .dot {
-        background: var(--accent);
+        background: #ff453a;
     }
 }
-
 .adminBadge {
     display: inline-flex;
     align-items: center;
@@ -117,63 +105,35 @@
     font-weight: 600;
     color: #fbbf24;
 }
-
 .roleUser {
     font-size: 13px;
-    color: var(--text-dim);
+    color: #a1a1aa;
     font-weight: 500;
 }
-
 .actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
 }
-
 .bannedRow {
     opacity: 0.6;
-    background: rgba(255, 77, 94, 0.02) !important;
+    background: rgba(255, 69, 58, 0.02) !important;
 }
-
-.skeletonList {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.skeletonRow {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
 @media (max-width: 768px) {
-    .tableWrapper {
-        overflow-x: auto !important;
-        margin: 0 -16px !important;
-        padding: 0 16px !important;
-    }
     .table {
-        white-space: nowrap !important;
+        white-space: nowrap;
     }
     .table th,
     .table td {
-        padding: 12px 16px !important;
+        padding: 12px 16px;
     }
-    .ctaGroup,
-    .actions,
-    .formActions {
-        flex-direction: column !important;
-        width: 100% !important;
-        gap: 12px !important;
+    .tableWrapper {
+        margin: 0 -16px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
     }
-    .ctaGroup > *,
-    .actions > *,
-    .formActions > * {
-        width: 100% !important;
-        justify-content: center !important;
+    .actions {
+        flex-direction: column;
     }
 }
