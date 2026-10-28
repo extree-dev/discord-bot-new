@@ -3,13 +3,20 @@ package tech.extree.stats.adapter.out.mail;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import tech.extree.stats.application.port.out.Mailer;
 
+// "!dev" — иначе при профиле dev было бы два бина Mailer (этот и
+// DevMailer, у которого @Profile("dev")) и Spring падал бы на старте с
+// неоднозначностью внедрения. Раньше профиль dev никто не запускал, так
+// что этот конфликт был безобидной мёртвой веткой кода — теперь это и
+// есть точка входа для локального запуска.
 @Component
+@Profile("!dev")
 public class SmtpMailer implements Mailer {
 
     private final JavaMailSender mailSender;

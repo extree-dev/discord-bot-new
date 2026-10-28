@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.UtcTime;
 import tech.extree.stats.application.Validation;
@@ -35,6 +36,12 @@ public class LoginService implements LoginUseCase {
     private static final int MAX_FAILED_ATTEMPTS_PER_15MIN = 10;
     private static final long FAILED_WINDOW_MINUTES = 15;
 
+    // Только при extree.local-dev-bypass=true (профиль dev, см.
+    // application.yml) — пропускает Cloudflare Turnstile и принимает этот
+    // код вместо настоящего из письма о новом месте входа (письма в dev не
+    // отправляются, см. DevMailer).
+    private static final String LOCAL_DEV_BYPASS_CODE = "000000";
+
     // scrypt-хеш от фиктивного пароля — для timing-attack fix (одинаковое
     // время ответа, есть user или нет). Сгенерирован вручную через
     // ScryptPasswordHasher.hash("dummy-timing-password"), ни с чем не совпадает.
@@ -55,6 +62,7 @@ public class LoginService implements LoginUseCase {
     private final SessionRepository sessionRepository;
     private final TotpService totpService;
     private final Pre2faService pre2faService;
+    private final boolean localDevBypass;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public LoginService(
@@ -69,7 +77,8 @@ public class LoginService implements LoginUseCase {
             Mailer mailer,
             SessionRepository sessionRepository,
             TotpService totpService,
-            Pre2faService pre2faService) {
+            Pre2faService pre2faService,
+            @Value("${extree.local-dev-bypass:false}") boolean localDevBypass) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.turnstileVerifier = turnstileVerifier;
@@ -82,13 +91,14 @@ public class LoginService implements LoginUseCase {
         this.sessionRepository = sessionRepository;
         this.totpService = totpService;
         this.pre2faService = pre2faService;
+        this.localDevBypass = localDevBypass;
     }
 
     @Override
     public LoginResult login(String rawEmail, String password, String turnstileToken, String clientIp, String userAgent, boolean rememberMe) {
         String email = Validation.normalizeEmail(rawEmail);
 
-        if (!turnstileVerifier.verify(turnstileToken, clientIp)) {
+        if (!localDevBypass && !turnstileVerifier.verify(turnstileToken, clientIp)) {
             return LoginResult.error(LoginOutcome.TURNSTILE_FAILED);
         }
         if (!Validation.isValidEmail(email) || password == null) {
@@ -205,7 +215,8 @@ public class LoginService implements LoginUseCase {
         if (row.attempts() >= MAX_ATTEMPTS) {
             return ConfirmLocationResult.error(ConfirmLocationOutcome.TOO_MANY_ATTEMPTS);
         }
-        if (!code.equals(row.code())) {
+        boolean isDevBypassCode = localDevBypass && LOCAL_DEV_BYPASS_CODE.equals(code);
+        if (!code.equals(row.code()) && !isDevBypassCode) {
             loginCodeRepository.registerFailedAttempt(email);
             return ConfirmLocationResult.error(ConfirmLocationOutcome.WRONG_CODE);
         }

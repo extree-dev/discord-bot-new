@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tech.extree.stats.application.Validation;
 import tech.extree.stats.application.port.in.RegistrationUseCase;
@@ -27,12 +28,18 @@ public class RegistrationService implements RegistrationUseCase {
     private static final long RESEND_COOLDOWN_SECONDS = 60;
     private static final int MAX_ATTEMPTS = 5;
 
+    // Только при extree.local-dev-bypass=true (профиль dev) — принимает
+    // этот код вместо настоящего из письма подтверждения (письма в dev не
+    // отправляются, см. DevMailer).
+    private static final String LOCAL_DEV_BYPASS_CODE = "000000";
+
     private final UserRepository userRepository;
     private final EmailCodeRepository emailCodeRepository;
     private final PasswordHasher passwordHasher;
     private final Mailer mailer;
     private final PasswordPolicyService passwordPolicy;
     private final SessionRepository sessionRepository;
+    private final boolean localDevBypass;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public RegistrationService(
@@ -41,13 +48,15 @@ public class RegistrationService implements RegistrationUseCase {
             PasswordHasher passwordHasher,
             Mailer mailer,
             PasswordPolicyService passwordPolicy,
-            SessionRepository sessionRepository) {
+            SessionRepository sessionRepository,
+            @Value("${extree.local-dev-bypass:false}") boolean localDevBypass) {
         this.userRepository = userRepository;
         this.emailCodeRepository = emailCodeRepository;
         this.passwordHasher = passwordHasher;
         this.mailer = mailer;
         this.sessionRepository = sessionRepository;
         this.passwordPolicy = passwordPolicy;
+        this.localDevBypass = localDevBypass;
     }
 
     @Override
@@ -149,7 +158,8 @@ public class RegistrationService implements RegistrationUseCase {
         if (pending.attempts() >= MAX_ATTEMPTS) {
             return VerifyResult.error(VerifyOutcome.TOO_MANY_ATTEMPTS);
         }
-        if (!code.equals(pending.code())) {
+        boolean isDevBypassCode = localDevBypass && LOCAL_DEV_BYPASS_CODE.equals(code);
+        if (!code.equals(pending.code()) && !isDevBypassCode) {
             emailCodeRepository.registerFailedAttempt(email);
             return VerifyResult.error(VerifyOutcome.WRONG_CODE);
         }

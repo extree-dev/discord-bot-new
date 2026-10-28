@@ -25,6 +25,7 @@ import tech.extree.stats.application.port.out.SessionRepository;
 import tech.extree.stats.application.port.out.TurnstileVerifier;
 import tech.extree.stats.application.port.out.UserRepository;
 import tech.extree.stats.domain.Location;
+import tech.extree.stats.domain.LoginCode;
 import tech.extree.stats.domain.User;
 
 class LoginServiceTest {
@@ -72,7 +73,14 @@ class LoginServiceTest {
         service = new LoginService(
                 userRepository, passwordHasher, turnstileVerifier, geoLookup,
                 loginLocationRepository, loginEventRepository, loginCodeRepository,
-                loginAttemptRepository, mailer, sessionRepository, totpService, pre2faService);
+                loginAttemptRepository, mailer, sessionRepository, totpService, pre2faService, false);
+    }
+
+    private LoginService serviceWithDevBypass() {
+        return new LoginService(
+                userRepository, passwordHasher, turnstileVerifier, geoLookup,
+                loginLocationRepository, loginEventRepository, loginCodeRepository,
+                loginAttemptRepository, mailer, sessionRepository, totpService, pre2faService, true);
     }
 
     @Test
@@ -113,5 +121,38 @@ class LoginServiceTest {
         assertEquals("cookie", result.sessionCookie());
         verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua", "session-id");
         verify(mailer).sendSignInNotification(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
+    }
+
+    @Test
+    void loginLocalDevBypassSkipsTurnstileEvenWithBadToken() {
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(passwordHasher.verify("pass", "hashed")).thenReturn(true);
+        when(loginLocationRepository.hasAnyKnownLocation("user-id")).thenReturn(true);
+        when(loginLocationRepository.isKnownLocation("user-id", "US")).thenReturn(true);
+        when(turnstileVerifier.verify("bad-token", "ip")).thenReturn(false);
+
+        var result = serviceWithDevBypass().login("test@test.com", "pass", "bad-token", "ip", "ua", true);
+        assertEquals(LoginUseCase.LoginOutcome.OK, result.outcome());
+    }
+
+    @Test
+    void confirmLocationAcceptsLocalDevBypassCode() {
+        LoginCode row = new LoginCode(
+                "123456", 0, "ip", "US", "City", true, Instant.now().plusSeconds(600), Instant.now());
+        when(loginCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(row));
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+
+        var result = serviceWithDevBypass().confirmLocation("test@test.com", "000000", "ua");
+        assertEquals(LoginUseCase.ConfirmLocationOutcome.OK, result.outcome());
+    }
+
+    @Test
+    void confirmLocationRejectsBypassCodeWhenDevBypassOff() {
+        LoginCode row = new LoginCode(
+                "123456", 0, "ip", "US", "City", true, Instant.now().plusSeconds(600), Instant.now());
+        when(loginCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(row));
+
+        var result = service.confirmLocation("test@test.com", "000000", "ua");
+        assertEquals(LoginUseCase.ConfirmLocationOutcome.WRONG_CODE, result.outcome());
     }
 }
