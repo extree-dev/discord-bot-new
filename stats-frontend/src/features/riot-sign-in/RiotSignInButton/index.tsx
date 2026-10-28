@@ -13,17 +13,25 @@ import styles from './index.module.scss';
 // вместо имитации рабочего флоу. Как только Riot выдаст client_id/
 // client_secret — ничего в этом компоненте менять не нужно, достаточно
 // прописать их в .env на сервере.
-export function RiotSignInButton() {
+interface RiotSignInButtonProps {
+    // Страницы, где эта кнопка встречается больше одного раза (напр. лендинг
+    // повторяет её в hero и в финальном CTA-блоке), должны передать разный
+    // noteId — иначе на странице окажется два элемента с одинаковым id, что
+    // ломает aria-describedby.
+    noteId?: string;
+}
+
+export function RiotSignInButton({ noteId = 'riot-sign-in-note' }: RiotSignInButtonProps) {
     const [searchParams] = useSearchParams();
     const hasAuthError = searchParams.get('auth_error') === '1';
 
     return (
         <div>
-            <Button variant="primary" href="/auth/riot/login" aria-describedby="riot-sign-in-note">
+            <Button variant="primary" href="/auth/riot/login" aria-describedby={noteId}>
                 Sign in with Riot
             </Button>
             {hasAuthError && (
-                <p id="riot-sign-in-note" className={styles.note} role="status">
+                <p id={noteId} className={styles.note} role="status">
                     Riot Sign-On isn't live yet — this product is still in review with Riot Games.
                 </p>
             )}
