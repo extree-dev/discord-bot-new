@@ -1,32 +1,11 @@
-.pageLayout {
-    display: grid;
-    grid-template-columns: 260px 1fr;
-    gap: 48px;
-    align-items: start;
-    padding: 40px 0;
+.page {
     width: 100%;
-    max-width: 1100px;
+    max-width: 900px;
     margin: 0 auto;
+    padding: 32px 0;
 
     @media (max-width: 860px) {
-        grid-template-columns: 1fr;
-        gap: 24px;
         padding: 20px;
-    }
-}
-
-.sidebar {
-    position: sticky;
-    top: 40px;
-    display: flex;
-    flex-direction: column;
-
-    // На мобильном .pageLayout схлопывается в одну колонку (сайдбар и
-    // контент идут друг под другом), а sticky рассчитан на двухколоночную
-    // desktop-вёрстку — иначе сайдбар прилипает к верху и наезжает на
-    // контент (аватар/имя/email) под собой при скролле.
-    @media (max-width: 860px) {
-        position: static;
     }
 }
 
@@ -37,7 +16,7 @@
     font-size: 14px;
     cursor: pointer;
     padding: 0;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -50,57 +29,52 @@
 }
 
 .title {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--text);
-    margin: 0 0 32px 0;
+    margin: 0 0 20px 0;
 }
 
-.navMenu {
+/* Горизонтальная строка вкладок вместо левого сайдбара с кнопками —
+   контент идёт под ней на всю ширину, в одну колонку. */
+.tabRow {
     display: flex;
-    flex-direction: column;
     gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+    overflow-x: auto;
 }
 
-.navItem {
+.tab {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: none;
-    border: 1px solid transparent;
-    text-align: left;
-    padding: 12px 16px;
-    border-radius: var(--radius-md);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 4px;
+    margin-right: 24px;
     font-size: 14px;
     font-weight: 600;
     color: var(--text-faint);
     cursor: pointer;
-    transition:
-        background 0.2s,
-        border-color 0.2s,
-        color 0.2s;
+    white-space: nowrap;
+    transition: color 0.15s ease;
 
     svg {
         flex-shrink: 0;
-        width: 17px;
-        height: 17px;
+        width: 16px;
+        height: 16px;
         opacity: 0.7;
-        transition: opacity 0.2s;
     }
 
     &:hover {
-        background: var(--glass-bg);
         color: var(--text);
-
-        svg {
-            opacity: 1;
-        }
     }
 
     &.active {
-        background: var(--surface-2);
-        border-color: var(--border);
         color: var(--text);
+        border-bottom-color: var(--accent);
 
         svg {
             opacity: 1;
@@ -111,6 +85,18 @@
 
 .content {
     min-width: 0;
+}
+
+.skeletonTabRow {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.skeletonMb16 {
+    margin-bottom: 16px;
 }
 
 /* Карточки вкладки появляются не все разом, а по очереди — лёгкий каскад
@@ -133,12 +119,9 @@
 
 /* === Скелетон загрузки === */
 .panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--elevation-2);
     padding: 26px;
 }
 
@@ -154,16 +137,8 @@
     gap: 8px;
 }
 
-.skeletonMb8 {
-    margin-bottom: 8px;
-}
-
 .skeletonMb24 {
     margin-bottom: 24px;
-}
-
-.skeletonMb32 {
-    margin-bottom: 32px;
 }
 
 .tabContent {

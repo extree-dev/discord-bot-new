@@ -27,30 +27,27 @@ import { ShieldIcon, UserIcon } from '../../shared/ui/Icons';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import { QRCodeSVG } from 'qrcode.react';
 
-// Форма загрузки повторяет форму реальной страницы (сайдбар + карточка
-// профиля), а не просто текст "Loading..." — тот же приём, что уже
-// применяется в admin-tickets-list/ticket-thread, просто раньше эта
-// страница его не использовала.
+// Форма загрузки повторяет форму реальной страницы (строка вкладок +
+// карточка профиля), а не просто текст "Loading..." — тот же приём, что
+// уже применяется в admin-tickets-list/ticket-thread.
 function SettingsSkeleton() {
     return (
-        <div className={styles.pageLayout}>
-            <aside className={styles.sidebar}>
-                <Skeleton width={140} height={14} className={styles.skeletonMb24} />
-                <Skeleton width={100} height={28} className={styles.skeletonMb32} />
-                <Skeleton width="100%" height={40} radius={18} className={styles.skeletonMb8} />
-                <Skeleton width="100%" height={40} radius={18} />
-            </aside>
-            <main className={styles.content}>
-                <div className={styles.panel}>
-                    <div className={styles.skeletonRow}>
-                        <Skeleton width={64} height={64} radius="50%" />
-                        <div className={styles.skeletonCol}>
-                            <Skeleton width={160} height={20} />
-                            <Skeleton width={200} height={14} />
-                        </div>
+        <div className={styles.page}>
+            <Skeleton width={140} height={14} className={styles.skeletonMb16} />
+            <Skeleton width={100} height={28} className={styles.skeletonMb24} />
+            <div className={styles.skeletonTabRow}>
+                <Skeleton width={160} height={36} radius={6} />
+                <Skeleton width={160} height={36} radius={6} />
+            </div>
+            <div className={styles.panel}>
+                <div className={styles.skeletonRow}>
+                    <Skeleton width={64} height={64} radius="50%" />
+                    <div className={styles.skeletonCol}>
+                        <Skeleton width={160} height={20} />
+                        <Skeleton width={200} height={14} />
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
@@ -181,29 +178,30 @@ export function AccountSettingsPage() {
 
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
-            <div className={styles.pageLayout}>
-                <aside className={styles.sidebar}>
-                    <Link to="/account" className={styles.backBtn}>
-                        ← Back to Dashboard
-                    </Link>
-                    <h1 className={styles.title}>Settings</h1>
-                    <nav className={styles.navMenu}>
-                        <button
-                            className={`${styles.navItem} ${activeTab === 'profile' ? styles.active : ''}`}
-                            onClick={() => setActiveTab('profile')}
-                        >
-                            <UserIcon />
-                            Profile Information
-                        </button>
-                        <button
-                            className={`${styles.navItem} ${activeTab === 'security' ? styles.active : ''}`}
-                            onClick={() => setActiveTab('security')}
-                        >
-                            <ShieldIcon />
-                            Login & Security
-                        </button>
-                    </nav>
-                </aside>
+            <div className={styles.page}>
+                <Link to="/account" className={styles.backBtn}>
+                    ← Back to Dashboard
+                </Link>
+                <h1 className={styles.title}>Settings</h1>
+
+                {/* Горизонтальная строка вкладок вместо левого сайдбара —
+                    контент теперь на всю ширину под ней, в одну колонку. */}
+                <nav className={styles.tabRow}>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'profile' ? styles.active : ''}`}
+                        onClick={() => setActiveTab('profile')}
+                    >
+                        <UserIcon />
+                        Profile Information
+                    </button>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'security' ? styles.active : ''}`}
+                        onClick={() => setActiveTab('security')}
+                    >
+                        <ShieldIcon />
+                        Login & Security
+                    </button>
+                </nav>
 
                 <main className={styles.content}>
                     {activeTab === 'profile' && (
