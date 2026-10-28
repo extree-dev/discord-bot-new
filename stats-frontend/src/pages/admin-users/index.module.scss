@@ -119,44 +119,63 @@
     opacity: 0.6;
     background: rgba(255, 69, 58, 0.02) !important;
 }
-@media (max-width: 768px) {
-    .table {
-        white-space: nowrap;
-    }
-    .table th,
-    .table td {
-        padding: 12px 16px;
-    }
-    .tableWrapper {
-        margin: 0 -16px;
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-    }
-    .actions {
-        flex-direction: column;
-    }
-}
 
-/* ЯДЕРНЫЙ МОБИЛЬНЫЙ ФИКС */
-@media screen and (max-width: 768px) {
+/* МОБИЛЬНЫЙ ФИКС: Превращаем таблицу в карточки */
+@media (max-width: 768px) {
     .tableWrapper {
-        overflow-x: auto !important;
-        margin: 0 -16px !important;
-        padding: 0 16px !important;
-        border-radius: 0 !important;
-        border: none !important;
+        border: none;
+        background: transparent;
+        backdrop-filter: none;
+        overflow: visible;
     }
     .table {
-        min-width: 600px !important; /* Даем таблице прокрутку */
-    }
-    .table th,
-    .table td {
-        padding: 12px 16px !important;
-        white-space: nowrap !important;
+        display: block;
+        th {
+            display: none;
+        } /* Скрываем заголовки */
+        tbody {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        tr {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(20, 20, 25, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+            position: relative;
+        }
+        td {
+            padding: 0;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Скрываем пустые ячейки или переносим их */
+        td:first-child {
+            display: block;
+            margin-bottom: 8px;
+        } /* Юзер - во всю ширину */
+        td:nth-child(2) {
+            margin-bottom: 8px;
+        } /* Статус */
+
+        /* Кнопки (Действия) выравниваем в ряд */
+        td:last-child {
+            justify-content: flex-start;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 12px;
+            margin-top: 4px;
+        }
     }
     .actions {
-        flex-direction: column !important;
-        gap: 4px !important;
+        flex-direction: row;
+        width: 100%;
+        justify-content: flex-start;
     }
 }
