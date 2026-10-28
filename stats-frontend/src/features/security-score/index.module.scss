@@ -15,15 +15,19 @@
 }
 
 .card.max {
+    --ring-color: var(--win);
+    --ring-glow: rgba(52, 211, 153, 0.55);
     border-color: rgba(47, 227, 163, 0.35);
 }
 
 .card.mid {
-    --ring-color: #fbbf24;
+    --ring-color: var(--accent);
+    --ring-glow: rgba(var(--accent-rgb), 0.45);
 }
 
 .card.low {
     --ring-color: var(--accent);
+    --ring-glow: rgba(var(--accent-rgb), 0.45);
 }
 
 .ring {
@@ -50,13 +54,10 @@
     stroke: var(--ring-color, var(--accent));
     stroke-width: 10;
     stroke-linecap: round;
+    filter: drop-shadow(0 0 6px var(--ring-glow, transparent));
     transition:
         stroke-dashoffset 0.9s cubic-bezier(0.34, 1.56, 0.64, 1),
         stroke 0.4s ease;
-}
-
-.max .ringFill {
-    filter: drop-shadow(0 0 6px rgba(52, 211, 153, 0.55));
 }
 
 .ringLabel {

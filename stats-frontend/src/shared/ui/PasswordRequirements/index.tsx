@@ -1,4 +1,5 @@
 import { PASSWORD_REQUIREMENTS } from '../../lib/passwordRules';
+import { IconCheck, IconX } from '../Icons';
 import styles from './index.module.scss';
 
 export function PasswordRequirements({ password }: { password: string }) {
@@ -8,7 +9,9 @@ export function PasswordRequirements({ password }: { password: string }) {
                 const met = req.test(password);
                 return (
                     <li key={req.label} className={met ? styles.met : styles.unmet}>
-                        <span className={styles.dot} aria-hidden="true" />
+                        <span className={styles.icon} aria-hidden="true">
+                            {met ? <IconCheck /> : <IconX />}
+                        </span>
                         {req.label}
                     </li>
                 );

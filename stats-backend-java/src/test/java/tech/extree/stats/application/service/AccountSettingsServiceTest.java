@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +28,7 @@ import tech.extree.stats.domain.User;
 
 class AccountSettingsServiceTest {
 
+    private SessionRepository sessionRepository;
     private UserRepository userRepository;
     private PasswordHasher passwordHasher;
     private EmailChangeCodeRepository emailChangeCodeRepository;
@@ -40,7 +42,7 @@ class AccountSettingsServiceTest {
 
     @BeforeEach
     void setUp() {
-        SessionRepository sessionRepository = mock(SessionRepository.class);
+        sessionRepository = mock(SessionRepository.class);
         userRepository = mock(UserRepository.class);
         passwordHasher = mock(PasswordHasher.class);
         emailChangeCodeRepository = mock(EmailChangeCodeRepository.class);
@@ -113,5 +115,57 @@ class AccountSettingsServiceTest {
         var outcome = service.changePassword("cookie", "correct", "newpassword1", "127.0.0.1");
         assertEquals(AccountSettingsUseCase.ChangePasswordOutcome.OK, outcome);
         verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("127.0.0.1"), eq(null), eq(null), anyString());
+    }
+
+    @Test
+    void deleteAccountUnauthorized() {
+        var outcome = service.deleteAccount(null, "pass");
+        assertEquals(AccountSettingsUseCase.DeleteAccountOutcome.UNAUTHORIZED, outcome);
+    }
+
+    @Test
+    void deleteAccountWrongPassword() {
+        when(passwordHasher.verify("wrong", "hashed")).thenReturn(false);
+        var outcome = service.deleteAccount("cookie", "wrong");
+        assertEquals(AccountSettingsUseCase.DeleteAccountOutcome.WRONG_PASSWORD, outcome);
+        verify(userRepository, never()).deleteById(anyString());
+    }
+
+    @Test
+    void deleteAccountOk() {
+        when(passwordHasher.verify("correct", "hashed")).thenReturn(true);
+
+        var outcome = service.deleteAccount("cookie", "correct");
+        assertEquals(AccountSettingsUseCase.DeleteAccountOutcome.OK, outcome);
+        verify(userRepository).deleteById("user-id");
+        verify(sessionRepository).revoke("cookie");
+    }
+
+    @Test
+    void deleteAccountLastAdminBlocked() {
+        User admin = new User(
+                "user-id", "admin@test.com", "hashed", Instant.now(), null, "Admin", "admin", null, false, false, true);
+        when(userRepository.findById("user-id")).thenReturn(Optional.of(admin));
+        when(passwordHasher.verify("correct", "hashed")).thenReturn(true);
+        when(userRepository.findAllUsers()).thenReturn(java.util.List.of(admin));
+
+        var outcome = service.deleteAccount("cookie", "correct");
+        assertEquals(AccountSettingsUseCase.DeleteAccountOutcome.LAST_ADMIN, outcome);
+        verify(userRepository, never()).deleteById(anyString());
+    }
+
+    @Test
+    void deleteAccountNotLastAdminAllowed() {
+        User admin = new User(
+                "user-id", "admin@test.com", "hashed", Instant.now(), null, "Admin", "admin", null, false, false, true);
+        User otherAdmin = new User(
+                "other-id", "other@test.com", "hashed", Instant.now(), null, "Other", "other", null, false, false, true);
+        when(userRepository.findById("user-id")).thenReturn(Optional.of(admin));
+        when(passwordHasher.verify("correct", "hashed")).thenReturn(true);
+        when(userRepository.findAllUsers()).thenReturn(java.util.List.of(admin, otherAdmin));
+
+        var outcome = service.deleteAccount("cookie", "correct");
+        assertEquals(AccountSettingsUseCase.DeleteAccountOutcome.OK, outcome);
+        verify(userRepository).deleteById("user-id");
     }
 }
