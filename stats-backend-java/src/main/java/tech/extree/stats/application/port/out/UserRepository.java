@@ -15,6 +15,10 @@ public interface UserRepository {
     void setVerified(String userId, boolean isVerified);
     void setBanned(String userId, boolean isBanned);
     void setAdmin(String userId, boolean isAdmin); // <-- НОВЫЙ МЕТОД
+
+    /** Необратимо — связанные строки (сессии, тикеты, TOTP-секрет и т.д.) уходят через ON DELETE CASCADE. */
+    void deleteById(String userId);
+
     List<User> findAllUsers();
 
     /** Поиск для админ-палитры (Cmd+K): по email/name/nickname, LIMIT 5. */

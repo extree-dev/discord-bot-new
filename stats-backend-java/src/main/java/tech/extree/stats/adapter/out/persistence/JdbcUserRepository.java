@@ -132,6 +132,11 @@ public class JdbcUserRepository implements UserRepository {
     }
 
     @Override
+    public void deleteById(String userId) {
+        jdbcTemplate.update("DELETE FROM stats_users WHERE id = ?", userId);
+    }
+
+    @Override
     public List<User> findAllUsers() {
         return jdbcTemplate.query(
                 "SELECT id, email, password_hash, email_verified_at, riot_puuid, name, nickname, avatar_url, is_verified, is_banned, is_admin " +

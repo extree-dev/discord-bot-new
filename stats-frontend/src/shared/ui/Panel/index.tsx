@@ -6,6 +6,7 @@ interface PanelProps {
     subtitle?: string;
     headerExtra?: ReactNode;
     noBodyPadding?: boolean;
+    className?: string;
     children: ReactNode;
 }
 
@@ -14,9 +15,9 @@ interface PanelProps {
 // входа), страница тут складывается из нескольких Panel одна под другой,
 // как в обычных SaaS-дашбордах: профиль отдельно, смена пароля отдельно,
 // история входов отдельно, а не всё в одной форме.
-export function Panel({ title, subtitle, headerExtra, noBodyPadding, children }: PanelProps) {
+export function Panel({ title, subtitle, headerExtra, noBodyPadding, className, children }: PanelProps) {
     return (
-        <section className={styles.panel}>
+        <section className={`${styles.panel} ${className ?? ''}`}>
             {title && (
                 <div className={styles.header}>
                     <div>

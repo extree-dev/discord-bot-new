@@ -7,9 +7,11 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
 import tech.extree.stats.adapter.in.web.dto.ChangeEmailRequest;
 import tech.extree.stats.adapter.in.web.dto.ChangePasswordRequest;
 import tech.extree.stats.adapter.in.web.dto.CodeRequest;
+import tech.extree.stats.adapter.in.web.dto.DeleteAccountRequest;
 import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
 import tech.extree.stats.adapter.in.web.dto.OkResponse;
 import tech.extree.stats.adapter.in.web.dto.VerifyResponse;
@@ -97,6 +99,23 @@ public class AccountSettingsController {
             case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
             case INVALID_PASSWORD -> badRequest("invalid_password");
             case WRONG_PASSWORD -> status(HttpStatus.UNAUTHORIZED, "wrong_password");
+            case INTERNAL_ERROR -> internalError();
+        };
+    }
+
+    @PostMapping("/auth/account/delete")
+    public ResponseEntity<?> deleteAccount(
+            @RequestBody DeleteAccountRequest request,
+            @CookieValue(name = SessionCookies.SESSION_COOKIE, required = false) String cookie) {
+        AccountSettingsUseCase.DeleteAccountOutcome outcome =
+                accountSettingsUseCase.deleteAccount(cookie, request.password());
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, SessionCookies.clear().toString())
+                    .body(OkResponse.OK);
+            case UNAUTHORIZED -> status(HttpStatus.UNAUTHORIZED, "unauthorized");
+            case WRONG_PASSWORD -> status(HttpStatus.UNAUTHORIZED, "wrong_password");
+            case LAST_ADMIN -> status(HttpStatus.CONFLICT, "last_admin");
             case INTERNAL_ERROR -> internalError();
         };
     }

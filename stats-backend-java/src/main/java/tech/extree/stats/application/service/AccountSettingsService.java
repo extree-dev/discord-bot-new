@@ -222,6 +222,43 @@ public class AccountSettingsService implements AccountSettingsUseCase {
     }
 
     @Override
+    public DeleteAccountOutcome deleteAccount(String cookieValue, String password) {
+        Optional<String> userId = resolveUserId(cookieValue);
+        if (userId.isEmpty()) {
+            return DeleteAccountOutcome.UNAUTHORIZED;
+        }
+
+        Optional<User> maybeUser = userRepository.findById(userId.get());
+        if (maybeUser.isEmpty() || !passwordHasher.verify(password, maybeUser.get().passwordHash())) {
+            return DeleteAccountOutcome.WRONG_PASSWORD;
+        }
+
+        // Тот же расчёт, что AdminUserController#makeAdmin при снятии прав с
+        // последнего админа — здесь он удаляет сам себя, последствие то же:
+        // без единого админа восстановить доступ можно только руками в БД.
+        if (maybeUser.get().isAdmin()) {
+            long adminCount = userRepository.findAllUsers().stream().filter(User::isAdmin).count();
+            if (adminCount <= 1) {
+                return DeleteAccountOutcome.LAST_ADMIN;
+            }
+        }
+
+        try {
+            userRepository.deleteById(userId.get());
+        } catch (Exception e) {
+            log.warn("stats-backend-java: ошибка удаления аккаунта", e);
+            return DeleteAccountOutcome.INTERNAL_ERROR;
+        }
+
+        // Токен в cookie браузера технически переживает удаление строки
+        // пользователя (сессия хранится отдельно, FK ON DELETE CASCADE
+        // чистит её физически, но сам revoke() — явная отмена на всякий
+        // случай, тот же приём, что logout).
+        sessionRepository.revoke(cookieValue);
+        return DeleteAccountOutcome.OK;
+    }
+
+    @Override
     public LoginHistoryResult loginHistory(String cookieValue) {
         Optional<String> userId = resolveUserId(cookieValue);
         if (userId.isEmpty()) {

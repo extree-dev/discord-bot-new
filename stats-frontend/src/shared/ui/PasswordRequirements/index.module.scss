@@ -1,44 +1,61 @@
+/* Чипы (pills) вместо вертикального списка с точками — загораются
+   зелёным по мере набора пароля, а не остаются статично-серыми. */
 .list {
     margin: -2px 0 0;
     padding: 0;
     list-style: none;
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .list li {
     display: flex;
     align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    line-height: 1.4;
-    transition: color 0.15s ease;
+    gap: 5px;
+    padding: 4px 9px 4px 6px;
+    border-radius: var(--radius-pill);
+    font-size: 11.5px;
+    font-weight: 600;
+    border: 1px solid var(--border-strong);
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease;
 }
 
-.dot {
-    width: 5px;
-    height: 5px;
+.icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     flex-shrink: 0;
-    transition:
-        background 0.15s ease,
-        box-shadow 0.15s ease;
+
+    svg {
+        width: 8px;
+        height: 8px;
+    }
 }
 
 .unmet {
     color: var(--text-faint);
+    background: var(--surface-2);
 }
 
-.unmet .dot {
-    background: var(--border-strong);
+.unmet .icon {
+    color: var(--text-faint);
+    background: var(--border);
 }
 
 .met {
-    color: var(--text-dim);
+    color: var(--win);
+    border-color: rgba(52, 211, 153, 0.35);
+    background: rgba(52, 211, 163, 0.1);
 }
 
-.met .dot {
+.met .icon {
+    color: #06130e;
     background: var(--win);
-    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.18);
 }

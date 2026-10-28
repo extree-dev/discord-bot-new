@@ -79,4 +79,15 @@ public interface AccountSettingsUseCase {
     }
 
     LoginHistoryResult loginHistory(String cookieValue);
+
+    enum DeleteAccountOutcome {
+        OK,
+        UNAUTHORIZED,
+        WRONG_PASSWORD,
+        /** Аккаунт — последний админ в системе; удалять нельзя, иначе некому будет назначить следующего. */
+        LAST_ADMIN,
+        INTERNAL_ERROR
+    }
+
+    DeleteAccountOutcome deleteAccount(String cookieValue, String password);
 }

@@ -50,7 +50,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     totp_invalid: 'Invalid 2FA code. Please try again.',
     totp_required: '2FA is not enabled for this account.',
     reset_totp_required: 'Enter your 2FA code to finish resetting your password.',
-    last_admin: "Can't remove admin rights from the last remaining admin.",
+    last_admin: "You're the last admin — promote someone else first so the account isn't left without one.",
     file_too_large: 'That image is too large — please pick one under 2MB.',
     invalid_file: "That doesn't look like a valid image file.",
     upload_failed: "Couldn't upload the image — please try again.",
@@ -226,6 +226,10 @@ export function confirmEmailChange(code: string) {
 
 export function changePassword(currentPassword: string, newPassword: string) {
     return postJson<{ ok: true }>('/auth/account/change-password', { currentPassword, newPassword });
+}
+
+export function deleteAccount(password: string) {
+    return postJson<{ ok: true }>('/auth/account/delete', { password });
 }
 
 export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
