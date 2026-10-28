@@ -8,6 +8,10 @@ interface CommonProps {
     variant?: Variant;
     size?: Size;
     fullWidth?: boolean;
+    // Спиннер вместо содержимого + aria-busy + disabled. Только для
+    // <button> — ссылка (href) не умеет быть "занятой" в том же смысле
+    // (это обычно редирект, который просто уводит со страницы).
+    loading?: boolean;
     children: ReactNode;
 }
 
@@ -28,12 +32,20 @@ export function Button({
     variant = 'primary',
     size = 'md',
     fullWidth,
+    loading,
     children,
     className,
     href,
     ...rest
 }: ButtonProps | LinkProps) {
-    const classes = [styles.base, styles[variant], styles[size], fullWidth ? styles.fullWidth : '', className]
+    const classes = [
+        styles.base,
+        styles[variant],
+        styles[size],
+        fullWidth ? styles.fullWidth : '',
+        loading ? styles.loading : '',
+        className,
+    ]
         .filter(Boolean)
         .join(' ');
 
@@ -45,8 +57,16 @@ export function Button({
         );
     }
 
+    const buttonRest = rest as ButtonHTMLAttributes<HTMLButtonElement>;
+
     return (
-        <button className={classes} {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)}>
+        <button
+            className={classes}
+            disabled={loading || buttonRest.disabled}
+            aria-busy={loading || undefined}
+            {...buttonRest}
+        >
+            {loading && <span className={styles.spinner} aria-hidden="true" />}
             {children}
         </button>
     );

@@ -11,6 +11,7 @@ import {
     MenuIcon,
     IconX,
 } from '../../shared/ui/Icons';
+import { AdminMenu } from './AdminMenu';
 import styles from './index.module.scss';
 
 interface DashboardUser {
@@ -76,20 +77,6 @@ export function DashboardShell({
                         <NavLink to="/support" className={navClass}>
                             Support
                         </NavLink>
-                        {user.isAdmin && (
-                            <>
-                                <span className={styles.navDivider} aria-hidden="true" />
-                                <NavLink to="/admin/users" className={navClass}>
-                                    Users
-                                </NavLink>
-                                <NavLink to="/admin/tickets" className={navClass}>
-                                    Tickets
-                                </NavLink>
-                                <NavLink to="/admin/audit" className={navClass}>
-                                    Audit Log
-                                </NavLink>
-                            </>
-                        )}
                     </nav>
                 )}
 
@@ -101,6 +88,7 @@ export function DashboardShell({
                                 {user.email}
                             </span>
                         </div>
+                        {user.isAdmin && <AdminMenu />}
                         <button
                             type="button"
                             className={styles.iconBtn}

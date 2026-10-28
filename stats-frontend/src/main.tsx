@@ -5,6 +5,7 @@ import * as Sentry from '@sentry/react';
 import { App } from './app/App';
 import { AuthProvider } from './shared/auth/AuthProvider';
 import { ConsentProvider } from './shared/consent/ConsentProvider';
+import { ToastProvider } from './shared/ui/Toast/ToastProvider';
 import './app/styles/global.css';
 
 // Sentry.init() больше не вызывается здесь безусловно — только из
@@ -26,9 +27,11 @@ createRoot(document.getElementById('root')!).render(
         >
             <BrowserRouter>
                 <ConsentProvider>
-                    <AuthProvider>
-                        <App />
-                    </AuthProvider>
+                    <ToastProvider>
+                        <AuthProvider>
+                            <App />
+                        </AuthProvider>
+                    </ToastProvider>
                 </ConsentProvider>
             </BrowserRouter>
         </Sentry.ErrorBoundary>
