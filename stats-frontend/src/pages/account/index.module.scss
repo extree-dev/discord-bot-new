@@ -165,9 +165,10 @@
     }
 }
 
-/* Иконки — три фичи, три разных цвета вместо одного красного на всё:
-   цвет перестаёт быть "фоновой заливкой по умолчанию" и снова что-то
-   значит (бренд / вторичный акцент / цвет самого Discord). */
+/* Минимализм: одна нейтральная стеклянная плашка под все три иконки,
+   не три цветных фона на карточку — акцент остаётся только на самих
+   иконках (минимально, не фоновой заливкой), один цвет на всё
+   приложение, а не палитра. */
 .iconWrapper {
     display: inline-flex;
     align-items: center;
@@ -175,21 +176,9 @@
     width: 48px;
     height: 48px;
     border-radius: var(--radius-md);
-}
-
-.iconWrapperRed {
-    background: rgba(255, 59, 78, 0.12);
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--glass-border);
     color: var(--accent);
-}
-
-.iconWrapperViolet {
-    background: rgba(124, 108, 255, 0.14);
-    color: var(--accent-2-soft);
-}
-
-.iconWrapperBlurple {
-    background: rgba(88, 101, 242, 0.14);
-    color: #8993f5;
 }
 
 /* Анимации */
