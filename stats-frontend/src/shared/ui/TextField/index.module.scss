@@ -36,3 +36,11 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
 }
+
+.inputError {
+    border-color: var(--accent);
+
+    &:focus {
+        box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
+    }
+}

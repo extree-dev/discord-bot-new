@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { uploadAvatar, ApiError } from '../../../shared/api/statsAuth';
+import { PencilIcon } from '../Icons';
 import styles from './index.module.scss';
 
 interface ProfileAvatarProps {
@@ -34,14 +35,21 @@ export function ProfileAvatar({ currentUrl, email, onUploaded }: ProfileAvatarPr
 
     return (
         <div className={styles.container}>
-            <div className={styles.avatarWrapper}>
-                {currentUrl ? (
-                    <img src={currentUrl} alt="Avatar" className={styles.image} />
-                ) : (
-                    <div className={styles.placeholder}>{email[0].toUpperCase()}</div>
-                )}
-                <div className={styles.overlay} onClick={() => fileInputRef.current?.click()}>
-                    {loading ? 'Загрузка...' : 'Изменить'}
+            <div className={styles.aura}>
+                <div className={styles.avatarWrapper}>
+                    {currentUrl ? (
+                        <img src={currentUrl} alt="Avatar" className={styles.image} />
+                    ) : (
+                        <div className={styles.placeholder}>{email[0].toUpperCase()}</div>
+                    )}
+                    <button
+                        type="button"
+                        className={styles.overlay}
+                        onClick={() => fileInputRef.current?.click()}
+                        aria-label="Change avatar"
+                    >
+                        {loading ? <span className={styles.spinner} aria-hidden="true" /> : <PencilIcon />}
+                    </button>
                 </div>
             </div>
             <input
