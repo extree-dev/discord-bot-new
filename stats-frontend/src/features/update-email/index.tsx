@@ -3,19 +3,24 @@ import { Panel } from '../../shared/ui/Panel';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
 import { CodeInput } from '../../shared/ui/CodeInput';
+import { useToast } from '../../shared/ui/Toast/useToast';
 import { requestEmailChange, confirmEmailChange, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
 const CODE_LENGTH = 6;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (newEmail: string) => void }) {
+    const { showToast } = useToast();
     const [step, setStep] = useState<'form' | 'code'>('form');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newEmail, setNewEmail] = useState('');
+    const [emailTouched, setEmailTouched] = useState(false);
     const [code, setCode] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [notice, setNotice] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
+
+    const emailInvalid = emailTouched && newEmail.length > 0 && !EMAIL_RE.test(newEmail);
 
     async function onRequest(e: FormEvent) {
         e.preventDefault();
@@ -41,8 +46,9 @@ export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (n
             setStep('form');
             setCurrentPassword('');
             setNewEmail('');
+            setEmailTouched(false);
             setCode('');
-            setNotice('Email updated.');
+            showToast('Email updated.', 'success');
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong.');
         } finally {
@@ -53,7 +59,6 @@ export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (n
     return (
         <Panel title="Change email">
             {error && <p className={styles.error}>{error}</p>}
-            {notice && step === 'form' && <p className={styles.notice}>{notice}</p>}
             {step === 'form' ? (
                 <form className={styles.form} onSubmit={onRequest}>
                     <TextField
@@ -70,12 +75,17 @@ export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (n
                         type="email"
                         placeholder={email}
                         required
+                        error={emailInvalid}
                         value={newEmail}
                         onChange={e => setNewEmail(e.target.value)}
+                        onBlur={() => setEmailTouched(true)}
                     />
-                    <Button type="submit" variant="flat" fullWidth disabled={pending}>
-                        {pending ? 'Sending code…' : 'Send confirmation code'}
-                    </Button>
+                    {emailInvalid && <p className={styles.fieldError}>Enter a valid email address.</p>}
+                    <div className={styles.actions}>
+                        <Button type="submit" variant="flat" loading={pending} disabled={emailInvalid}>
+                            {pending ? 'Sending code…' : 'Send confirmation code'}
+                        </Button>
+                    </div>
                 </form>
             ) : (
                 <form className={styles.form} onSubmit={onConfirm}>
@@ -83,9 +93,11 @@ export function UpdateEmail({ email, onChanged }: { email: string; onChanged: (n
                         We sent a 6-digit code to <strong>{newEmail}</strong>.
                     </p>
                     <CodeInput length={CODE_LENGTH} value={code} onChange={setCode} disabled={pending} autoFocus />
-                    <Button type="submit" variant="flat" fullWidth disabled={pending || code.length < CODE_LENGTH}>
-                        {pending ? 'Confirming…' : 'Confirm new email'}
-                    </Button>
+                    <div className={styles.actions}>
+                        <Button type="submit" variant="flat" loading={pending} disabled={code.length < CODE_LENGTH}>
+                            {pending ? 'Confirming…' : 'Confirm new email'}
+                        </Button>
+                    </div>
                     <button type="button" className={styles.linkBtn} onClick={() => setStep('form')}>
                         Cancel
                     </button>

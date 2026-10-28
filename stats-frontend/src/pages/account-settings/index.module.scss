@@ -1,6 +1,6 @@
 .page {
     width: 100%;
-    max-width: 900px;
+    max-width: 1040px;
     margin: 0 auto;
     padding: 32px 0;
 
@@ -35,64 +35,102 @@
     margin: 0 0 20px 0;
 }
 
-/* Горизонтальная строка вкладок вместо левого сайдбара с кнопками —
-   контент идёт под ней на всю ширину, в одну колонку. */
-.tabRow {
+/* Вертикальный сайдбар слева, контент справа (≈70% ширины) — сайдбар
+   фиксированной ширины, контент занимает остальное через flex:1. На узких
+   экранах сворачивается обратно в горизонтальную строку вкладок (тот же
+   паттерн, что раньше был основным лейаутом, здесь — только fallback). */
+.layout {
     display: flex;
-    gap: 4px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 28px;
-    overflow-x: auto;
+    align-items: flex-start;
+    gap: 32px;
+
+    @media (max-width: 760px) {
+        flex-direction: column;
+        gap: 20px;
+    }
 }
 
-.tab {
+.sidebar {
+    flex: 0 0 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: sticky;
+    top: 76px;
+
+    @media (max-width: 760px) {
+        position: static;
+        flex: none;
+        width: 100%;
+        flex-direction: row;
+        gap: 4px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+    }
+}
+
+.navItem {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     background: none;
     border: none;
-    border-bottom: 2px solid transparent;
-    padding: 10px 4px;
-    margin-right: 24px;
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
     font-size: 14px;
     font-weight: 600;
     color: var(--text-faint);
     cursor: pointer;
     white-space: nowrap;
-    transition: color 0.15s ease;
+    text-align: left;
+    transition:
+        color 0.15s ease,
+        background 0.15s ease;
 
     svg {
         flex-shrink: 0;
-        width: 16px;
-        height: 16px;
+        width: 17px;
+        height: 17px;
         opacity: 0.7;
     }
 
     &:hover {
         color: var(--text);
+        background: var(--surface);
     }
 
     &.active {
         color: var(--text);
-        border-bottom-color: var(--accent);
+        background: var(--surface);
 
         svg {
             opacity: 1;
             color: var(--accent);
         }
     }
+
+    @media (max-width: 760px) {
+        flex-shrink: 0;
+    }
 }
 
 .content {
+    flex: 1;
     min-width: 0;
 }
 
-.skeletonTabRow {
+.skeletonSidebar {
+    flex: 0 0 220px;
     display: flex;
-    gap: 16px;
-    margin-bottom: 28px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    gap: 8px;
+
+    @media (max-width: 760px) {
+        flex: none;
+        width: 100%;
+        flex-direction: row;
+    }
 }
 
 .skeletonMb16 {
