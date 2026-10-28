@@ -36,11 +36,8 @@
     font-size: 24px;
     font-weight: 800;
     color: var(--text);
-    border: 2.5px solid transparent;
-    background:
-        linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
-        conic-gradient(from 180deg, var(--accent-soft), var(--accent), var(--border-strong) 65%, var(--border-strong))
-            border-box;
+    background: var(--surface-2);
+    border: 1px solid var(--border-strong);
 }
 
 .profileHeaderText {

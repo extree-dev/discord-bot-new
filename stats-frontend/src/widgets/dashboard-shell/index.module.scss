@@ -1,32 +1,28 @@
-$sidebar-width: 268px;
-$sidebar-gutter: 16px;
+$sidebar-width: 256px;
 
-// Без явного background: body уже красит фон и aurora-пятна за собой —
-// непрозрачная заливка тут их просто перекрывала бы на каждой странице
-// control panel (единственное место в приложении, где это было заметно,
-// так как остальные страницы не оборачивают контент в свой div с фоном).
 .shell {
     min-height: 100vh;
     display: flex;
+    background: var(--bg);
 }
 
-/* === Sidebar dock (десктоп) === */
+/* === Sidebar (десктоп) ===
+   Раньше: плавающая скруглённая "капсула" со стеклом и отступом со
+   всех сторон (macOS-дек). Теперь: обычная плоская панель во всю
+   высоту экрана, прижатая к краю, с одной тонкой линией-границей
+   справа — ничего не "парит", ничего не размыто. */
 .sidebar {
     position: fixed;
-    top: $sidebar-gutter;
-    left: $sidebar-gutter;
-    bottom: $sidebar-gutter;
+    top: 0;
+    left: 0;
+    bottom: 0;
     width: $sidebar-width;
     z-index: 40;
     display: flex;
     flex-direction: column;
-    padding: 22px 16px;
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--elevation-2);
+    padding: 20px 14px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
 
     @media (max-width: 960px) {
         display: none;
@@ -52,15 +48,14 @@ $sidebar-gutter: 16px;
 .mark {
     width: 24px;
     height: 24px;
-    border-radius: 7px;
+    border-radius: 5px;
     object-fit: cover;
-    box-shadow: 0 2px 10px rgba(255, 59, 78, 0.38);
 }
 
 .nav {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     flex: 1;
     overflow-y: auto;
 }
@@ -78,26 +73,28 @@ $sidebar-gutter: 16px;
     display: flex;
     align-items: center;
     gap: 11px;
-    padding: 10px 12px;
-    border-radius: var(--radius-md);
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
     font-size: 13.5px;
     font-weight: 600;
     color: var(--text-dim);
     text-decoration: none;
+    border-left: 2px solid transparent;
     transition:
-        background 0.18s ease,
-        color 0.18s ease;
+        background 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease;
 
     svg {
         flex-shrink: 0;
         width: 18px;
         height: 18px;
         opacity: 0.75;
-        transition: opacity 0.18s ease;
+        transition: opacity 0.15s ease;
     }
 
     &:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--surface-2);
         color: var(--text);
 
         svg {
@@ -106,9 +103,9 @@ $sidebar-gutter: 16px;
     }
 
     &.active {
-        background: var(--glass-bg-strong);
+        background: var(--surface-2);
         color: var(--text);
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+        border-left-color: var(--accent);
 
         svg {
             opacity: 1;
@@ -124,7 +121,6 @@ $sidebar-gutter: 16px;
     gap: 10px;
     margin-top: 12px;
     padding: 10px;
-    border-radius: var(--radius-md);
     border-top: 1px solid var(--border);
 }
 
@@ -151,8 +147,8 @@ $sidebar-gutter: 16px;
     color: var(--text-faint);
     cursor: pointer;
     transition:
-        color 0.18s ease,
-        border-color 0.18s ease;
+        color 0.15s ease,
+        border-color 0.15s ease;
 
     svg {
         width: 15px;
@@ -161,7 +157,7 @@ $sidebar-gutter: 16px;
 
     &:hover {
         color: var(--accent-soft);
-        border-color: rgba(255, 59, 78, 0.25);
+        border-color: var(--border-strong);
     }
 }
 
@@ -171,7 +167,7 @@ $sidebar-gutter: 16px;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    margin-left: $sidebar-width + $sidebar-gutter * 2;
+    margin-left: $sidebar-width;
 
     @media (max-width: 960px) {
         margin-left: 0;
@@ -187,16 +183,11 @@ $sidebar-gutter: 16px;
         align-items: center;
         justify-content: space-between;
         position: sticky;
-        top: max(14px, env(safe-area-inset-top));
+        top: 0;
         z-index: 50;
-        margin: max(14px, env(safe-area-inset-top)) 14px 0 max(14px, env(safe-area-inset-left));
-        padding: 10px 14px;
-        background: var(--glass-menu-bg);
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-pill);
-        box-shadow: var(--glass-shadow);
+        padding: max(12px, env(safe-area-inset-top)) 16px 12px max(16px, env(safe-area-inset-left));
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
     }
 }
 
@@ -268,33 +259,29 @@ $sidebar-gutter: 16px;
 .error {
     padding: 13px 18px;
     border-radius: var(--radius-sm);
-    background: rgba(255, 59, 78, 0.12);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: rgba(255, 59, 78, 0.1);
     border: 1px solid rgba(255, 59, 78, 0.3);
     color: var(--accent-soft);
     font-size: 13px;
     line-height: 1.5;
 }
 
-/* === Bottom tab bar (мобильный, вместо ProfileDropdown-меню) === */
+/* === Bottom tab bar (мобильный, вместо ProfileDropdown-меню) ===
+   Плоская полоса во всю ширину с верхней линией — не плавающая
+   скруглённая панель. */
 .tabbar {
     display: none;
 
     @media (max-width: 960px) {
         display: flex;
         position: fixed;
-        left: 14px;
-        right: 14px;
-        bottom: max(14px, env(safe-area-inset-bottom));
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 50;
-        padding: 8px 10px;
-        background: var(--glass-menu-bg);
-        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-        border: 1px solid var(--glass-border);
-        border-radius: var(--radius-xl);
-        box-shadow: var(--glass-shadow);
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+        background: var(--surface);
+        border-top: 1px solid var(--border);
     }
 }
 
@@ -305,14 +292,14 @@ $sidebar-gutter: 16px;
     align-items: center;
     gap: 3px;
     padding: 6px 4px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: none;
     border: none;
     color: var(--text-faint);
     text-decoration: none;
     font-family: inherit;
     cursor: pointer;
-    transition: color 0.18s ease;
+    transition: color 0.15s ease;
 
     svg {
         width: 20px;
@@ -335,10 +322,8 @@ $sidebar-gutter: 16px;
     position: fixed;
     inset: 0;
     z-index: 90;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    animation: sheet-fade-in 0.2s ease;
+    background: rgba(0, 0, 0, 0.7);
+    animation: sheet-fade-in 0.15s ease;
 }
 
 .sheet {
@@ -348,14 +333,9 @@ $sidebar-gutter: 16px;
     bottom: 0;
     z-index: 91;
     padding: 10px 18px calc(22px + env(safe-area-inset-bottom));
-    background: var(--glass-menu-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border);
-    border-top-left-radius: var(--radius-xl);
-    border-top-right-radius: var(--radius-xl);
-    box-shadow: var(--elevation-3);
-    animation: sheet-slide-up 0.28s var(--ease-glass);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    animation: sheet-slide-up 0.2s var(--ease-out);
 }
 
 .sheetHandle {
@@ -395,7 +375,7 @@ $sidebar-gutter: 16px;
     align-items: center;
     gap: 13px;
     padding: 13px 10px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: none;
     border: none;
     color: var(--text);
@@ -413,7 +393,7 @@ $sidebar-gutter: 16px;
     }
 
     &:active {
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--surface-2);
     }
 }
 

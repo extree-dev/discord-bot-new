@@ -4,98 +4,48 @@
     align-items: center;
     justify-content: center;
     gap: 9px;
-    border: none;
-    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
     font-family: 'Inter', sans-serif;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     transition:
-        transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
-        box-shadow 0.2s ease,
-        background 0.2s ease,
-        border-color 0.2s ease;
-}
-
-.base:active {
-    transform: scale(0.97);
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
 }
 
 .primary {
-    background: linear-gradient(155deg, var(--accent-soft), var(--accent));
+    background: var(--accent);
     color: #fff;
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.35) inset,
-        0 10px 26px rgba(255, 77, 94, 0.3);
-    overflow: hidden;
-
-    // Диагональный блик, "пробегающий" по кнопке при наведении —
-    // premium-деталь (Stripe/Linear CTA), а не просто смена тени.
-    &::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -75%;
-        width: 45%;
-        height: 100%;
-        background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.5), transparent);
-        transform: skewX(-20deg);
-        transition: left 0.55s ease;
-        pointer-events: none;
-    }
 }
 
 .primary:hover {
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.4) inset,
-        0 14px 34px rgba(255, 77, 94, 0.4);
-    transform: translateY(-1px);
-
-    &::after {
-        left: 140%;
-    }
+    background: var(--accent-hover);
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .primary::after {
-        transition: none;
-        display: none;
-    }
-}
-
-// "Жидкое стекло": блюр фона под кнопкой + полупрозрачная заливка + блик
-// сверху, вместо плоской заливки var(--surface-2) с одним бордером.
 .ghost {
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    background: transparent;
     color: var(--text);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+    border-color: var(--border-strong);
 }
 
 .ghost:hover {
-    border-color: var(--accent);
-    background: var(--glass-bg-strong);
-    transform: translateY(-1px);
+    border-color: var(--text-faint);
 }
 
-// Второй, более "весомый" solid-вариант (формы входа/регистрации,
-// подтверждение кода и т.п.) — раньше нарочно плоский/прямоугольный на
-// контрасте с .primary; теперь тот же скруглённый язык, что у остальных
-// кнопок, просто сплошная заливка вместо градиента.
+// Второй solid-вариант (формы входа/регистрации, подтверждение кода) —
+// тот же плоский язык, что и .primary, просто обособлен исторически как
+// отдельное имя варианта.
 .flat {
     background: var(--accent);
     color: #fff;
     font-weight: 700;
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.25) inset,
-        0 10px 26px rgba(255, 77, 94, 0.28);
 }
 
 .flat:hover {
     background: var(--accent-hover);
-    transform: translateY(-1px);
 }
 
 .fullWidth {
@@ -103,12 +53,12 @@
 }
 
 .md {
-    padding: 13px 24px;
+    padding: 12px 22px;
     font-size: 14.5px;
 }
 
 .sm {
-    padding: 9px 18px;
+    padding: 8px 16px;
     font-size: 13px;
     gap: 6px;
 }
