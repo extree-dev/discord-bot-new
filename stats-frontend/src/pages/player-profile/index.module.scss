@@ -39,7 +39,7 @@
     border: 2.5px solid transparent;
     background:
         linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
-        conic-gradient(from 180deg, var(--accent-2-soft), var(--accent), var(--accent-2) 70%, var(--accent-2-soft))
+        conic-gradient(from 180deg, var(--accent-soft), var(--accent), var(--border-strong) 65%, var(--border-strong))
             border-box;
 }
 
