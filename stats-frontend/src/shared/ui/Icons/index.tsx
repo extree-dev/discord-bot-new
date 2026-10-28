@@ -280,3 +280,61 @@ export function IconShieldOff() {
         </svg>
     );
 }
+
+export function TrendUpIcon() {
+    return (
+        <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+            <polyline points="17 6 23 6 23 12"></polyline>
+        </svg>
+    );
+}
+
+export function TrophyIcon() {
+    return (
+        <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M8 21h8"></path>
+            <path d="M12 17v4"></path>
+            <path d="M7 4h10v5a5 5 0 0 1-10 0V4z"></path>
+            <path d="M17 5h2.5a2.5 2.5 0 0 1 0 5H17"></path>
+            <path d="M7 5H4.5a2.5 2.5 0 0 0 0 5H7"></path>
+        </svg>
+    );
+}
+
+export function HistoryIcon() {
+    return (
+        <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M3 3v5h5"></path>
+            <path d="M3.05 13a9 9 0 1 0 2.12-7.26L3 8"></path>
+            <polyline points="12 7 12 12 16 14"></polyline>
+        </svg>
+    );
+}

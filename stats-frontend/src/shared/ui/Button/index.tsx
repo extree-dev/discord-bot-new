@@ -1,7 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import styles from './index.module.scss';
 
-type Variant = 'primary' | 'ghost' | 'flat';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'flat';
 type Size = 'md' | 'sm';
 
 interface CommonProps {
