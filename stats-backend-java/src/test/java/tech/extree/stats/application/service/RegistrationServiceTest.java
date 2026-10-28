@@ -52,7 +52,13 @@ class RegistrationServiceTest {
 
         service = new RegistrationService(
                 userRepository, emailCodeRepository, passwordHasher,
-                mailer, passwordPolicy, sessionRepository);
+                mailer, passwordPolicy, sessionRepository, false);
+    }
+
+    private RegistrationService serviceWithDevBypass() {
+        return new RegistrationService(
+                userRepository, emailCodeRepository, passwordHasher,
+                mailer, passwordPolicy, sessionRepository, true);
     }
 
     @Test
@@ -106,5 +112,15 @@ class RegistrationServiceTest {
         assertEquals(RegistrationUseCase.VerifyOutcome.OK, result.outcome());
         assertEquals("cookie", result.sessionCookie());
         verify(emailCodeRepository).deleteCode("test@test.com");
+    }
+
+    @Test
+    void verifyAcceptsLocalDevBypassCode() {
+        EmailCode pending = new EmailCode("123456", 0, Instant.now().plusSeconds(600), Instant.now());
+        when(emailCodeRepository.getCode("test@test.com")).thenReturn(Optional.of(pending));
+        when(userRepository.markEmailVerified("test@test.com")).thenReturn(Optional.of(user));
+
+        var result = serviceWithDevBypass().verify("test@test.com", "000000", "ip", "ua");
+        assertEquals(RegistrationUseCase.VerifyOutcome.OK, result.outcome());
     }
 }

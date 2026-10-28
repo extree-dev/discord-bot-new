@@ -133,3 +133,11 @@ STATS_MAIL_APP_PASSWORD=<тот же app-specific пароль> \
 TURNSTILE_SECRET_KEY=<тот же ключ, что у Node-сервиса> \
 mvn spring-boot:run
 ```
+
+Без доступа к реальным Turnstile/почте (большинство локальных запусков)
+добавьте `SPRING_PROFILES_ACTIVE=dev` — тогда можно не задавать
+`TURNSTILE_SECRET_KEY`/`STATS_MAIL_USER`/`STATS_MAIL_APP_PASSWORD`
+вообще: `/auth/login` пропускает проверку Turnstile, а код подтверждения
+(регистрация, вход с нового места) можно ввести как `000000`. На фронте
+(`npm run dev` в stats-frontend) виджет капчи при этом тоже не грузится —
+см. shared/ui/Turnstile. Никогда не используйте этот профиль на проде.

@@ -65,6 +65,12 @@ extree:
     # домен атакующего (Host header injection).
     public-host: ${STATS_PUBLIC_HOST:stats.extree.tech}
     turnstile-secret-key: ${TURNSTILE_SECRET_KEY:}
+    # Только профиль dev переопределяет это в true (см. секцию ниже) —
+    # пропускает проверку Cloudflare Turnstile и принимает фиксированный
+    # код "000000" вместо реального кода из письма (письма в dev и так не
+    # отправляются, см. DevMailer), чтобы локальный запуск не требовал ни
+    # ключей Turnstile, ни настоящего почтового аккаунта.
+    local-dev-bypass: false
     riot:
         client-id: ${RIOT_CLIENT_ID:}
         client-secret: ${RIOT_CLIENT_SECRET:}
@@ -84,3 +90,5 @@ spring:
 logging:
     level:
         tech.extree.stats: DEBUG
+extree:
+    local-dev-bypass: true

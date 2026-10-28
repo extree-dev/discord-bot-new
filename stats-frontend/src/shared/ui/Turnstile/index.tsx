@@ -52,12 +52,23 @@ interface TurnstileProps {
 // Рендерится через window.turnstile.render в пустой div, а не через
 // data-атрибуты на самом div, — явный рендер проще размонтировать/
 // перемонтировать корректно при повторных заходах на страницу логина.
+//
+// import.meta.env.DEV (true только под `npm run dev`, никогда в
+// production-сборке) пропускает загрузку настоящего скрипта Cloudflare —
+// бэкенд в локальном запуске (профиль dev, см. application.yml) всё
+// равно не проверяет токен, так что ждать реальный виджет (который к тому
+// же требует интернет и боевой domain) незачем.
 export function Turnstile({ siteKey, onVerify, onExpire }: TurnstileProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
     const [failed, setFailed] = useState(false);
 
     useEffect(() => {
+        if (import.meta.env.DEV) {
+            onVerify('local-dev-bypass');
+            return;
+        }
+
         let cancelled = false;
         loadTurnstileScript()
             .then(() => {
@@ -82,6 +93,10 @@ export function Turnstile({ siteKey, onVerify, onExpire }: TurnstileProps) {
         // если реально сменился siteKey.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [siteKey]);
+
+    if (import.meta.env.DEV) {
+        return <p className={styles.devNote}>Captcha skipped — local dev build.</p>;
+    }
 
     if (failed) {
         return <p className={styles.error}>Verification failed to load — refresh the page and try again.</p>;
