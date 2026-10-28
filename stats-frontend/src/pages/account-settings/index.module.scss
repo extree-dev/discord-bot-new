@@ -160,6 +160,7 @@
 .infoList {
     display: flex;
     flex-direction: column;
+    gap: 4px;
 }
 
 .row {
@@ -168,6 +169,7 @@
     justify-content: space-between;
     padding: 16px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    min-height: 60px;
 
     &:last-child {
         border-bottom: none;
