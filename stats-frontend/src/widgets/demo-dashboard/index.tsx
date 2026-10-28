@@ -8,7 +8,19 @@ import styles from './index.module.scss';
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-function MapBar({ map, wins, losses, loaded, animate }: { map: string; wins: number; losses: number; loaded: boolean; animate: boolean }) {
+function MapBar({
+    map,
+    wins,
+    losses,
+    loaded,
+    animate,
+}: {
+    map: string;
+    wins: number;
+    losses: number;
+    loaded: boolean;
+    animate: boolean;
+}) {
     const rate = winRate({ map, wins, losses });
     const tooltipId = `maprate-${map.toLowerCase()}`;
 
@@ -72,7 +84,19 @@ function KdSparkline({ loaded, animate }: { loaded: boolean; animate: boolean })
     );
 }
 
-function AgentCard({ name, games, wins, loaded, animate }: { name: string; games: number; wins: number; loaded: boolean; animate: boolean }) {
+function AgentCard({
+    name,
+    games,
+    wins,
+    loaded,
+    animate,
+}: {
+    name: string;
+    games: number;
+    wins: number;
+    loaded: boolean;
+    animate: boolean;
+}) {
     const rate = Math.round((wins / games) * 100);
     const animatedRate = useCountUp(rate, loaded && animate);
 

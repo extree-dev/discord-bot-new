@@ -24,8 +24,8 @@ const FAQ_ITEMS: FaqItem[] = [
         question: 'What data do you store?',
         answer: (
             <>
-                Just your account email and the match stats Riot's API returns for your account — maps, agents, K/D,
-                and rank history. See our{' '}
+                Just your account email and the match stats Riot's API returns for your account — maps, agents, K/D, and
+                rank history. See our{' '}
                 <Link to="/privacy" className={styles.inlineLink}>
                     Privacy Policy
                 </Link>{' '}
