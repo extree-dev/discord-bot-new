@@ -98,12 +98,9 @@
     }
 
     &.active {
-        background: var(--glass-bg-strong);
-        backdrop-filter: blur(var(--glass-blur));
-        -webkit-backdrop-filter: blur(var(--glass-blur));
-        border-color: var(--glass-border);
+        background: var(--surface-2);
+        border-color: var(--border);
         color: var(--text);
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset;
 
         svg {
             opacity: 1;

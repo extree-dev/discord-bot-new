@@ -1,23 +1,24 @@
 :root {
-    /* === Поколение 5: "Quiet Glass" ===
-       Прямая обратная связь на поколение 4: "минимализм полностью
-       отсутствует", но "Liquid Glass — это хорошо". Значит держим
-       материал (blur, полупрозрачность, скругления, блик по кромке) и
-       убираем визуальный шум — вращающийся разноцветный фон и
-       разноцветные иконки на каждой карточке. Один тихий, статичный,
-       монохромный источник света вместо двух ярких вращающихся
-       радуг — стеклу этого достаточно, чтобы не выглядеть серым
-       туманом, но он не отвлекает и не "кричит". Один акцент (красный)
-       на всё приложение — не два. */
-    --bg: #030305;
-    --surface: #0c0d11;
-    --surface-2: #121319;
-    --border: rgba(255, 255, 255, 0.06);
-    --border-strong: rgba(255, 255, 255, 0.14);
+    /* === Поколение 7: "Flat Minimal" ===
+       Шесть итераций подряд меняли оттенок/яркость одного и того же
+       материала — размытое полупрозрачное "стекло" на тёмном фоне,
+       скруглённые плавающие панели, светящиеся тени. Пользователь
+       прямо сказал: похоже на прошлые варианты — недопустимо. Здесь не
+       правка материала, а отказ от него: никакого backdrop-filter,
+       никакого свечения, никакой плавающей "капсулы"-сайдбара с
+       отступами со всех сторон. Чистый чёрный/белый, тонкие линии
+       вместо размытых краёв, малый радиус вместо squircle, типографика
+       и структура как основной инструмент выразительности вместо
+       эффектов на поверхностях. */
+    --bg: #000000;
+    --surface: #0a0a0a;
+    --surface-2: #121212;
+    --border: #1f1f1f;
+    --border-strong: #2e2e2e;
 
-    --text: #f8f8fa;
-    --text-dim: rgba(248, 248, 250, 0.6);
-    --text-faint: rgba(248, 248, 250, 0.36);
+    --text: #ffffff;
+    --text-dim: rgba(255, 255, 255, 0.58);
+    --text-faint: rgba(255, 255, 255, 0.34);
 
     --accent: #ff3b4e;
     --accent-soft: #ff6578;
@@ -26,39 +27,34 @@
     --win: #2fe3a3;
     --loss: var(--accent);
 
-    --radius-sm: 14px;
-    --radius-md: 20px;
-    --radius-lg: 28px;
-    --radius-xl: 38px;
-    --radius-2xl: 46px;
+    /* Малый, почти прямоугольный радиус — не squircle. */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+    --radius-2xl: 12px;
     --radius-pill: 999px;
 
-    /* Материал стекла нарочно бесцветный (оттенок даёт фон позади через
-       blur+saturate, не сама поверхность) — лёгкий градиент сверху вниз
-       имитирует кромку настоящего стекла под светом. */
-    --glass-bg: linear-gradient(170deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02));
-    --glass-bg-strong: linear-gradient(170deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
-    --glass-border: rgba(255, 255, 255, 0.14);
-    --glass-highlight: rgba(255, 255, 255, 0.6);
-    --glass-blur: 36px;
-    /* Небольшой буст по сравнению с 1 — лёгкое ощущение преломления, а
-       не плоская серая плашка, но без вытягивания цвета в кричащий
-       неон: за фоном теперь только один тихий источник света. */
-    --glass-saturate: 1.3;
-    --glass-shadow: 0 32px 76px -32px rgba(0, 0, 0, 0.78), 0 1px 0 rgba(255, 255, 255, 0.07) inset;
-    --glass-menu-bg: rgba(9, 10, 13, 0.97);
+    /* Токены, которые раньше описывали материал стекла, теперь просто
+       плоские значения поверхности — остальной код (Panel, Button,
+       инпуты и т.д.) ссылается на них по имени и "наследует" плоский
+       язык без точечной правки каждого файла. */
+    --glass-bg: var(--surface);
+    --glass-bg-strong: var(--surface-2);
+    --glass-border: var(--border);
+    --glass-highlight: transparent;
+    --glass-blur: 0px;
+    --glass-saturate: 1;
+    --glass-shadow: none;
+    --glass-menu-bg: var(--surface-2);
 
-    /* Нейтральные тени — не окрашенные в акцент, чтобы не добавлять
-       ещё один оттенок в и без того сдержанную палитру. */
-    --elevation-1: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 28px -18px rgba(0, 0, 0, 0.65);
-    --elevation-2: var(--glass-shadow);
-    --elevation-3: 0 1px 0 rgba(255, 255, 255, 0.09) inset, 0 40px 90px -28px rgba(0, 0, 0, 0.8);
+    --elevation-1: none;
+    --elevation-2: 0 2px 8px rgba(0, 0, 0, 0.5);
+    --elevation-3: 0 4px 16px rgba(0, 0, 0, 0.6);
 
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
-
-    --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 
     color-scheme: dark;
 }
@@ -75,9 +71,7 @@ body,
 
 body {
     margin: 0;
-    background-color: var(--bg);
-    background-image: var(--noise);
-    background-repeat: repeat;
+    background: var(--bg);
     color: var(--text);
     font-family:
         'Inter',
@@ -91,34 +85,6 @@ body {
     font-feature-settings:
         'tnum' 1,
         'cv11' 1;
-    position: relative;
-    isolation: isolate;
-}
-
-/* Один тихий источник света вместо двух ярких вращающихся радуг — ровно
-   столько, чтобы стеклу было что преломлять (см. комментарий про
-   containing block ниже), и не больше. Монохромный (фирменный красный),
-   статичный, небольшой — фон, а не отдельный визуальный объект, на
-   который смотрят. */
-body::before {
-    content: '';
-    /* absolute, не fixed: body (isolation: isolate) не создаёт
-       containing block для fixed-потомков — такой псевдоэлемент красится
-       в корневом стековом контексте НАД собственным фоном body (он там
-       целиком непрозрачный), а z-index:-1 тогда прячет его за body
-       полностью. position:relative на body уже даёт containing block
-       для absolute — тут псевдоэлемент красится между фоном body и его
-       контентом, как и задумано. */
-    position: absolute;
-    width: 760px;
-    height: 760px;
-    top: -280px;
-    right: -220px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 59, 78, 0.16), transparent 72%);
-    filter: blur(130px);
-    z-index: -1;
-    pointer-events: none;
 }
 
 a {
@@ -128,16 +94,24 @@ a {
 :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 2px;
 }
 
-/* Плавный, но не навязчивый "въезд" для крупных блоков (панели, карточки)
-   при появлении — элемент отмечается классом .enter в месте разметки.
-   Отключается для тех, кто просил меньше движения на экране. */
+/* Крупная заглавная подпись с разрядкой — графический приём вместо
+   свечения/прозрачности: используется для ярлыков секций ("ADMIN",
+   "RIOT ID" и т.п.) по всему приложению. */
+.eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+}
+
 @keyframes enter-rise {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(6px);
     }
     to {
         opacity: 1;
@@ -146,7 +120,7 @@ a {
 }
 
 .enter {
-    animation: enter-rise 0.5s var(--ease-out) both;
+    animation: enter-rise 0.35s var(--ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

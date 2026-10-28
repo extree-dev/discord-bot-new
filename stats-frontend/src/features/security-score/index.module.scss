@@ -4,13 +4,8 @@
     gap: 28px;
     padding: 28px;
     border-radius: var(--radius-lg);
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    position: relative;
-    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
 
     @media (max-width: 560px) {
         flex-direction: column;
@@ -19,19 +14,8 @@
     }
 }
 
-.card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    opacity: 0.08;
-    pointer-events: none;
-    background: radial-gradient(circle at 0% 0%, var(--ring-color, var(--accent)), transparent 60%);
-    transition: background 0.4s ease;
-}
-
 .card.max {
-    --ring-color: var(--win);
-    border-color: rgba(52, 211, 153, 0.3);
+    border-color: rgba(47, 227, 163, 0.35);
 }
 
 .card.mid {

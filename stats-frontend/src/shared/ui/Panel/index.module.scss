@@ -1,22 +1,9 @@
 .panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-shadow);
     position: relative;
     overflow: hidden;
-}
-
-// Тонкий блик по верхнему краю — как кромка настоящего стекла под
-// светом, а не просто полупрозрачный фон.
-.panel::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
 }
 
 .header {
@@ -24,8 +11,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 22px 26px;
-    border-bottom: 1px solid var(--glass-border);
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
 }
 
 .headerBare {
@@ -47,5 +34,5 @@
 }
 
 .body {
-    padding: 26px;
+    padding: 24px;
 }
