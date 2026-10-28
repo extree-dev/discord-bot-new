@@ -25,11 +25,11 @@
 
 .box:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(255, 77, 94, 0.15);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
 }
 
 .box.filled {
-    border-color: rgba(255, 77, 94, 0.4);
+    border-color: rgba(var(--accent-rgb), 0.4);
 }
 
 .box:disabled {
