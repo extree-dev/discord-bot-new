@@ -88,3 +88,13 @@
         animation-duration: 1.2s;
     }
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .placeholder {
+        font-size: 32px !important;
+        line-height: 1.1 !important;
+    }
+}

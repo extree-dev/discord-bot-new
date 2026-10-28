@@ -370,3 +370,22 @@
     font-size: 13px;
     line-height: 1.5;
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .main {
+        padding: 16px !important;
+    }
+    .page,
+    .main {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        overflow-x: hidden !important;
+    }
+    .header {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+}

@@ -79,3 +79,18 @@
         text-underline-offset: 2px;
     }
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .card {
+        padding: 16px !important;
+    }
+    .page,
+    .main {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        overflow-x: hidden !important;
+    }
+}

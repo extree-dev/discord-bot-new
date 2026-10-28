@@ -267,3 +267,21 @@
         transition: none !important;
     }
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .panelGrid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .barRow {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .agentGrid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}

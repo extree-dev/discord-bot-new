@@ -146,3 +146,34 @@
     align-items: center;
     gap: 16px;
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .tableWrapper {
+        overflow-x: auto !important;
+        margin: 0 -16px !important;
+        padding: 0 16px !important;
+    }
+    .table {
+        white-space: nowrap !important;
+    }
+    .table th,
+    .table td {
+        padding: 12px 16px !important;
+    }
+    .ctaGroup,
+    .actions,
+    .formActions {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .ctaGroup > *,
+    .actions > *,
+    .formActions > * {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+}

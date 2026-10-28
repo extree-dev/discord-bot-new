@@ -1,8 +1,8 @@
-// Плоская полоса во всю ширину с нижней линией — не плавающая
-// скруглённая "таблетка" со стеклом. Прозрачный на самом верху страницы,
-// сплошной фон + граница появляются только после скролла (см. .scrolled в
-// index.tsx) — без backdrop-filter, чтобы не возвращать "стекло",
-// отклонённое для остального приложения (см. app/styles/global.css).
+// Liquid Glass — только здесь. Хедер преломляет контент под ним:
+// полупрозрачный чёрный + backdrop-filter blur/saturate. На самом
+// верху страницы — прозрачный, чтобы не «закрывать» hero; после
+// скролла — стекло. Это единственное место в продукте, где стекло
+// правильно (навигация, а не контент).
 .header {
     position: sticky;
     top: 0;
@@ -16,12 +16,15 @@
     background: transparent;
     border-bottom: 1px solid transparent;
     transition:
-        background 0.15s ease,
-        border-color 0.15s ease;
+        background 0.2s var(--ease-out),
+        border-color 0.2s var(--ease-out),
+        backdrop-filter 0.2s var(--ease-out);
 
     &.scrolled {
-        background: var(--bg);
-        border-bottom-color: var(--border);
+        background: var(--header-glass-bg);
+        border-bottom-color: var(--header-glass-border);
+        backdrop-filter: blur(var(--surface-blur)) saturate(1.8);
+        -webkit-backdrop-filter: blur(var(--surface-blur)) saturate(1.8);
     }
 
     @media (max-width: 480px) {
@@ -59,7 +62,7 @@
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background: none;
     border: 1px solid var(--border-strong);
     color: var(--text);
@@ -76,7 +79,9 @@
     inset: 0;
     top: 57px;
     z-index: 45;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .mobileMenu {
@@ -89,16 +94,18 @@
     flex-direction: column;
     gap: 2px;
     padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+    background: var(--header-glass-bg);
+    backdrop-filter: blur(var(--surface-blur)) saturate(1.8);
+    -webkit-backdrop-filter: blur(var(--surface-blur)) saturate(1.8);
+    border-bottom: 1px solid var(--header-glass-border);
 
     .navLink {
         padding: 12px 10px;
         font-size: 14.5px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--radius-md);
 
         &:hover {
-            background: var(--surface-2);
+            background: rgba(255, 255, 255, 0.06);
             color: var(--text);
         }
     }
@@ -152,11 +159,11 @@
 }
 
 .cmdK {
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     padding: 6px 10px;
     font-size: 12px;
     font-family: inherit;
@@ -167,5 +174,28 @@
     &:hover {
         border-color: var(--accent);
         color: var(--text);
+    }
+}
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .ctaGroup,
+    .actions,
+    .formActions {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .ctaGroup > *,
+    .actions > *,
+    .formActions > * {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    .header {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
     }
 }

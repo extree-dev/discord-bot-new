@@ -1,60 +1,17 @@
 import { Link } from 'react-router-dom';
 import { SiteHeader } from '../../widgets/site-header';
-import { DemoDashboard } from '../../widgets/demo-dashboard';
 import { RiotSignInButton } from '../../features/riot-sign-in/RiotSignInButton';
 import { Button } from '../../shared/ui/Button';
 import { TargetIcon, TrendUpIcon, TrophyIcon, HistoryIcon } from '../../shared/ui/Icons';
 import { Faq } from './Faq';
 import styles from './index.module.scss';
 
-// Дисклеймер — обязательный пункт политик Riot Developer Portal
-// (developer.riotgames.com/policies/general). Раньше жил в hero —
-// перенесён в футер: по ТЗ первый экран должен за 3 секунды продавать
-// продукт, а не показывать юридическую плашку про Riot.
 const RIOT_DISCLAIMER =
     "Extree Stats isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing VALORANT. VALORANT and Riot Games are trademarks or registered trademarks of Riot Games, Inc.";
 
 const NAV_LINKS = [
     { label: 'Features', href: '#features' },
     { label: 'FAQ', href: '#faq' },
-];
-
-const FEATURES = [
-    {
-        icon: TargetIcon,
-        title: 'Win rates by map & agent',
-        body: "See exactly where you're strong — and where you're not.",
-    },
-    {
-        icon: TrendUpIcon,
-        title: 'K/D trends',
-        body: 'Momentum over time, not just one lucky — or unlucky — match.',
-    },
-    {
-        icon: TrophyIcon,
-        title: 'Rank progress',
-        body: "How far you are from the next rank, and what's holding you back.",
-    },
-    {
-        icon: HistoryIcon,
-        title: 'Match history',
-        body: 'Every match broken down round by round.',
-    },
-];
-
-const STEPS = [
-    {
-        title: 'Sign in with Riot',
-        body: 'Secure OAuth sign-in — we never see your password.',
-    },
-    {
-        title: 'We pull your matches',
-        body: 'Your match history and stats, straight from your own Riot account.',
-    },
-    {
-        title: 'See your dashboard',
-        body: 'Filter by map, agent, or time period.',
-    },
 ];
 
 export function SignInPage() {
@@ -65,71 +22,156 @@ export function SignInPage() {
 
             <main>
                 <section className={styles.hero}>
-                    <div className={styles.heroText}>
+                    <div className={styles.gridBg} aria-hidden="true" />
+                    <div className={styles.heroGlow} aria-hidden="true" />
+
+                    <div className={styles.heroContent}>
                         <h1 className={styles.title}>
-                            Every match, <span className={styles.accentText}>broken down</span> the way you&apos;d
-                            actually read it.
+                            Every match, <br className={styles.brDesktop} />
+                            <span className={styles.gradientText}>broken down</span>.
                         </h1>
                         <p className={styles.lead}>
-                            Win rates by map and agent, K/D trends, and rank progress — all in one dashboard.
+                            Win rates by map and agent, K/D trends, and rank progress. All in one dashboard.
                         </p>
                         <div className={styles.ctaGroup}>
                             <RiotSignInButton />
-                            <Button variant="secondary" href="#demo-dashboard">
-                                View demo
+                            <Button variant="secondary" href="#features">
+                                View features
                             </Button>
                         </div>
                         <p className={styles.altAuth}>
                             Prefer email? <Link to="/register">Create an account</Link>
                         </p>
-                        <p className={styles.trustLine}>Free · No install · Your data only</p>
                     </div>
-                    <DemoDashboard />
-                </section>
 
-                <section id="features" className={styles.features}>
-                    <div className={styles.featuresGrid}>
-                        {FEATURES.map(feature => {
-                            const Icon = feature.icon;
-                            return (
-                                <div key={feature.title} className={styles.featureCard}>
-                                    <span className={styles.featureIcon}>
-                                        <Icon />
-                                    </span>
-                                    <h3 className={styles.featureTitle}>{feature.title}</h3>
-                                    <p className={styles.featureBody}>{feature.body}</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                <section className={styles.howItWorks}>
-                    <h2 className={styles.sectionTitle}>How it works</h2>
-                    <div className={styles.steps}>
-                        {STEPS.map((step, index) => (
-                            <div key={step.title} className={styles.step}>
-                                <span className={styles.stepNumber}>{index + 1}</span>
-                                <div className={styles.stepBody}>
-                                    <h3 className={styles.stepTitle}>{step.title}</h3>
-                                    <p className={styles.stepText}>{step.body}</p>
-                                </div>
-                                {index < STEPS.length - 1 && <span className={styles.stepLine} aria-hidden="true" />}
+                    <div className={styles.heroShowcase}>
+                        <div className={styles.showcaseHeader}>
+                            <div className={styles.showcaseTitle}>Match Analysis</div>
+                            <div className={styles.showcaseBadge}>LIVE PREVIEW</div>
+                        </div>
+                        <div className={styles.showcaseBody}>
+                            <div className={styles.showcaseChart}>
+                                <svg viewBox="0 0 400 100" className={styles.sparkline} preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+                                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path
+                                        d="M0,80 Q50,70 100,40 T200,50 T300,20 T400,10 L400,100 L0,100 Z"
+                                        fill="url(#chartGrad)"
+                                    />
+                                    <path
+                                        d="M0,80 Q50,70 100,40 T200,50 T300,20 T400,10"
+                                        fill="none"
+                                        stroke="var(--accent)"
+                                        strokeWidth="2"
+                                    />
+                                </svg>
                             </div>
-                        ))}
+                            <div className={styles.showcaseStats}>
+                                <div className={styles.statRow}>
+                                    <span>Win Rate</span>
+                                    <strong>64.2%</strong>
+                                </div>
+                                <div className={styles.statRow}>
+                                    <span>K/D Ratio</span>
+                                    <strong>1.42</strong>
+                                </div>
+                                <div className={styles.statRow}>
+                                    <span>Headshot %</span>
+                                    <strong>28.5%</strong>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                <section className={styles.tagline}>
+                <section id="features" className={styles.features} data-reveal>
+                    <div className={styles.sectionHeader}>
+                        <h2 className={styles.sectionTitle}>Everything you need to improve.</h2>
+                        <p className={styles.sectionSubtitle}>Built for players who want to see the bigger picture.</p>
+                    </div>
+                    <div className={styles.featuresGrid}>
+                        <div className={styles.featureCard} data-reveal>
+                            <div className={styles.featureIconWrap}>
+                                <TargetIcon />
+                            </div>
+                            <h3 className={styles.featureTitle}>Win rates by map & agent</h3>
+                            <p className={styles.featureBody}>
+                                See exactly where you&apos;re strong — and where you&apos;re not.
+                            </p>
+                        </div>
+                        <div className={styles.featureCard} data-reveal>
+                            <div className={styles.featureIconWrap}>
+                                <TrendUpIcon />
+                            </div>
+                            <h3 className={styles.featureTitle}>K/D trends</h3>
+                            <p className={styles.featureBody}>
+                                Momentum over time, not just one lucky — or unlucky — match.
+                            </p>
+                        </div>
+                        <div className={styles.featureCard} data-reveal>
+                            <div className={styles.featureIconWrap}>
+                                <TrophyIcon />
+                            </div>
+                            <h3 className={styles.featureTitle}>Rank progress</h3>
+                            <p className={styles.featureBody}>
+                                How far you are from the next rank, and what&apos;s holding you back.
+                            </p>
+                        </div>
+                        <div className={styles.featureCard} data-reveal>
+                            <div className={styles.featureIconWrap}>
+                                <HistoryIcon />
+                            </div>
+                            <h3 className={styles.featureTitle}>Match history</h3>
+                            <p className={styles.featureBody}>Every match broken down round by round.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section className={styles.howItWorks} data-reveal>
+                    <h2 className={styles.sectionTitle2}>How it works</h2>
+                    <div className={styles.steps}>
+                        <div className={styles.step} data-reveal>
+                            <span className={styles.stepNumber}>1</span>
+                            <div className={styles.stepBody}>
+                                <h3 className={styles.stepTitle}>Sign in with Riot</h3>
+                                <p className={styles.stepText}>Secure OAuth sign-in — we never see your password.</p>
+                            </div>
+                            <span className={styles.stepLine} aria-hidden="true" />
+                        </div>
+                        <div className={styles.step} data-reveal>
+                            <span className={styles.stepNumber}>2</span>
+                            <div className={styles.stepBody}>
+                                <h3 className={styles.stepTitle}>We pull your matches</h3>
+                                <p className={styles.stepText}>
+                                    Your match history and stats, straight from your own Riot account.
+                                </p>
+                            </div>
+                            <span className={styles.stepLine} aria-hidden="true" />
+                        </div>
+                        <div className={styles.step} data-reveal>
+                            <span className={styles.stepNumber}>3</span>
+                            <div className={styles.stepBody}>
+                                <h3 className={styles.stepTitle}>See your dashboard</h3>
+                                <p className={styles.stepText}>Filter by map, agent, or time period.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className={styles.tagline} data-reveal>
                     <p>Made by players, for players.</p>
                 </section>
 
-                <section id="faq" className={styles.faqSection}>
-                    <h2 className={styles.sectionTitle}>Frequently asked questions</h2>
+                <section id="faq" className={styles.faqSection} data-reveal>
+                    <h2 className={styles.sectionTitle2}>Frequently asked questions</h2>
                     <Faq />
                 </section>
 
-                <section className={styles.finalCta}>
+                <section className={styles.finalCta} data-reveal>
                     <h2 className={styles.finalCtaTitle}>Ready to see your own numbers?</h2>
                     <RiotSignInButton noteId="riot-sign-in-note-final" />
                 </section>

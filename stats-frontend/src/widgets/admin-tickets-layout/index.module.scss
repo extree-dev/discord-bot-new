@@ -69,3 +69,16 @@
         border-bottom: 1px solid var(--border);
     }
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .center {
+        padding: 16px !important;
+    }
+    .layout {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}

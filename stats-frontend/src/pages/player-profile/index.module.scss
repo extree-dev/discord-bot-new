@@ -137,3 +137,13 @@
     align-items: center;
     gap: 16px;
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .lockedGrid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}

@@ -9,48 +9,33 @@
 
 .main {
     flex: 1;
-    max-width: 1140px;
     width: 100%;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: 64px;
+    display: flex;
     align-items: center;
-    padding: 40px;
+    justify-content: center;
+    padding: 32px 24px;
+}
+
+.sheet {
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
 }
 
 .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 14px 7px 11px;
-    border-radius: var(--radius-pill);
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-    margin-bottom: 26px;
-    font-size: 12px;
-    color: var(--text-dim);
+    display: none;
 }
 
-.dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--win);
-}
-
-// Поколение 3: обычный регистр вместо caps-lock и плашка-с-skew'ом
-// заменена на тот же чистый акцентный текст, что на главной (hero
-// "Journey Starts Here.") — один язык заголовков на весь сайт, а не
-// отдельный "жёсткий" вариант для auth-страниц.
 .heading {
-    font-size: clamp(32px, 4.2vw, 52px);
-    line-height: 1.08;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    margin: 0 0 22px;
+    font-size: clamp(28px, 4vw, 34px);
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin: 0 0 8px;
+    color: var(--text);
 }
 
 .heading :global(.hl) {
@@ -58,25 +43,29 @@
 }
 
 .lead {
-    font-size: 15.5px;
+    font-size: 15px;
     color: var(--text-dim);
-    line-height: 1.65;
-    max-width: 420px;
-    margin: 0;
+    line-height: 1.5;
+    max-width: 320px;
+    margin: 0 0 32px;
+}
+
+.leftExtra {
+    width: 100%;
+    text-align: left;
+    margin-bottom: 24px;
 }
 
 .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 34px 30px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
 }
 
 .cardTitle {
-    margin: 0 0 22px;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.015em;
+    display: none;
 }
 
 @keyframes split-auth-error-in {
@@ -91,11 +80,11 @@
 }
 
 .error {
-    margin: 0 0 18px;
-    padding: 11px 16px;
-    border-radius: var(--radius-md);
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
+    margin: 0 0 20px;
+    padding: 12px 20px;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.12);
+    border: 1px solid rgba(var(--accent-rgb), 0.28);
     color: var(--accent-soft);
     font-size: 13px;
     line-height: 1.5;
@@ -103,10 +92,10 @@
 }
 
 .footer {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border);
-    font-size: 13px;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 13.5px;
     color: var(--text-faint);
     text-align: center;
 
@@ -119,8 +108,21 @@
 
 @media (max-width: v.$breakpoint-tablet) {
     .main {
-        grid-template-columns: 1fr;
-        gap: 36px;
-        padding: 40px 24px;
+        padding: 24px 20px;
+    }
+}
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .main {
+        padding: 16px !important;
+    }
+    .page,
+    .main {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        overflow-x: hidden !important;
     }
 }

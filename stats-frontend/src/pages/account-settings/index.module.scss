@@ -592,3 +592,38 @@
     gap: 10px;
     margin-top: 20px;
 }
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .page {
+        padding: 16px !important;
+    }
+    .securityGrid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .recoveryGrid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    .page,
+    .main {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        overflow-x: hidden !important;
+    }
+    .sidebar {
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        width: 100% !important;
+        border-bottom: 1px solid var(--border) !important;
+    }
+    .layout {
+        flex-direction: column !important;
+    }
+    .navItem {
+        white-space: nowrap !important;
+    }
+}

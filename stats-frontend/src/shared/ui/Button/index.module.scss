@@ -1,28 +1,32 @@
+// Все кнопки — капсулы (radius 999). primary/flat — белая заливка,
+// ghost/secondary — прозрачная с тонкой гранью.
 .base {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 9px;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    font-family: 'Inter', sans-serif;
+    gap: 8px;
+    border-radius: 999px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     transition:
         background 0.15s ease,
         border-color 0.15s ease,
-        color 0.15s ease,
         transform 0.1s ease;
 
     &:active:not(:disabled) {
-        transform: scale(0.97);
+        transform: scale(0.98);
+    }
+    &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
     }
 
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
+    &:focus,
+    &:focus-visible {
+        outline: none;
     }
 }
 
@@ -31,11 +35,11 @@
 }
 
 .spinner {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: #fff;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    border-top-color: #000;
     animation: button-spin 0.6s linear infinite;
     flex-shrink: 0;
 }
@@ -52,52 +56,29 @@
     }
 }
 
-.primary {
-    background: var(--accent);
-    color: #fff;
+.primary,
+.flat {
+    background: #ffffff;
+    color: #000000;
+    border: none;
 }
 
-.primary:hover {
-    background: var(--accent-hover);
+.primary:hover,
+.flat:hover {
+    background: #e5e5e5;
 }
 
-.ghost {
-    background: transparent;
-    color: var(--text);
-    border-color: var(--border-strong);
-}
-
-.ghost:hover {
-    border-color: var(--text-faint);
-}
-
-// Прозрачный фон + акцентная обводка — отличается от .ghost (нейтральная
-// обводка/текст): используется там, где нужна вторая по значимости CTA
-// рядом с .primary (напр. "View demo" на лендинге), а не нейтральное
-// действие вроде "Log in".
+.ghost,
 .secondary {
     background: transparent;
     color: var(--text);
-    border-color: var(--border-strong);
+    border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
+.ghost:hover,
 .secondary:hover {
-    background: rgba(255, 59, 78, 0.1);
-    border-color: var(--accent);
-    color: var(--accent-soft);
-}
-
-// Второй solid-вариант (формы входа/регистрации, подтверждение кода) —
-// тот же плоский язык, что и .primary, просто обособлен исторически как
-// отдельное имя варианта.
-.flat {
-    background: var(--accent);
-    color: #fff;
-    font-weight: 700;
-}
-
-.flat:hover {
-    background: var(--accent-hover);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .fullWidth {
@@ -105,12 +86,14 @@
 }
 
 .md {
-    padding: 12px 22px;
-    font-size: 14.5px;
+    padding: 0 24px;
+    height: 50px;
+    font-size: 16px;
 }
 
 .sm {
-    padding: 8px 16px;
-    font-size: 13px;
+    padding: 0 16px;
+    height: 36px;
+    font-size: 14px;
     gap: 6px;
 }
