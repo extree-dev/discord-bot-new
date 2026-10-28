@@ -49,6 +49,37 @@ function DiscordIcon() {
     );
 }
 
+// Декоративные "призрачные" паттерны для карточек без реальных данных —
+// 10% непрозрачности, aria-hidden, только чтобы карточка не выглядела
+// пустой до появления доступа к Riot API (см. ТЗ, п.2 "Empty States").
+function BarsPattern() {
+    return (
+        <svg className={styles.cardPattern} viewBox="0 0 160 90" aria-hidden="true">
+            <rect x="10" y="50" width="14" height="40" rx="2" fill="currentColor" />
+            <rect x="34" y="30" width="14" height="60" rx="2" fill="currentColor" />
+            <rect x="58" y="60" width="14" height="30" rx="2" fill="currentColor" />
+            <rect x="82" y="15" width="14" height="75" rx="2" fill="currentColor" />
+            <rect x="106" y="40" width="14" height="50" rx="2" fill="currentColor" />
+            <rect x="130" y="5" width="14" height="85" rx="2" fill="currentColor" />
+        </svg>
+    );
+}
+
+function LinePattern() {
+    return (
+        <svg className={styles.cardPattern} viewBox="0 0 160 90" aria-hidden="true">
+            <polyline
+                points="5,70 30,40 55,55 80,20 105,45 130,15 155,35"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
 // SRP: только рендер страницы. Данные — из useAuth (не делаем getAccount()).
 // ProtectedRoute гарантирует, что user !== null и status === 'authenticated'.
 export function AccountPage() {
@@ -84,11 +115,14 @@ export function AccountPage() {
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
             <div className={styles.page}>
-                <div className={styles.headerRow}>
-                    <div className={styles.headerText}>
+                {/* Bento Grid: статус Riot + CTA (2/3) и Discord (1/3) в первом ряду,
+                    Deep Stats + Match History 50/50 во втором — вместо прежней
+                    плоской строки из трёх одинаковых карточек. */}
+                <div className={styles.bentoGrid}>
+                    <div className={styles.heroCard}>
                         <div className={styles.statusBadge}>
                             <span className={styles.statusDot}></span>
-                            Waiting for Riot Approval
+                            API Sync Pending
                         </div>
                         <h1 className={styles.heroTitle}>
                             Your VALORANT <span className={styles.textRed}>Journey Starts Here.</span>
@@ -98,38 +132,50 @@ export function AccountPage() {
                             our API access. Soon, you&apos;ll be able to link your Riot account to view your match
                             history, K/D trends, and detailed stats.
                         </p>
+                        <div className={styles.headerActions}>
+                            <span className={styles.tooltipWrap}>
+                                <button
+                                    className={styles.primaryBtn}
+                                    disabled
+                                    title="Available after Riot approval."
+                                    aria-describedby="riot-cta-note"
+                                >
+                                    Connect Riot Account
+                                </button>
+                                <span id="riot-cta-note" className="sr-only">
+                                    Available after Riot approval.
+                                </span>
+                            </span>
+                            <button className={styles.secondaryBtn} onClick={() => navigate('/support')}>
+                                Contact Support
+                            </button>
+                        </div>
                     </div>
-                    <div className={styles.headerActions}>
-                        <button className={styles.primaryBtn} disabled>
-                            Connect Riot Account
-                        </button>
-                        <button className={styles.secondaryBtn} onClick={() => navigate('/support')}>
-                            Contact Support
-                        </button>
-                    </div>
-                </div>
 
-                <div className={styles.featuresGrid}>
-                    <div className={styles.featureCard}>
+                    <div className={styles.discordCard}>
+                        <div className={styles.iconWrapper}>
+                            <DiscordIcon />
+                        </div>
+                        <h3>Discord Integration</h3>
+                        <p>Link your profile to get live match updates and rank changes via our Discord bot.</p>
+                    </div>
+
+                    <div className={styles.statCard}>
+                        <BarsPattern />
                         <div className={styles.iconWrapper}>
                             <ChartIcon />
                         </div>
                         <h3>Deep Statistics</h3>
                         <p>Track your K/D ratio, headshot percentage, and win rate across all your matches.</p>
                     </div>
-                    <div className={styles.featureCard}>
+
+                    <div className={styles.statCard}>
+                        <LinePattern />
                         <div className={styles.iconWrapper}>
                             <TargetIcon />
                         </div>
                         <h3>Match History</h3>
                         <p>Detailed round-by-round breakdowns of your recent VALORANT matches.</p>
-                    </div>
-                    <div className={styles.featureCard}>
-                        <div className={styles.iconWrapper}>
-                            <DiscordIcon />
-                        </div>
-                        <h3>Discord Integration</h3>
-                        <p>Link your Extree Stats profile to our Discord bot for live match updates.</p>
                     </div>
                 </div>
             </div>

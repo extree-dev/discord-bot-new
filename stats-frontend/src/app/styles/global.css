@@ -28,6 +28,7 @@
 
     --win: #2fe3a3;
     --loss: var(--accent);
+    --info: #4da3ff;
 
     /* Малый, почти прямоугольный радиус — не squircle. */
     --radius-sm: 4px;
@@ -123,6 +124,22 @@ a {
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--text-faint);
+}
+
+/* Для текста-описания у disabled-контролов (напр. "Available after Riot
+   approval." у кнопки Connect Riot Account) — связывается через
+   aria-describedby, не читается визуально, но доступен скринридерам,
+   которым native title у disabled-элемента не всегда доступен. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 @keyframes enter-rise {
