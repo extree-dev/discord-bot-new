@@ -109,3 +109,11 @@
         transform: translateY(0) scale(1);
     }
 }
+
+/* ЯДЕРНЫЙ МОБИЛЬНЫЙ ФИКС */
+@media screen and (max-width: 768px) {
+    .menu {
+        width: 220px !important; /* Уже, чтобы не вылезало */
+        right: -10px !important; /* Сдвиг, чтобы влезло в экран */
+    }
+}

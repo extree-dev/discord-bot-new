@@ -137,3 +137,26 @@
         flex-direction: column;
     }
 }
+
+/* ЯДЕРНЫЙ МОБИЛЬНЫЙ ФИКС */
+@media screen and (max-width: 768px) {
+    .tableWrapper {
+        overflow-x: auto !important;
+        margin: 0 -16px !important;
+        padding: 0 16px !important;
+        border-radius: 0 !important;
+        border: none !important;
+    }
+    .table {
+        min-width: 600px !important; /* Даем таблице прокрутку */
+    }
+    .table th,
+    .table td {
+        padding: 12px 16px !important;
+        white-space: nowrap !important;
+    }
+    .actions {
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+}
