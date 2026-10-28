@@ -73,10 +73,9 @@ export function AccountPage() {
         // этот кадр виден максимум один тик, пока резолвится auth-статус.
         return (
             <DashboardShell user={null} title="">
-                <div className={`${styles.heroContainer} ${styles.heroSkeleton}`}>
-                    <Skeleton width={180} height={30} radius={999} />
-                    <Skeleton width={420} height={56} radius={12} />
-                    <Skeleton width={320} height={20} radius={6} />
+                <div className={styles.headerRow}>
+                    <Skeleton width={320} height={34} radius={6} />
+                    <Skeleton width={140} height={40} radius={6} />
                 </div>
             </DashboardShell>
         );
@@ -84,30 +83,30 @@ export function AccountPage() {
 
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
-            <div className={styles.heroContainer}>
-                <div className={styles.statusBadge}>
-                    <span className={styles.statusDot}></span>
-                    Waiting for Riot Approval
-                </div>
-
-                <h1 className={styles.heroTitle}>
-                    Your VALORANT <br />
-                    <span className={styles.textRed}>Journey Starts Here.</span>
-                </h1>
-
-                <p className={styles.heroSubtitle}>
-                    We are currently in the final stages of development and waiting for Riot Games to approve our API
-                    access. Soon, you'll be able to link your Riot account to view your match history, K/D trends, and
-                    detailed stats.
-                </p>
-
-                <div className={styles.actions}>
-                    <button className={styles.primaryBtn} disabled>
-                        Connect Riot Account
-                    </button>
-                    <button className={styles.secondaryBtn} onClick={() => navigate('/support')}>
-                        Contact Support
-                    </button>
+            <div className={styles.page}>
+                <div className={styles.headerRow}>
+                    <div className={styles.headerText}>
+                        <div className={styles.statusBadge}>
+                            <span className={styles.statusDot}></span>
+                            Waiting for Riot Approval
+                        </div>
+                        <h1 className={styles.heroTitle}>
+                            Your VALORANT <span className={styles.textRed}>Journey Starts Here.</span>
+                        </h1>
+                        <p className={styles.heroSubtitle}>
+                            We are currently in the final stages of development and waiting for Riot Games to approve
+                            our API access. Soon, you&apos;ll be able to link your Riot account to view your match
+                            history, K/D trends, and detailed stats.
+                        </p>
+                    </div>
+                    <div className={styles.headerActions}>
+                        <button className={styles.primaryBtn} disabled>
+                            Connect Riot Account
+                        </button>
+                        <button className={styles.secondaryBtn} onClick={() => navigate('/support')}>
+                            Contact Support
+                        </button>
+                    </div>
                 </div>
 
                 <div className={styles.featuresGrid}>

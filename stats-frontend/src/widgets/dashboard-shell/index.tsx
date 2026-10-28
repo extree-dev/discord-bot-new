@@ -1,7 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Avatar } from '../../shared/ui/Avatar';
-import { HomeIcon, SettingsIcon, TicketIcon, ShieldIcon, UsersIcon, PowerIcon } from '../../shared/ui/Icons';
+import {
+    HomeIcon,
+    SettingsIcon,
+    TicketIcon,
+    ShieldIcon,
+    UsersIcon,
+    PowerIcon,
+    MenuIcon,
+    IconX,
+} from '../../shared/ui/Icons';
 import styles from './index.module.scss';
 
 interface DashboardUser {
@@ -25,19 +34,16 @@ function signOut() {
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
-    return `${styles.navItem} ${isActive ? styles.active : ''}`;
+    return `${styles.navLink} ${isActive ? styles.active : ''}`;
 }
 
-function tabClass({ isActive }: { isActive: boolean }) {
-    return `${styles.tabItem} ${isActive ? styles.active : ''}`;
-}
-
-// Редизайн 3: control panel как отдельное приложение, а не страница с
-// плавающим топбаром поверх контента — постоянный стеклянный sidebar-dock
-// на десктопе (macOS-язык) и нативный bottom tab bar на мобильном (iOS-
-// язык), вместо ProfileDropdown-меню, которое раньше было единственным
-// входом в навигацию. Админ-разделы (Users/Tickets/Audit) теперь видны
-// как постоянные пункты меню, а не спрятаны в выпадашке.
+// Редизайн 4: расположение элементов, а не только материал/цвет —
+// сайдбар слева (неизменный во всех прошлых версиях) заменён на
+// горизонтальный топбар на всю ширину: лого слева, пункты меню по
+// центру/справа от него, аватар с одной кнопкой "выйти" у правого края
+// (не выпадающее меню). На мобильном то же самое сжимается в гамбургер,
+// открывающий панель СВЕРХУ под хедером (а не bottom sheet снизу, как
+// было раньше).
 export function DashboardShell({
     user,
     breadcrumb,
@@ -48,177 +54,140 @@ export function DashboardShell({
     wide,
     children,
 }: DashboardShellProps) {
-    const [sheetOpen, setSheetOpen] = useState(false);
-    const closeSheet = () => setSheetOpen(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const closeMenu = () => setMenuOpen(false);
 
     return (
         <div className={styles.shell}>
-            {user && (
-                <aside className={styles.sidebar}>
-                    <Link to="/" className={styles.brand}>
-                        <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
-                        <span>Extree Stats</span>
-                    </Link>
+            <header className={styles.topbar}>
+                <Link to="/" className={styles.brand}>
+                    <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
+                    <span>Extree Stats</span>
+                </Link>
 
-                    <nav className={styles.nav}>
+                {user && (
+                    <nav className={styles.navLinks}>
                         <NavLink to="/account" end className={navClass}>
-                            <HomeIcon />
                             Dashboard
                         </NavLink>
                         <NavLink to="/account/settings" className={navClass}>
-                            <SettingsIcon />
                             Settings
                         </NavLink>
                         <NavLink to="/support" className={navClass}>
-                            <TicketIcon />
                             Support
                         </NavLink>
-
                         {user.isAdmin && (
                             <>
-                                <div className={styles.navLabel}>Admin</div>
+                                <span className={styles.navDivider} aria-hidden="true" />
                                 <NavLink to="/admin/users" className={navClass}>
-                                    <UsersIcon />
-                                    Manage Users
+                                    Users
                                 </NavLink>
                                 <NavLink to="/admin/tickets" className={navClass}>
-                                    <TicketIcon />
                                     Tickets
                                 </NavLink>
                                 <NavLink to="/admin/audit" className={navClass}>
-                                    <ShieldIcon />
                                     Audit Log
                                 </NavLink>
                             </>
                         )}
                     </nav>
+                )}
 
-                    <div className={styles.sidebarFooter}>
-                        <Avatar label={user.email} />
-                        <span className={styles.footerEmail} title={user.email}>
-                            {user.email}
-                        </span>
+                {user && (
+                    <div className={styles.topbarRight}>
+                        <div className={styles.userChip}>
+                            <Avatar label={user.email} />
+                            <span className={styles.userEmail} title={user.email}>
+                                {user.email}
+                            </span>
+                        </div>
                         <button
                             type="button"
-                            className={styles.logoutBtn}
+                            className={styles.iconBtn}
                             onClick={signOut}
                             title="Sign out"
                             aria-label="Sign out"
                         >
                             <PowerIcon />
                         </button>
-                    </div>
-                </aside>
-            )}
-
-            <div className={styles.column}>
-                <header className={styles.mobileTopbar}>
-                    <Link to="/" className={styles.brand}>
-                        <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
-                        <span>Extree Stats</span>
-                    </Link>
-                    {user && (
                         <button
                             type="button"
-                            className={styles.mobileAvatarBtn}
-                            onClick={() => setSheetOpen(true)}
-                            aria-label="Open menu"
+                            className={styles.menuToggle}
+                            onClick={() => setMenuOpen(o => !o)}
+                            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                            aria-expanded={menuOpen}
                         >
-                            <Avatar label={user.email} />
+                            {menuOpen ? <IconX /> : <MenuIcon />}
                         </button>
-                    )}
-                </header>
-
-                <main className={styles.main}>
-                    <div className={`${styles.content} ${wide ? styles.contentWide : ''}`}>
-                        <div>
-                            {breadcrumb && (
-                                <Link to={breadcrumb.to} className={styles.breadcrumb}>
-                                    ← {breadcrumb.label}
-                                </Link>
-                            )}
-                            <div className={styles.pageHead}>
-                                <div>
-                                    <h1 className={styles.pageTitle}>{title}</h1>
-                                    {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
-                                </div>
-                                {headerExtra}
-                            </div>
-                        </div>
-                        {error && (
-                            <p className={styles.error} role="alert">
-                                {error}
-                            </p>
-                        )}
-                        {children}
                     </div>
-                </main>
-            </div>
+                )}
+            </header>
 
-            {user && (
-                <nav className={styles.tabbar}>
-                    <NavLink to="/account" end className={tabClass}>
-                        <HomeIcon />
-                        <span>Home</span>
-                    </NavLink>
-                    <NavLink to="/account/settings" className={tabClass}>
-                        <SettingsIcon />
-                        <span>Settings</span>
-                    </NavLink>
-                    <NavLink to="/support" className={tabClass}>
-                        <TicketIcon />
-                        <span>Support</span>
-                    </NavLink>
-                    {user.isAdmin ? (
-                        <button type="button" className={styles.tabItem} onClick={() => setSheetOpen(true)}>
-                            <ShieldIcon />
-                            <span>Admin</span>
-                        </button>
-                    ) : (
-                        <button type="button" className={styles.tabItem} onClick={signOut}>
-                            <PowerIcon />
-                            <span>Logout</span>
-                        </button>
-                    )}
-                </nav>
-            )}
-
-            {sheetOpen && user && (
+            {menuOpen && user && (
                 <>
-                    <div className={styles.sheetBackdrop} onClick={closeSheet} aria-hidden="true" />
-                    <div className={styles.sheet} role="dialog" aria-modal="true" aria-label="Menu">
-                        <div className={styles.sheetHandle} aria-hidden="true" />
-                        <div className={styles.sheetHeader}>
-                            <Avatar label={user.email} />
-                            <span>{user.email}</span>
-                        </div>
-                        <div className={styles.sheetList}>
-                            <Link to="/account/settings" className={styles.sheetItem} onClick={closeSheet}>
-                                <SettingsIcon /> Settings
-                            </Link>
-                            <Link to="/support" className={styles.sheetItem} onClick={closeSheet}>
-                                <TicketIcon /> Support
-                            </Link>
-                            {user.isAdmin && (
-                                <>
-                                    <Link to="/admin/users" className={styles.sheetItem} onClick={closeSheet}>
-                                        <UsersIcon /> Manage Users
-                                    </Link>
-                                    <Link to="/admin/tickets" className={styles.sheetItem} onClick={closeSheet}>
-                                        <TicketIcon /> Tickets
-                                    </Link>
-                                    <Link to="/admin/audit" className={styles.sheetItem} onClick={closeSheet}>
-                                        <ShieldIcon /> Audit Log
-                                    </Link>
-                                </>
-                            )}
-                            <button type="button" className={styles.sheetItem} onClick={signOut}>
-                                <PowerIcon /> Sign out
-                            </button>
-                        </div>
-                    </div>
+                    <div className={styles.menuBackdrop} onClick={closeMenu} aria-hidden="true" />
+                    <nav className={styles.mobileMenu} aria-label="Menu">
+                        <NavLink to="/account" end className={navClass} onClick={closeMenu}>
+                            <HomeIcon />
+                            Dashboard
+                        </NavLink>
+                        <NavLink to="/account/settings" className={navClass} onClick={closeMenu}>
+                            <SettingsIcon />
+                            Settings
+                        </NavLink>
+                        <NavLink to="/support" className={navClass} onClick={closeMenu}>
+                            <TicketIcon />
+                            Support
+                        </NavLink>
+                        {user.isAdmin && (
+                            <>
+                                <div className={styles.navLabel}>Admin</div>
+                                <NavLink to="/admin/users" className={navClass} onClick={closeMenu}>
+                                    <UsersIcon />
+                                    Manage Users
+                                </NavLink>
+                                <NavLink to="/admin/tickets" className={navClass} onClick={closeMenu}>
+                                    <TicketIcon />
+                                    Tickets
+                                </NavLink>
+                                <NavLink to="/admin/audit" className={navClass} onClick={closeMenu}>
+                                    <ShieldIcon />
+                                    Audit Log
+                                </NavLink>
+                            </>
+                        )}
+                        <button type="button" className={styles.navLink} onClick={signOut}>
+                            <PowerIcon />
+                            Sign out
+                        </button>
+                    </nav>
                 </>
             )}
+
+            <main className={styles.main}>
+                <div className={`${styles.content} ${wide ? styles.contentWide : ''}`}>
+                    <div>
+                        {breadcrumb && (
+                            <Link to={breadcrumb.to} className={styles.breadcrumb}>
+                                ← {breadcrumb.label}
+                            </Link>
+                        )}
+                        <div className={styles.pageHead}>
+                            <div>
+                                <h1 className={styles.pageTitle}>{title}</h1>
+                                {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
+                            </div>
+                            {headerExtra}
+                        </div>
+                    </div>
+                    {error && (
+                        <p className={styles.error} role="alert">
+                            {error}
+                        </p>
+                    )}
+                    {children}
+                </div>
+            </main>
         </div>
     );
 }

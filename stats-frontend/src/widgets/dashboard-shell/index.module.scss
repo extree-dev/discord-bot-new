@@ -1,31 +1,26 @@
-$sidebar-width: 256px;
-
 .shell {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     background: var(--bg);
 }
 
-/* === Sidebar (десктоп) ===
-   Раньше: плавающая скруглённая "капсула" со стеклом и отступом со
-   всех сторон (macOS-дек). Теперь: обычная плоская панель во всю
-   высоту экрана, прижатая к краю, с одной тонкой линией-границей
-   справа — ничего не "парит", ничего не размыто. */
-.sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: $sidebar-width;
-    z-index: 40;
+/* === Топбар — полностью заменяет левый сайдбар === */
+.topbar {
     display: flex;
-    flex-direction: column;
-    padding: 20px 14px;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
+    align-items: center;
+    gap: 32px;
+    padding: 0 24px;
+    height: 60px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--bg);
 
     @media (max-width: 960px) {
-        display: none;
+        padding: 0 16px;
+        gap: 16px;
     }
 }
 
@@ -34,7 +29,6 @@ $sidebar-width: 256px;
     align-items: center;
     gap: 10px;
     text-decoration: none;
-    padding: 6px 10px 20px;
     flex-shrink: 0;
 
     span {
@@ -42,107 +36,111 @@ $sidebar-width: 256px;
         font-size: 14.5px;
         font-weight: 700;
         letter-spacing: -0.01em;
+
+        @media (max-width: 560px) {
+            display: none;
+        }
     }
 }
 
 .mark {
-    width: 24px;
-    height: 24px;
-    border-radius: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
     object-fit: cover;
 }
 
-.nav {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    flex: 1;
-    overflow-y: auto;
-}
-
-.navLabel {
-    margin: 18px 10px 6px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-faint);
-}
-
-.navItem {
+/* Горизонтальный список пунктов меню — только десктоп. На мобильном его
+   место занимает гамбургер справа, открывающий .mobileMenu. */
+.navLinks {
     display: flex;
     align-items: center;
-    gap: 11px;
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
+    gap: 4px;
+    flex: 1;
+
+    @media (max-width: 960px) {
+        display: none;
+    }
+}
+
+.navDivider {
+    width: 1px;
+    height: 16px;
+    background: var(--border-strong);
+    margin: 0 6px;
+}
+
+.navLink {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
     font-size: 13.5px;
     font-weight: 600;
-    color: var(--text-dim);
+    color: var(--text-faint);
     text-decoration: none;
-    border-left: 2px solid transparent;
-    transition:
-        background 0.15s ease,
-        color 0.15s ease,
-        border-color 0.15s ease;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: color 0.15s ease;
 
     svg {
         flex-shrink: 0;
-        width: 18px;
-        height: 18px;
-        opacity: 0.75;
-        transition: opacity 0.15s ease;
+        width: 17px;
+        height: 17px;
     }
 
     &:hover {
-        background: var(--surface-2);
         color: var(--text);
-
-        svg {
-            opacity: 1;
-        }
     }
 
     &.active {
-        background: var(--surface-2);
         color: var(--text);
-        border-left-color: var(--accent);
-
-        svg {
-            opacity: 1;
-            color: var(--accent);
-        }
+        border-bottom-color: var(--accent);
     }
 }
 
-.sidebarFooter {
-    flex-shrink: 0;
+.topbarRight {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 12px;
-    padding: 10px;
-    border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-.footerEmail {
-    flex: 1;
-    min-width: 0;
+.userChip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    @media (max-width: 960px) {
+        display: none;
+    }
+}
+
+.userEmail {
     font-size: 12.5px;
     color: var(--text-faint);
-    white-space: nowrap;
+    max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+
+    @media (max-width: 1180px) {
+        display: none;
+    }
 }
 
-.logoutBtn {
-    flex-shrink: 0;
+.iconBtn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
-    background: transparent;
+    background: none;
     border: 1px solid transparent;
     color: var(--text-faint);
     cursor: pointer;
@@ -151,61 +149,94 @@ $sidebar-width: 256px;
         border-color 0.15s ease;
 
     svg {
-        width: 15px;
-        height: 15px;
+        width: 16px;
+        height: 16px;
     }
 
     &:hover {
         color: var(--accent-soft);
         border-color: var(--border-strong);
     }
-}
-
-/* === Контентная колонка === */
-.column {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    margin-left: $sidebar-width;
 
     @media (max-width: 960px) {
-        margin-left: 0;
+        display: none;
     }
 }
 
-/* === Компактный topbar (мобильный, вместо sidebar) === */
-.mobileTopbar {
+.menuToggle {
     display: none;
 
     @media (max-width: 960px) {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        position: sticky;
-        top: 0;
-        z-index: 50;
-        padding: max(12px, env(safe-area-inset-top)) 16px 12px max(16px, env(safe-area-inset-left));
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        background: none;
+        border: 1px solid var(--border-strong);
+        color: var(--text);
+        cursor: pointer;
     }
 }
 
-.mobileAvatarBtn {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    line-height: 0;
-    border-radius: 50%;
+/* === Мобильное меню — панель сверху, под хедером, а не снизу экрана === */
+.menuBackdrop {
+    position: fixed;
+    inset: 0;
+    top: 60px;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.7);
 }
 
+.mobileMenu {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 56;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+
+    .navLink {
+        padding: 12px 10px;
+        font-size: 14.5px;
+        border-bottom: none;
+        border-radius: var(--radius-sm);
+
+        &.active {
+            background: var(--surface-2);
+            color: var(--accent);
+        }
+
+        &:hover {
+            background: var(--surface-2);
+        }
+    }
+}
+
+.navLabel {
+    margin: 14px 10px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+}
+
+/* === Контент === */
 .main {
     flex: 1;
-    padding: 40px 28px calc(60px + env(safe-area-inset-bottom));
+    padding: 36px 24px calc(48px + env(safe-area-inset-bottom));
 
     @media (max-width: 960px) {
-        padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
+        padding: 24px 16px calc(32px + env(safe-area-inset-bottom));
     }
 }
 
@@ -264,160 +295,4 @@ $sidebar-width: 256px;
     color: var(--accent-soft);
     font-size: 13px;
     line-height: 1.5;
-}
-
-/* === Bottom tab bar (мобильный, вместо ProfileDropdown-меню) ===
-   Плоская полоса во всю ширину с верхней линией — не плавающая
-   скруглённая панель. */
-.tabbar {
-    display: none;
-
-    @media (max-width: 960px) {
-        display: flex;
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 50;
-        padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-        background: var(--surface);
-        border-top: 1px solid var(--border);
-    }
-}
-
-.tabItem {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    padding: 6px 4px;
-    border-radius: var(--radius-sm);
-    background: none;
-    border: none;
-    color: var(--text-faint);
-    text-decoration: none;
-    font-family: inherit;
-    cursor: pointer;
-    transition: color 0.15s ease;
-
-    svg {
-        width: 20px;
-        height: 20px;
-    }
-
-    span {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.01em;
-    }
-
-    &.active {
-        color: var(--accent);
-    }
-}
-
-/* === Mobile nav sheet (заменяет ProfileDropdown на мобильном) === */
-.sheetBackdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(0, 0, 0, 0.7);
-    animation: sheet-fade-in 0.15s ease;
-}
-
-.sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 91;
-    padding: 10px 18px calc(22px + env(safe-area-inset-bottom));
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    animation: sheet-slide-up 0.2s var(--ease-out);
-}
-
-.sheetHandle {
-    width: 36px;
-    height: 4px;
-    margin: 0 auto 16px;
-    border-radius: var(--radius-pill);
-    background: var(--border-strong);
-}
-
-.sheetHeader {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 6px 16px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 8px;
-    font-size: 13px;
-    color: var(--text-dim);
-
-    span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-}
-
-.sheetList {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding-bottom: 4px;
-}
-
-.sheetItem {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 13px 10px;
-    border-radius: var(--radius-sm);
-    background: none;
-    border: none;
-    color: var(--text);
-    font-size: 14.5px;
-    font-weight: 600;
-    font-family: inherit;
-    text-decoration: none;
-    text-align: left;
-    cursor: pointer;
-
-    svg {
-        width: 19px;
-        height: 19px;
-        color: var(--text-faint);
-    }
-
-    &:active {
-        background: var(--surface-2);
-    }
-}
-
-@keyframes sheet-fade-in {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes sheet-slide-up {
-    from {
-        transform: translateY(100%);
-    }
-    to {
-        transform: translateY(0);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .sheetBackdrop,
-    .sheet {
-        animation: none;
-    }
 }
