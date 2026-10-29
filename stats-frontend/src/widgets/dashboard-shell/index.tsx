@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Avatar } from '../../shared/ui/Avatar';
 import {
@@ -15,7 +15,27 @@ import {
 } from '../../shared/ui/Icons';
 import styles from './index.module.scss';
 
-export function DashboardShell({ user, breadcrumb, title, subtitle, headerExtra, error, wide, children }: any) {
+interface DashboardShellProps {
+    user: { email: string; isAdmin: boolean } | null;
+    breadcrumb?: { to: string; label: string };
+    title: string;
+    subtitle?: string;
+    headerExtra?: ReactNode;
+    error?: string | null;
+    wide?: boolean;
+    children: ReactNode;
+}
+
+export function DashboardShell({
+    user,
+    breadcrumb,
+    title,
+    subtitle,
+    headerExtra,
+    error,
+    wide,
+    children,
+}: DashboardShellProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const location = useLocation();

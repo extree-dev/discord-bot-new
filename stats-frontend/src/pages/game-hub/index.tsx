@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { SiteHeader } from '../../widgets/site-header';
 import { SmartSearchBar } from '../../shared/ui/SmartSearchBar';
@@ -20,17 +20,22 @@ const AUTH_CONFIG: Record<string, { name: string; icon: string; label: string }>
 export function GameHubPage() {
     const { slug } = useParams<{ slug: string }>();
 
-    const game = slug
-        ? GAMES.find(g => g.slug === slug) || {
-              slug: slug,
-              name: slug.toUpperCase(),
-              shortName: slug.toUpperCase(),
-              description: 'Game stats',
-              accent: '#ffffff',
-              status: 'pending_api',
-              background: `/games/${slug}/background.webp`,
-          }
-        : undefined;
+    // Ищем игру. Если не нашли — создаем фоллбек.
+    // ВАЖНО: Обернуто в useMemo для стабильности ссылки.
+    const game = useMemo(() => {
+        if (!slug) return undefined;
+        return (
+            GAMES.find(g => g.slug === slug) || {
+                slug: slug,
+                name: slug.toUpperCase(),
+                shortName: slug.toUpperCase(),
+                description: 'Game stats',
+                accent: '#ffffff',
+                status: 'pending_api',
+                background: `/games/${slug}/background.webp`,
+            }
+        );
+    }, [slug]);
 
     const auth = game ? AUTH_CONFIG[game.slug] || AUTH_CONFIG['valorant'] : AUTH_CONFIG['valorant'];
 

@@ -1,20 +1,20 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../shared/ui/Button';
 import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
 import { MenuIcon, IconX } from '../../shared/ui/Icons';
+import { SearchBar } from '../../shared/ui/SearchBar';
 import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
-export function SiteHeader({
-    rightSlot,
-    actions,
-    navLinks,
-}: {
-    rightSlot?: React.ReactNode;
-    actions?: React.ReactNode;
-    navLinks?: any[];
-}) {
+interface SiteHeaderProps {
+    rightSlot?: ReactNode;
+    actions?: ReactNode;
+    navLinks?: { href: string; label: string }[];
+    showSearch?: boolean;
+}
+
+export function SiteHeader({ rightSlot, actions, navLinks, showSearch }: SiteHeaderProps) {
     const { status, user } = useAuth();
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -58,9 +58,15 @@ export function SiteHeader({
                     <span>EXTREE</span>
                 </Link>
 
+                {showSearch && (
+                    <div className={styles.searchWrap}>
+                        <SearchBar placeholder="Search player — Name#TAG" />
+                    </div>
+                )}
+
                 {navLinks && (
                     <nav className={styles.navLinks}>
-                        {navLinks.map((link: any) => (
+                        {navLinks.map(link => (
                             <a key={link.href} href={link.href} className={styles.navLink}>
                                 {link.label}
                             </a>
