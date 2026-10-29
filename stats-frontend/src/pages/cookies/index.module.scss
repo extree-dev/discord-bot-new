@@ -1,162 +1,101 @@
-@use '../../shared/styles/variables' as v;
-
-.page {
-    position: relative;
-    min-height: 100vh;
+.cookieGrid {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    gap: 12px;
+    margin: 24px 0;
 }
 
-.main {
-    width: 100%;
+.cookieCard {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    transition: border-color 0.2s;
+
+    &:hover {
+        border-color: var(--border-strong);
+    }
+}
+
+.cookieHeader {
     display: flex;
-    justify-content: center;
-    padding: 24px;
-}
-
-.article {
-    width: 100%;
-    max-width: 640px;
-    padding: 56px 0 80px;
-}
-
-.updated {
-    margin: 0 0 8px;
-    color: var(--text-faint);
-    font-size: 12.5px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.article h1 {
-    margin: 0 0 32px;
-    font-weight: 700;
-    font-size: 36px;
-    letter-spacing: -0.02em;
-}
-
-.article h2 {
-    margin: 36px 0 12px;
-    font-size: 15px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--accent);
-}
-
-.article p,
-.article li {
-    color: var(--text-dim);
-    font-size: 14.5px;
-    line-height: 1.7;
-}
-
-.article ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.article button {
-    margin-top: 4px;
-}
-
-.article li + li {
-    margin-top: 8px;
-}
-
-.article a {
-    color: var(--text);
-    text-decoration-color: var(--border-strong);
-}
-
-.table {
-    margin: 16px 0 0;
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.row {
-    display: grid;
-    grid-template-columns: 1fr 1.6fr 0.8fr;
+    justify-content: space-between;
+    align-items: flex-start;
     gap: 16px;
-    padding: 14px 16px;
+    margin-bottom: 8px;
 }
 
-.row + .row {
-    border-top: 1px solid var(--border);
-}
-
-.rowHead {
+.cookieName {
+    font-family: ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
     background: var(--surface-2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+}
+
+.cookieBadge {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     color: var(--text-faint);
+    background: var(--surface-2);
+    padding: 4px 8px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
 }
 
-.row code {
-    font-size: 12.5px;
-    color: var(--text);
-}
-
-.row span {
-    font-size: 13px;
+.cookieDesc {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
     color: var(--text-dim);
-    line-height: 1.5;
+
+    code {
+        padding: 1px 4px;
+        border-radius: 3px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        font-size: 12px;
+    }
 }
 
-.footer {
-    padding: 0 24px 28px;
+/* Стили для опциональных сервисов */
+.serviceName {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.serviceType {
+    font-size: 12px;
     color: var(--text-faint);
-    font-size: 12.5px;
-    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
-@media (max-width: v.$breakpoint-mobile) {
-    .article {
-        padding: 40px 0 64px;
-    }
-
-    .article h1 {
-        font-size: 28px;
-    }
-
-    .row {
-        grid-template-columns: 1fr;
-        gap: 4px;
-    }
+.statusBadge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
 }
 
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
-@media (max-width: 768px) {
-    .article {
-        padding: 16px !important;
-    }
-    .row {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
-    }
-    .page,
-    .main {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-        overflow-x: hidden !important;
-    }
-    .tableWrapper {
-        overflow-x: auto !important;
-        margin: 0 -16px !important;
-        padding: 0 16px !important;
-    }
-    .table {
-        white-space: nowrap !important;
-    }
-    .table th,
-    .table td {
-        padding: 12px 16px !important;
-    }
+.statusOn {
+    color: var(--win);
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.statusOff {
+    color: var(--text-faint);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
 }

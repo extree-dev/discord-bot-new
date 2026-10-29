@@ -25,7 +25,7 @@ export function HomePage() {
             accent: '#a3a3a3',
             status: 'pending_api',
             background: '/games/cod/background.webp',
-        } as any);
+        });
     }
 
     return (

@@ -1,0 +1,196 @@
+/* Включаем нативный плавный скролл для всей страницы */
+:global(html) {
+    scroll-behavior: smooth;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+}
+
+.main {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 48px 24px 80px;
+}
+
+/* Двухколоночная сетка: оглавление слева, текст справа */
+.layout {
+    width: 100%;
+    max-width: 1000px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 48px;
+    align-items: start;
+
+    @media (max-width: 860px) {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+}
+
+/* --- Оглавление --- */
+.sidebar {
+    position: relative;
+}
+
+.sidebarSticky {
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    /* Кастомный скроллбар для оглавления */
+    &::-webkit-scrollbar {
+        width: 4px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: var(--border-strong);
+        border-radius: 4px;
+    }
+}
+
+.tocTitle {
+    margin: 0 0 16px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+}
+
+.tocNav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 2px solid var(--border);
+    padding-left: 16px;
+}
+
+.tocLink {
+    display: block;
+    padding: 6px 0;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    text-decoration: none;
+    transition:
+        color 0.2s,
+        transform 0.2s;
+
+    &:hover {
+        color: var(--text);
+        transform: translateX(4px); /* Легкое смещение при наведении */
+    }
+}
+
+/* --- Основной текст --- */
+.article {
+    width: 100%;
+    min-width: 0;
+
+    h1 {
+        margin: 0 0 32px;
+        font-weight: 800;
+        font-size: 40px;
+        letter-spacing: -0.03em;
+        color: var(--text);
+    }
+
+    h2 {
+        margin: 48px 0 16px;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--text);
+        /* Отступ сверху при скролле, чтобы заголовок не прятался под шапкой */
+        scroll-margin-top: 100px;
+
+        /* Акцентная полоска под заголовком */
+        &::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 2px;
+            background: var(--accent);
+            margin-top: 8px;
+            border-radius: 2px;
+            opacity: 0.6;
+        }
+    }
+
+    p,
+    li {
+        color: var(--text-dim);
+        font-size: 15px;
+        line-height: 1.7;
+        margin-bottom: 16px;
+    }
+
+    ul {
+        margin: 0 0 24px;
+        padding-left: 20px;
+    }
+
+    li {
+        margin-bottom: 8px;
+    }
+
+    code {
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+        color: var(--text);
+    }
+
+    a {
+        color: var(--text);
+        text-decoration: underline;
+        text-decoration-color: var(--border-strong);
+        transition: text-decoration-color 0.2s;
+
+        &:hover {
+            text-decoration-color: var(--text);
+        }
+    }
+}
+
+.updated {
+    margin: 0 0 12px;
+    color: var(--text-faint);
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+}
+
+.activeLink {
+    color: var(--text) !important;
+    font-weight: 700;
+}
+
+.footer {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 12.5px;
+    letter-spacing: 0.02em;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+    .main {
+        padding: 24px 16px 48px;
+    }
+    .article h1 {
+        font-size: 32px;
+    }
+    .sidebar {
+        display: none; /* Скрываем оглавление на мобильных */
+    }
+}

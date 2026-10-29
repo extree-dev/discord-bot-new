@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../../shared/ui/Button';
 import { ProfileDropdown } from '../../shared/ui/ProfileDropdown';
@@ -6,7 +6,15 @@ import { MenuIcon, IconX } from '../../shared/ui/Icons';
 import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
-export function SiteHeader({ rightSlot, actions, navLinks }: any) {
+export function SiteHeader({
+    rightSlot,
+    actions,
+    navLinks,
+}: {
+    rightSlot?: React.ReactNode;
+    actions?: React.ReactNode;
+    navLinks?: any[];
+}) {
     const { status, user } = useAuth();
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
