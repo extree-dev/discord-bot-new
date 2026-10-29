@@ -1,31 +1,31 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import styles from './Faq.module.scss';
+import styles from './index.module.scss';
 
 interface FaqItem {
     question: string;
     answer: ReactNode;
 }
 
-// Статус RSO (Riot Sign-On) честно объясняется только здесь и на странице
-// входа — не на первом экране лендинга, чтобы не превращать hero в
-// предупреждение (см. ТЗ, раздел 9 "Статус RSO"). Формулировка нейтральная,
-// без драматизации.
+// Перенесено из pages/sign-in/Faq.tsx — страница sign-in не подключена
+// в App.tsx (мёртвый код), а сам FAQ написан хорошо и переиспользуется
+// теперь на главной. Формулировки про RSO остаются нейтральными и
+// честными: интеграция в ревью, email-вход работает сейчас.
 const FAQ_ITEMS: FaqItem[] = [
     {
         question: 'Is signing in with Riot safe?',
-        answer: 'Yes. Sign-in uses Riot Sign-On (RSO) — an official OAuth flow. We never see or store your Riot password; Riot only hands us a token that lets us read your match history.',
+        answer: 'Yes. Sign-in uses Riot Sign-On (RSO) \u2014 an official OAuth flow. We never see or store your Riot password; Riot only hands us a token that lets us read your match history.',
     },
     {
         question: 'When will Riot sign-in be available?',
-        answer: "Our integration with Riot's API is still in review — RSO access is granted separately, after that review completes. Email sign-in works today, and the dashboard switches on real data the moment RSO is approved.",
+        answer: "Our integration with Riot's API is still in review \u2014 RSO access is granted separately, after that review completes. Email sign-in works today, and the dashboard switches on real data the moment RSO is approved.",
     },
     {
         question: 'What data do you store?',
         answer: (
             <>
-                Just your account email and the match stats Riot's API returns for your account — maps, agents, K/D, and
-                rank history. See our{' '}
+                Just your account email and the match stats Riot's API returns for your account \u2014 maps, agents,
+                K/D, and rank history. See our{' '}
                 <Link to="/privacy" className={styles.inlineLink}>
                     Privacy Policy
                 </Link>{' '}
@@ -39,11 +39,11 @@ const FAQ_ITEMS: FaqItem[] = [
     },
     {
         question: 'Do I need to install anything?',
-        answer: "No. It's a website — sign in from any browser, desktop or mobile, nothing to download.",
+        answer: "No. It's a website \u2014 sign in from any browser, desktop or mobile, nothing to download.",
     },
     {
         question: 'How is this different from other trackers?',
-        answer: 'No ads, no paywalled stats, and no screen-scraping — just your real match data from Riot, read-only, shown the way you would actually want to read it.',
+        answer: 'No ads, no paywalled stats, and no screen-scraping \u2014 just your real match data from Riot, read-only, shown the way you would actually want to read it.',
     },
 ];
 
@@ -70,7 +70,7 @@ export function Faq() {
                             >
                                 <span>{item.question}</span>
                                 <span className={styles.sign} aria-hidden="true">
-                                    {isOpen ? '−' : '+'}
+                                    {isOpen ? '\u2212' : '+'}
                                 </span>
                             </button>
                         </h3>

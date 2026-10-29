@@ -1,0 +1,1225 @@
+# Password Hashers & Security Config Audit
+
+============================================================
+BACKUP FILES (.bak)
+============================================================
+  Нет бэкапов.
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AuthController.java
+============================================================
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.adapter.in.web.dto.RegisterRequest;
+import tech.extree.stats.adapter.in.web.dto.ResendCodeRequest;
+import tech.extree.stats.adapter.in.web.dto.VerifyRequest;
+import tech.extree.stats.adapter.in.web.dto.VerifyResponse;
+import tech.extree.stats.application.port.in.RegistrationUseCase;
+
+/**
+ * Соответствует /auth/register, /auth/resend-code, /auth/verify в
+ * server.js — HTTP-статусы и snake_case error-коды повторены один в
+ * один, см. RegistrationService для самой логики. Как и Node,
+ * verify() сразу логинит (ставит cookie), без отдельного /auth/login.
+ */
+@RestController
+public class AuthController {
+
+    private final RegistrationUseCase registrationUseCase;
+
+    public AuthController(RegistrationUseCase registrationUseCase) {
+        this.registrationUseCase = registrationUseCase;
+    }
+
+    @PostMapping("/auth/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        RegistrationUseCase.RegisterOutcome outcome = registrationUseCase.register(
+                request.email(), request.password(), request.name(), request.nickname());
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case INVALID_EMAIL -> badRequest("invalid_email");
+            case INVALID_PASSWORD -> badRequest("invalid_password");
+            case INVALID_NAME -> badRequest("invalid_name");
+            case INVALID_NICKNAME -> badRequest("invalid_nickname");
+            case EMAIL_ALREADY_REGISTERED -> status(HttpStatus.CONFLICT, "email_already_registered");
+            case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
+            case NICKNAME_TAKEN -> status(HttpStatus.CONFLICT, "nickname_taken");
+            case BANNED -> status(HttpStatus.FORBIDDEN, "banned");
+            case INTERNAL_ERROR -> internalError();
+        };
+    }
+
+    @PostMapping("/auth/resend-code")
+    public ResponseEntity<?> resendCode(@RequestBody ResendCodeRequest request) {
+        RegistrationUseCase.ResendOutcome outcome = registrationUseCase.resendCode(request.email());
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case INVALID_EMAIL -> badRequest("invalid_email");
+            case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
+            case INTERNAL_ERROR -> internalError();
+        };
+    }
+
+    @PostMapping("/auth/verify")
+    public ResponseEntity<?> verify(@RequestBody VerifyRequest request, HttpServletRequest httpRequest) {
+        RegistrationUseCase.VerifyResult result = registrationUseCase.verify(
+                request.email(), request.code(), ClientIp.from(httpRequest), httpRequest.getHeader("User-Agent"));
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())
+                    .body(new VerifyResponse(true, new VerifyResponse.VerifyUser(result.email())));
+            case INVALID_REQUEST -> badRequest("invalid_request");
+            case CODE_NOT_FOUND -> badRequest("code_not_found");
+            case CODE_EXPIRED -> badRequest("code_expired");
+            case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
+            case WRONG_CODE -> badRequest("wrong_code");
+            case INTERNAL_ERROR -> internalError();
+        };
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String error) {
+        return status(HttpStatus.BAD_REQUEST, error);
+    }
+
+    private static ResponseEntity<ErrorResponse> internalError() {
+        return status(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error");
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus status, String error) {
+        return ResponseEntity.status(status).body(new ErrorResponse(error));
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\AuthRateLimitFilter.java
+============================================================
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+/**
+ * Зеркалит authRateLimiter в server.js (Node): express-rate-limit,
+ * windowMs 5 минут, limit 300, применённый к /auth и /api, per-IP,
+ * фиксированное окно (тот же алгоритм, что дефолтный MemoryStore у
+ * express-rate-limit). Ответ при превышении — 429 с тем же
+ * {"error":"rate_limited"} видом, что и остальные error-коды этого
+ * сервиса (у Node — обычный текст, тут не часть документированного
+ * контракта ни с одной стороны, расхождение не критично).
+ */
+@Component
+public class AuthRateLimitFilter extends OncePerRequestFilter {
+
+    private static final long WINDOW_MILLIS = 5 * 60 * 1000L;
+    private static final int LIMIT = 300;
+
+    private static final class Counter {
+        long windowStart = System.currentTimeMillis();
+        int count;
+    }
+
+    private final ConcurrentHashMap<String, Counter> counters = new ConcurrentHashMap<>();
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        String path = request.getRequestURI();
+        if (!(path.startsWith("/auth") || path.startsWith("/api"))) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        String ip = ClientIp.from(request);
+        if (!tryConsume(ip)) {
+            response.setStatus(429);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"rate_limited\"}");
+            return;
+        }
+
+        chain.doFilter(request, response);
+    }
+
+    private boolean tryConsume(String key) {
+        Counter counter = counters.computeIfAbsent(key, k -> new Counter());
+        synchronized (counter) {
+            long now = System.currentTimeMillis();
+            if (now - counter.windowStart >= WINDOW_MILLIS) {
+                counter.windowStart = now;
+                counter.count = 0;
+            }
+            counter.count++;
+            return counter.count <= LIMIT;
+        }
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\dto\ChangePasswordRequest.java
+============================================================
+package tech.extree.stats.adapter.in.web.dto;
+
+/** Тело POST /auth/account/change-password. */
+public record ChangePasswordRequest(String currentPassword, String newPassword) {}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\dto\ForgotPasswordRequest.java
+============================================================
+package tech.extree.stats.adapter.in.web.dto;
+
+/** Тело POST /auth/forgot-password. */
+public record ForgotPasswordRequest(String email) {}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\dto\ResetPasswordRequest.java
+============================================================
+package tech.extree.stats.adapter.in.web.dto;
+
+/** Тело POST /auth/reset-password. totpCode — опционален, нужен только
+ * если на аккаунте включена 2FA (сервер в этом случае сначала отвечает
+ * TOTP_REQUIRED, фронт повторяет запрос с тем же token+password и
+ * добавленным кодом). */
+public record ResetPasswordRequest(String token, String password, String totpCode) {}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\in\web\PasswordResetController.java
+============================================================
+package tech.extree.stats.adapter.in.web;
+
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+import tech.extree.stats.adapter.in.web.dto.ErrorResponse;
+import tech.extree.stats.adapter.in.web.dto.ForgotPasswordRequest;
+import tech.extree.stats.adapter.in.web.dto.LoginResponse;
+import tech.extree.stats.adapter.in.web.dto.OkResponse;
+import tech.extree.stats.adapter.in.web.dto.ResetPasswordRequest;
+import tech.extree.stats.application.port.in.PasswordResetUseCase;
+
+/** Соответствует /auth/forgot-password, /auth/reset-password в server.js. */
+@RestController
+public class PasswordResetController {
+
+    private final PasswordResetUseCase passwordResetUseCase;
+    private final String publicHost;
+
+    public PasswordResetController(
+            PasswordResetUseCase passwordResetUseCase, @Value("${extree.public-host}") String publicHost) {
+        this.passwordResetUseCase = passwordResetUseCase;
+        this.publicHost = publicHost;
+    }
+
+    @PostMapping("/auth/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        PasswordResetUseCase.ForgotPasswordOutcome outcome =
+                passwordResetUseCase.forgotPassword(request.email(), publicHost);
+        return switch (outcome) {
+            case OK -> ResponseEntity.ok(OkResponse.OK);
+            case INVALID_EMAIL -> badRequest("invalid_email");
+            case CODE_ON_COOLDOWN -> status(HttpStatus.TOO_MANY_REQUESTS, "code_on_cooldown");
+        };
+    }
+
+    @PostMapping("/auth/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request, HttpServletRequest httpRequest) {
+        PasswordResetUseCase.ResetPasswordResult result = passwordResetUseCase.resetPassword(
+                request.token(),
+                request.password(),
+                request.totpCode(),
+                ClientIp.from(httpRequest),
+                httpRequest.getHeader("User-Agent"));
+        return switch (result.outcome()) {
+            case OK -> ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, SessionCookies.build(result.sessionCookie(), true).toString())
+                    .body(new LoginResponse(true, new LoginResponse.LoginUser(result.email())));
+            case INVALID_REQUEST -> badRequest("invalid_request");
+            case INVALID_PASSWORD -> badRequest("invalid_password");
+            case TOKEN_NOT_FOUND -> badRequest("token_not_found");
+            case TOKEN_EXPIRED -> badRequest("token_expired");
+            case TOTP_REQUIRED -> badRequest("reset_totp_required");
+            case TOTP_INVALID -> status(HttpStatus.UNAUTHORIZED, "totp_invalid");
+            case TOO_MANY_ATTEMPTS -> status(HttpStatus.TOO_MANY_REQUESTS, "too_many_attempts");
+            case INTERNAL_ERROR -> internalError();
+        };
+    }
+
+    private static ResponseEntity<ErrorResponse> badRequest(String error) {
+        return status(HttpStatus.BAD_REQUEST, error);
+    }
+
+    private static ResponseEntity<ErrorResponse> internalError() {
+        return status(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error");
+    }
+
+    private static ResponseEntity<ErrorResponse> status(HttpStatus status, String error) {
+        return ResponseEntity.status(status).body(new ErrorResponse(error));
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\out\crypto\ScryptPasswordHasher.java
+============================================================
+package tech.extree.stats.adapter.out.crypto;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import org.bouncycastle.crypto.generators.SCrypt;
+import org.bouncycastle.util.encoders.Hex;
+import org.springframework.stereotype.Component;
+import tech.extree.stats.application.port.out.PasswordHasher;
+
+/**
+ * Байт-в-байт совместим с ../../stats-backend/users.js: формат хранения
+ * {@code salt:hex(scrypt(password, salt, N=16384, r=8, p=1, 64))}, где
+ * salt — 32-символьная hex-строка (crypto.randomBytes(16).toString('hex')
+ * в Node), а в сам scrypt как параметр "соль" идут UTF-8 байты ЭТОЙ
+ * СТРОКИ (32 байта), а не 16 исходных случайных байт — ровно так, как
+ * Node передаёт строку в scryptSync. N/r/p — документированные дефолты
+ * crypto.scryptSync при вызове без options. Перепутать любую из этих
+ * деталей значит выдать другой хеш на тот же пароль — верифицировано
+ * тестом против хеша, реально посчитанного users.hashPassword (Node).
+ */
+@Component
+public class ScryptPasswordHasher implements PasswordHasher {
+
+    private static final int COST_N = 16384;
+    private static final int BLOCK_SIZE_R = 8;
+    private static final int PARALLELIZATION_P = 1;
+    private static final int KEY_LENGTH_BYTES = 64;
+
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    @Override
+    public String hash(String password) {
+        byte[] saltBytes = new byte[16];
+        secureRandom.nextBytes(saltBytes);
+        String salt = Hex.toHexString(saltBytes);
+        String hash = Hex.toHexString(deriveKey(password, salt));
+        return salt + ":" + hash;
+    }
+
+    @Override
+    public boolean verify(String password, String stored) {
+        if (stored == null) {
+            return false;
+        }
+        String[] parts = stored.split(":", 2);
+        if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) {
+            return false;
+        }
+        byte[] candidate = deriveKey(password, parts[0]);
+        byte[] expected;
+        try {
+            expected = Hex.decode(parts[1]);
+        } catch (Exception e) {
+            return false;
+        }
+        return candidate.length == expected.length && MessageDigest.isEqual(candidate, expected);
+    }
+
+    private static byte[] deriveKey(String password, String salt) {
+        return SCrypt.generate(
+                password.getBytes(StandardCharsets.UTF_8),
+                salt.getBytes(StandardCharsets.UTF_8),
+                COST_N,
+                BLOCK_SIZE_R,
+                PARALLELIZATION_P,
+                KEY_LENGTH_BYTES);
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\out\persistence\JdbcPasswordResetRepository.java
+============================================================
+package tech.extree.stats.adapter.out.persistence;
+
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+import tech.extree.stats.application.port.out.PasswordResetRepository;
+import tech.extree.stats.domain.PasswordReset;
+
+/**
+ * Та же таблица/SQL, что ../../stats-backend/passwordResets.js (Node) —
+ * 32 случайных байта в hex (не 6-значный код: это ссылка для клика, не
+ * значение для ручного ввода, см. комментарий в оригинале).
+ */
+@Repository
+public class JdbcPasswordResetRepository implements PasswordResetRepository {
+
+    private static final long TOKEN_TTL_MINUTES = 30;
+    private static final long RESEND_COOLDOWN_SECONDS = 60;
+
+    private static final RowMapper<PasswordReset> ROW_MAPPER =
+            (rs, rowNum) -> new PasswordReset(
+                    rs.getString("token"),
+                    rs.getString("user_id"),
+                    rs.getString("email"),
+                    rs.getTimestamp("expires_at").toInstant(),
+                    rs.getTimestamp("created_at").toInstant());
+
+    private final JdbcTemplate jdbcTemplate;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    public JdbcPasswordResetRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public String createReset(String userId, String email) {
+        // Новый запрос инвалидирует предыдущие ссылки этого аккаунта — как и Node.
+        jdbcTemplate.update("DELETE FROM stats_password_resets WHERE user_id = ?", userId);
+        String token = generateToken();
+        jdbcTemplate.update(
+                "INSERT INTO stats_password_resets (token, user_id, email, expires_at, created_at) "
+                        + "VALUES (?, ?, ?, ?, now())",
+                token,
+                userId,
+                email,
+                java.sql.Timestamp.from(Instant.now().plus(TOKEN_TTL_MINUTES, ChronoUnit.MINUTES)));
+        return token;
+    }
+
+    @Override
+    public Optional<PasswordReset> getReset(String token) {
+        List<PasswordReset> rows = jdbcTemplate.query(
+                "SELECT token, user_id, email, expires_at, created_at FROM stats_password_resets WHERE token = ?",
+                ROW_MAPPER,
+                token);
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public void deleteReset(String token) {
+        jdbcTemplate.update("DELETE FROM stats_password_resets WHERE token = ?", token);
+    }
+
+    @Override
+    public boolean isOnCooldown(String email) {
+        List<Instant> rows = jdbcTemplate.query(
+                "SELECT created_at FROM stats_password_resets WHERE email = ? ORDER BY created_at DESC LIMIT 1",
+                (rs, rowNum) -> rs.getTimestamp("created_at").toInstant(),
+                email);
+        return rows.stream()
+                .findFirst()
+                .map(createdAt -> createdAt.isAfter(Instant.now().minusSeconds(RESEND_COOLDOWN_SECONDS)))
+                .orElse(false);
+    }
+
+    private String generateToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return HexFormat.of().formatHex(bytes);
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\adapter\out\riot\RiotOAuthAdapter.java
+============================================================
+package tech.extree.stats.adapter.out.riot;
+
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import org.springframework.stereotype.Component;
+import tech.extree.stats.application.port.out.RiotOAuth;
+
+@Component
+public class RiotOAuthAdapter implements RiotOAuth {
+
+    private static final String RIOT_AUTH_HOST = "https://auth.riotgames.com";
+    private static final Duration TIMEOUT = Duration.ofSeconds(15);
+
+    private final HttpClient http = HttpClient.newBuilder().connectTimeout(TIMEOUT).build();
+
+    @Override
+    public String buildAuthorizeUrl(String clientId, String redirectUri, String state) {
+        String params =
+                "client_id=" + enc(clientId)
+                        + "&redirect_uri=" + enc(redirectUri)
+                        + "&response_type=code"
+                        + "&scope=" + enc("openid offline_access")
+                        + "&state=" + enc(state);
+        return RIOT_AUTH_HOST + "/authorize?" + params;
+    }
+
+    @Override
+    public RiotTokens exchangeCode(String clientId, String clientSecret, String redirectUri, String code) {
+        String body =
+                "client_id=" + enc(clientId)
+                        + "&client_secret=" + enc(clientSecret)
+                        + "&grant_type=authorization_code"
+                        + "&code=" + enc(code)
+                        + "&redirect_uri=" + enc(redirectUri);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(RIOT_AUTH_HOST + "/token"))
+                .timeout(TIMEOUT)
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        HttpResponse<String> response = send(request, "Riot token exchange");
+        String accessToken = extractString(response.body(), "access_token");
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalStateException("Riot token exchange: ответ без access_token");
+        }
+        return new RiotTokens(accessToken);
+    }
+
+    @Override
+    public RiotIdentity fetchIdentity(String accessToken) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(RIOT_AUTH_HOST + "/userinfo"))
+                .timeout(TIMEOUT)
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+        HttpResponse<String> response = send(request, "Riot userinfo");
+        String sub = extractString(response.body(), "sub");
+        if (sub == null || sub.isBlank()) {
+            throw new IllegalStateException("Riot userinfo: ответ без sub");
+        }
+        return new RiotIdentity(sub);
+    }
+
+    private HttpResponse<String> send(HttpRequest request, String label) {
+        try {
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) {
+                throw new IllegalStateException(label + " failed: " + response.statusCode());
+            }
+            return response;
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(label + " failed: " + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(label + " interrupted", e);
+        }
+    }
+
+    private static String extractString(String json, String key) {
+        if (json == null) return null;
+        String needle = "\"" + key + "\":\"";
+        int start = json.indexOf(needle);
+        if (start < 0) {
+            needle = "\"" + key + "\": \"";
+            start = json.indexOf(needle);
+            if (start < 0) return null;
+        }
+        int valueStart = start + needle.length();
+        int valueEnd = json.indexOf('"', valueStart);
+        if (valueEnd < 0) return null;
+        return json.substring(valueStart, valueEnd);
+    }
+
+    private static String enc(String value) {
+        return URLEncoder.encode(value == null ? "" : value, StandardCharsets.UTF_8);
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\in\PasswordResetUseCase.java
+============================================================
+package tech.extree.stats.application.port.in;
+
+/** Соответствует /auth/forgot-password, /auth/reset-password в server.js. */
+public interface PasswordResetUseCase {
+
+    enum ForgotPasswordOutcome {
+        OK,
+        INVALID_EMAIL,
+        CODE_ON_COOLDOWN
+    }
+
+    /**
+     * requestHost — Host-заголовок запроса, для ссылки сброса
+     * (resetUrlFor в server.js: https://{host}/reset-password?token=...).
+     * OK возвращается даже если аккаунта с таким email нет и даже при
+     * сбое отправки письма — тот же анти-перебор приём, что у Node.
+     */
+    ForgotPasswordOutcome forgotPassword(String email, String requestHost);
+
+    enum ResetPasswordOutcome {
+        OK,
+        INVALID_REQUEST,
+        INVALID_PASSWORD,
+        TOKEN_NOT_FOUND,
+        TOKEN_EXPIRED,
+        /** Токен и пароль валидны, но на аккаунте включена 2FA — нужно
+         * повторить запрос с тем же token+password и добавленным totpCode. */
+        TOTP_REQUIRED,
+        TOTP_INVALID,
+        TOO_MANY_ATTEMPTS,
+        INTERNAL_ERROR
+    }
+
+    record ResetPasswordResult(ResetPasswordOutcome outcome, String email, String sessionCookie) {
+        public static ResetPasswordResult error(ResetPasswordOutcome outcome) {
+            return new ResetPasswordResult(outcome, null, null);
+        }
+    }
+
+    /**
+     * Успешный сброс сразу логинит (как и Node) — sessionCookie заполнен
+     * только при OK. Если на аккаунте включена 2FA, пароль не меняется и
+     * токен не удаляется, пока не придёт верный totpCode (6-значный TOTP
+     * или recovery-код) — иначе сброс пароля через письмо полностью
+     * обходил бы второй фактор.
+     */
+    ResetPasswordResult resetPassword(String token, String newPassword, String totpCode, String clientIp, String userAgent);
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\out\PasswordHasher.java
+============================================================
+package tech.extree.stats.application.port.out;
+
+/**
+ * Выходной порт для хеширования/проверки паролей. Реализация
+ * (adapter/out/crypto/ScryptPasswordHasher) должна быть байт-совместима
+ * с ../../stats-backend/users.js — существующие пароли уже захешированы
+ * Node'овым crypto.scryptSync, переподключить их на другую схему хеша
+ * значило бы разом сбросить пароль каждому аккаунту.
+ */
+public interface PasswordHasher {
+    String hash(String password);
+
+    boolean verify(String password, String stored);
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\port\out\PasswordResetRepository.java
+============================================================
+package tech.extree.stats.application.port.out;
+
+import java.util.Optional;
+import tech.extree.stats.domain.PasswordReset;
+
+/** Соответствует passwordResets.js (Node) — stats_password_resets. */
+public interface PasswordResetRepository {
+    /** Удаляет предыдущие токены этого пользователя, создаёт новый, возвращает его. */
+    String createReset(String userId, String email);
+
+    Optional<PasswordReset> getReset(String token);
+
+    void deleteReset(String token);
+
+    boolean isOnCooldown(String email);
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\service\PasswordPolicyService.java
+============================================================
+package tech.extree.stats.application.service;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+/**
+ * Политика паролей: минимум 12 символов, не из топ-1000 слабых, не в HIBP
+ * (k-anonymity), не равен email/name/nickname.
+ */
+@Service
+public class PasswordPolicyService {
+
+    private static final int MIN_LENGTH = 12;
+    private static final int MAX_LENGTH = 200;
+
+    private final Set<String> weakPasswords = loadWeakPasswords();
+    private final RestClient restClient = RestClient.create();
+
+    /** result: valid=true — пароль ок, иначе reason. НЕ accessor isOk(), чтобы не конфликтовать с record. */
+    public record Result(boolean valid, String reason) {
+        public static Result ok() { return new Result(true, null); }
+        public static Result fail(String r) { return new Result(false, r); }
+    }
+
+    public Result validate(String password, String email, String name, String nickname) {
+        if (password == null) return Result.fail("weak_password");
+        String p = password.trim();
+        if (p.length() < MIN_LENGTH || p.length() > MAX_LENGTH) return Result.fail("weak_password");
+        if (weakPasswords.contains(p.toLowerCase(Locale.ROOT))) return Result.fail("weak_password");
+
+        String em = email == null ? "" : email.toLowerCase(Locale.ROOT);
+        String nm = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+        String nn = nickname == null ? "" : nickname.trim().toLowerCase(Locale.ROOT);
+        String pl = p.toLowerCase(Locale.ROOT);
+        if (!em.isEmpty() && (pl.contains(em) || em.contains(pl))) return Result.fail("weak_password");
+        if (!nm.isEmpty() && (pl.equals(nm) || pl.contains(nm))) return Result.fail("weak_password");
+        if (!nn.isEmpty() && (pl.equals(nn) || pl.contains(nn))) return Result.fail("weak_password");
+
+        if (isBreached(p)) return Result.fail("password_breached");
+
+        return Result.ok();
+    }
+
+    private boolean isBreached(String password) {
+        try {
+            String sha1 = sha1Hex(password).toUpperCase(Locale.ROOT);
+            String prefix = sha1.substring(0, 5);
+            String suffix = sha1.substring(5);
+            String body = restClient.get()
+                    .uri("https://api.pwnedpasswords.com/range/{prefix}", prefix)
+                    .header("Add-Padding", "true")
+                    .retrieve()
+                    .body(String.class);
+            if (body == null) return false;
+            for (String line : body.split("\\r?\\n")) {
+                int colon = line.indexOf(':');
+                if (colon <= 0) continue;
+                if (line.substring(0, colon).equalsIgnoreCase(suffix)) return true;
+            }
+            return false;
+        } catch (Exception e) {
+            return false;  // fail-open — HIBP недоступен
+        }
+    }
+
+    private static String sha1Hex(String s) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] digest = md.digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-1 недоступен", e);
+        }
+    }
+
+    private static Set<String> loadWeakPasswords() {
+        Set<String> out = new HashSet<>();
+        try (InputStream in = PasswordPolicyService.class.getResourceAsStream("/weak_passwords.txt")) {
+            if (in == null) {
+                String[] fallback = {
+                        "123456", "password", "12345678", "qwerty", "123456789", "12345",
+                        "1234", "111111", "1234567", "dragon", "123123", "baseball",
+                        "abc123", "football", "monkey", "letmein", "696969", "shadow",
+                        "master", "666666", "qwertyuiop", "123321", "mustang", "1234567890",
+                        "michael", "654321", "pussy", "superman", "1qaz2wsx", "7777777",
+                        "fuckyou", "121212", "000000", "qazwsx", "123qwe", "killer",
+                        "trustno1", "jordan", "jennifer", "zxcvbnm", "asdfgh", "hunter",
+                        "buster", "soccer", "harley", "batman", "andrew", "tigger",
+                        "sunshine", "iloveyou", "fuckme", "2000", "charlie", "robert",
+                        "thomas", "hockey", "ranger", "daniel", "starwars", "klaster",
+                        "112233", "george", "asshole", "computer", "michelle", "jessica",
+                        "pepper", "1111", "zxcvbn", "555555", "11111111", "131313",
+                        "freedom", "777777", "pass", "fuck", "maggie", "159753",
+                        "aaaaaa", "ginger", "princess", "joshua", "cheese", "amanda",
+                        "summer", "love", "ashley", "6969", "nicole", "chelsea",
+                        "biteme", "matthew", "access", "yankees", "987654321", "dallas",
+                        "austin", "thunder", "taylor", "matrix",
+                };
+                for (String s : fallback) out.add(s);
+                return out;
+            }
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    String t = line.trim().toLowerCase(Locale.ROOT);
+                    if (!t.isEmpty() && !t.startsWith("#")) out.add(t);
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return out;
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\application\service\PasswordResetService.java
+============================================================
+package tech.extree.stats.application.service;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import tech.extree.stats.application.UtcTime;
+import tech.extree.stats.application.Validation;
+import tech.extree.stats.application.port.in.PasswordResetUseCase;
+import tech.extree.stats.application.port.out.GeoLookup;
+import tech.extree.stats.application.port.out.LoginAttemptRepository;
+import tech.extree.stats.application.port.out.LoginEventRepository;
+import tech.extree.stats.application.port.out.Mailer;
+import tech.extree.stats.application.port.out.PasswordHasher;
+import tech.extree.stats.application.port.out.PasswordResetRepository;
+import tech.extree.stats.application.port.out.SessionRepository;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.domain.Location;
+import tech.extree.stats.domain.PasswordReset;
+import tech.extree.stats.domain.User;
+
+/** Соответствует /auth/forgot-password, /auth/reset-password в server.js. */
+@Service
+public class PasswordResetService implements PasswordResetUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
+
+    private static final int MAX_FAILED_ATTEMPTS_PER_15MIN = 10;
+    private static final long FAILED_WINDOW_MINUTES = 15;
+
+    private final UserRepository userRepository;
+    private final PasswordResetRepository passwordResetRepository;
+    private final PasswordHasher passwordHasher;
+    private final Mailer mailer;
+    private final GeoLookup geoLookup;
+    private final LoginEventRepository loginEventRepository;
+    private final PasswordPolicyService passwordPolicy;
+    private final SessionRepository sessionRepository;
+    private final TotpService totpService;
+    private final LoginAttemptRepository loginAttemptRepository;
+
+    public PasswordResetService(
+            UserRepository userRepository,
+            PasswordResetRepository passwordResetRepository,
+            PasswordHasher passwordHasher,
+            Mailer mailer,
+            GeoLookup geoLookup,
+            LoginEventRepository loginEventRepository,
+            PasswordPolicyService passwordPolicy,
+            SessionRepository sessionRepository,
+            TotpService totpService,
+            LoginAttemptRepository loginAttemptRepository) {
+        this.userRepository = userRepository;
+        this.passwordResetRepository = passwordResetRepository;
+        this.passwordHasher = passwordHasher;
+        this.mailer = mailer;
+        this.geoLookup = geoLookup;
+        this.loginEventRepository = loginEventRepository;
+        this.sessionRepository = sessionRepository;
+        this.passwordPolicy = passwordPolicy;
+        this.totpService = totpService;
+        this.loginAttemptRepository = loginAttemptRepository;
+    }
+
+    @Override
+    public ForgotPasswordOutcome forgotPassword(String rawEmail, String requestHost) {
+        String email = Validation.normalizeEmail(rawEmail);
+        if (!Validation.isValidEmail(email)) {
+            return ForgotPasswordOutcome.INVALID_EMAIL;
+        }
+        if (passwordResetRepository.isOnCooldown(email)) {
+            return ForgotPasswordOutcome.CODE_ON_COOLDOWN;
+        }
+
+        // Один и тот же ответ независимо от того, существует ли аккаунт,
+        // и даже при сбое отправки письма — тот же анти-перебор приём, что
+        // у Node (см. комментарий в server.js).
+        userRepository.findByEmail(email).ifPresent(user -> {
+            try {
+                String token = passwordResetRepository.createReset(user.id(), email);
+                String resetUrl = "https://" + requestHost + "/reset-password?token=" + token;
+                mailer.sendPasswordResetEmail(email, resetUrl);
+            } catch (Exception e) {
+                log.warn("stats-backend-java: ошибка отправки письма сброса пароля", e);
+            }
+        });
+        return ForgotPasswordOutcome.OK;
+    }
+
+    @Override
+    public ResetPasswordResult resetPassword(
+            String rawToken, String newPassword, String totpCode, String clientIp, String userAgent) {
+        String token = rawToken == null ? "" : rawToken.trim();
+        if (token.isEmpty()) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_REQUEST);
+        }
+        if (!Validation.isValidPassword(newPassword)) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_PASSWORD);
+        }
+
+        Optional<PasswordReset> maybeRow = passwordResetRepository.getReset(token);
+        if (maybeRow.isEmpty()) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.TOKEN_NOT_FOUND);
+        }
+        PasswordReset row = maybeRow.get();
+        if (Instant.now().isAfter(row.expiresAt())) {
+            passwordResetRepository.deleteReset(token);
+            return ResetPasswordResult.error(ResetPasswordOutcome.TOKEN_EXPIRED);
+        }
+
+        PasswordPolicyService.Result pp = passwordPolicy.validate(newPassword, row.email(), null, null);
+        if (!pp.valid()) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.INVALID_PASSWORD);
+        }
+
+        // Сброс пароля через email — отдельный от обычного логина канал,
+        // который не доказывает владение вторым фактором. Без этой проверки
+        // кто угодно, временно получивший доступ к почте, полностью обходил
+        // бы 2FA. Токен и пароль НЕ применяются, пока не придёт верный код —
+        // фронт повторяет тот же запрос с добавленным totpCode.
+        if (totpService.isEnabled(row.userId())) {
+            Instant failedSince = Instant.now().minus(FAILED_WINDOW_MINUTES, ChronoUnit.MINUTES);
+            if (loginAttemptRepository.countFailuresSince(row.email(), failedSince) >= MAX_FAILED_ATTEMPTS_PER_15MIN) {
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOO_MANY_ATTEMPTS);
+            }
+            String code = totpCode == null ? "" : totpCode.trim();
+            if (code.isEmpty()) {
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOTP_REQUIRED);
+            }
+            boolean totpOk = code.matches("\\d{6}")
+                    ? totpService.verifyCodeForUser(row.userId(), code)
+                    : totpService.consumeRecoveryCode(row.userId(), code);
+            if (!totpOk) {
+                loginAttemptRepository.record(row.email(), clientIp, null, false, "reset_totp_failed");
+                return ResetPasswordResult.error(ResetPasswordOutcome.TOTP_INVALID);
+            }
+        }
+
+        Optional<User> maybeUser = userRepository.updatePasswordHash(row.userId(), passwordHasher.hash(newPassword));
+        passwordResetRepository.deleteReset(token);
+        if (maybeUser.isEmpty()) {
+            return ResetPasswordResult.error(ResetPasswordOutcome.INTERNAL_ERROR);
+        }
+        User user = maybeUser.get();
+
+        Location location = geoLookup.lookup(clientIp);
+        // Успешный сброс — это тоже вход: сразу логинит, как и Node.
+        SessionRepository.Created session = sessionRepository.create(null, user.id(), clientIp, userAgent, true);
+        loginEventRepository.recordLogin(user.id(), clientIp, location.country(), location.city(), userAgent, session.id());
+        try {
+            mailer.sendPasswordChanged(user.email(), clientIp, location.country(), location.city(), UtcTime.now());
+        } catch (Exception e) {
+            log.warn("stats-backend-java: ошибка отправки уведомления о смене пароля", e);
+        }
+
+        return new ResetPasswordResult(ResetPasswordOutcome.OK, user.email(), session.token());
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\main\java\tech\extree\stats\domain\PasswordReset.java
+============================================================
+package tech.extree.stats.domain;
+
+import java.time.Instant;
+
+/** Зеркало строки stats_password_resets (см. ../../stats-backend/passwordResets.js). */
+public record PasswordReset(String token, String userId, String email, Instant expiresAt, Instant createdAt) {}
+
+============================================================
+FILE: stats-backend-java\src\test\java\tech\extree\stats\adapter\out\crypto\ScryptPasswordHasherTest.java
+============================================================
+package tech.extree.stats.adapter.out.crypto;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Решающий тест, как и AesGcmSessionCodecTest: хеш ниже получен реальным
+ * вызовом users.hashPassword('CorrectHorseBattery9') в Node
+ * (../../../../../../stats-backend/users.js). Если verify() здесь не
+ * подтверждает этот хеш — ни один существующий пользователь не сможет
+ * войти через Java-сервис со своим текущим паролем.
+ */
+class ScryptPasswordHasherTest {
+
+    private static final String PASSWORD = "CorrectHorseBattery9";
+    // node -e "console.log(require('./stats-backend/users').hashPassword('CorrectHorseBattery9'))"
+    private static final String NODE_GENERATED_HASH =
+            "6e49e74e082d484413122bd14fbf9b53:"
+                    + "1cd6aa48b2d90367b851dc1af8e00d133cd8d67f3d7e75836276b5eab96effdb210f2e68504ffc89bf323794039f1610cbf317030a0206a1e254fe9df88f033e";
+
+    private final ScryptPasswordHasher hasher = new ScryptPasswordHasher();
+
+    @Test
+    void verifiesAPasswordHashedByTheNodeService() {
+        assertThat(hasher.verify(PASSWORD, NODE_GENERATED_HASH)).isTrue();
+    }
+
+    @Test
+    void rejectsTheWrongPasswordAgainstANodeGeneratedHash() {
+        assertThat(hasher.verify("wrongpassword", NODE_GENERATED_HASH)).isFalse();
+    }
+
+    @Test
+    void hashesIssuedHereAreInTurnVerifiableHere() {
+        String hash = hasher.hash("another-password-1");
+
+        assertThat(hasher.verify("another-password-1", hash)).isTrue();
+        assertThat(hasher.verify("not-it", hash)).isFalse();
+    }
+
+    @Test
+    void rejectsMalformedStoredValues() {
+        assertThat(hasher.verify(PASSWORD, null)).isFalse();
+        assertThat(hasher.verify(PASSWORD, "no-colon-here")).isFalse();
+        assertThat(hasher.verify(PASSWORD, "")).isFalse();
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\test\java\tech\extree\stats\application\service\PasswordPolicyServiceTest.java
+============================================================
+package tech.extree.stats.application.service;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Тесты PasswordPolicyService. HIBP-проверка (isBreached) ходит в сеть —
+ * в юнит-тестах мы её не вызываем напрямую (она fail-open), а проверяем
+ * всё, что можно проверить офлайн: длину, топ-1000, вхождение email/name/
+ * nickname. Реальный пароль с брешью — это интеграционный тест, не тут.
+ */
+class PasswordPolicyServiceTest {
+
+    private final PasswordPolicyService service = new PasswordPolicyService();
+
+    @Test
+    void rejectsTooShort() {
+        // 11 символов — меньше MIN_LENGTH (12)
+        var r = service.validate("Abcdef12345", "a@b.com", "Name", "nick");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsTooLong() {
+        var r = service.validate("a".repeat(201), "a@b.com", "Name", "nick");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsTopWeakPassword() {
+        // "password" — в топ-1000 fallback-списка. 8 символов, но даже если бы
+        // было 12 — всё равно отклонили бы по списку.
+        var r = service.validate("password", "a@b.com", "Name", "nick");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsPasswordContainingEmail() {
+        // Содержит "alice" из email — отклонить.
+        var r = service.validate("Alice-Secure-Pass-99", "alice@example.com", "Alice", "alice");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsPasswordContainingName() {
+        var r = service.validate("John-Secure-Pass-99", "a@b.com", "John", "johnny");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsPasswordContainingNickname() {
+        var r = service.validate("nickname-Secure-99", "a@b.com", "Name", "nickname");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void rejectsNullPassword() {
+        var r = service.validate(null, "a@b.com", "Name", "nick");
+        assertFalse(r.valid());
+    }
+
+    @Test
+    void acceptsStrongPassword() {
+        // 16 символов, не из топ-1000, не содержит email/name/nickname.
+        // HIBP может ответить 200 и сказать "не в бреши" — но даже если
+        // HIBP недоступен, isBreached возвращает false (fail-open), так что
+        // тест стабилен без сети.
+        var r = service.validate("Tr0ub4dor&3xyZ!q", "a@b.com", "Name", "nick");
+        assertTrue(r.valid(), "strong password must be accepted");
+    }
+}
+
+============================================================
+FILE: stats-backend-java\src\test\java\tech\extree\stats\application\service\PasswordResetServiceTest.java
+============================================================
+package tech.extree.stats.application.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.time.Instant;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import tech.extree.stats.application.port.in.PasswordResetUseCase;
+import tech.extree.stats.application.port.out.GeoLookup;
+import tech.extree.stats.application.port.out.LoginAttemptRepository;
+import tech.extree.stats.application.port.out.LoginEventRepository;
+import tech.extree.stats.application.port.out.Mailer;
+import tech.extree.stats.application.port.out.PasswordHasher;
+import tech.extree.stats.application.port.out.PasswordResetRepository;
+import tech.extree.stats.application.port.out.SessionRepository;
+import tech.extree.stats.application.port.out.UserRepository;
+import tech.extree.stats.domain.Location;
+import tech.extree.stats.domain.PasswordReset;
+import tech.extree.stats.domain.User;
+
+class PasswordResetServiceTest {
+
+    private UserRepository userRepository;
+    private PasswordResetRepository passwordResetRepository;
+    private PasswordHasher passwordHasher;
+    private Mailer mailer;
+    private GeoLookup geoLookup;
+    private LoginEventRepository loginEventRepository;
+    private PasswordPolicyService passwordPolicy;
+    private SessionRepository sessionRepository;
+    private TotpService totpService;
+    private LoginAttemptRepository loginAttemptRepository;
+    private PasswordResetService service;
+
+    private final User user = new User(
+            "user-id", "test@test.com", "hashed", Instant.now(), null, "Test", "test", null, false, false, false);
+
+    @BeforeEach
+    void setUp() {
+        userRepository = mock(UserRepository.class);
+        passwordResetRepository = mock(PasswordResetRepository.class);
+        passwordHasher = mock(PasswordHasher.class);
+        mailer = mock(Mailer.class);
+        geoLookup = mock(GeoLookup.class);
+        loginEventRepository = mock(LoginEventRepository.class);
+        passwordPolicy = mock(PasswordPolicyService.class);
+        sessionRepository = mock(SessionRepository.class);
+        totpService = mock(TotpService.class);
+        loginAttemptRepository = mock(LoginAttemptRepository.class);
+
+        when(geoLookup.lookup("ip")).thenReturn(new Location("US", "City"));
+        when(sessionRepository.create(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(new SessionRepository.Created("cookie", "session-id"));
+        // Политика паролей — разрешаем всё, в этих тестах не про неё
+        when(passwordPolicy.validate(anyString(), any(), any(), any())).thenReturn(PasswordPolicyService.Result.ok());
+
+        service = new PasswordResetService(
+                userRepository, passwordResetRepository, passwordHasher,
+                mailer, geoLookup, loginEventRepository, passwordPolicy, sessionRepository,
+                totpService, loginAttemptRepository);
+    }
+
+    @Test
+    void forgotPasswordCooldown() {
+        when(passwordResetRepository.isOnCooldown("test@test.com")).thenReturn(true);
+        var outcome = service.forgotPassword("test@test.com", "host");
+        assertEquals(PasswordResetUseCase.ForgotPasswordOutcome.CODE_ON_COOLDOWN, outcome);
+    }
+
+    @Test
+    void forgotPasswordOk() {
+        when(passwordResetRepository.isOnCooldown("test@test.com")).thenReturn(false);
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(passwordResetRepository.createReset("user-id", "test@test.com")).thenReturn("token");
+
+        var outcome = service.forgotPassword("test@test.com", "host");
+        assertEquals(PasswordResetUseCase.ForgotPasswordOutcome.OK, outcome);
+        verify(mailer).sendPasswordResetEmail(eq("test@test.com"), anyString());
+    }
+
+    @Test
+    void resetPasswordTokenNotFound() {
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.empty());
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOKEN_NOT_FOUND, result.outcome());
+    }
+
+    @Test
+    void resetPasswordOk() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
+        when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
+
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
+        verify(passwordResetRepository).deleteReset("token");
+        verify(loginEventRepository).recordLogin("user-id", "ip", "US", "City", "ua", "session-id");
+        verify(mailer).sendPasswordChanged(eq("test@test.com"), eq("ip"), eq("US"), eq("City"), anyString());
+    }
+
+    @Test
+    void resetPasswordRequiresTotpWhenEnabledAndNoCodeGiven() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+
+        var result = service.resetPassword("token", "newpassword1", null, "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOTP_REQUIRED, result.outcome());
+        verify(passwordResetRepository, org.mockito.Mockito.never()).deleteReset(anyString());
+        verify(userRepository, org.mockito.Mockito.never()).updatePasswordHash(anyString(), anyString());
+    }
+
+    @Test
+    void resetPasswordRejectsWrongTotpCode() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+        when(totpService.verifyCodeForUser("user-id", "000000")).thenReturn(false);
+
+        var result = service.resetPassword("token", "newpassword1", "000000", "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.TOTP_INVALID, result.outcome());
+        verify(userRepository, org.mockito.Mockito.never()).updatePasswordHash(anyString(), anyString());
+    }
+
+    @Test
+    void resetPasswordSucceedsWithValidTotpCode() {
+        PasswordReset reset = new PasswordReset(
+                "token", "user-id", "test@test.com", Instant.now().plusSeconds(600), Instant.now());
+        when(passwordResetRepository.getReset("token")).thenReturn(Optional.of(reset));
+        when(totpService.isEnabled("user-id")).thenReturn(true);
+        when(totpService.verifyCodeForUser("user-id", "123456")).thenReturn(true);
+        when(passwordHasher.hash("newpassword1")).thenReturn("newhash");
+        when(userRepository.updatePasswordHash("user-id", "newhash")).thenReturn(Optional.of(user));
+
+        var result = service.resetPassword("token", "newpassword1", "123456", "ip", "ua");
+        assertEquals(PasswordResetUseCase.ResetPasswordOutcome.OK, result.outcome());
+        verify(passwordResetRepository).deleteReset("token");
+    }
+}
+

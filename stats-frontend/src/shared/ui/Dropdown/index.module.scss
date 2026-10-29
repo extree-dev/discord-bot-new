@@ -1,0 +1,135 @@
+.container {
+    position: relative;
+    display: inline-block;
+}
+
+.trigger {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    border-radius: 12px;
+    transition: opacity 0.2s ease;
+}
+
+.trigger:active {
+    opacity: 0.8;
+}
+
+.menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    width: 240px;
+    background: rgba(20, 20, 25, 0.85);
+    backdrop-filter: blur(24px) saturate(1.5);
+    -webkit-backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow:
+        0 20px 40px -10px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    animation: menuIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Привязка к правому краю контейнера (кнопки) */
+.menuRight {
+    right: 0;
+    transform-origin: top right;
+}
+
+.menuLeft {
+    left: 0;
+    transform-origin: top left;
+}
+
+@keyframes menuIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.menu > a,
+.menu > button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    width: 100%;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #a1a1aa;
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+}
+
+.menu > a svg,
+.menu > button svg {
+    width: 16px;
+    height: 16px;
+    color: #71717a;
+    transition: color 0.15s ease;
+}
+
+.menu > a:hover,
+.menu > button:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+
+.menu > a:hover svg,
+.menu > button:hover svg {
+    color: var(--accent);
+}
+
+.menu > a.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.menu > a.active svg {
+    color: var(--accent);
+}
+
+.menu > .divider,
+.menu > hr {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 8px;
+    border: none;
+}
+
+/* Мобильная версия: убираем fixed, чтобы привязывалось к кнопке */
+@media (max-width: 768px) {
+    .menu {
+        position: absolute; /* Привязка к родителю */
+        top: calc(100% + 8px);
+        width: 220px;
+        max-width: calc(100vw - 32px); /* Защита от переполнения на узких экранах */
+        padding: 8px;
+    }
+    .menuRight {
+        right: 0;
+    }
+    .menuLeft {
+        left: 0;
+    }
+    .menu > a,
+    .menu > button {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+}

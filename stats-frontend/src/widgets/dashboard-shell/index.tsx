@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Avatar } from '../../shared/ui/Avatar';
 import {
     HomeIcon,
@@ -10,169 +10,141 @@ import {
     PowerIcon,
     MenuIcon,
     IconX,
+    UserIcon,
+    BellIcon,
 } from '../../shared/ui/Icons';
-import { AdminMenu } from './AdminMenu';
 import styles from './index.module.scss';
 
-interface DashboardUser {
-    email: string;
-    isAdmin: boolean;
-}
-
-interface DashboardShellProps {
-    user: DashboardUser | null;
-    breadcrumb?: { to: string; label: string };
-    title: string;
-    subtitle?: string;
-    headerExtra?: ReactNode;
-    error?: string | null;
-    wide?: boolean;
-    children: ReactNode;
-}
-
-function signOut() {
-    window.location.href = '/auth/logout';
-}
-
-function navClass({ isActive }: { isActive: boolean }) {
-    return `${styles.navLink} ${isActive ? styles.active : ''}`;
-}
-
-// Редизайн 4: расположение элементов, а не только материал/цвет —
-// сайдбар слева (неизменный во всех прошлых версиях) заменён на
-// горизонтальный топбар на всю ширину: лого слева, пункты меню по
-// центру/справа от него, аватар с одной кнопкой "выйти" у правого края
-// (не выпадающее меню). На мобильном то же самое сжимается в гамбургер,
-// открывающий панель СВЕРХУ под хедером (а не bottom sheet снизу, как
-// было раньше).
-export function DashboardShell({
-    user,
-    breadcrumb,
-    title,
-    subtitle,
-    headerExtra,
-    error,
-    wide,
-    children,
-}: DashboardShellProps) {
-    const [menuOpen, setMenuOpen] = useState(false);
-    const closeMenu = () => setMenuOpen(false);
+export function DashboardShell({ user, breadcrumb, title, subtitle, headerExtra, error, wide, children }: any) {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const location = useLocation();
+    const isSettingsActive = location.pathname.includes('/account/settings');
+    const signOut = () => {
+        window.location.href = '/auth/logout';
+    };
+    const navClass = ({ isActive }: { isActive: boolean }) => `${styles.navLink} ${isActive ? styles.active : ''}`;
 
     return (
         <div className={styles.shell}>
-            <header className={styles.topbar}>
-                <Link to="/" className={styles.brand}>
-                    <img src="/logo.png" alt="" className={styles.mark} aria-hidden="true" />
-                    <span>Extree Stats</span>
-                </Link>
+            <button className={styles.mobileToggle} onClick={() => setSidebarOpen(true)}>
+                <MenuIcon />
+            </button>
+            {sidebarOpen && <div className={styles.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
+
+            <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
+                <div className={styles.sidebarHeader}>
+                    <Link to="/" className={styles.brand}>
+                        <img src="/logo.png" alt="" className={styles.mark} />
+                        <span>EXTREE</span>
+                    </Link>
+                    <button className={styles.closeSidebar} onClick={() => setSidebarOpen(false)}>
+                        <IconX />
+                    </button>
+                </div>
 
                 {user && (
-                    <nav className={styles.navLinks}>
-                        <NavLink to="/account" end className={navClass}>
-                            Dashboard
+                    <nav className={styles.nav}>
+                        <NavLink to="/account" end className={navClass} onClick={() => setSidebarOpen(false)}>
+                            <HomeIcon /> Dashboard
                         </NavLink>
-                        <NavLink to="/account/settings" className={navClass}>
-                            Settings
-                        </NavLink>
-                        <NavLink to="/support" className={navClass}>
-                            Support
-                        </NavLink>
-                    </nav>
-                )}
 
-                {user && (
-                    <div className={styles.topbarRight}>
-                        <div className={styles.userChip}>
-                            <Avatar label={user.email} />
-                            <span className={styles.userEmail} title={user.email}>
-                                {user.email}
-                            </span>
+                        <div className={styles.navGroup}>
+                            <button
+                                className={`${styles.navLink} ${isSettingsActive ? styles.active : ''}`}
+                                onClick={() => setSettingsOpen(o => !o)}
+                            >
+                                <SettingsIcon /> Settings
+                                <span className={`${styles.chevron} ${settingsOpen ? styles.chevronOpen : ''}`}>
+                                    <svg
+                                        width="12"
+                                        height="12"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                    >
+                                        <path d="m6 9 6 6 6-6" />
+                                    </svg>
+                                </span>
+                            </button>
+                            <div className={`${styles.subMenu} ${settingsOpen ? styles.subMenuOpen : ''}`}>
+                                <div>
+                                    <NavLink
+                                        to="/account/settings"
+                                        end
+                                        className={navClass}
+                                        onClick={() => setSidebarOpen(false)}
+                                    >
+                                        <UserIcon /> Profile
+                                    </NavLink>
+                                    <NavLink
+                                        to="/account/settings?tab=security"
+                                        className={navClass}
+                                        onClick={() => setSidebarOpen(false)}
+                                    >
+                                        <ShieldIcon /> Security
+                                    </NavLink>
+                                    <NavLink
+                                        to="/account/settings?tab=notifications"
+                                        className={navClass}
+                                        onClick={() => setSidebarOpen(false)}
+                                    >
+                                        <BellIcon /> Notifications
+                                    </NavLink>
+                                </div>
+                            </div>
                         </div>
-                        {user.isAdmin && <AdminMenu />}
-                        <button
-                            type="button"
-                            className={styles.iconBtn}
-                            onClick={signOut}
-                            title="Sign out"
-                            aria-label="Sign out"
-                        >
-                            <PowerIcon />
-                        </button>
-                        <button
-                            type="button"
-                            className={styles.menuToggle}
-                            onClick={() => setMenuOpen(o => !o)}
-                            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-                            aria-expanded={menuOpen}
-                        >
-                            {menuOpen ? <IconX /> : <MenuIcon />}
-                        </button>
-                    </div>
-                )}
-            </header>
 
-            {menuOpen && user && (
-                <>
-                    <div className={styles.menuBackdrop} onClick={closeMenu} aria-hidden="true" />
-                    <nav className={styles.mobileMenu} aria-label="Menu">
-                        <NavLink to="/account" end className={navClass} onClick={closeMenu}>
-                            <HomeIcon />
-                            Dashboard
+                        <NavLink to="/support" className={navClass} onClick={() => setSidebarOpen(false)}>
+                            <TicketIcon /> Support
                         </NavLink>
-                        <NavLink to="/account/settings" className={navClass} onClick={closeMenu}>
-                            <SettingsIcon />
-                            Settings
-                        </NavLink>
-                        <NavLink to="/support" className={navClass} onClick={closeMenu}>
-                            <TicketIcon />
-                            Support
-                        </NavLink>
+
                         {user.isAdmin && (
                             <>
-                                <div className={styles.navLabel}>Admin</div>
-                                <NavLink to="/admin/users" className={navClass} onClick={closeMenu}>
-                                    <UsersIcon />
-                                    Manage Users
+                                <div className={styles.navLabel}>Admin Area</div>
+                                <NavLink to="/admin/users" className={navClass} onClick={() => setSidebarOpen(false)}>
+                                    <UsersIcon /> Manage Users
                                 </NavLink>
-                                <NavLink to="/admin/tickets" className={navClass} onClick={closeMenu}>
-                                    <TicketIcon />
-                                    Tickets
+                                <NavLink to="/admin/tickets" className={navClass} onClick={() => setSidebarOpen(false)}>
+                                    <TicketIcon /> Tickets
                                 </NavLink>
-                                <NavLink to="/admin/audit" className={navClass} onClick={closeMenu}>
-                                    <ShieldIcon />
-                                    Audit Log
+                                <NavLink to="/admin/audit" className={navClass} onClick={() => setSidebarOpen(false)}>
+                                    <ShieldIcon /> Audit Log
                                 </NavLink>
                             </>
                         )}
-                        <button type="button" className={styles.navLink} onClick={signOut}>
-                            <PowerIcon />
-                            Sign out
-                        </button>
                     </nav>
-                </>
-            )}
+                )}
+
+                {user && (
+                    <div className={styles.sidebarFooter}>
+                        <div className={styles.userChip}>
+                            <Avatar label={user.email} />
+                            <span className={styles.userEmail}>{user.email}</span>
+                        </div>
+                        <button className={styles.signOutBtn} onClick={signOut}>
+                            <PowerIcon />
+                        </button>
+                    </div>
+                )}
+            </aside>
 
             <main className={styles.main}>
                 <div className={`${styles.content} ${wide ? styles.contentWide : ''}`}>
-                    <div>
-                        {breadcrumb && (
-                            <Link to={breadcrumb.to} className={styles.breadcrumb}>
-                                ← {breadcrumb.label}
-                            </Link>
-                        )}
-                        <div className={styles.pageHead}>
-                            <div>
-                                <h1 className={styles.pageTitle}>{title}</h1>
-                                {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
-                            </div>
-                            {headerExtra}
+                    <div className={styles.pageHead}>
+                        <div>
+                            {breadcrumb && (
+                                <Link to={breadcrumb.to} className={styles.breadcrumb}>
+                                    ← {breadcrumb.label}
+                                </Link>
+                            )}
+                            <h1 className={styles.pageTitle}>{title}</h1>
+                            {subtitle && <p className={styles.pageSubtitle}>{subtitle}</p>}
                         </div>
+                        {headerExtra}
                     </div>
-                    {error && (
-                        <p className={styles.error} role="alert">
-                            {error}
-                        </p>
-                    )}
+                    {error && <p className={styles.error}>{error}</p>}
                     {children}
                 </div>
             </main>

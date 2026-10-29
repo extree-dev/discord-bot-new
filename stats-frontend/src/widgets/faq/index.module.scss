@@ -1,3 +1,6 @@
+/* Перенесено из pages/sign-in/Faq.module.scss (страница sign-in в
+   App.tsx не подключена). Переиспользуется на главной. */
+
 .list {
     display: flex;
     flex-direction: column;
@@ -52,7 +55,7 @@
 }
 
 .panelOpen {
-    max-height: 240px;
+    max-height: 260px;
 }
 
 .answer {
@@ -76,14 +79,5 @@
 @media (prefers-reduced-motion: reduce) {
     .panel {
         transition: none;
-    }
-}
-
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
-@media (max-width: 768px) {
-    .answer {
-        padding: 16px !important;
     }
 }

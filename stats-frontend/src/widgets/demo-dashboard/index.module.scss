@@ -285,3 +285,24 @@
         gap: 16px !important;
     }
 }
+
+/* === MOBILE RESPONSIVE === */
+@media (max-width: 768px) {
+    .dashboard {
+        padding: 16px !important;
+    }
+    .panelGrid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    .agentGrid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .barRow {
+        grid-template-columns: 40px 1fr 30px !important; /* Ужимаем графики */
+        gap: 8px !important;
+    }
+    .barLabel {
+        font-size: 11px !important;
+    }
+}

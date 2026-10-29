@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
 import { Button } from '../../shared/ui/Button';
 import { Modal } from '../../shared/ui/Modal';
-import { ProfileAvatar } from '../../shared/ui/ProfileAvatar'; // <-- Импорт
+import { ProfileAvatar } from '../../shared/ui/ProfileAvatar';
 import {
     getAccount,
     setup2fa,
@@ -26,25 +26,17 @@ import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { TextField } from '../../shared/ui/TextField';
 import { PasswordField } from '../../shared/ui/PasswordField';
 import { CodeInput } from '../../shared/ui/CodeInput';
-import { ShieldIcon, UserIcon, BellIcon, IconCheck, IconX } from '../../shared/ui/Icons';
+import { ShieldIcon, BellIcon, IconCheck, IconX } from '../../shared/ui/Icons';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { QRCodeSVG } from 'qrcode.react';
 
-// Форма загрузки повторяет форму реальной страницы (сайдбар + карточка
-// профиля), а не просто текст "Loading..." — тот же приём, что уже
-// применяется в admin-tickets-list/ticket-thread.
 function SettingsSkeleton() {
     return (
         <div className={styles.page}>
             <Skeleton width={140} height={14} className={styles.skeletonMb16} />
             <Skeleton width={100} height={28} className={styles.skeletonMb24} />
-            <div className={styles.layout}>
-                <div className={styles.skeletonSidebar}>
-                    <Skeleton width="100%" height={38} radius={6} />
-                    <Skeleton width="100%" height={38} radius={6} />
-                    <Skeleton width="100%" height={38} radius={6} />
-                </div>
+            <div className={styles.layoutContent}>
                 <div className={styles.panel}>
                     <div className={styles.skeletonRow}>
                         <Skeleton width={64} height={64} radius="50%" />
@@ -59,10 +51,6 @@ function SettingsSkeleton() {
     );
 }
 
-// Компактная сводка статуса аккаунта — пилюли, а не чек-лист с
-// объяснениями (это уже есть в SecurityScore рядом): Admin/Standard,
-// подтверждён ли email, привязан ли Riot. Только то, что реально есть в
-// AccountUser — ничего не придумано (нет даты регистрации в API).
 function AccountStatusCard({ user }: { user: AccountUser }) {
     return (
         <Panel title="Account status">
@@ -107,10 +95,14 @@ function AccountStatusCard({ user }: { user: AccountUser }) {
 export function AccountSettingsPage() {
     const navigate = useNavigate();
     const { showToast } = useToast();
-    const [user, setUser] = useState<AccountUser | null>(null);
-    const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications'>('profile');
-    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [searchParams] = useSearchParams();
 
+    // Читаем активную вкладку из URL (profile по умолчанию)
+    const tabParam = searchParams.get('tab') as 'profile' | 'security' | 'notifications' | null;
+    const activeTab = tabParam || 'profile';
+
+    const [user, setUser] = useState<AccountUser | null>(null);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
     const [banned, setBanned] = useState(false);
     const [twoFaModalOpen, setTwoFaModalOpen] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -163,12 +155,7 @@ export function AccountSettingsPage() {
         setTotpPending(true);
         setTotpError(null);
         try {
-            // Пароль уже введён и проверен на шаге "Set up 2FA" выше — не
-            // спрашиваем его второй раз.
             await enable2fa(totpCode.trim(), setupPassword);
-            // Без этого user.isTwoFactorEnabled оставался прежним (false) до
-            // ручной перезагрузки страницы — тот же рефреш, что уже делает
-            // handleDisable2fa ниже после отключения 2FA.
             const fresh = await getAccount();
             if (fresh.user) setUser(fresh.user);
             handleCloseTwoFaModal();
@@ -218,12 +205,13 @@ export function AccountSettingsPage() {
         );
     }
 
-    if (!user)
+    if (!user) {
         return (
             <DashboardShell user={null} title="" wide>
                 <SettingsSkeleton />
             </DashboardShell>
         );
+    }
 
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
@@ -233,41 +221,13 @@ export function AccountSettingsPage() {
                 </Link>
                 <h1 className={styles.title}>Settings</h1>
 
-                <div className={styles.layout}>
-                    {/* Вертикальный сайдбар слева — контент справа (≈70% ширины).
-                        На узких экранах сворачивается в горизонтальную строку
-                        вкладок (см. media query ниже), а не ломает раскладку. */}
-                    <nav className={styles.sidebar}>
-                        <button
-                            className={`${styles.navItem} ${activeTab === 'profile' ? styles.active : ''}`}
-                            onClick={() => setActiveTab('profile')}
-                        >
-                            <UserIcon />
-                            Profile
-                        </button>
-                        <button
-                            className={`${styles.navItem} ${activeTab === 'security' ? styles.active : ''}`}
-                            onClick={() => setActiveTab('security')}
-                        >
-                            <ShieldIcon />
-                            Security
-                        </button>
-                        <button
-                            className={`${styles.navItem} ${activeTab === 'notifications' ? styles.active : ''}`}
-                            onClick={() => setActiveTab('notifications')}
-                        >
-                            <BellIcon />
-                            Notifications
-                        </button>
-                    </nav>
-
-                    <main className={styles.content}>
+                <div className={styles.layoutContent}>
+                    <main>
                         {activeTab === 'profile' && (
                             <div className={styles.tabContent}>
                                 <Panel title="Personal Information">
                                     {isEditingProfile ? (
                                         <>
-                                            {/* === РЕЖИМ РЕДАКТИРОВАНИЯ === */}
                                             <div className={styles.avatarSection}>
                                                 <ProfileAvatar
                                                     currentUrl={user.avatarUrl}
@@ -278,7 +238,6 @@ export function AccountSettingsPage() {
                                                     <p className={styles.hintText}>JPG, PNG or GIF. Max 2MB.</p>
                                                 </div>
                                             </div>
-                                            <div className={styles.divider} />
                                             <div className={styles.infoList}>
                                                 <div className={styles.row}>
                                                     <span className={styles.label}>Name</span>
@@ -335,7 +294,6 @@ export function AccountSettingsPage() {
                                         </>
                                     ) : (
                                         <>
-                                            {/* === РЕЖИМ ПРОСМОТРА === */}
                                             <div className={styles.viewHeader}>
                                                 <ProfileAvatar
                                                     currentUrl={user.avatarUrl}
@@ -387,8 +345,8 @@ export function AccountSettingsPage() {
                                                 <div className={styles.enabledBanner}>
                                                     <ShieldIcon />
                                                     <div>
-                                                        <strong>2FA is enabled.</strong> You&apos;ll be asked for a code
-                                                        from your authenticator app on every sign-in.
+                                                        <strong>2FA is enabled.</strong> You'll be asked for a code from
+                                                        your authenticator app on every sign-in.
                                                     </div>
                                                 </div>
                                                 <div className={styles.totpActions}>
@@ -475,7 +433,7 @@ export function AccountSettingsPage() {
                                 <QRCodeSVG value={totpSetup.otpauthUrl} size={168} />
                             </div>
                             <div className={styles.secretBlock}>
-                                <span className={styles.secretLabel}>Can&apos;t scan? Enter this code manually</span>
+                                <span className={styles.secretLabel}>Can't scan? Enter this code manually</span>
                                 <code className={styles.secretValue}>{totpSetup.secret}</code>
                             </div>
                         </div>

@@ -1,89 +1,18 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { DashboardShell } from '../../widgets/dashboard-shell';
+import { Panel } from '../../shared/ui/Panel';
+import { Button } from '../../shared/ui/Button';
 import { useAuth } from '../../shared/auth/useAuth';
 import { Skeleton } from '../../shared/ui/Skeleton';
 import styles from './index.module.scss';
 
-// SVG иконки (без изменений)
-function ChartIcon() {
-    return (
-        <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <line x1="18" y1="20" x2="18" y2="10" />
-            <line x1="12" y1="20" x2="12" y2="4" />
-            <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
-    );
-}
-function TargetIcon() {
-    return (
-        <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="6" />
-            <circle cx="12" cy="12" r="2" />
-        </svg>
-    );
-}
-function DiscordIcon() {
-    return (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z" />
-        </svg>
-    );
-}
-
-// Декоративные "призрачные" паттерны для карточек без реальных данных —
-// 10% непрозрачности, aria-hidden, только чтобы карточка не выглядела
-// пустой до появления доступа к Riot API (см. ТЗ, п.2 "Empty States").
-function BarsPattern() {
-    return (
-        <svg className={styles.cardPattern} viewBox="0 0 160 90" aria-hidden="true">
-            <rect x="10" y="50" width="14" height="40" rx="2" fill="currentColor" />
-            <rect x="34" y="30" width="14" height="60" rx="2" fill="currentColor" />
-            <rect x="58" y="60" width="14" height="30" rx="2" fill="currentColor" />
-            <rect x="82" y="15" width="14" height="75" rx="2" fill="currentColor" />
-            <rect x="106" y="40" width="14" height="50" rx="2" fill="currentColor" />
-            <rect x="130" y="5" width="14" height="85" rx="2" fill="currentColor" />
-        </svg>
-    );
-}
-
-function LinePattern() {
-    return (
-        <svg className={styles.cardPattern} viewBox="0 0 160 90" aria-hidden="true">
-            <polyline
-                points="5,70 30,40 55,55 80,20 105,45 130,15 155,35"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
-// SRP: только рендер страницы. Данные — из useAuth (не делаем getAccount()).
-// ProtectedRoute гарантирует, что user !== null и status === 'authenticated'.
+// Личный кабинет пользователя — не профиль игрока, а "хаб":
+//   - ссылки на настройки/безопасность (там всё 2FA, пароли, сессии)
+//   - сохранённые игроки (пока пусто — задел на будущее)
+//   - быстрый переход к поиску игрока на публичной витрине
+// Публичная статистика живёт в /player/:game/:riotId — там же
+// ищутся чужие ники без логина.
 export function AccountPage() {
-    const navigate = useNavigate();
     const { user, banned } = useAuth();
 
     if (banned) {
@@ -100,84 +29,85 @@ export function AccountPage() {
     }
 
     if (!user) {
-        // ProtectedRoute уже редиректит анонимных — сюда не должны попасть,
-        // этот кадр виден максимум один тик, пока резолвится auth-статус.
         return (
             <DashboardShell user={null} title="">
-                <div className={styles.headerRow}>
-                    <Skeleton width={320} height={34} radius={6} />
-                    <Skeleton width={140} height={40} radius={6} />
-                </div>
+                <Skeleton width={320} height={34} radius={6} />
             </DashboardShell>
         );
     }
 
     return (
-        <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
+        <DashboardShell
+            user={{ email: user.email, isAdmin: user.isAdmin }}
+            title={`Welcome back, ${user.nickname || user.name || user.email.split('@')[0]}`}
+            subtitle="Your dashboard — jump into a search or manage your account."
+            wide
+        >
             <div className={styles.page}>
-                {/* Bento Grid: статус Riot + CTA (2/3) и Discord (1/3) в первом ряду,
-                    Deep Stats + Match History 50/50 во втором — вместо прежней
-                    плоской строки из трёх одинаковых карточек. */}
-                <div className={styles.bentoGrid}>
-                    <div className={styles.heroCard}>
-                        <div className={styles.statusBadge}>
-                            <span className={styles.statusDot}></span>
-                            API Sync Pending
-                        </div>
-                        <h1 className={styles.heroTitle}>
-                            Your VALORANT <span className={styles.textRed}>Journey Starts Here.</span>
-                        </h1>
-                        <p className={styles.heroSubtitle}>
-                            We are currently in the final stages of development and waiting for Riot Games to approve
-                            our API access. Soon, you&apos;ll be able to link your Riot account to view your match
-                            history, K/D trends, and detailed stats.
+                <div className={styles.hubGrid}>
+                    <Panel title="Public stats">
+                        <h3 className={styles.cardTitle}>Look up any player</h3>
+                        <p className={styles.cardText}>
+                            Search any player across supported games. No login required — public stats live on the site.
                         </p>
-                        <div className={styles.headerActions}>
-                            <span className={styles.tooltipWrap}>
-                                <button
-                                    className={styles.primaryBtn}
-                                    disabled
-                                    title="Available after Riot approval."
-                                    aria-describedby="riot-cta-note"
-                                >
-                                    Connect Riot Account
-                                </button>
-                                <span id="riot-cta-note" className="sr-only">
-                                    Available after Riot approval.
-                                </span>
-                            </span>
-                            <button className={styles.secondaryBtn} onClick={() => navigate('/support')}>
-                                Contact Support
-                            </button>
+                        <div className={styles.cardActions}>
+                            <Button href="/" variant="flat" size="sm">
+                                Open tracker
+                            </Button>
+                            <Button href="/valorant" variant="ghost" size="sm">
+                                VALORANT
+                            </Button>
                         </div>
-                    </div>
+                    </Panel>
 
-                    <div className={styles.discordCard}>
-                        <div className={styles.iconWrapper}>
-                            <DiscordIcon />
+                    <Panel title="Security">
+                        <h3 className={styles.cardTitle}>Account &amp; security</h3>
+                        <p className={styles.cardText}>Password, email, 2FA, recovery codes, and active sessions.</p>
+                        <div className={styles.cardActions}>
+                            <Button href="/account/settings?tab=security" variant="flat" size="sm">
+                                Open security
+                            </Button>
                         </div>
-                        <h3>Discord Integration</h3>
-                        <p>Link your profile to get live match updates and rank changes via our Discord bot.</p>
-                    </div>
+                    </Panel>
 
-                    <div className={styles.statCard}>
-                        <BarsPattern />
-                        <div className={styles.iconWrapper}>
-                            <ChartIcon />
+                    <Panel title="Linked accounts">
+                        <h3 className={styles.cardTitle}>Riot &amp; Discord</h3>
+                        <p className={styles.cardText}>
+                            Link your Riot account to unlock match stats once Riot approves full API access for Extree
+                            Stats.
+                        </p>
+                        <div className={styles.cardActions}>
+                            <Button href="/account/riot-profile" variant="flat" size="sm">
+                                Riot profile
+                            </Button>
+                            <Button href="/account/settings" variant="ghost" size="sm">
+                                Settings
+                            </Button>
                         </div>
-                        <h3>Deep Statistics</h3>
-                        <p>Track your K/D ratio, headshot percentage, and win rate across all your matches.</p>
-                    </div>
+                    </Panel>
 
-                    <div className={styles.statCard}>
-                        <LinePattern />
-                        <div className={styles.iconWrapper}>
-                            <TargetIcon />
-                        </div>
-                        <h3>Match History</h3>
-                        <p>Detailed round-by-round breakdowns of your recent VALORANT matches.</p>
-                    </div>
+                    <Panel title="Saved players">
+                        <h3 className={styles.cardTitle}>Nothing saved yet</h3>
+                        <p className={styles.emptyNote}>
+                            Players you save from public profiles will appear here — a quick way to follow your own
+                            stats or your squad.
+                        </p>
+                    </Panel>
                 </div>
+
+                <Panel title="Recent activity">
+                    <p className={styles.emptyNote}>
+                        Once match data is live, this section will show your latest searches and saved players. For now,
+                        use the public tracker to explore.
+                    </p>
+                    <div className={styles.cardActions} style={{ marginTop: 12 }}>
+                        <Link to="/support">
+                            <Button variant="ghost" size="sm">
+                                Contact support
+                            </Button>
+                        </Link>
+                    </div>
+                </Panel>
             </div>
         </DashboardShell>
     );
