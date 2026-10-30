@@ -22,7 +22,7 @@
     }
 
     &::backdrop {
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(var(--black-rgb), 0.6);
         backdrop-filter: blur(var(--surface-blur));
         -webkit-backdrop-filter: blur(var(--surface-blur));
     }

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Dropdown } from '../Dropdown';
-import { TicketIcon, SettingsIcon, ShieldIcon, PowerIcon, UsersIcon } from './icons';
-import styles from './index.module.scss';
+import { TicketIcon, SettingsIcon, ShieldIcon, PowerIcon, UsersIcon } from '../Icons';
+import styles from './index.v2.module.scss';
 
 interface ProfileDropdownProps {
     email: string;

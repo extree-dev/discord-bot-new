@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { forgotPassword, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -18,9 +19,6 @@ export function ForgotPasswordPage() {
         setPending(true);
         try {
             await forgotPassword(email);
-            // Один и тот же ответ независимо от того, существует ли
-            // аккаунт — сервер нарочно не сообщает (см. server.js), и
-            // UI показывает один и тот же текст, а не угадывает.
             setSent(true);
         } catch (err) {
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
@@ -31,17 +29,16 @@ export function ForgotPasswordPage() {
 
     return (
         <SplitAuthLayout
-            badge="Forgot your password?"
-            heading={
+            sideTitle={
                 <>
                     Reset your
                     <br />
                     <span className="hl">password.</span>
                 </>
             }
+            badge="Forgot your password?"
+            heading="Reset password"
             lead="Enter the email on your account and we'll send you a link to set a new password."
-            cardTitle="Reset password"
-            error={error}
             footer={
                 <>
                     Remembered it? <Link to="/login">Log in</Link>
@@ -55,6 +52,7 @@ export function ForgotPasswordPage() {
                 </p>
             ) : (
                 <form className={styles.form} onSubmit={onSubmit}>
+                    {error && <ErrorBanner>{error}</ErrorBanner>}
                     <TextField
                         id="email"
                         label="Email"

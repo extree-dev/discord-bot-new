@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { BackButton } from '../../shared/ui/BackButton';
 import { DashboardShell } from '../../widgets/dashboard-shell';
 import { Panel } from '../../shared/ui/Panel';
 import { Button } from '../../shared/ui/Button';
@@ -22,75 +23,15 @@ import { DeleteAccountModal } from '../../features/delete-account';
 import { useToast } from '../../shared/ui/Toast/useToast';
 import { Select } from '../../shared/ui/Select';
 import styles from './index.module.scss';
+import { SettingsSkeleton } from './skeleton';
+import { AccountStatusCard } from './status-card';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { TextField } from '../../shared/ui/TextField';
 import { PasswordField } from '../../shared/ui/PasswordField';
 import { CodeInput } from '../../shared/ui/CodeInput';
-import { ShieldIcon, BellIcon, IconCheck, IconX } from '../../shared/ui/Icons';
-import { Skeleton } from '../../shared/ui/Skeleton';
+import { ShieldIcon, BellIcon } from '../../shared/ui/Icons';
 import { EmptyState } from '../../shared/ui/EmptyState';
 import { QRCodeSVG } from 'qrcode.react';
-
-function SettingsSkeleton() {
-    return (
-        <div className={styles.page}>
-            <Skeleton width={140} height={14} className={styles.skeletonMb16} />
-            <Skeleton width={100} height={28} className={styles.skeletonMb24} />
-            <div className={styles.layoutContent}>
-                <div className={styles.panel}>
-                    <div className={styles.skeletonRow}>
-                        <Skeleton width={64} height={64} radius="50%" />
-                        <div className={styles.skeletonCol}>
-                            <Skeleton width={160} height={20} />
-                            <Skeleton width={200} height={14} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function AccountStatusCard({ user }: { user: AccountUser }) {
-    return (
-        <Panel title="Account status">
-            <div className={styles.statusList}>
-                <div className={styles.statusRow}>
-                    <span className={styles.label}>Role</span>
-                    <span className={user.isAdmin ? styles.pillAdmin : styles.pillNeutral}>
-                        {user.isAdmin ? 'Admin' : 'Standard'}
-                    </span>
-                </div>
-                <div className={styles.statusRow}>
-                    <span className={styles.label}>Email</span>
-                    <span className={user.emailVerified ? styles.pillGood : styles.pillWarn}>
-                        {user.emailVerified ? (
-                            <>
-                                <IconCheck /> Verified
-                            </>
-                        ) : (
-                            <>
-                                <IconX /> Unverified
-                            </>
-                        )}
-                    </span>
-                </div>
-                <div className={styles.statusRow}>
-                    <span className={styles.label}>Riot account</span>
-                    <span className={user.riotLinked ? styles.pillGood : styles.pillNeutral}>
-                        {user.riotLinked ? 'Linked' : 'Not linked'}
-                    </span>
-                </div>
-                <div className={styles.statusRow}>
-                    <span className={styles.label}>2FA</span>
-                    <span className={user.isTwoFactorEnabled ? styles.pillGood : styles.pillNeutral}>
-                        {user.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                </div>
-            </div>
-        </Panel>
-    );
-}
 
 export function AccountSettingsPage() {
     const navigate = useNavigate();
@@ -216,9 +157,7 @@ export function AccountSettingsPage() {
     return (
         <DashboardShell user={{ email: user.email, isAdmin: user.isAdmin }} title="" wide>
             <div className={styles.page}>
-                <Link to="/account" className={styles.backBtn}>
-                    ← Back to Dashboard
-                </Link>
+                <BackButton to="/account" label="Back to Dashboard" />
                 <h1 className={styles.title}>Settings</h1>
 
                 <div className={styles.layoutContent}>

@@ -10,15 +10,15 @@
     height: 100%;
     padding: 40px;
     font-size: 14px;
-    color: #71717a;
+    color: var(--text-faint);
 }
 .errorText {
     margin: 0;
     padding: 16px;
-    border-radius: 12px;
-    background: rgba(255, 69, 58, 0.1);
-    border: 1px solid rgba(255, 69, 58, 0.2);
-    color: #ff453a;
+    border-radius: var(--radius-md);
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+    color: var(--accent);
     font-size: 14px;
 }
 .header {
@@ -26,7 +26,7 @@
     align-items: flex-start;
     gap: 16px;
     padding: 24px 32px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--glass-bg);
     position: sticky;
     top: 0;
     background: rgba(var(--bg-rgb), 0.8);
@@ -41,15 +41,15 @@
     height: 32px;
     flex-shrink: 0;
     margin-top: 2px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: #fff;
+    background: var(--glass-bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
     font-size: 16px;
     cursor: pointer;
     transition: all 0.2s;
     &:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: var(--border-strong);
     }
     @media (max-width: 860px) {
         display: inline-flex;
@@ -69,7 +69,7 @@
     font-family: monospace;
     font-size: 13px;
     font-weight: 600;
-    color: #71717a;
+    color: var(--text-faint);
 }
 .title {
     margin: 0 0 8px;
@@ -77,7 +77,7 @@
     font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.35;
-    color: #fff;
+    color: var(--text);
 }
 .meta {
     display: flex;
@@ -85,16 +85,16 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: #71717a;
+    color: var(--text-faint);
 }
 .email {
-    color: #a1a1aa;
+    color: var(--text-dim);
 }
 .category {
     text-transform: capitalize;
 }
 .sep {
-    color: #52525b;
+    color: var(--text-faint);
 }
 .headerActions {
     display: flex;
@@ -125,7 +125,7 @@
     flex-direction: column;
     gap: 16px;
     padding-top: 24px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--glass-bg);
 }
 .replyActions {
     display: flex;

@@ -13,29 +13,53 @@
 }
 
 .textarea {
-    padding: 13px 16px;
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    font-family: inherit;
     font-size: 14.5px;
     line-height: 1.5;
-    outline: none;
-    resize: vertical;
+    resize: none;
     min-height: 120px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+
+    /* Убиваем дефолтные стили браузера */
+    outline: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    color-scheme: dark;
+
     transition:
         border-color 0.15s ease,
-        box-shadow 0.15s ease;
+        box-shadow 0.15s ease,
+        background 0.15s ease;
 }
 
 .textarea::placeholder {
-    color: var(--text-faint);
+    color: var(--text-faint) !important;
 }
 
-.textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.2);
+.textarea:focus,
+.textarea:focus-visible,
+.textarea:active {
+    border-color: var(--accent) !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    box-shadow:
+        0 0 0 2px rgba(255, 70, 85, 0.2),
+        inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    outline: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+}
+
+/* Убираем артефакты автозаполнения (белый фон) */
+.textarea:-webkit-autofill,
+.textarea:-webkit-autofill:hover,
+.textarea:-webkit-autofill:focus {
+    -webkit-text-fill-color: #ffffff !important;
+    -webkit-box-shadow: 0 0 0px 1000px rgba(0, 0, 0, 0.2) inset !important;
+    transition: background-color 5000s ease-in-out 0s;
 }

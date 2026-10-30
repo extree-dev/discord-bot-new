@@ -78,6 +78,6 @@
     &:hover {
         color: var(--accent);
         border-color: var(--accent);
-        background: rgba(255, 77, 94, 0.05);
+        background: rgba(var(--accent-rgb), 0.05);
     }
 }

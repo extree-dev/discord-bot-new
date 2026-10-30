@@ -1,5 +1,3 @@
-// Все кнопки — капсулы (radius 999). primary/flat — белая заливка,
-// ghost/secondary — прозрачная с тонкой гранью.
 .base {
     position: relative;
     display: inline-flex;
@@ -7,23 +5,22 @@
     justify-content: center;
     gap: 8px;
     border-radius: 999px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
-    font-weight: 600;
+    font-family: inherit;
+    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
     transition:
-        background 0.15s ease,
-        border-color 0.15s ease,
-        transform 0.1s ease;
+        background 0.2s ease,
+        transform 0.1s ease,
+        box-shadow 0.2s ease;
 
     &:active:not(:disabled) {
         transform: scale(0.98);
     }
     &:disabled {
-        opacity: 0.35;
+        opacity: 0.5;
         cursor: not-allowed;
     }
-
     &:focus,
     &:focus-visible {
         outline: none;
@@ -50,35 +47,41 @@
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .spinner {
-        animation-duration: 1.2s;
-    }
-}
-
 .primary,
 .flat {
     background: #ffffff;
     color: #000000;
-    border: none;
+    border: 1px solid #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.primary:hover,
-.flat:hover {
+.primary:hover:not(:disabled),
+.flat:hover:not(:disabled) {
     background: #e5e5e5;
+    border-color: #e5e5e5;
+    color: #000000;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.primary:active:not(:disabled),
+.flat:active:not(:disabled) {
+    transform: translateY(0);
+    background: #d4d4d4;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .ghost,
 .secondary {
     background: transparent;
-    color: var(--text);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.ghost:hover,
-.secondary:hover {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.3);
+.ghost:hover:not(:disabled),
+.secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
 .fullWidth {

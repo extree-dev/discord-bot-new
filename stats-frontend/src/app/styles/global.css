@@ -1,4 +1,26 @@
 :root {
+    --white: #ffffff;
+    --white-rgb: 255, 255, 255;
+    --black: #000000;
+    --black-rgb: 0, 0, 0;
+    --gray-400: #a1a1aa;
+    --gray-500: #71717a;
+    --gray-600: #52525b;
+    --on-win: #06130e;
+    --btn-primary-bg: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
+    --btn-primary-hover-bg: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+    --btn-primary-hover: #e5e5e5;
+    --btn-primary-to: #e0e0e0;
+    --btn-primary-hover-to: #f0f0f0;
+    --bg-rgb: 10, 10, 10;
+    --bg-overlay: rgba(10, 10, 10, 0.6);
+    --warning: #fbbf24;
+    --info: #3b82f6;
+    --ring-color-max: var(--win);
+    --ring-color-mid: var(--accent);
+    --ring-color-low: var(--accent);
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    --font-mono: 'SF Mono', 'Courier New', Consolas, monospace;
     /* === Фоны === */
     --bg-base: #0a0a0c;
     --bg-surface: #121317;
@@ -8,7 +30,7 @@
     /* === Текст === */
     --text-main: #ffffff;
     --text-muted: #9ca3af;
-    --text-faint: #4b5563;
+    --text-faint: #d2d2d4;
 
     /* === Акценты === */
     --accent: #ff4655; /* VALORANT Red */

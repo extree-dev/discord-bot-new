@@ -1,0 +1,36 @@
+.page {
+    width: 100%;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 32px 0;
+}
+
+.layoutContent {
+    margin-top: 32px;
+}
+
+.panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+}
+
+.skeletonRow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.skeletonCol {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mb16 {
+    margin-bottom: 16px;
+}
+.mb24 {
+    margin-bottom: 24px;
+}

@@ -1,10 +1,26 @@
-// Статические, compile-time константы (брейкпоинты) — то же разделение,
-// что в frontend/src/shared/styles/_variables.scss: цвета живут в
-// app/styles/global.css как CSS custom properties, здесь — только то, что
-// SCSS-переменной и остаётся (медиа-запросы не умеют var()).
+// Статические compile-time константы.
+// Цвета/радиусы/тени — в app/styles/global.css как CSS custom properties.
 
+// Брейкпоинты
 $breakpoint-mobile: 640px;
-
-// Брейкпоинт, на котором двухколоночная раскладка страницы входа
-// (widgets/activity-feed) складывается в одну колонку.
 $breakpoint-tablet: 860px;
+$breakpoint-desktop-sm: 768px;
+$breakpoint-desktop-md: 960px;
+
+// Z-index шкала
+$z-sticky: 50;
+$z-header: 100;
+$z-backdrop: 200;
+$z-modal: 1000;
+$z-toast: 1100;
+
+// Длительности анимаций
+$dur-fast: 0.15s;
+$dur-base: 0.2s;
+$dur-slow: 0.4s;
+$ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+// Транзишн-пресеты
+$transition-base: all $dur-base ease;
+$transition-fast: all $dur-fast ease;

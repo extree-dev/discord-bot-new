@@ -14,7 +14,7 @@
     justify-content: center;
     width: 48px;
     height: 48px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text-faint);

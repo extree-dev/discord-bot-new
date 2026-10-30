@@ -16,16 +16,18 @@ export function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isShaking, setIsShaking] = useState(false);
     const [pending, setPending] = useState(false);
     const [turnstileToken, setTurnstileToken] = useState('');
-    // Токен Turnstile одноразовый — бэкенд списывает его при каждой
-    // попытке входа, даже неудачной (см. stats-backend/server.js). Смена
-    // key пересоздаёт виджет и даёт свежий токен вместо попытки
-    // переиспользовать уже потраченный.
     const [turnstileKey, setTurnstileKey] = useState(0);
     const [rememberMe, setRememberMe] = useState(true);
     const [requires2fa, setRequires2fa] = useState(false);
     const [totpCode, setTotpCode] = useState('');
+
+    function triggerShake() {
+        setIsShaking(true);
+        setTimeout(() => setIsShaking(false), 500);
+    }
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
@@ -56,11 +58,13 @@ export function LoginPage() {
             }
             if (err instanceof ApiError && err.code === 'banned') {
                 setError(err.message);
+                triggerShake();
                 return;
             }
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
             setTurnstileToken('');
             setTurnstileKey(k => k + 1);
+            triggerShake();
         } finally {
             setPending(false);
         }
@@ -68,24 +72,25 @@ export function LoginPage() {
 
     return (
         <SplitAuthLayout
-            badge="Welcome back"
-            heading={
+            sideTitle={
                 <>
                     Good to
                     <br />
                     <span className="hl">see you again.</span>
                 </>
             }
+            badge="Welcome back"
+            heading="Sign in"
             lead="Sign in to check your win rates, K/D trends, and rank progress — right where you left off."
-            cardTitle="Sign in"
-            error={error}
             footer={
                 <>
                     Don&apos;t have an account? <Link to="/register">Create one</Link>
                 </>
             }
         >
-            <form className={styles.form} onSubmit={onSubmit}>
+            <form className={isShaking ? `${styles.form} ${styles.shake}` : styles.form} onSubmit={onSubmit}>
+                {error && <div className={styles.error}>{error}</div>}
+
                 <TextField
                     id="email"
                     label="Email"
@@ -94,6 +99,19 @@ export function LoginPage() {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
+                    icon={
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                            <polyline points="22,6 12,13 2,6"></polyline>
+                        </svg>
+                    }
                 />
                 <TextField
                     id="password"
@@ -103,7 +121,21 @@ export function LoginPage() {
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
+                    icon={
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    }
                 />
+
                 <div className={styles.row}>
                     <Checkbox
                         id="remember-me"
@@ -115,12 +147,14 @@ export function LoginPage() {
                         Forgot password?
                     </Link>
                 </div>
+
                 <Turnstile
                     key={turnstileKey}
                     siteKey={TURNSTILE_SITE_KEY}
                     onVerify={setTurnstileToken}
                     onExpire={() => setTurnstileToken('')}
                 />
+
                 {requires2fa ? (
                     <>
                         <TextField
@@ -138,16 +172,14 @@ export function LoginPage() {
                         </Button>
                     </>
                 ) : (
-                    <>
-                        <Button
-                            type="submit"
-                            variant="flat"
-                            fullWidth
-                            disabled={pending || (requires2fa ? totpCode.length < 6 : !turnstileToken)}
-                        >
-                            {pending ? 'Signing in…' : 'Sign in'}
-                        </Button>
-                    </>
+                    <Button
+                        type="submit"
+                        variant="flat"
+                        fullWidth
+                        disabled={pending || (requires2fa ? totpCode.length < 6 : !turnstileToken)}
+                    >
+                        {pending ? 'Signing in…' : 'Sign in'}
+                    </Button>
                 )}
             </form>
         </SplitAuthLayout>

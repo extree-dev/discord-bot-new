@@ -1,61 +1,73 @@
-/* Чипы (pills) вместо вертикального списка с точками — загораются
-   зелёным по мере набора пароля, а не остаются статично-серыми. */
 .list {
-    margin: -2px 0 0;
-    padding: 0;
-    list-style: none;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
-.list li {
-    display: flex;
+/* Базовый чипс (не выполнено) */
+.chip {
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 9px 4px 6px;
-    border-radius: var(--radius-pill);
+    gap: 8px;
+    padding: 6px 12px 6px 8px;
+    border-radius: var(--radius-lg);
     font-size: 11.5px;
     font-weight: 600;
-    border: 1px solid var(--border-strong);
-    transition:
-        color 0.15s ease,
-        border-color 0.15s ease,
-        background 0.15s ease;
+
+    /* Эффект "мутного стекла" для неактивного состояния */
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-bg);
+    color: var(--text-faint);
+
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Плавная пружина */
 }
 
-.icon {
+/* Иконка в кружочке */
+.iconWrap {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    flex-shrink: 0;
+    background: var(--glass-bg);
+    color: var(--text-faint);
+    transition: all 0.4s ease;
 
     svg {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
+        stroke-width: 3;
+        transition: transform 0.3s ease;
     }
 }
 
-.unmet {
-    color: var(--text-faint);
-    background: var(--surface-2);
-}
-
-.unmet .icon {
-    color: var(--text-faint);
-    background: var(--border);
-}
-
+/* === СОСТОЯНИЕ ВЫПОЛНЕНО === */
 .met {
+    /* Стеклянный фон с зеленым оттенком */
+    background: rgba(52, 211, 153, 0.08);
+    border-color: rgba(52, 211, 153, 0.3);
     color: var(--win);
-    border-color: rgba(52, 211, 153, 0.35);
-    background: rgba(52, 211, 163, 0.1);
+
+    /* Мягкое свечение вокруг чипса */
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.1);
+
+    .iconWrap {
+        background: var(--win);
+        color: var(--on-win); /* Темная галочка для контраста */
+        transform: scale(1.1); /* Легкое увеличение иконки */
+    }
 }
 
-.met .icon {
-    color: #06130e;
-    background: var(--win);
+/* Анимация при наведении на чипс */
+.chip:hover {
+    background: var(--glass-bg);
+}
+
+.met:hover {
+    background: rgba(52, 211, 153, 0.12);
+    box-shadow: 0 0 16px rgba(52, 211, 153, 0.15);
 }

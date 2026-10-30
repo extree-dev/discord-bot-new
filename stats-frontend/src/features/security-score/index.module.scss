@@ -134,7 +134,7 @@
     justify-content: center;
     margin-top: 1px;
     color: var(--accent);
-    background: rgba(255, 77, 94, 0.12);
+    background: rgba(var(--accent-rgb), 0.12);
 
     svg {
         width: 13px;
@@ -169,7 +169,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--accent-soft);
-    background: rgba(255, 77, 94, 0.1);
+    background: rgba(var(--accent-rgb), 0.1);
     padding: 4px 9px;
     border-radius: var(--radius-pill);
 }

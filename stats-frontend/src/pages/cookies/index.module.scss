@@ -26,13 +26,13 @@
 }
 
 .cookieName {
-    font-family: ui-monospace, monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
     color: var(--text);
     background: var(--surface-2);
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border);
 }
 

@@ -1,46 +1,82 @@
 .label {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 15px;
-    color: var(--text-dim);
     cursor: pointer;
     user-select: none;
 }
 
-.input {
-    appearance: none;
-    width: 22px;
-    height: 22px;
-    flex-shrink: 0;
-    border: 1.5px solid rgba(255, 255, 255, 0.25);
-    border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
+.checkboxWrap {
     position: relative;
-    transition:
-        background 0.15s ease,
-        border-color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
 
-    &:checked {
-        background: var(--accent);
-        border-color: var(--accent);
-    }
+/* Скрываем стандартный чекбокс */
+.input {
+    position: absolute;
+    opacity: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    cursor: pointer;
+    z-index: 2;
+}
 
-    &:checked::after {
-        content: '';
-        position: absolute;
-        left: 7px;
-        top: 3px;
-        width: 5px;
-        height: 10px;
-        border: solid #ffffff;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-    }
+/* Кастомный квадрат */
+.checkmark {
+    position: absolute;
+    inset: 0;
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: var(--radius-sm) !important;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Пружинистый переход */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    &:focus,
-    &:focus-visible {
-        outline: none;
+    svg {
+        width: 12px;
+        height: 12px;
+        color: var(--bg-base) !important;
+        opacity: 0;
+        transform: scale(0.5) rotate(-45deg); /* Немного повернут при скрытии */
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+}
+
+/* При наведении */
+.input:hover + .checkmark {
+    border-color: rgba(var(--white-rgb), 0.4) !important;
+}
+
+/* Когда выбран */
+.input:checked + .checkmark {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+
+    svg {
+        opacity: 1;
+        transform: scale(1) rotate(0deg); /* Возвращаем в нормальное положение */
+    }
+}
+
+/* Эффект нажатия (сжатие) */
+.input:active + .checkmark {
+    transform: scale(0.9);
+}
+
+/* Фокус */
+.input:focus-visible + .checkmark {
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3) !important;
+}
+
+.text {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
 }

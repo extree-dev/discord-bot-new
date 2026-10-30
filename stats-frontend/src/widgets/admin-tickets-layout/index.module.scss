@@ -13,7 +13,7 @@
     min-height: 0;
     background: rgba(var(--bg-rgb), 0.6);
     backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid var(--glass-bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -32,7 +32,7 @@
     height: 100%;
     padding: 40px 20px;
     text-align: center;
-    color: #71717a;
+    color: var(--text-faint);
     font-size: 14px;
 }
 @media (max-width: 860px) {
@@ -42,6 +42,6 @@
     }
     .list {
         border-right: none;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--glass-bg);
     }
 }

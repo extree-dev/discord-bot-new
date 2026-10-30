@@ -5,8 +5,8 @@
 .searchBox {
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(var(--black-rgb), 0.4);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     padding: 4px;
     transition:
@@ -67,7 +67,7 @@
 }
 
 .platformActive {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--border-strong);
 
     img {
         opacity: 1;
@@ -77,7 +77,7 @@
 .dividerLine {
     width: 1px;
     height: 24px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--border-strong);
     margin: 0 8px;
 }
 

@@ -7,7 +7,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     transition: opacity 0.2s ease;
 }
 
@@ -19,14 +19,14 @@
     position: absolute;
     top: calc(100% + 10px);
     width: 240px;
-    background: rgba(20, 20, 25, 0.85);
+    background: var(--glass-menu-bg);
     backdrop-filter: blur(24px) saturate(1.5);
     -webkit-backdrop-filter: blur(24px) saturate(1.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
     box-shadow:
-        0 20px 40px -10px rgba(0, 0, 0, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        0 20px 40px -10px rgba(var(--black-rgb), 0.8),
+        inset 0 1px 0 var(--glass-bg);
     z-index: 100;
     display: flex;
     flex-direction: column;
@@ -66,11 +66,11 @@
     font-family: inherit;
     font-size: 13.5px;
     font-weight: 600;
-    color: #a1a1aa;
+    color: var(--text-dim);
     text-decoration: none;
     background: transparent;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     text-align: left;
     transition: all 0.15s ease;
@@ -80,14 +80,14 @@
 .menu > button svg {
     width: 16px;
     height: 16px;
-    color: #71717a;
+    color: var(--text-faint);
     transition: color 0.15s ease;
 }
 
 .menu > a:hover,
 .menu > button:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #fff;
+    background: var(--glass-bg);
+    color: var(--text);
 }
 
 .menu > a:hover svg,
@@ -96,8 +96,8 @@
 }
 
 .menu > a.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
+    background: var(--glass-bg);
+    color: var(--text);
 }
 
 .menu > a.active svg {
@@ -107,7 +107,7 @@
 .menu > .divider,
 .menu > hr {
     height: 1px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--glass-bg);
     margin: 4px 8px;
     border: none;
 }

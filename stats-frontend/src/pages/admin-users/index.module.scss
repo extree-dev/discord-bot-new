@@ -1,17 +1,17 @@
 .errorBanner {
-    background: rgba(255, 69, 58, 0.1);
-    border: 1px solid rgba(255, 69, 58, 0.2);
-    color: #ff453a;
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.2);
+    color: var(--accent);
     padding: 16px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     margin-bottom: 24px;
     font-size: 14px;
 }
 .tableWrapper {
     overflow-x: auto;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(20, 20, 25, 0.4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-bg);
+    background: var(--glass-bg-strong);
     backdrop-filter: blur(16px);
 }
 .table {
@@ -24,13 +24,13 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #71717a;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.02);
+        color: var(--text-faint);
+        border-bottom: 1px solid var(--glass-bg);
+        background: var(--glass-bg);
     }
     td {
         padding: 16px 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border-bottom: 1px solid var(--glass-bg);
         vertical-align: middle;
         transition: background 0.15s ease;
     }
@@ -38,7 +38,7 @@
         border-bottom: none;
     }
     tr:hover td {
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--glass-bg);
     }
 }
 .userCell {
@@ -49,21 +49,21 @@
 .userName {
     font-weight: 500;
     font-size: 14px;
-    color: #fff;
+    color: var(--text);
     display: flex;
     align-items: center;
     gap: 8px;
 }
 .userEmail {
     font-size: 13px;
-    color: #71717a;
+    color: var(--text-faint);
     margin-top: 2px;
 }
 .blueTick {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #3b82f6;
+    color: var(--info);
     background: rgba(59, 130, 246, 0.15);
     border-radius: 50%;
     padding: 2px;
@@ -73,7 +73,7 @@
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 600;
     text-transform: capitalize;
@@ -85,16 +85,16 @@
 }
 .statusActive {
     background: rgba(52, 211, 153, 0.1);
-    color: #34d399;
+    color: var(--win);
     .dot {
-        background: #34d399;
+        background: var(--win);
     }
 }
 .statusBanned {
-    background: rgba(255, 69, 58, 0.1);
-    color: #ff453a;
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
     .dot {
-        background: #ff453a;
+        background: var(--accent);
     }
 }
 .adminBadge {
@@ -103,11 +103,11 @@
     gap: 6px;
     font-size: 13px;
     font-weight: 600;
-    color: #fbbf24;
+    color: var(--warning);
 }
 .roleUser {
     font-size: 13px;
-    color: #a1a1aa;
+    color: var(--text-dim);
     font-weight: 500;
 }
 .actions {
@@ -117,7 +117,7 @@
 }
 .bannedRow {
     opacity: 0.6;
-    background: rgba(255, 69, 58, 0.02) !important;
+    background: rgba(var(--accent-rgb), 0.02) !important;
 }
 
 /* МОБИЛЬНЫЙ ФИКС: Превращаем таблицу в карточки */
@@ -142,9 +142,9 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            background: rgba(20, 20, 25, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
+            background: var(--glass-bg-strong);
+            border: 1px solid var(--glass-bg);
+            border-radius: var(--radius-lg);
             padding: 16px;
             position: relative;
         }
@@ -168,7 +168,7 @@
         /* Кнопки (Действия) выравниваем в ряд */
         td:last-child {
             justify-content: flex-start;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid var(--glass-bg);
             padding-top: 12px;
             margin-top: 4px;
         }

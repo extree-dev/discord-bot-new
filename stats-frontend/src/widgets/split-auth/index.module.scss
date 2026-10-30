@@ -1,128 +1,217 @@
-@use '../../shared/styles/variables' as v;
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 48px;
+}
 
+.mark {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
+}
 .page {
-    position: relative;
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
-}
-
-.main {
-    flex: 1;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 24px;
-}
-
-.sheet {
-    width: 100%;
-    max-width: 380px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
-
-.badge {
-    display: none;
-}
-
-.heading {
-    font-size: clamp(28px, 4vw, 34px);
-    line-height: 1.1;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    margin: 0 0 8px;
+    background: var(--bg-base);
     color: var(--text);
 }
 
-.heading :global(.hl) {
+/* --- Левая панель --- */
+.sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    padding: 80px 40px 40px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+
+    @media (max-width: 1024px) {
+        display: none;
+    }
+}
+
+.sidebarTitle {
+    margin: 0 0 24px;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+/* Стиль для выделенного слова (передается через ReactNode) */
+.sidebarTitle :global(.hl) {
+    color: var(--text);
+    background: var(--accent);
+    padding: 0 6px;
+    display: inline-block;
+    transform: skewX(-5deg);
+}
+
+.pageSpecific {
+    margin-top: 32px;
+    margin-bottom: auto;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+}
+
+.pageBadge {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--accent);
 }
 
-.lead {
-    font-size: 15px;
+.pageLead {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
     color: var(--text-dim);
-    line-height: 1.5;
-    max-width: 320px;
-    margin: 0 0 32px;
+    max-width: 280px;
 }
 
-.leftExtra {
-    width: 100%;
-    text-align: left;
-    margin-bottom: 24px;
+.sidebarBottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-top: 32px;
 }
 
-.card {
-    width: 100%;
-    background: transparent;
-    border: none;
-    padding: 0;
-    text-align: left;
-}
+.socials {
+    display: flex;
+    gap: 10px;
 
-.cardTitle {
-    display: none;
-}
+    a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-dim);
+        transition: all 0.2s ease;
 
-@keyframes split-auth-error-in {
-    from {
-        opacity: 0;
-        transform: translateY(-6px);
+        svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        &:hover {
+            background: var(--surface-2);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+}
+
+.footerLinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+
+    a {
+        font-size: 13px;
+        color: var(--text-faint);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: var(--border-strong);
+        transition:
+            color 0.2s,
+            text-decoration-color 0.2s;
+
+        &:hover {
+            color: var(--text);
+            text-decoration-color: var(--text);
+        }
     }
 }
 
-.error {
-    margin: 0 0 20px;
-    padding: 12px 20px;
-    border-radius: 999px;
-    background: rgba(var(--accent-rgb), 0.12);
-    border: 1px solid rgba(var(--accent-rgb), 0.28);
-    color: var(--accent-soft);
-    font-size: 13px;
-    line-height: 1.5;
-    animation: split-auth-error-in 0.2s ease;
-}
-
-.footer {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 13.5px;
+.copyright {
+    font-size: 12.5px;
     color: var(--text-faint);
+    opacity: 0.8;
+}
+
+/* --- Правая панель (Форма) --- */
+.mainContent {
+    flex: 1;
+    padding: 80px 48px;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0 auto;
+
+    @media (max-width: 1024px) {
+        padding: 40px 20px;
+        max-width: 100%;
+    }
+}
+
+.formHeader {
+    margin-bottom: 32px;
+}
+
+.formTitle {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+}
+
+.formFooter {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
     text-align: center;
+    font-size: 14px;
+    color: var(--text-faint);
 
     a {
         color: var(--text);
+        font-weight: 600;
         text-decoration: underline;
-        text-underline-offset: 2px;
+    }
+}
+/* Анимация тряски при ошибке */
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-4px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(4px);
     }
 }
 
-@media (max-width: v.$breakpoint-tablet) {
-    .main {
-        padding: 24px 20px;
-    }
-}
-
-// ==========================================
-// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
-// ==========================================
-@media (max-width: 768px) {
-    .main {
-        padding: 16px !important;
-    }
-    .page,
-    .main {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-        overflow-x: hidden !important;
-    }
+.shake {
+    animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }

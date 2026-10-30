@@ -1,0 +1,16 @@
+@use 'sass:math';
+
+/// Прозрачность для hex-цветов на этапе компиляции
+@function alpha($color, $opacity) {
+    @return rgba($color, $opacity);
+}
+
+/// Прозрачность для CSS-переменных: rgb-var(accent, 0.2) -> rgba(var(--accent-rgb), 0.2)
+@function rgb-var($var-name, $alpha) {
+    @return rgba(var(--#{$var-name}-rgb), $alpha);
+}
+
+/// rem из px (база 16px)
+@function rem($px) {
+    @return math.div($px, 16) * 1rem;
+}

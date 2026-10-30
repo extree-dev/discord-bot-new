@@ -84,7 +84,7 @@
     position: relative;
     display: block;
     height: 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--border);
     overflow: hidden;
 }
@@ -102,7 +102,7 @@
     padding: 0;
     cursor: default;
     background: var(--accent);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     transition-property: width;
     transition-timing-function: ease-out;
 
@@ -161,7 +161,7 @@
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--border-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 5px 12px 5px 8px;
 
     svg {
@@ -173,7 +173,7 @@
 
 .rankTrack {
     height: 8px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--border);
     overflow: hidden;
 }
@@ -181,7 +181,7 @@
 .rankFill {
     height: 100%;
     background: var(--accent);
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     transition-property: width;
     transition-timing-function: ease-out;
 }

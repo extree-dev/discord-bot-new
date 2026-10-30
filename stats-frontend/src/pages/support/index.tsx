@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { SplitAuthLayout } from '../../widgets/split-auth';
 import { TextField } from '../../shared/ui/TextField';
 import { TextArea } from '../../shared/ui/TextArea';
 import { Select } from '../../shared/ui/Select';
 import { Button } from '../../shared/ui/Button';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { submitSupportTicket, getAccount, ApiError } from '../../shared/api/statsAuth';
 import styles from './index.module.scss';
 
@@ -14,49 +15,6 @@ const CATEGORIES = [
     { value: 'billing', label: 'Billing' },
     { value: 'other', label: 'Other' },
 ];
-
-const FAQ = [
-    {
-        q: 'How do I reset my password?',
-        a: (
-            <>
-                Use the{' '}
-                <Link to="/forgot-password" target="_blank" rel="noreferrer">
-                    forgot password
-                </Link>{' '}
-                link on the sign-in page — we&apos;ll email you a link to set a new one. No need to open a ticket.
-            </>
-        ),
-    },
-    {
-        q: 'How do I delete my account?',
-        a: 'Send us a message below with the "Account & login" category — we don\'t have self-serve deletion yet, so we remove your account and data by hand on request.',
-    },
-    {
-        q: 'Why was I asked for a code when signing in?',
-        a: "We ask for a one-time code the first time you sign in from a country we haven't seen on your account before — it's a safeguard against someone else using your password.",
-    },
-];
-
-function FaqItem({ q, a }: { q: string; a: ReactNode }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <div className={styles.faqItem}>
-            <button type="button" className={styles.faqQuestion} aria-expanded={open} onClick={() => setOpen(o => !o)}>
-                {q}
-                <span
-                    className={open ? `${styles.faqIcon} ${styles.faqIconOpen}` : styles.faqIcon}
-                    aria-hidden="true"
-                />
-            </button>
-            <div className={open ? `${styles.faqAnswer} ${styles.faqAnswerOpen}` : styles.faqAnswer}>
-                <div className={styles.faqAnswerInner}>
-                    <p>{a}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 export function SupportPage() {
     const [accountEmail, setAccountEmail] = useState<string | null>(null);
@@ -97,25 +55,16 @@ export function SupportPage() {
 
     return (
         <SplitAuthLayout
-            badge="We're here to help"
-            heading={
+            sideTitle={
                 <>
-                    Get in
+                    We're here
                     <br />
-                    <span className="hl">touch.</span>
+                    <span className="hl">to help.</span>
                 </>
             }
+            badge="Support"
+            heading="Contact support"
             lead="Found a bug, have a question about your account, or something not working right? Send us a message — we read every one."
-            leftExtra={
-                <div className={styles.faq}>
-                    <h2 className={styles.faqTitle}>Common questions</h2>
-                    {FAQ.map(item => (
-                        <FaqItem key={item.q} q={item.q} a={item.a} />
-                    ))}
-                </div>
-            }
-            cardTitle="Contact support"
-            error={error}
             footer={
                 <>
                     Looking for something else? <Link to="/">Back to Extree Stats</Link>
@@ -134,11 +83,12 @@ export function SupportPage() {
                 </div>
             ) : (
                 <form className={styles.form} onSubmit={onSubmit}>
-                    <p className={styles.responseTime}>We usually reply within 24 hours.</p>
+                    {error && <ErrorBanner>{error}</ErrorBanner>}
+
                     {!checkingAccount && accountEmail && (
-                        <p className={styles.accountEmail}>
+                        <div className={styles.accountEmail}>
                             We&apos;ll use your account email: <strong>{accountEmail}</strong>
-                        </p>
+                        </div>
                     )}
                     {!checkingAccount && !accountEmail && (
                         <TextField

@@ -4,16 +4,13 @@ import { SplitAuthLayout } from '../../widgets/split-auth';
 import { PasswordField } from '../../shared/ui/PasswordField';
 import { TextField } from '../../shared/ui/TextField';
 import { Button } from '../../shared/ui/Button';
+import { ErrorBanner } from '../../shared/ui/ErrorBanner';
 import { PasswordRequirements } from '../../shared/ui/PasswordRequirements';
 import { isPasswordValid } from '../../shared/lib/passwordRules';
 import { resetPassword, ApiError } from '../../shared/api/statsAuth';
 import { useAuth } from '../../shared/auth/useAuth';
 import styles from './index.module.scss';
 
-// "Generate" (заполняет поле случайным сильным паролем) и переключатель
-// видимости — именно здесь, в окне сброса пароля, как и просили: здесь
-// человек впервые видит новый пароль и должен быть уверен, что ввёл то,
-// что собирался, прежде чем он окажется только в менеджере паролей.
 export function ResetPasswordPage() {
     const navigate = useNavigate();
     const { refresh } = useAuth();
@@ -37,8 +34,6 @@ export function ResetPasswordPage() {
             navigate('/account');
         } catch (err) {
             if (err instanceof ApiError && err.code === 'reset_totp_required') {
-                // Пароль и токен валидны, но на аккаунте включена 2FA — тот
-                // же запрос нужно повторить с кодом, не начиная заново.
                 setNeedsTotp(true);
                 setError(null);
                 return;
@@ -61,17 +56,16 @@ export function ResetPasswordPage() {
 
     return (
         <SplitAuthLayout
-            badge="Almost there"
-            heading={
+            sideTitle={
                 <>
                     Set a new
                     <br />
                     <span className="hl">password.</span>
                 </>
             }
+            badge="Almost there"
+            heading="New password"
             lead="Choose a new password for your account. You'll be signed in right after."
-            cardTitle="New password"
-            error={error}
             footer={
                 <>
                     Link not working? <Link to="/forgot-password">Request a new one</Link>
@@ -98,12 +92,14 @@ export function ResetPasswordPage() {
                         value={totpCode}
                         onChange={e => setTotpCode(e.target.value)}
                     />
+                    {error && <ErrorBanner>{error}</ErrorBanner>}
                     <Button type="submit" variant="flat" fullWidth disabled={pending || totpCode.trim().length < 6}>
                         {pending ? 'Verifying…' : 'Verify & set new password'}
                     </Button>
                 </form>
             ) : (
                 <form className={styles.form} onSubmit={onSubmit}>
+                    {error && <ErrorBanner>{error}</ErrorBanner>}
                     <div className={styles.passwordField}>
                         <PasswordField
                             id="password"
