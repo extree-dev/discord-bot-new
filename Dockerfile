@@ -28,12 +28,16 @@ COPY . .
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Бот пишет только в PostgreSQL, но security/backup.js всё ещё сохраняет
-# бэкапы структуры сервера на диск (data/backups) — оставляем для этого
-# каталог с правильными правами и запускаем не от root.
+# бэкапы структуры сервера на диск (data/backups), а contact-bot/data —
+# своё состояние (JSON) — оставляем для них каталоги с правильными
+# правами и запускаем не от root. mkdir -p здесь обязателен и для
+# contact-bot/data: без него docker-compose примонтирует туда volume
+# contact-bot-data уже ПОСЛЕ chown, новая точка монтирования достанется
+# root и процесс от bot не сможет в неё писать (EACCES).
 RUN addgroup -S bot \
     && adduser -S bot -G bot \
-    && mkdir -p /app/data \
-    && chown -R bot:bot /app/data
+    && mkdir -p /app/data /app/contact-bot/data \
+    && chown -R bot:bot /app/data /app/contact-bot/data
 USER bot
 
 CMD ["node", "index.js"]

@@ -101,81 +101,103 @@ async function relayToAdmin(msg, chatId) {
     storage.recordMessage(chatId, { direction: 'in', text: describeMessage(msg), at: new Date().toISOString() });
 }
 
-bot.on('message', async msg => {
-    const chatId = String(msg.chat.id);
-    const updateKey = `msg:${chatId}:${msg.message_id}`;
-    if (!storage.markProcessed(updateKey)) return;
+// Node 20 по умолчанию завершает процесс на необработанном отклонении
+// промиса — ошибка внутри обработчика (сеть, временная недоступность
+// Telegram API, что угодно) иначе роняла бы весь бот, а рестарт заново
+// получал бы от Telegram тот же неподтверждённый апдейт — дубли в чате
+// владельца на каждом цикле падения (ровно так уже случилось один раз
+// из-за прав на volume). handle() ловит и просто логирует.
+function handle(fn) {
+    return async (...args) => {
+        try {
+            await fn(...args);
+        } catch (err) {
+            console.error('contact-bot: ошибка в обработчике:', err);
+        }
+    };
+}
 
-    if (chatId === adminChatId) {
-        const repliedId = msg.reply_to_message?.message_id;
-        const targetChatId = repliedId && storage.getReplyTarget(repliedId);
+bot.on(
+    'message',
+    handle(async msg => {
+        const chatId = String(msg.chat.id);
+        const updateKey = `msg:${chatId}:${msg.message_id}`;
+        if (!storage.markProcessed(updateKey)) return;
 
-        if (msg.text?.startsWith('/unblock')) {
-            const id = msg.text.split(/\s+/)[1];
-            if (id) {
-                storage.unblock(id);
-                await bot.sendMessage(adminChatId, `Разблокирован: ${id}`);
-            } else {
-                await bot.sendMessage(adminChatId, 'Укажи id: /unblock <chat_id>');
+        if (chatId === adminChatId) {
+            const repliedId = msg.reply_to_message?.message_id;
+            const targetChatId = repliedId && storage.getReplyTarget(repliedId);
+
+            if (msg.text?.startsWith('/unblock')) {
+                const id = msg.text.split(/\s+/)[1];
+                if (id) {
+                    storage.unblock(id);
+                    await bot.sendMessage(adminChatId, `Разблокирован: ${id}`);
+                } else {
+                    await bot.sendMessage(adminChatId, 'Укажи id: /unblock <chat_id>');
+                }
+                return;
+            }
+
+            if (targetChatId && msg.text) {
+                await bot
+                    .sendMessage(targetChatId, msg.text)
+                    .then(() => {
+                        storage.recordMessage(targetChatId, {
+                            direction: 'out',
+                            text: msg.text,
+                            at: new Date().toISOString(),
+                        });
+                    })
+                    .catch(err => {
+                        bot.sendMessage(adminChatId, `Не удалось доставить ответ (${targetChatId}): ${err.message}`);
+                    });
             }
             return;
         }
 
-        if (targetChatId && msg.text) {
-            await bot
-                .sendMessage(targetChatId, msg.text)
-                .then(() => {
-                    storage.recordMessage(targetChatId, {
-                        direction: 'out',
-                        text: msg.text,
-                        at: new Date().toISOString(),
-                    });
-                })
-                .catch(err => {
-                    bot.sendMessage(adminChatId, `Не удалось доставить ответ (${targetChatId}): ${err.message}`);
-                });
+        if (storage.isBlocked(chatId)) return;
+
+        if (msg.text === '/start' || msg.text === '/help') {
+            await bot.sendMessage(chatId, helpText);
+            return;
         }
-        return;
-    }
 
-    if (storage.isBlocked(chatId)) return;
+        if (isRateLimited(chatId)) return;
 
-    if (msg.text === '/start' || msg.text === '/help') {
-        await bot.sendMessage(chatId, helpText);
-        return;
-    }
+        await relayToAdmin(msg, chatId);
+        await bot.sendMessage(chatId, autoReply);
+    })
+);
 
-    if (isRateLimited(chatId)) return;
+bot.on(
+    'callback_query',
+    handle(async query => {
+        const updateKey = `cb:${query.id}`;
+        if (!storage.markProcessed(updateKey)) return;
 
-    await relayToAdmin(msg, chatId);
-    await bot.sendMessage(chatId, autoReply);
-});
-
-bot.on('callback_query', async query => {
-    const updateKey = `cb:${query.id}`;
-    if (!storage.markProcessed(updateKey)) return;
-
-    const [action, chatId] = (query.data || '').split(':');
-    if (action === 'block') {
-        storage.block(chatId);
-        await bot.answerCallbackQuery(query.id, { text: `Заблокирован: ${chatId}` });
-        await bot.editMessageReplyMarkup(
-            { inline_keyboard: [[{ text: '🚫 Заблокирован', callback_data: 'noop' }]] },
-            { chat_id: adminChatId, message_id: query.message.message_id }
-        );
-        return;
-    }
-    if (action === 'done') {
-        storage.setResolved(chatId, true);
-        await bot.answerCallbackQuery(query.id, { text: 'Отмечено решённым' });
-        await bot.editMessageReplyMarkup(
-            { inline_keyboard: [[{ text: '✅ Решено', callback_data: 'noop' }]] },
-            { chat_id: adminChatId, message_id: query.message.message_id }
-        );
-        return;
-    }
-    await bot.answerCallbackQuery(query.id);
-});
+        const [action, chatId] = (query.data || '').split(':');
+        if (action === 'block') {
+            storage.block(chatId);
+            await bot.answerCallbackQuery(query.id, { text: `Заблокирован: ${chatId}` });
+            await bot.editMessageReplyMarkup(
+                { inline_keyboard: [[{ text: '🚫 Заблокирован', callback_data: 'noop' }]] },
+                { chat_id: adminChatId, message_id: query.message.message_id }
+            );
+            return;
+        }
+        if (action === 'done') {
+            storage.setResolved(chatId, true);
+            await bot.answerCallbackQuery(query.id, { text: 'Отмечено решённым' });
+            await bot.editMessageReplyMarkup(
+                { inline_keyboard: [[{ text: '✅ Решено', callback_data: 'noop' }]] },
+                { chat_id: adminChatId, message_id: query.message.message_id }
+            );
+            return;
+        }
+        await bot.answerCallbackQuery(query.id);
+    })
+);
 
 bot.on('polling_error', err => console.error('contact-bot polling error:', err.message));
 
