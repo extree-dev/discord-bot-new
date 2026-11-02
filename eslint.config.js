@@ -24,7 +24,10 @@ module.exports = [
         // globals) — этот (CommonJS, Node-globals) им не подходит и не
         // должен их трогать; линтятся отдельно (npm run lint внутри
         // каждого, свой шаг в CI).
-        ignores: ['node_modules/**', 'data/**', 'frontend/**', 'stats-frontend/**'],
+        // contact-bot/public/ — статика Mini App (браузер, без сборки),
+        // не Node-процесс: свои globals (window/document), отдельный
+        // линт для неё не заводим, просто не парсим с Node-globals.
+        ignores: ['node_modules/**', 'data/**', 'frontend/**', 'stats-frontend/**', 'contact-bot/public/**'],
     },
     // Отключает стилистические правила ESLint, которые пересекаются с
     // Prettier и мешали бы форматированию (порядок важен — должен идти последним).

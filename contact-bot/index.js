@@ -3,14 +3,15 @@
 // уже используется для Telegram Login Widget в dashboard/server.js —
 // одно не мешает другому: виджет только проверяет подпись токеном,
 // апдейты не читает) и пересылает в личку владельцу (TELEGRAM_ADMIN_CHAT_ID)
-// одним сообщением от имени бота (без нативного Telegram-форварда — тот
-// подписывает "Переслано от ..." и ссылается на профиль отправителя).
-// Ответ владельца реплаем на это сообщение уходит обратно отправителю.
-// Long polling, не вебхук — не требует домена/Caddy, сайт этот бот
-// никак не трогает.
+// одним сообщением-карточкой от имени бота (без нативного Telegram-
+// форварда — тот подписывает "Переслано от ..." и ссылается на профиль
+// отправителя) с кнопками "Заблокировать"/"Решено". Ответ владельца
+// реплаем на карточку уходит обратно отправителю. Та же история диалогов
+// доступна через Mini App (webapp-server.js, bot.extree.tech/contact-admin/).
+// Long polling, не вебхук — домен/Caddy нужны только самому Mini App.
 const TelegramBot = require('node-telegram-bot-api');
-const fs = require('fs');
-const path = require('path');
+const storage = require('./storage');
+const { createWebAppServer, setAdminMenuButton } = require('./webapp-server');
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const adminChatId = String(process.env.TELEGRAM_ADMIN_CHAT_ID || '');
@@ -26,41 +27,6 @@ const helpText =
 
 const RATE_LIMIT_COUNT = 8;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-// Долго удерживающийся long polling после рестарта контейнера может
-// получить от Telegram уже обработанный апдейт повторно (если процесс
-// упал до следующего getUpdates, подтверждающего offset) — отсюда
-// дубли автоответа/пересылки. PROCESSED_IDS_LIMIT ограничивает журнал,
-// чтобы файл не рос бесконечно.
-const PROCESSED_IDS_LIMIT = 500;
-
-const STATE_FILE = path.join(__dirname, 'data', 'state.json');
-let state = { replyMap: {}, processedIds: [], blocked: [] };
-try {
-    state = { ...state, ...JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) };
-} catch (_err) {
-    // первый запуск — файла ещё нет, остаёмся с дефолтом
-}
-const processedIds = new Set(state.processedIds);
-const blocked = new Set(state.blocked);
-
-function saveState() {
-    fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
-    fs.writeFileSync(
-        STATE_FILE,
-        JSON.stringify({
-            replyMap: state.replyMap,
-            processedIds: [...processedIds].slice(-PROCESSED_IDS_LIMIT),
-            blocked: [...blocked],
-        })
-    );
-}
-
-function markProcessed(updateKey) {
-    if (processedIds.has(updateKey)) return false;
-    processedIds.add(updateKey);
-    return true;
-}
-
 const rateLimitHits = new Map();
 function isRateLimited(chatId) {
     const now = Date.now();
@@ -72,78 +38,179 @@ function isRateLimited(chatId) {
 
 const bot = new TelegramBot(token, { polling: true });
 
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function senderLabel(from) {
     const name = [from.first_name, from.last_name].filter(Boolean).join(' ');
     const username = from.username ? `@${from.username}` : 'без username';
     return `${name} (${username}, id ${from.id})`;
 }
 
-async function relayToAdmin(msg, chatId) {
-    const label = `👤 ${senderLabel(msg.from)}`;
-    let sent;
-    if (msg.text) {
-        sent = await bot.sendMessage(adminChatId, `${label}:\n\n${msg.text}`);
-    } else {
-        try {
-            sent = await bot.copyMessage(adminChatId, chatId, msg.message_id, { caption: label });
-        } catch (_err) {
-            // Не у всех типов сообщений (стикеры и т.п.) есть caption —
-            // копируем как есть и подпись шлём отдельной строкой.
-            sent = await bot.copyMessage(adminChatId, chatId, msg.message_id);
-            await bot.sendMessage(adminChatId, label, { reply_to_message_id: sent.message_id });
-        }
-    }
-    state.replyMap[sent.message_id] = chatId;
-    saveState();
+// Текстовое описание для истории Mini App — медиа мы не скачиваем и не
+// храним, только короткую пометку, что именно прислали.
+function describeMessage(msg) {
+    if (msg.text) return msg.text;
+    if (msg.photo) return `[фото]${msg.caption ? ' ' + msg.caption : ''}`;
+    if (msg.video) return `[видео]${msg.caption ? ' ' + msg.caption : ''}`;
+    if (msg.document) return `[файл: ${msg.document.file_name || '?'}]`;
+    if (msg.voice) return '[голосовое]';
+    if (msg.sticker) return `[стикер ${msg.sticker.emoji || ''}]`;
+    return '[сообщение]';
 }
 
-bot.on('message', async msg => {
-    const chatId = String(msg.chat.id);
-    const updateKey = `${chatId}:${msg.message_id}`;
-    if (!markProcessed(updateKey)) return;
+function cardKeyboard(chatId, originalMessageId) {
+    return {
+        inline_keyboard: [
+            [
+                { text: '🚫 Заблокировать', callback_data: `block:${chatId}` },
+                { text: '✅ Решено', callback_data: `done:${chatId}:${originalMessageId}` },
+            ],
+        ],
+    };
+}
 
-    if (chatId === adminChatId) {
-        const repliedId = msg.reply_to_message?.message_id;
-        const targetChatId = repliedId && state.replyMap[repliedId];
-
-        if (msg.text === '/block' && targetChatId) {
-            blocked.add(targetChatId);
-            saveState();
-            await bot.sendMessage(adminChatId, `Заблокирован: ${targetChatId}`);
-            return;
+async function relayToAdmin(msg, chatId) {
+    const label = `<b>${escapeHtml(senderLabel(msg.from))}</b>`;
+    const keyboard = cardKeyboard(chatId, msg.message_id);
+    let sent;
+    if (msg.text) {
+        sent = await bot.sendMessage(adminChatId, `${label}:\n\n${escapeHtml(msg.text)}`, {
+            parse_mode: 'HTML',
+            reply_markup: keyboard,
+        });
+    } else {
+        try {
+            sent = await bot.copyMessage(adminChatId, chatId, msg.message_id, {
+                caption: label,
+                parse_mode: 'HTML',
+                reply_markup: keyboard,
+            });
+        } catch (_err) {
+            // Не у всех типов сообщений (стикеры и т.п.) есть caption.
+            sent = await bot.copyMessage(adminChatId, chatId, msg.message_id, { reply_markup: keyboard });
+            await bot.sendMessage(adminChatId, label, { parse_mode: 'HTML', reply_to_message_id: sent.message_id });
         }
-        if (msg.text?.startsWith('/unblock')) {
-            const id = msg.text.split(/\s+/)[1];
-            if (id && blocked.delete(id)) {
-                saveState();
-                await bot.sendMessage(adminChatId, `Разблокирован: ${id}`);
-            } else {
-                await bot.sendMessage(adminChatId, 'Укажи id: /unblock <chat_id>');
+    }
+    storage.setReplyTarget(sent.message_id, chatId);
+    storage.setSenderInfo(chatId, {
+        name: [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' '),
+        username: msg.from.username || '',
+    });
+    storage.recordMessage(chatId, { direction: 'in', text: describeMessage(msg), at: new Date().toISOString() });
+}
+
+// Node 20 по умолчанию завершает процесс на необработанном отклонении
+// промиса — ошибка внутри обработчика (сеть, временная недоступность
+// Telegram API, что угодно) иначе роняла бы весь бот, а рестарт заново
+// получал бы от Telegram тот же неподтверждённый апдейт — дубли в чате
+// владельца на каждом цикле падения (ровно так уже случилось один раз
+// из-за прав на volume). handle() ловит и просто логирует.
+function handle(fn) {
+    return async (...args) => {
+        try {
+            await fn(...args);
+        } catch (err) {
+            console.error('contact-bot: ошибка в обработчике:', err);
+        }
+    };
+}
+
+bot.on(
+    'message',
+    handle(async msg => {
+        const chatId = String(msg.chat.id);
+        const updateKey = `msg:${chatId}:${msg.message_id}`;
+        if (!storage.markProcessed(updateKey)) return;
+
+        if (chatId === adminChatId) {
+            const repliedId = msg.reply_to_message?.message_id;
+            const targetChatId = repliedId && storage.getReplyTarget(repliedId);
+
+            if (msg.text?.startsWith('/unblock')) {
+                const id = msg.text.split(/\s+/)[1];
+                if (id) {
+                    storage.unblock(id);
+                    await bot.sendMessage(adminChatId, `Разблокирован: ${id}`);
+                } else {
+                    await bot.sendMessage(adminChatId, 'Укажи id: /unblock <chat_id>');
+                }
+                return;
+            }
+
+            if (targetChatId && msg.text) {
+                await bot
+                    .sendMessage(targetChatId, msg.text)
+                    .then(() => {
+                        storage.recordMessage(targetChatId, {
+                            direction: 'out',
+                            text: msg.text,
+                            at: new Date().toISOString(),
+                        });
+                    })
+                    .catch(err => {
+                        bot.sendMessage(adminChatId, `Не удалось доставить ответ (${targetChatId}): ${err.message}`);
+                    });
             }
             return;
         }
 
-        if (targetChatId && msg.text) {
-            await bot.sendMessage(targetChatId, msg.text).catch(err => {
-                bot.sendMessage(adminChatId, `Не удалось доставить ответ (${targetChatId}): ${err.message}`);
-            });
+        if (storage.isBlocked(chatId)) return;
+
+        if (msg.text === '/start' || msg.text === '/help') {
+            await bot.sendMessage(chatId, helpText);
+            return;
         }
-        return;
-    }
 
-    if (blocked.has(chatId)) return;
+        if (isRateLimited(chatId)) return;
 
-    if (msg.text === '/start' || msg.text === '/help') {
-        await bot.sendMessage(chatId, helpText);
-        return;
-    }
+        await relayToAdmin(msg, chatId);
+        await bot.sendMessage(chatId, autoReply);
+    })
+);
 
-    if (isRateLimited(chatId)) return;
+bot.on(
+    'callback_query',
+    handle(async query => {
+        const updateKey = `cb:${query.id}`;
+        if (!storage.markProcessed(updateKey)) return;
 
-    await relayToAdmin(msg, chatId);
-    await bot.sendMessage(chatId, autoReply);
-});
+        const [action, chatId] = (query.data || '').split(':');
+        if (action === 'block') {
+            storage.block(chatId);
+            await bot.answerCallbackQuery(query.id, { text: `Заблокирован: ${chatId}` });
+            await bot.editMessageReplyMarkup(
+                { inline_keyboard: [[{ text: '🚫 Заблокирован', callback_data: 'noop' }]] },
+                { chat_id: adminChatId, message_id: query.message.message_id }
+            );
+            return;
+        }
+        if (action === 'done') {
+            storage.setResolved(chatId, true);
+            await bot.answerCallbackQuery(query.id, { text: 'Отмечено решённым' });
+            await bot.editMessageReplyMarkup(
+                { inline_keyboard: [[{ text: '✅ Решено', callback_data: 'noop' }]] },
+                { chat_id: adminChatId, message_id: query.message.message_id }
+            );
+            return;
+        }
+        await bot.answerCallbackQuery(query.id);
+    })
+);
 
 bot.on('polling_error', err => console.error('contact-bot polling error:', err.message));
+
+const webAppPort = Number(process.env.CONTACT_BOT_WEBAPP_PORT || 8090);
+createWebAppServer({ bot, token, adminChatId, storage, port: webAppPort });
+
+const webAppUrl = process.env.CONTACT_BOT_WEBAPP_URL;
+if (webAppUrl) {
+    setAdminMenuButton({ token, adminChatId, url: webAppUrl }).catch(err =>
+        console.error('contact-bot: не удалось настроить кнопку меню Mini App:', err.message)
+    );
+} else {
+    console.log('contact-bot: CONTACT_BOT_WEBAPP_URL не задан — кнопка меню Mini App не настраивается автоматически.');
+}
 
 console.log('contact-bot: запущен, слушаю сообщения long polling.');
