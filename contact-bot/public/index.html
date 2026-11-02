@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex, nofollow" />
+        <title>Сообщения</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div id="list-view">
+            <h1>Сообщения</h1>
+            <div id="list"></div>
+            <p id="list-empty" class="empty" hidden>Пока никто не писал.</p>
+        </div>
+
+        <div id="chat-view" hidden>
+            <div class="chat-header">
+                <button id="back-btn" type="button">← Назад</button>
+                <span id="chat-title"></span>
+                <button id="block-btn" type="button" class="danger"></button>
+            </div>
+            <div id="messages"></div>
+            <form id="reply-form">
+                <input id="reply-text" type="text" placeholder="Ответить…" autocomplete="off" />
+                <button type="submit">➤</button>
+            </form>
+        </div>
+
+        <script src="app.js"></script>
+    </body>
+</html>
