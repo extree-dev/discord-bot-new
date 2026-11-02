@@ -87,8 +87,8 @@ services:
     # и реплаи обратно отправителю. Long polling — без БД. Плюс маленький
     # Express-сервер (webapp-server.js, порт 8090) под Mini App-панель —
     # Caddy достаёт его по имени сервиса через внутреннюю docker-сеть
-    # (см. web/Caddyfile, bot.extree.tech/contact-admin/*), порт наружу
-    # не публикуется — наружу отдельно только через Caddy.
+    # (см. web/Caddyfile, contact.extree.tech), порт наружу не
+    # публикуется — наружу отдельно только через Caddy.
     contact-bot:
         build: .
         restart: unless-stopped
