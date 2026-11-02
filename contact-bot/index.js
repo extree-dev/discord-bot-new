@@ -7,7 +7,7 @@
 // форварда — тот подписывает "Переслано от ..." и ссылается на профиль
 // отправителя) с кнопками "Заблокировать"/"Решено". Ответ владельца
 // реплаем на карточку уходит обратно отправителю. Та же история диалогов
-// доступна через Mini App (webapp-server.js, bot.extree.tech/contact-admin/).
+// доступна через Mini App (webapp-server.js, contact.extree.tech).
 // Long polling, не вебхук — домен/Caddy нужны только самому Mini App.
 const TelegramBot = require('node-telegram-bot-api');
 const storage = require('./storage');

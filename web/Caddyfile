@@ -50,10 +50,6 @@ contact.extree.tech {
 }
 
 bot.extree.tech {
-    # Без слэша на конце относительные пути внутри Mini App (style.css,
-    # app.js, api/...) резолвились бы на уровень выше /contact-admin/ —
-    # редиректим на вариант со слэшем, прежде чем он попадёт в handle ниже.
-    redir /contact-admin /contact-admin/ 308
     handle /auth/* {
         reverse_proxy dashboard:3000
     }
@@ -68,15 +64,6 @@ bot.extree.tech {
     }
     handle /assets/* {
         reverse_proxy dashboard:3000
-    }
-    # Mini App-панель contact-bot (contact-bot/public/ + его API) — виден
-    # всем по URL, но API требует валидный Telegram WebApp initData,
-    # подписанный TELEGRAM_BOT_TOKEN и сверенный с TELEGRAM_ADMIN_CHAT_ID
-    # (см. contact-bot/webapp-server.js), так что без доступа к Telegram-
-    # аккаунту владельца страница ничего не отдаёт, кроме пустого списка.
-    handle /contact-admin/* {
-        uri strip_prefix /contact-admin
-        reverse_proxy contact-bot:8090
     }
     handle {
         rewrite * /maintenance.html

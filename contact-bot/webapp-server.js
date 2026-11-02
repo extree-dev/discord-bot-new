@@ -1,6 +1,6 @@
 // HTTP-часть contact-bot: отдаёт Mini App (public/) и его API. Слушает
 // только на внутренней docker-сети (см. docker-compose.yml) — наружу
-// смотрит через Caddy (web/Caddyfile, bot.extree.tech/contact-admin/*),
+// смотрит через Caddy (web/Caddyfile, contact.extree.tech),
 // порт наружу не публикуется.
 const express = require('express');
 const https = require('https');
