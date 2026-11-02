@@ -8,8 +8,22 @@ interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'typ
 export function Checkbox({ label, id, className, ...rest }: CheckboxProps) {
     return (
         <label className={`${styles.label} ${className ?? ''}`} htmlFor={id}>
-            <input id={id} type="checkbox" className={styles.input} {...rest} />
-            {label}
+            <div className={styles.checkboxWrap}>
+                <input id={id} type="checkbox" className={styles.input} {...rest} />
+                <span className={styles.checkmark}>
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </span>
+            </div>
+            <span className={styles.text}>{label}</span>
         </label>
     );
 }

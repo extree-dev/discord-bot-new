@@ -1,5 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
-import { SignInPage } from '../pages/sign-in';
+import { HomePage } from '../pages/home';
+import { GameHubPage } from '../pages/game-hub';
+import { PublicPlayerPage } from '../pages/public-player';
 import { TermsPage } from '../pages/terms';
 import { PrivacyPage } from '../pages/privacy';
 import { CookiesPage } from '../pages/cookies';
@@ -24,32 +26,27 @@ import { GuestOnlyRoute } from '../shared/auth/GuestOnlyRoute';
 import { CommandPalette } from '../widgets/command-palette';
 import { CookieConsentBanner } from '../widgets/cookie-consent';
 
-// RiotLookupPage (pages/riot-lookup) намеренно не подключена сюда — см.
-// обсуждение в PR #307: страница рабочая и готова, но пока убрана с
-// публичного сайта, чтобы не привлекать лишнего внимания Riot к продукту,
-// пока заявка на RSO/VALORANT API ещё Pending Review. Раскомментировать
-// импорт и роут ниже, когда будет смысл её снова показывать.
-
-// SRP: App — только карта роутов. Гейты — в <ProtectedRoute>/<GuestOnlyRoute>,
-// чтобы App не знал про статус авторизации.
+// Архитектура роутинга:
+//   PUBLIC  — /, /:game, /player/:game/:riotId, /terms, /privacy, /cookies,
+//             /support, /support/ticket/:token
+//   GUEST   — /register, /login  (если залогинен — редирект в /account)
+//   AUTHED  — /account, /account/settings, /account/riot-profile
+//   ADMIN   — /admin/*
+//
+// Главная (/) больше не GuestOnlyRoute — это публичная витрина трекера.
+// Залогиненный пользователь может спокойно смотреть её, как и все.
 export function App() {
     return (
         <>
             <CommandPalette />
             <CookieConsentBanner />
             <Routes>
-                {/* Public, но если уже залогинен — редирект на /account (как
-                    /login и /register ниже). Раньше "/" не проверял auth
-                    вообще, поэтому клик по лого в хедере кидал залогиненного
-                    пользователя на публичный sign-in лендинг. */}
-                <Route
-                    path="/"
-                    element={
-                        <GuestOnlyRoute>
-                            <SignInPage />
-                        </GuestOnlyRoute>
-                    }
-                />
+                {/* === ПУБЛИЧНЫЕ: витрина + игровые страницы + профили === */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/:slug" element={<GameHubPage />} />
+                <Route path="/player/:game/:riotId" element={<PublicPlayerPage />} />
+
+                {/* === ЮРИДИЧЕСКОЕ (публичное) === */}
                 <Route path="/terms" element={<TermsPage />} />
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/cookies" element={<CookiesPage />} />
@@ -60,7 +57,7 @@ export function App() {
                 <Route path="/support" element={<SupportPage />} />
                 <Route path="/support/ticket/:token" element={<TicketPage />} />
 
-                {/* Guest-only: если уже залогинен — редирект на /account */}
+                {/* === GUEST-ONLY: если залогинен — на /account === */}
                 <Route
                     path="/register"
                     element={
@@ -78,7 +75,7 @@ export function App() {
                     }
                 />
 
-                {/* Protected: только залогиненные */}
+                {/* === AUTHED === */}
                 <Route
                     path="/account"
                     element={
@@ -104,7 +101,7 @@ export function App() {
                     }
                 />
 
-                {/* Admin-only */}
+                {/* === ADMIN === */}
                 <Route
                     path="/admin/users"
                     element={

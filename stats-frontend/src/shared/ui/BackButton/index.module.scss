@@ -1,0 +1,23 @@
+.backBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-faint);
+    text-decoration: none;
+    margin-bottom: 24px;
+    transition: color 0.2s ease;
+
+    svg {
+        transition: transform 0.2s ease;
+    }
+
+    &:hover {
+        color: var(--text);
+
+        svg {
+            transform: translateX(-4px);
+        }
+    }
+}

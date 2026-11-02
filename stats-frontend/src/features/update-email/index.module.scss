@@ -14,8 +14,8 @@
     margin: 0 0 14px;
     padding: 11px 16px;
     border-radius: var(--radius-md);
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
     color: var(--accent-soft);
     font-size: 13px;
 }
@@ -45,5 +45,24 @@
 
     &:hover {
         color: var(--text-dim);
+    }
+}
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .ctaGroup,
+    .actions,
+    .formActions {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .ctaGroup > *,
+    .actions > *,
+    .formActions > * {
+        width: 100% !important;
+        justify-content: center !important;
     }
 }

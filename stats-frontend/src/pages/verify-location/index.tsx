@@ -9,12 +9,6 @@ import styles from './index.module.scss';
 
 const CODE_LENGTH = 6;
 
-// Отдельная от pages/verify страница — тот же код-инпут и раскладка, но
-// другой смысл: это не подтверждение email при регистрации, а
-// подтверждение входа с места, которого раньше не видели для этого
-// аккаунта (см. /auth/login → unknown_location в stats-backend/server.js).
-// Два разных эндпоинта/две разные таблицы кодов на бэкенде, поэтому и
-// страницы разные, а не одна с параметром.
 export function VerifyLocationPage() {
     const navigate = useNavigate();
     const { refresh } = useAuth();
@@ -36,14 +30,6 @@ export function VerifyLocationPage() {
             await refresh();
             navigate('/account');
         } catch (err) {
-            // Не сбрасываем submittedCode здесь: иначе следующий рендер
-            // (pending: true -> false) снова проходит условие эффекта ниже
-            // (код тот же, submittedCode пуст) и тот же код уходит на сервер
-            // заново — и так по кругу при любой ошибке (неверный/просроченный
-            // код, 500 и т.п.), визуально выглядит как вечное "Verifying…".
-            // submittedCode остаётся равным code — автосабмит повторного
-            // запроса с тем же кодом не произойдёт, а explicit "Verify"
-            // (onSubmit) и ввод НОВОГО кода (меняет code) всё равно работают.
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
             setPending(false);
@@ -55,8 +41,7 @@ export function VerifyLocationPage() {
             submittedCode.current = code;
             void submit(code);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code, pending]);
+    }, [code, pending]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
@@ -82,21 +67,20 @@ export function VerifyLocationPage() {
 
     return (
         <SplitAuthLayout
-            badge="New sign-in location"
-            heading={
+            sideTitle={
                 <>
-                    Confirm it&apos;s
+                    Confirm it's
                     <br />
                     <span className="hl">really you.</span>
                 </>
             }
+            badge="New sign-in location"
+            heading="Verify"
             lead={
                 email
                     ? `We sent a 6-digit code to ${email} — we haven't seen a sign-in from this location before.`
                     : "We haven't seen a sign-in from this location before. Enter the code we emailed you."
             }
-            cardTitle="Verify"
-            error={error}
             footer={
                 <button type="button" className={styles.resend} onClick={onResend} disabled={resending}>
                     {resending ? 'Sending…' : (notice ?? "Didn't get it? Resend code")}
@@ -104,6 +88,7 @@ export function VerifyLocationPage() {
             }
         >
             <form className={styles.form} onSubmit={onSubmit}>
+                {error && <div className={styles.error}>{error}</div>}
                 <div className={styles.codeField}>
                     <span className={styles.codeLabel}>Verification code</span>
                     <CodeInput length={CODE_LENGTH} value={code} onChange={setCode} disabled={pending} autoFocus />

@@ -1,0 +1,120 @@
+.container {
+    position: relative;
+}
+
+.avatarBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px) saturate(1.4) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(1.4) !important;
+    color: var(--text) !important;
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid var(--border-strong) !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover,
+    &.active {
+        border-color: rgba(var(--white-rgb), 0.3) !important;
+        background: var(--border-strong) !important;
+    }
+}
+
+.menu {
+    position: absolute;
+    top: calc(100% + 16px);
+    right: 0;
+    width: 240px;
+    background: var(--glass-menu-bg) !important; /* Глубокое стекло */
+    backdrop-filter: blur(24px) saturate(1.5) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.5) !important;
+    border: 1px solid var(--border-strong) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow:
+        0 20px 40px -10px rgba(var(--black-rgb), 0.8),
+        inset 0 1px 0 var(--glass-bg) !important;
+    z-index: 100 !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.menuHeader {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--glass-bg) !important;
+}
+.brandName {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text) !important;
+    letter-spacing: -0.5px;
+}
+.menuList {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    color: var(--text-dim) !important;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    background: none !important;
+    border: none;
+    border-radius: var(--radius-sm) !important;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+
+    svg {
+        color: var(--text-faint) !important;
+        transition: color 0.2s;
+        width: 16px;
+        height: 16px;
+    }
+    &:hover {
+        color: var(--text) !important;
+        background: var(--glass-bg) !important;
+        svg {
+            color: var(--accent) !important;
+        }
+    }
+}
+
+.divider {
+    height: 1px;
+    background: var(--glass-bg) !important;
+    margin: 0 6px;
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 768px) {
+    .menu {
+        position: fixed !important;
+        top: 64px !important;
+        right: 16px !important;
+        width: calc(100vw - 32px) !important;
+        max-width: 280px !important;
+    }
+}

@@ -49,11 +49,11 @@
     max-width: 460px;
     max-height: 320px;
     overflow-y: auto;
-    background: #1b1e23;
+    background: var(--glass-menu-bg);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     padding: 6px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 20px 40px rgba(var(--black-rgb), 0.6);
     z-index: 100;
     animation: slideUp 0.15s ease-out;
 }

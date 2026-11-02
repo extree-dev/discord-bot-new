@@ -30,30 +30,18 @@ export function VerifyPage() {
             await refresh();
             navigate('/account');
         } catch (err) {
-            // Не сбрасываем submittedCode здесь: иначе следующий рендер
-            // (pending: true -> false) снова проходит условие эффекта ниже
-            // (код тот же, submittedCode пуст) и тот же код уходит на сервер
-            // заново — и так по кругу при любой ошибке, визуально выглядит
-            // как вечное "Verifying…" (см. тот же фикс в pages/verify-location).
-            // submittedCode остаётся равным code — explicit "Verify" (onSubmit)
-            // и ввод НОВОГО кода (меняет code) всё равно работают как раньше.
             setError(err instanceof ApiError ? err.message : 'Something went wrong — please try again.');
         } finally {
             setPending(false);
         }
     }
 
-    // Автосабмит, когда введены все 6 цифр — тот же UX, что в большинстве
-    // приложений с OTP-ячейками (см. CodeInput): не нужно отдельно жать
-    // "Verify" после последней цифры. Кнопка ниже остаётся как явный
-    // резерв (вставка кода целиком, автозаполнение из автозаполнителя и т.п.)
     useEffect(() => {
         if (code.length === CODE_LENGTH && !pending && submittedCode.current !== code) {
             submittedCode.current = code;
             void submit(code);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code, pending]);
+    }, [code, pending]); // eslint-disable-line react-hooks/exhaustive-deps
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
@@ -79,21 +67,20 @@ export function VerifyPage() {
 
     return (
         <SplitAuthLayout
-            badge="Almost there"
-            heading={
+            sideTitle={
                 <>
                     Check your
                     <br />
                     <span className="hl">email.</span>
                 </>
             }
+            badge="Almost there"
+            heading="Verify"
             lead={
                 email
                     ? `We sent a 6-digit code to ${email}. Enter it below to finish setting up your account.`
                     : 'Enter the 6-digit code we sent you to finish setting up your account.'
             }
-            cardTitle="Verify"
-            error={error}
             footer={
                 <button type="button" className={styles.resend} onClick={onResend} disabled={resending}>
                     {resending ? 'Sending…' : (notice ?? "Didn't get it? Resend code")}
@@ -101,6 +88,7 @@ export function VerifyPage() {
             }
         >
             <form className={styles.form} onSubmit={onSubmit}>
+                {error && <div className={styles.error}>{error}</div>}
                 <div className={styles.codeField}>
                     <span className={styles.codeLabel}>Verification code</span>
                     <CodeInput length={CODE_LENGTH} value={code} onChange={setCode} disabled={pending} autoFocus />

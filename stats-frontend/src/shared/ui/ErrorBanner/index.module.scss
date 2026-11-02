@@ -1,0 +1,10 @@
+.banner {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+    line-height: 1.5;
+}

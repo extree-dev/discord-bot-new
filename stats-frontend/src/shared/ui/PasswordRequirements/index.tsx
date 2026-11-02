@@ -8,11 +8,11 @@ export function PasswordRequirements({ password }: { password: string }) {
             {PASSWORD_REQUIREMENTS.map(req => {
                 const met = req.test(password);
                 return (
-                    <li key={req.label} className={met ? styles.met : styles.unmet}>
-                        <span className={styles.icon} aria-hidden="true">
+                    <li key={req.label} className={`${styles.chip} ${met ? styles.met : ''}`}>
+                        <span className={styles.iconWrap} aria-hidden="true">
                             {met ? <IconCheck /> : <IconX />}
                         </span>
-                        {req.label}
+                        <span className={styles.text}>{req.label}</span>
                     </li>
                 );
             })}

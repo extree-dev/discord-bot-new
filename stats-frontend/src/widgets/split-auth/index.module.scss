@@ -1,126 +1,217 @@
-@use '../../shared/styles/variables' as v;
-
-.page {
-    position: relative;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.main {
-    flex: 1;
-    max-width: 1140px;
-    width: 100%;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    gap: 64px;
-    align-items: center;
-    padding: 40px;
-}
-
-.badge {
+.brand {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    padding: 7px 14px 7px 11px;
-    border-radius: var(--radius-pill);
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-    margin-bottom: 26px;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: var(--text);
+    text-decoration: none;
+    margin-bottom: 48px;
+}
+
+.mark {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    object-fit: contain;
+}
+.page {
+    min-height: 100vh;
+    display: flex;
+    background: var(--bg-base);
+    color: var(--text);
+}
+
+/* --- Левая панель --- */
+.sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    padding: 80px 40px 40px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+
+    @media (max-width: 1024px) {
+        display: none;
+    }
+}
+
+.sidebarTitle {
+    margin: 0 0 24px;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+/* Стиль для выделенного слова (передается через ReactNode) */
+.sidebarTitle :global(.hl) {
+    color: var(--text);
+    background: var(--accent);
+    padding: 0 6px;
+    display: inline-block;
+    transform: skewX(-5deg);
+}
+
+.pageSpecific {
+    margin-top: 32px;
+    margin-bottom: auto;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+}
+
+.pageBadge {
+    margin: 0 0 8px;
     font-size: 12px;
-    color: var(--text-dim);
-}
-
-.dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--win);
-}
-
-// Поколение 3: обычный регистр вместо caps-lock и плашка-с-skew'ом
-// заменена на тот же чистый акцентный текст, что на главной (hero
-// "Journey Starts Here.") — один язык заголовков на весь сайт, а не
-// отдельный "жёсткий" вариант для auth-страниц.
-.heading {
-    font-size: clamp(32px, 4.2vw, 52px);
-    line-height: 1.08;
-    font-weight: 800;
-    letter-spacing: -0.025em;
-    margin: 0 0 22px;
-}
-
-.heading :global(.hl) {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--accent);
 }
 
-.lead {
-    font-size: 15.5px;
-    color: var(--text-dim);
-    line-height: 1.65;
-    max-width: 420px;
+.pageLead {
     margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    max-width: 280px;
 }
 
-.card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 34px 30px;
+.sidebarBottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-top: 32px;
 }
 
-.cardTitle {
-    margin: 0 0 22px;
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.015em;
-}
+.socials {
+    display: flex;
+    gap: 10px;
 
-@keyframes split-auth-error-in {
-    from {
-        opacity: 0;
-        transform: translateY(-6px);
+    a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-dim);
+        transition: all 0.2s ease;
+
+        svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        &:hover {
+            background: var(--surface-2);
+            color: var(--text);
+            border-color: var(--border-strong);
+        }
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+}
+
+.footerLinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+
+    a {
+        font-size: 13px;
+        color: var(--text-faint);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: var(--border-strong);
+        transition:
+            color 0.2s,
+            text-decoration-color 0.2s;
+
+        &:hover {
+            color: var(--text);
+            text-decoration-color: var(--text);
+        }
     }
 }
 
-.error {
-    margin: 0 0 18px;
-    padding: 11px 16px;
-    border-radius: var(--radius-md);
-    background: rgba(255, 77, 94, 0.1);
-    border: 1px solid rgba(255, 77, 94, 0.25);
-    color: var(--accent-soft);
-    font-size: 13px;
-    line-height: 1.5;
-    animation: split-auth-error-in 0.2s ease;
-}
-
-.footer {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px solid var(--border);
-    font-size: 13px;
+.copyright {
+    font-size: 12.5px;
     color: var(--text-faint);
+    opacity: 0.8;
+}
+
+/* --- Правая панель (Форма) --- */
+.mainContent {
+    flex: 1;
+    padding: 80px 48px;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0 auto;
+
+    @media (max-width: 1024px) {
+        padding: 40px 20px;
+        max-width: 100%;
+    }
+}
+
+.formHeader {
+    margin-bottom: 32px;
+}
+
+.formTitle {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+}
+
+.formFooter {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
     text-align: center;
+    font-size: 14px;
+    color: var(--text-faint);
 
     a {
         color: var(--text);
+        font-weight: 600;
         text-decoration: underline;
-        text-underline-offset: 2px;
+    }
+}
+/* Анимация тряски при ошибке */
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-4px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(4px);
     }
 }
 
-@media (max-width: v.$breakpoint-tablet) {
-    .main {
-        grid-template-columns: 1fr;
-        gap: 36px;
-        padding: 40px 24px;
-    }
+.shake {
+    animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }

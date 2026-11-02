@@ -17,7 +17,7 @@
     background: var(--surface);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 20px 50px rgba(var(--black-rgb), 0.45);
     padding: 20px 24px;
     display: flex;
     flex-wrap: wrap;
@@ -101,5 +101,24 @@
 
     .actions > * {
         flex: 1;
+    }
+}
+
+// ==========================================
+// АВТО-МОБИЛЬНАЯ ОПТИМИЗАЦИЯ
+// ==========================================
+@media (max-width: 768px) {
+    .ctaGroup,
+    .actions,
+    .formActions {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+    }
+    .ctaGroup > *,
+    .actions > *,
+    .formActions > * {
+        width: 100% !important;
+        justify-content: center !important;
     }
 }
