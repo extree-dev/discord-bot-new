@@ -166,6 +166,18 @@ gunzip -c backups/<файл>.sql.gz | docker compose exec -T postgres psql -U di
 
 Caddy сам получает и продлевает TLS-сертификаты Let's Encrypt (конфиг — `web/Caddyfile`) — отдельный certbot не нужен, только чтобы DNS A-записи доменов указывали на IP VPS и были открыты порты 80/443.
 
+### Telegram-бот для связи (`contact-bot/`)
+
+Отдельный сервис в `docker-compose.yml`, не привязан ни к одному сайту —
+пользователь пишет боту `@Extree_Bot` (тому же, что у Telegram Login
+Widget в личном кабинете, см. `TELEGRAM_BOT_TOKEN` выше — одно другому не
+мешает), сообщение пересылается владельцу (`TELEGRAM_ADMIN_CHAT_ID`) в
+личку, а реплай на пересланное сообщение уходит обратно отправителю.
+Работает через long polling, не вебхук — доменов, записей в Caddyfile
+и открытых портов не требует. Переменные — `TELEGRAM_ADMIN_CHAT_ID`
+(обязательно) и `TELEGRAM_CONTACT_AUTOREPLY` (необязательно) в
+`.env.example`.
+
 ### Гео-блокировка RU (`stats.extree.tech`)
 
 `stats.extree.tech` (не `bot.extree.tech`/`extree.tech` — те на обычном DNS) закрыт для посетителей из России на двух независимых уровнях:

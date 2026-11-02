@@ -82,6 +82,18 @@ services:
                 condition: service_healthy
         command: ['node', 'stats-backend/server.js']
 
+    # Пересылает личные сообщения боту @Extree_Bot (TELEGRAM_BOT_TOKEN —
+    # тот же бот, что и у Login Widget в dashboard) в Telegram владельца
+    # и реплаи обратно отправителю. Long polling — без БД, без Caddy.
+    contact-bot:
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
+        command: ['node', 'contact-bot/index.js']
+        volumes:
+            - contact-bot-data:/app/contact-bot/data
+
     # --- НОВЫЙ СЕРВИС JAVA ---
     stats-backend-java:
         build:
@@ -146,3 +158,4 @@ volumes:
     caddy_data:
     caddy_config:
     stats-avatars:
+    contact-bot-data:
