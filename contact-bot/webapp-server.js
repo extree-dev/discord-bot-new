@@ -64,6 +64,7 @@ function createWebAppServer({ bot, token, adminChatId, storage, port }) {
         const text = String(req.body?.text || '').slice(0, 4000);
         if (!text) return res.status(400).json({ error: 'empty' });
         try {
+            await bot.sendChatAction(chatId, 'typing').catch(() => {});
             await bot.sendMessage(chatId, text);
         } catch (err) {
             return res.status(502).json({ error: 'delivery_failed', message: err.message });
