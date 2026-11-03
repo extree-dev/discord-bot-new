@@ -8,14 +8,14 @@
        ловится выпуклым краем) + едва заметная тень снизу, поверх
        обычной внешней тени для отрыва от фона. Без них backdrop-filter
        даёт плоское матовое стекло, а не объёмную линзу. */
-    --glass-bg: rgba(255, 255, 255, 0.5);
-    --glass-bg-strong: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.6);
-    --glass-highlight: rgba(255, 255, 255, 0.8);
+    --glass-bg: rgba(255, 255, 255, 0.58);
+    --glass-bg-strong: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.65);
+    --glass-highlight: rgba(255, 255, 255, 0.85);
     --glass-inner-shadow: rgba(0, 0, 0, 0.05);
     --glass-shadow: 0 10px 36px rgba(31, 38, 135, 0.14);
     --glass-blur: blur(24px) saturate(220%) brightness(1.05);
-    --accent: var(--tg-theme-button-color, #2481cc);
+    --accent: var(--tg-theme-button-color, #0a84ff);
     --accent-text: var(--tg-theme-button-text-color, #fff);
     --danger: #ff3b30;
     /* Пружинный easing (лёгкий перелёт) — то самое "живое" покачивание
@@ -26,12 +26,32 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --glass-bg: rgba(44, 44, 50, 0.5);
-        --glass-bg-strong: rgba(50, 50, 56, 0.72);
-        --glass-border: rgba(255, 255, 255, 0.14);
-        --glass-highlight: rgba(255, 255, 255, 0.18);
+        --glass-bg: rgba(58, 58, 66, 0.55);
+        --glass-bg-strong: rgba(66, 66, 76, 0.78);
+        --glass-border: rgba(255, 255, 255, 0.16);
+        --glass-highlight: rgba(255, 255, 255, 0.22);
         --glass-inner-shadow: rgba(0, 0, 0, 0.3);
         --glass-shadow: 0 10px 36px rgba(0, 0, 0, 0.45);
+    }
+}
+
+/* Если backdrop-filter недоступен (встречается в некоторых мобильных
+   WebView, в т.ч. иногда в самом Telegram) — без него полупрозрачный
+   фон на тёмном экране читается как тускло-серое пятно без разделения
+   между "стеклом" и фоном. Поднимаем непрозрачность, чтобы поверхности
+   оставались различимы и без блюра — это уже не стекло, а твёрдый
+   материал, но хотя бы не серая каша. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.92);
+        --glass-bg-strong: rgba(255, 255, 255, 0.97);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --glass-bg: rgba(44, 44, 50, 0.94);
+            --glass-bg-strong: rgba(54, 54, 62, 0.98);
+        }
     }
 }
 
@@ -66,27 +86,43 @@ body {
    лёгкое движение отличает "жидкое" от застывшего скриншота glass-UI. */
 .bg-blob {
     position: fixed;
-    width: 60vw;
-    height: 60vw;
+    width: 85vw;
+    height: 85vw;
     border-radius: 50%;
-    filter: blur(70px);
-    opacity: 0.35;
+    filter: blur(60px);
+    opacity: 0.55;
     z-index: 0;
     pointer-events: none;
     animation: drift 16s ease-in-out infinite alternate;
 }
 
+@media (prefers-color-scheme: dark) {
+    .bg-blob {
+        opacity: 0.4;
+        filter: blur(70px);
+    }
+}
+
 .bg-blob--a {
-    top: -20vw;
-    left: -15vw;
+    top: -30vw;
+    left: -30vw;
     background: linear-gradient(135deg, #5ac8fa, #af52de);
 }
 
 .bg-blob--b {
-    bottom: -25vw;
-    right: -20vw;
+    bottom: -35vw;
+    right: -30vw;
     background: linear-gradient(135deg, #ff9f0a, #ff375f);
     animation-delay: -8s;
+}
+
+.bg-blob--c {
+    top: 30vh;
+    right: -35vw;
+    width: 60vw;
+    height: 60vw;
+    background: linear-gradient(135deg, #30d158, #5ac8fa);
+    animation-delay: -4s;
 }
 
 @keyframes drift {
@@ -297,11 +333,13 @@ button.danger {
 }
 
 .msg.out {
+    /* Сплошной акцентный цвет, не color-mix()/прозрачность — надёжнее
+       на вебвью, где смешение цветов через color-mix() может молча не
+       поддерживаться, а заодно ближе к настоящим пузырькам iMessage/
+       Telegram, которые тоже сплошные, а не стеклянные. */
     align-self: flex-end;
-    background: color-mix(in srgb, var(--accent) 80%, transparent);
+    background: var(--accent);
     color: var(--accent-text);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
     border-bottom-right-radius: 6px;
 }
 
