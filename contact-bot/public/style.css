@@ -3,22 +3,35 @@
 
     /* Токены "стекла" — независимы от --tg-theme-*, которые задают
        только базовый фон/текст Telegram-темы; стекло накладывается
-       поверх них отдельным слоем полупрозрачности + blur. */
-    --glass-bg: rgba(255, 255, 255, 0.55);
-    --glass-bg-strong: rgba(255, 255, 255, 0.72);
-    --glass-border: rgba(255, 255, 255, 0.45);
-    --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
+       поверх них отдельным слоем полупрозрачности + blur. Highlight/
+       inner-shadow — это и есть "жидкое стекло": блик сверху (свет
+       ловится выпуклым краем) + едва заметная тень снизу, поверх
+       обычной внешней тени для отрыва от фона. Без них backdrop-filter
+       даёт плоское матовое стекло, а не объёмную линзу. */
+    --glass-bg: rgba(255, 255, 255, 0.5);
+    --glass-bg-strong: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-highlight: rgba(255, 255, 255, 0.8);
+    --glass-inner-shadow: rgba(0, 0, 0, 0.05);
+    --glass-shadow: 0 10px 36px rgba(31, 38, 135, 0.14);
+    --glass-blur: blur(24px) saturate(220%) brightness(1.05);
     --accent: var(--tg-theme-button-color, #2481cc);
     --accent-text: var(--tg-theme-button-text-color, #fff);
     --danger: #ff3b30;
+    /* Пружинный easing (лёгкий перелёт) — то самое "живое" покачивание
+       при тапе, которым Apple отличает Liquid Glass от плоского
+       glassmorphism с линейным fade. */
+    --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --glass-bg: rgba(40, 40, 46, 0.55);
-        --glass-bg-strong: rgba(40, 40, 46, 0.72);
-        --glass-border: rgba(255, 255, 255, 0.12);
-        --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        --glass-bg: rgba(44, 44, 50, 0.5);
+        --glass-bg-strong: rgba(50, 50, 56, 0.72);
+        --glass-border: rgba(255, 255, 255, 0.14);
+        --glass-highlight: rgba(255, 255, 255, 0.18);
+        --glass-inner-shadow: rgba(0, 0, 0, 0.3);
+        --glass-shadow: 0 10px 36px rgba(0, 0, 0, 0.45);
     }
 }
 
@@ -48,9 +61,9 @@ body {
     }
 }
 
-/* Декоративные размытые цветные пятна за контентом — фирменная глубина
-   Liquid Glass: стеклянные панели читаются как стекло только если под
-   ними есть что преломлять, плоская заливка этого эффекта не даёт. */
+/* Размытые цветные пятна за контентом, медленно дрейфующие — стекло
+   читается как стекло только если под ним есть что преломлять, а
+   лёгкое движение отличает "жидкое" от застывшего скриншота glass-UI. */
 .bg-blob {
     position: fixed;
     width: 60vw;
@@ -60,6 +73,7 @@ body {
     opacity: 0.35;
     z-index: 0;
     pointer-events: none;
+    animation: drift 16s ease-in-out infinite alternate;
 }
 
 .bg-blob--a {
@@ -72,6 +86,22 @@ body {
     bottom: -25vw;
     right: -20vw;
     background: linear-gradient(135deg, #ff9f0a, #ff375f);
+    animation-delay: -8s;
+}
+
+@keyframes drift {
+    from {
+        transform: translate(0, 0) scale(1);
+    }
+    to {
+        transform: translate(4vw, 3vw) scale(1.08);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bg-blob {
+        animation: none;
+    }
 }
 
 #list-view,
@@ -106,20 +136,23 @@ h1 {
     flex-direction: column;
     gap: 4px;
     padding: 14px 16px;
-    border-radius: 18px;
+    border-radius: 20px;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        inset 0 -1px 1px var(--glass-inner-shadow),
+        var(--glass-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     cursor: pointer;
     transition:
-        transform 0.15s ease,
-        background 0.15s ease;
+        transform 0.4s var(--spring),
+        background 0.2s ease;
 }
 
 .convo-row:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
     background: var(--glass-bg-strong);
 }
 
@@ -171,13 +204,18 @@ h1 {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
+    margin: 10px 10px 0;
+    padding: 12px 14px;
+    border-radius: 20px;
     background: var(--glass-bg);
-    border-bottom: 1px solid var(--glass-border);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        var(--glass-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     position: sticky;
-    top: 0;
+    top: 10px;
     z-index: 2;
 }
 
@@ -199,14 +237,16 @@ button {
     border-radius: 999px;
     padding: 8px 14px;
     cursor: pointer;
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    box-shadow: var(--glass-shadow);
-    transition: transform 0.12s ease;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        var(--glass-shadow);
+    transition: transform 0.4s var(--spring);
 }
 
 button:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
 }
 
 button.danger {
@@ -242,24 +282,26 @@ button.danger {
     word-break: break-word;
     font-size: 15px;
     line-height: 1.35;
-    box-shadow: var(--glass-shadow);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        var(--glass-shadow);
 }
 
 .msg.in {
     align-self: flex-start;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-bottom-left-radius: 6px;
 }
 
 .msg.out {
     align-self: flex-end;
-    background: color-mix(in srgb, var(--accent) 82%, transparent);
+    background: color-mix(in srgb, var(--accent) 80%, transparent);
     color: var(--accent-text);
-    backdrop-filter: blur(18px) saturate(180%);
-    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-bottom-right-radius: 6px;
 }
 
@@ -267,24 +309,27 @@ button.danger {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    margin: 0 10px calc(10px + env(safe-area-inset-bottom));
+    padding: 10px 12px;
+    border-radius: 999px;
     background: var(--glass-bg);
-    border-top: 1px solid var(--glass-border);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+        inset 0 1px 0 var(--glass-highlight),
+        var(--glass-shadow);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
 }
 
 #reply-text {
     flex: 1;
     font: inherit;
     font-size: 15px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     border-radius: 999px;
     border: 1px solid var(--glass-border);
     background: var(--glass-bg-strong);
     color: var(--tg-theme-text-color, #111);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
 
 #reply-text:focus {

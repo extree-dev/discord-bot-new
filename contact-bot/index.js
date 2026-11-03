@@ -21,9 +21,9 @@ if (!token || !adminChatId) {
     process.exit(1);
 }
 
-const autoReply = process.env.TELEGRAM_CONTACT_AUTOREPLY || 'Спасибо за сообщение! Отвечу, как только смогу.';
+const autoReply = process.env.TELEGRAM_CONTACT_AUTOREPLY || '✅ Сообщение получено — отвечу, как только смогу.';
 const helpText =
-    'Это личка для связи с владельцем сайта — напиши сообщение, оно придёт ему напрямую, и он ответит здесь же.';
+    '👋 <b>Привет!</b>\n\nЭто личка для связи с владельцем сайта — просто напиши сообщение, оно придёт ему напрямую, и он ответит здесь же, в этом чате.';
 
 const RATE_LIMIT_COUNT = 8;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -140,6 +140,7 @@ bot.on(
             }
 
             if (targetChatId && msg.text) {
+                await bot.sendChatAction(targetChatId, 'typing').catch(() => {});
                 await bot
                     .sendMessage(targetChatId, msg.text)
                     .then(() => {
@@ -159,11 +160,19 @@ bot.on(
         if (storage.isBlocked(chatId)) return;
 
         if (msg.text === '/start' || msg.text === '/help') {
-            await bot.sendMessage(chatId, helpText);
+            await bot.sendMessage(chatId, helpText, { parse_mode: 'HTML' });
             return;
         }
 
         if (isRateLimited(chatId)) return;
+
+        // Лёгкое мгновенное подтверждение "сообщение дошло" — реакция
+        // эмодзи прилетает почти сразу, раньше, чем текстовый автоответ
+        // (который ждёт relayToAdmin). Необязательно: если Telegram
+        // откажет (например, реакции недоступны в этом чате), просто
+        // не ставим её — на доставку сообщения это не влияет.
+        bot.setMessageReaction(chatId, msg.message_id, { reaction: [{ type: 'emoji', emoji: '👀' }] }).catch(() => {});
+        await bot.sendChatAction(chatId, 'typing').catch(() => {});
 
         await relayToAdmin(msg, chatId);
         await bot.sendMessage(chatId, autoReply);
@@ -200,6 +209,14 @@ bot.on(
 );
 
 bot.on('polling_error', err => console.error('contact-bot polling error:', err.message));
+
+// Показывает /start и /help в меню команд Telegram (кнопка "/" рядом с
+// полем ввода) — без этого пользователь не видит, какие команды вообще
+// есть, пока не напишет их вслепую.
+bot.setMyCommands([
+    { command: 'start', description: 'Начать' },
+    { command: 'help', description: 'Что умеет бот' },
+]).catch(err => console.error('contact-bot: не удалось задать список команд:', err.message));
 
 const webAppPort = Number(process.env.CONTACT_BOT_WEBAPP_PORT || 8090);
 createWebAppServer({ bot, token, adminChatId, storage, port: webAppPort });
